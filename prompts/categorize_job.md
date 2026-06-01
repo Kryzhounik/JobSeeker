@@ -14,7 +14,7 @@ Fields:
 - nice_to_have_technologies: optional technologies and skills if the vacancy separates them.
 - stack: comma-separated technologies explicitly mentioned or strongly implied.
 - salary: salary range/currency if available, otherwise unknown.
-- match_score: 1-10 subjective fit score.
+- match_score: 1-10 subjective fit score, or unknown before a separate scoring step.
 - status: new, interesting, maybe, reject.
 - summary: one short sentence about the vacancy.
 - pros: short reasons why it may fit.
