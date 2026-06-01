@@ -70,9 +70,8 @@ def build_search_url(search: dict) -> str:
     return f"https://justjoin.it/job-offers/{location}/{main_tech}?{query}"
 
 
-def load_search(name: str, config_path: Path) -> dict:
-    prefix = f"search.{name}."
-    search: dict[str, str] = {}
+def load_config(config_path: Path) -> dict:
+    config: dict[str, str] = {}
 
     for raw_line in config_path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
@@ -80,15 +79,13 @@ def load_search(name: str, config_path: Path) -> dict:
             continue
 
         key, separator, value = line.partition("=")
-        if separator and key.startswith(prefix):
-            search[key.removeprefix(prefix)] = value.strip()
+        if separator:
+            config[key.strip()] = value.strip()
 
-    if not search:
-        raise SystemExit(f"Search '{name}' not found in {config_path}.")
-    if "mainTech" not in search:
-        raise SystemExit(f"Search '{name}' must define mainTech in {config_path}.")
+    if "mainTech" not in config:
+        raise SystemExit(f"Config must define mainTech in {config_path}.")
 
-    return search
+    return config
 
 
 def page_name(url: str) -> str:
@@ -113,11 +110,10 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Find/download JustJoinIT vacancy pages.")
-    source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--search", help="Named search from config/justjoin-searches.properties.")
+    source = parser.add_mutually_exclusive_group()
     source.add_argument("--search-url", help="JustJoinIT search page URL.")
     source.add_argument("--job-url", help="Single vacancy URL for debug download.")
-    parser.add_argument("--search-config", default="config/justjoin-searches.properties")
+    parser.add_argument("--config", default="config/justjoin.properties")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--delay-seconds", type=float)
     parser.add_argument("--download", action="store_true", help="Download vacancy pages.")
@@ -131,9 +127,9 @@ def main() -> None:
     if args.job_url:
         urls = [args.job_url]
     else:
-        search = load_search(args.search, Path(args.search_config)) if args.search else {}
-        search_url = args.search_url or build_search_url(search)
-        limit = args.limit or int(search.get("limit", 10))
+        config = load_config(Path(args.config))
+        search_url = args.search_url or build_search_url(config)
+        limit = args.limit or int(config.get("limit", 10))
         urls = find_job_urls(search_url)[:limit]
 
     for url in urls:
@@ -141,8 +137,8 @@ def main() -> None:
 
     if args.download:
         delay_seconds = args.delay_seconds
-        if delay_seconds is None and args.search:
-            delay_seconds = float(load_search(args.search, Path(args.search_config)).get("delaySeconds", 30))
+        if delay_seconds is None:
+            delay_seconds = float(load_config(Path(args.config)).get("delaySeconds", 30))
         save_pages(urls, Path(args.out_dir), delay_seconds if delay_seconds is not None else 30)
 
 
