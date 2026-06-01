@@ -16,21 +16,24 @@ from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
 
-USER_AGENT = (
-    "JobSeekerBot/0.1 "
-    "(+https://github.com/Kryzhounik/JobSeeker; purpose=personal-job-research)"
-)
+BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/149.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.8,ru;q=0.6",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+}
 
 
 def get_html(url: str) -> str:
-    request = Request(
-        url,
-        headers={
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html,application/xhtml+xml",
-            "Accept-Language": "en-US,en;q=0.8,ru;q=0.6",
-        },
-    )
+    request = Request(url, headers=BROWSER_HEADERS)
     with urlopen(request, timeout=30) as response:
         charset = response.headers.get_content_charset() or "utf-8"
         return response.read().decode(charset, errors="replace")
@@ -48,6 +51,19 @@ def find_job_urls(search_url: str) -> list[str]:
             urls.append(url)
 
     return urls
+
+
+def load_search_url(name: str, config_path: Path) -> str:
+    for line in config_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+
+        search_name, _, search_url = line.partition("=")
+        if search_name.strip() == name:
+            return search_url.strip()
+
+    raise SystemExit(f"Search '{name}' not found in {config_path}.")
 
 
 def page_name(url: str) -> str:
@@ -72,8 +88,11 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float) -> None:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Find/download JustJoinIT vacancy pages.")
-    parser.add_argument("--search-url", help="JustJoinIT search page URL.")
-    parser.add_argument("--job-url", help="Single vacancy URL for debug download.")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--search", help="Named search from config/justjoin_searches.txt.")
+    source.add_argument("--search-url", help="JustJoinIT search page URL.")
+    source.add_argument("--job-url", help="Single vacancy URL for debug download.")
+    parser.add_argument("--search-config", default="config/justjoin_searches.txt")
     parser.add_argument("--limit", type=int, default=10)
     parser.add_argument("--delay-seconds", type=float, default=30)
     parser.add_argument("--download", action="store_true", help="Download vacancy pages.")
@@ -86,10 +105,9 @@ def main() -> None:
 
     if args.job_url:
         urls = [args.job_url]
-    elif args.search_url:
-        urls = find_job_urls(args.search_url)[: args.limit]
     else:
-        raise SystemExit("Use --search-url or --job-url.")
+        search_url = args.search_url or load_search_url(args.search, Path(args.search_config))
+        urls = find_job_urls(search_url)[: args.limit]
 
     for url in urls:
         print(url)

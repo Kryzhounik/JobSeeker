@@ -2,6 +2,7 @@
 data/*.csv
 data/*.sqlite
 data/*.db
+data/raw/
 
 # Local IDE settings
 .idea/
