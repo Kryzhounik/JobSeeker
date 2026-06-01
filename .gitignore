@@ -1,0 +1,7 @@
+# Local job data
+data/*.csv
+data/*.sqlite
+data/*.db
+
+# Local IDE settings
+.idea/
