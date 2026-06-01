@@ -1,9 +1,0 @@
-[searches.java_ru_14d]
-main_tech = "java"
-location = "all-locations"
-languages = ["ru"]
-published_days = 14
-order_by = "DESC"
-sort_by = "published"
-limit = 10
-delay_seconds = 30
