@@ -8,8 +8,6 @@ Parsing/categorization stays with Codex prompts or a later separate step.
 from __future__ import annotations
 
 import argparse
-import csv
-import datetime as dt
 import re
 import time
 from html import unescape
@@ -101,41 +99,15 @@ def page_name(url: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "_", slug) + ".html"
 
 
-def write_manifest_row(manifest_path: Path, row: dict[str, str]) -> None:
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    needs_header = not manifest_path.exists() or manifest_path.stat().st_size == 0
-
-    with manifest_path.open("a", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(
-            handle,
-            fieldnames=["fetched_at", "url", "file", "status", "note"],
-        )
-        if needs_header:
-            writer.writeheader()
-        writer.writerow(row)
-
-
 def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool) -> None:
     pages_dir = out_dir / "pages"
-    manifest_path = out_dir / "manifest.csv"
     pages_dir.mkdir(parents=True, exist_ok=True)
 
     for index, url in enumerate(urls, start=1):
         path = pages_dir / page_name(url)
-        fetched_at = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
 
         if path.exists() and not force:
             print(f"skip existing {index}/{len(urls)} {url}")
-            write_manifest_row(
-                manifest_path,
-                {
-                    "fetched_at": fetched_at,
-                    "url": url,
-                    "file": str(path),
-                    "status": "skipped",
-                    "note": "already exists",
-                },
-            )
             continue
 
         if index > 1 and delay_seconds > 0:
@@ -146,16 +118,6 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool
         html = get_html(url)
         path.write_text(html, encoding="utf-8")
         print(f"saved {path}")
-        write_manifest_row(
-            manifest_path,
-            {
-                "fetched_at": fetched_at,
-                "url": url,
-                "file": str(path),
-                "status": "saved",
-                "note": "",
-            },
-        )
 
 
 def parse_args() -> argparse.Namespace:
