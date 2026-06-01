@@ -6,3 +6,7 @@ data/raw/
 
 # Local IDE settings
 .idea/
+
+# Python cache
+__pycache__/
+*.pyc

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Tiny JustJoinIT fetcher.
+"""Tiny JustJoinIT raw fetcher.
 
-It only finds job URLs and optionally downloads job pages with a delay.
-Parsing/categorization stays with Codex prompts, not in this script.
+It finds job URLs and optionally downloads raw vacancy HTML with a delay.
+Parsing/categorization stays with Codex prompts or a later separate step.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
+import datetime as dt
 import re
 import time
 from html import unescape
@@ -54,6 +56,12 @@ def find_job_urls(search_url: str) -> list[str]:
     return urls
 
 
+def apply_limit(urls: list[str], limit: int) -> list[str]:
+    if limit <= 0:
+        return urls
+    return urls[:limit]
+
+
 def build_search_url(search: dict) -> str:
     params = {
         "published-date": search.get("publishedDays"),
@@ -93,19 +101,61 @@ def page_name(url: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_.-]+", "_", slug) + ".html"
 
 
-def save_pages(urls: list[str], out_dir: Path, delay_seconds: float) -> None:
-    out_dir.mkdir(parents=True, exist_ok=True)
+def write_manifest_row(manifest_path: Path, row: dict[str, str]) -> None:
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    needs_header = not manifest_path.exists() or manifest_path.stat().st_size == 0
+
+    with manifest_path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["fetched_at", "url", "file", "status", "note"],
+        )
+        if needs_header:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool) -> None:
+    pages_dir = out_dir / "pages"
+    manifest_path = out_dir / "manifest.csv"
+    pages_dir.mkdir(parents=True, exist_ok=True)
 
     for index, url in enumerate(urls, start=1):
+        path = pages_dir / page_name(url)
+        fetched_at = dt.datetime.now(dt.UTC).isoformat(timespec="seconds")
+
+        if path.exists() and not force:
+            print(f"skip existing {index}/{len(urls)} {url}")
+            write_manifest_row(
+                manifest_path,
+                {
+                    "fetched_at": fetched_at,
+                    "url": url,
+                    "file": str(path),
+                    "status": "skipped",
+                    "note": "already exists",
+                },
+            )
+            continue
+
         if index > 1 and delay_seconds > 0:
             print(f"sleep {delay_seconds:g}s")
             time.sleep(delay_seconds)
 
-        print(f"GET {url}")
+        print(f"GET {index}/{len(urls)} {url}")
         html = get_html(url)
-        path = out_dir / page_name(url)
         path.write_text(html, encoding="utf-8")
         print(f"saved {path}")
+        write_manifest_row(
+            manifest_path,
+            {
+                "fetched_at": fetched_at,
+                "url": url,
+                "file": str(path),
+                "status": "saved",
+                "note": "",
+            },
+        )
 
 
 def parse_args() -> argparse.Namespace:
@@ -116,8 +166,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default="config/justjoin.properties")
     parser.add_argument("--limit", type=int)
     parser.add_argument("--delay-seconds", type=float)
-    parser.add_argument("--download", action="store_true", help="Download vacancy pages.")
+    parser.add_argument("--download", action="store_true", help="Download raw vacancy pages.")
     parser.add_argument("--out-dir", default="data/raw/justjoin")
+    parser.add_argument("--force", action="store_true", help="Re-download existing raw pages.")
     return parser.parse_args()
 
 
@@ -129,9 +180,10 @@ def main() -> None:
     else:
         config = load_config(Path(args.config))
         search_url = args.search_url or build_search_url(config)
-        limit = args.limit or int(config.get("limit", 10))
-        urls = find_job_urls(search_url)[:limit]
+        limit = args.limit if args.limit is not None else int(config.get("limit", 0))
+        urls = apply_limit(find_job_urls(search_url), limit)
 
+    print(f"found {len(urls)} job urls")
     for url in urls:
         print(url)
 
@@ -139,7 +191,12 @@ def main() -> None:
         delay_seconds = args.delay_seconds
         if delay_seconds is None:
             delay_seconds = float(load_config(Path(args.config)).get("delaySeconds", 30))
-        save_pages(urls, Path(args.out_dir), delay_seconds if delay_seconds is not None else 30)
+        save_pages(
+            urls,
+            Path(args.out_dir),
+            delay_seconds if delay_seconds is not None else 30,
+            args.force,
+        )
 
 
 if __name__ == "__main__":
