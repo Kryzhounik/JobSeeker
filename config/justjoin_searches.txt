@@ -1,2 +1,0 @@
-# name=url
-java_ru_14d=https://justjoin.it/job-offers/all-locations/java?languages=ru&published-date=14&orderBy=DESC&sortBy=published

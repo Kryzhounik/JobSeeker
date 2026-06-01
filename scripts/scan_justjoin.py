@@ -10,8 +10,10 @@ from __future__ import annotations
 import argparse
 import re
 import time
+import tomllib
 from html import unescape
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
@@ -53,17 +55,28 @@ def find_job_urls(search_url: str) -> list[str]:
     return urls
 
 
-def load_search_url(name: str, config_path: Path) -> str:
-    for line in config_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#"):
-            continue
+def build_search_url(search: dict) -> str:
+    params = {
+        "published-date": search.get("published_days"),
+        "orderBy": search.get("order_by", "DESC"),
+        "sortBy": search.get("sort_by", "published"),
+    }
+    languages = search.get("languages", [])
+    if languages:
+        params["languages"] = ",".join(languages)
 
-        search_name, _, search_url = line.partition("=")
-        if search_name.strip() == name:
-            return search_url.strip()
+    query = urlencode({key: value for key, value in params.items() if value})
+    location = search.get("location", "all-locations")
+    main_tech = search["main_tech"]
+    return f"https://justjoin.it/job-offers/{location}/{main_tech}?{query}"
 
-    raise SystemExit(f"Search '{name}' not found in {config_path}.")
+
+def load_search(name: str, config_path: Path) -> dict:
+    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    try:
+        return data["searches"][name]
+    except KeyError:
+        raise SystemExit(f"Search '{name}' not found in {config_path}.")
 
 
 def page_name(url: str) -> str:
@@ -89,12 +102,12 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Find/download JustJoinIT vacancy pages.")
     source = parser.add_mutually_exclusive_group(required=True)
-    source.add_argument("--search", help="Named search from config/justjoin_searches.txt.")
+    source.add_argument("--search", help="Named search from config/justjoin_searches.toml.")
     source.add_argument("--search-url", help="JustJoinIT search page URL.")
     source.add_argument("--job-url", help="Single vacancy URL for debug download.")
-    parser.add_argument("--search-config", default="config/justjoin_searches.txt")
-    parser.add_argument("--limit", type=int, default=10)
-    parser.add_argument("--delay-seconds", type=float, default=30)
+    parser.add_argument("--search-config", default="config/justjoin_searches.toml")
+    parser.add_argument("--limit", type=int)
+    parser.add_argument("--delay-seconds", type=float)
     parser.add_argument("--download", action="store_true", help="Download vacancy pages.")
     parser.add_argument("--out-dir", default="data/raw/justjoin")
     return parser.parse_args()
@@ -106,14 +119,19 @@ def main() -> None:
     if args.job_url:
         urls = [args.job_url]
     else:
-        search_url = args.search_url or load_search_url(args.search, Path(args.search_config))
-        urls = find_job_urls(search_url)[: args.limit]
+        search = load_search(args.search, Path(args.search_config)) if args.search else {}
+        search_url = args.search_url or build_search_url(search)
+        limit = args.limit or search.get("limit", 10)
+        urls = find_job_urls(search_url)[:limit]
 
     for url in urls:
         print(url)
 
     if args.download:
-        save_pages(urls, Path(args.out_dir), args.delay_seconds)
+        delay_seconds = args.delay_seconds
+        if delay_seconds is None and args.search:
+            delay_seconds = load_search(args.search, Path(args.search_config)).get("delay_seconds")
+        save_pages(urls, Path(args.out_dir), delay_seconds if delay_seconds is not None else 30)
 
 
 if __name__ == "__main__":
