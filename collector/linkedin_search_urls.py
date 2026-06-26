@@ -41,6 +41,15 @@ SORT = {
     "newest": "DD",
     "relevant": "R",
 }
+LOCATIONLESS_REMOTE = {
+    "accountremote",
+    "account_remote",
+    "worldwide",
+    "global",
+    "global_remote",
+    "remote",
+    "anywhere",
+}
 
 
 def collector_root() -> Path:
@@ -83,11 +92,12 @@ def build_search_url(config: dict[str, str], location: str, geo_id: str) -> str:
 
     params = {
         "keywords": config.get("keywords", ""),
-        "location": location,
         "origin": "JOB_SEARCH_PAGE_SEARCH_BUTTON",
         "refresh": "true",
     }
-    if geo_id:
+    if location and location.lower().replace(" ", "_") not in LOCATIONLESS_REMOTE:
+        params["location"] = location
+    if geo_id and "location" in params:
         params["geoId"] = geo_id
 
     experience = mapped_csv(config.get("experience", ""), EXPERIENCE)

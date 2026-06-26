@@ -171,7 +171,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
     if not title:
         raise ValueError("Job record must include title.")
 
-    cursor = connection.execute(
+    connection.execute(
         """
         INSERT INTO jobs (
             source,
@@ -230,7 +230,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             clean(record.get("added_at")),
         ),
     )
-    job_id = cursor.lastrowid or int(
+    job_id = int(
         connection.execute(
             "SELECT id FROM jobs WHERE source_url = ?",
             (source_url,),

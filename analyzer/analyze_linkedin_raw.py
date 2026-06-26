@@ -61,6 +61,13 @@ def metadata_from_text(text: str) -> dict[str, str]:
     return result
 
 
+def title_parts(raw_title: str) -> tuple[str, str, str]:
+    match = re.match(r"(.+?) hiring (.+?) in (.+)$", clean(raw_title), flags=re.I)
+    if match:
+        return clean(match.group(2)), clean(match.group(1)), clean(match.group(3))
+    return clean(raw_title), "", ""
+
+
 def title_and_company(raw_title: str, raw_company: str) -> tuple[str, str]:
     title = clean(re.sub(r"\s*\([^)]*вакансия[^)]*\)\s*", "", raw_title))
     company = clean(raw_company)
@@ -111,11 +118,12 @@ def linkedin_record(raw: dict[str, Any]) -> dict[str, Any]:
     description = description_section(text)
     source_url = canonical_linkedin_url(clean(raw.get("source_url") or raw.get("url")))
     text_metadata = metadata_from_text(text)
+    raw_title, raw_company, raw_location = title_parts(clean(raw.get("title"), "unknown"))
     title, company = title_and_company(
-        clean(raw.get("title"), "unknown"),
-        clean(raw.get("company")) or text_metadata["company"],
+        raw_title,
+        clean(raw.get("company")) or raw_company or text_metadata["company"],
     )
-    location = clean(raw.get("location")) or text_metadata["location"]
+    location = clean(raw.get("location")) or raw_location or text_metadata["location"]
     workplace_type = clean(raw.get("workplace_type")) or text_metadata["workplace_type"]
     remote_type = normalize_remote_type(workplace_type, f"{title}\n{description[:2000]}")
     country = country_from_location(location)
