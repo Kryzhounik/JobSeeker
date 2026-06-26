@@ -11,6 +11,7 @@
 - Use `common/job_filter.py` for shared early filters and language fitability.
 - Use `common/config/filter.ini` to turn filter blocks on and off.
 - Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
+- Use `analyzer/analyze_justjoin_raw.py` for mechanical JustJoinIT raw imports.
 - Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
 - Use `analyzer/calculate_fitability.py` and `common/config/resume.ini` for hidden
   fitability filters.

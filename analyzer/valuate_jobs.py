@@ -235,6 +235,8 @@ def update_valuations(
             score = 0
             if filter_result.passed:
                 score = valuation(config, row, technologies)
+                if score == 0:
+                    score = 1
             connection.execute(
                 "UPDATE jobs SET valuation = ?, fitability_percent = ? WHERE id = ?",
                 (score, filter_result.fitability_percent, row["id"]),
@@ -254,6 +256,9 @@ def update_valuations(
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     root = project_root()
     parser = argparse.ArgumentParser(description="Recalculate job valuations.")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))

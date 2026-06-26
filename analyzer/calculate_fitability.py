@@ -94,6 +94,9 @@ def calculate_fitability(
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     root = project_root()
     parser = argparse.ArgumentParser(description="Calculate job fitability filters.")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
