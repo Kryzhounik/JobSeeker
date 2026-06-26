@@ -17,7 +17,6 @@ Job fields:
 - seniority: intern, junior, middle, senior, lead, unknown.
 - role: backend, frontend, fullstack, devops, data, ml_ai, qa, product, other.
 - salary: salary range/currency if available, otherwise unknown.
-- status: new, interesting, maybe, reject.
 - summary: one short sentence about the vacancy.
 - pros: short reasons why it may fit.
 - cons: short reasons why it may not fit.
@@ -75,3 +74,5 @@ Default behavior:
 - Do not invent company facts, salary, or benefits that are not visible.
 - Use unknown for unclear factual fields.
 - Keep text concise and single-line where possible.
+- Do not assign valuation here; valuation is calculated separately from
+  `config/valuation.ini`.

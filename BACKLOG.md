@@ -7,6 +7,7 @@
 - Use `data/jobs.sqlite` as the local prototype database.
 - Use `job_view` as the main DB Browser view.
 - Use `scripts/write_job.py` to write analyzed vacancies directly into SQLite.
+- Use `scripts/valuate_jobs.py` and `config/valuation.ini` for sorting score.
 
 ## Next
 
@@ -14,11 +15,11 @@
   - raw: vacancy downloaded but not analyzed.
   - tech_checked: technology requirements extracted and checked.
   - logistics_checked: remote scope, relocation, language, and location checked.
-  - fully_analyzed: summary/status/pros/cons completed.
+  - fully_analyzed: summary/pros/cons completed.
 - Add filtering fields:
   - `analysis_stage`
   - `reject_reason`
-  - later `match_score`
+- Add tech score rules for `valuation`, up to 99 points.
 - Add `remote_scope` expert detection:
   - `worldwide` only for explicit work-anywhere/global wording.
   - country/region only for fully remote roles.
@@ -53,3 +54,4 @@
   - 4: advanced / senior.
   - 5: master / expert.
 - `req` means required, `opt` means optional.
+- `valuation` is the first sorting field in `job_view`; higher is better.

@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     role TEXT,
     primary_language_id INTEGER REFERENCES languages(id) ON DELETE SET NULL,
     salary TEXT,
-    status TEXT NOT NULL DEFAULT 'new',
+    valuation INTEGER NOT NULL DEFAULT 0,
     summary TEXT,
     pros TEXT,
     cons TEXT,
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS job_technologies (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_valuation ON jobs(valuation);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_remote_scope ON jobs(remote_scope);
 CREATE INDEX IF NOT EXISTS idx_jobs_relocation ON jobs(relocation);
@@ -98,6 +98,7 @@ WITH ordered AS (
         j.remote_type,
         j.remote_scope,
         j.relocation,
+        j.valuation,
         j.seniority,
         j.role,
         (
@@ -122,7 +123,6 @@ WITH ordered AS (
             )
         ) AS languages,
         j.salary,
-        j.status,
         t.name AS technology,
         CASE jt.requirement_type
             WHEN 'required' THEN 'req'
@@ -159,7 +159,7 @@ WITH ordered AS (
     LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )
 SELECT
-    CASE WHEN row_in_job = 1 THEN coalesce(status, '') ELSE '' END AS status,
+    CASE WHEN row_in_job = 1 THEN CAST(valuation AS TEXT) ELSE '' END AS valuation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
     CASE WHEN row_in_job = 1 THEN coalesce(relocation, '') ELSE '' END AS relocation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
@@ -178,5 +178,6 @@ SELECT
     CASE WHEN row_in_job = 1 THEN coalesce(summary, '') ELSE '' END AS summary
 FROM ordered
 ORDER BY
+    valuation DESC,
     job_id_sort,
     row_in_job;

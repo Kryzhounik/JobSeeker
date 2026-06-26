@@ -137,6 +137,10 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN relocation TEXT NOT NULL DEFAULT 'NO'"
         )
+    if "valuation" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN valuation INTEGER NOT NULL DEFAULT 0"
+        )
 
 
 def get_or_create_id(
@@ -174,10 +178,10 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             remote_type,
             remote_scope,
             relocation,
+            valuation,
             seniority,
             role,
             salary,
-            status,
             summary,
             pros,
             cons,
@@ -192,10 +196,10 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             remote_type = excluded.remote_type,
             remote_scope = excluded.remote_scope,
             relocation = excluded.relocation,
+            valuation = excluded.valuation,
             seniority = excluded.seniority,
             role = excluded.role,
             salary = excluded.salary,
-            status = excluded.status,
             summary = excluded.summary,
             pros = excluded.pros,
             cons = excluded.cons,
@@ -211,10 +215,10 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             clean(record.get("remote_type"), "unknown"),
             field(record, "remote_scope", "unknown"),
             field(record, "relocation", "NO"),
+            int(record.get("valuation") or 0),
             clean(record.get("seniority"), "unknown"),
             clean(record.get("role"), "unknown"),
             clean(record.get("salary"), "unknown"),
-            clean(record.get("status"), "new"),
             clean(record.get("summary")),
             clean(record.get("pros")),
             clean(record.get("cons")),
