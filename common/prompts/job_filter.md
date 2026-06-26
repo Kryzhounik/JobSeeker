@@ -4,7 +4,9 @@ The shared filter is used before deeper work where possible, and before
 valuation for analyzed jobs. If a vacancy does not pass the filter, its
 `jobs.fitability_percent` is 0 and valuation is 0.
 
-Current stage: language filter only.
+Runtime switches live in `common/config/filter.ini`.
+
+Current stage: languages plus remote/relocation logistics.
 
 Language rules:
 - Read known languages from `common/config/resume.ini`.

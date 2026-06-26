@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common.job_filter import evaluate_required_languages
+from common.job_filter import evaluate_job
 
 
 def project_root() -> Path:
@@ -47,11 +47,18 @@ def calculate_fitability(
     db_path: Path,
     schema_path: Path,
     resume_path: Path,
+    filter_path: Path,
 ) -> list[tuple[int, int, str, str]]:
     with sqlite3.connect(db_path) as connection:
         connection.row_factory = sqlite3.Row
         apply_schema(connection, schema_path)
-        jobs = connection.execute("SELECT id, title FROM jobs ORDER BY id").fetchall()
+        jobs = connection.execute(
+            """
+            SELECT id, title, remote_type, remote_scope, relocation
+            FROM jobs
+            ORDER BY id
+            """
+        ).fetchall()
         updates: list[tuple[int, int, str, str]] = []
 
         for job in jobs:
@@ -65,7 +72,15 @@ def calculate_fitability(
                 """,
                 (job["id"],),
             ).fetchall()
-            result = evaluate_required_languages(languages, resume_path=resume_path)
+            result = evaluate_job(
+                title=job["title"],
+                required_languages=languages,
+                remote_type=job["remote_type"],
+                remote_scope=job["remote_scope"],
+                relocation=job["relocation"],
+                resume_path=resume_path,
+                filter_path=filter_path,
+            )
             connection.execute(
                 "UPDATE jobs SET fitability_percent = ? WHERE id = ?",
                 (result.fitability_percent, job["id"]),
@@ -84,12 +99,14 @@ def main() -> None:
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
     parser.add_argument("--resume", default=str(root / "common" / "config" / "resume.ini"))
+    parser.add_argument("--filter-config", default=str(root / "common" / "config" / "filter.ini"))
     args = parser.parse_args()
 
     updates = calculate_fitability(
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         resume_path=Path(args.resume),
+        filter_path=Path(args.filter_config),
     )
     for job_id, score, title, reason in updates:
         print(f"{job_id}: {score}% {title} ({reason})")

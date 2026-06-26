@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sys
 import time
 from pathlib import Path
 from urllib.parse import parse_qs
@@ -20,11 +19,6 @@ from urllib.request import Request, urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from common.job_filter import evaluate_title
-
 
 SITE_URL = "https://justjoin.it"
 BROWSER_API_URL = SITE_URL + "/api/candidate-api"
@@ -93,11 +87,6 @@ def find_job_urls_from_api(config: dict) -> list[str]:
         data = get_json(page_url, search_url).get("data", [])
 
         for offer in data:
-            title_result = evaluate_title(str(offer.get("title") or ""))
-            if not title_result.passed:
-                print(f"skip filtered {offer.get('title')}: {title_result.reason}")
-                continue
-
             slug = offer.get("slug")
             if not slug:
                 continue
@@ -128,6 +117,9 @@ def build_search_url(search: dict) -> str:
     languages = search.get("languages", "")
     if languages:
         params["languages"] = languages
+    experience_levels = search.get("experienceLevels", "")
+    if experience_levels:
+        params["experience-level"] = experience_levels
 
     query = urlencode({key: value for key, value in params.items() if value})
     location = search.get("location", "all-locations")
@@ -156,6 +148,12 @@ def build_api_params(config: dict, include_page: bool) -> dict:
             for language in config["languages"].split(",")
             if language.strip()
         ]
+    if config.get("experienceLevels"):
+        params["experienceLevels"] = [
+            level.strip()
+            for level in config["experienceLevels"].split(",")
+            if level.strip()
+        ]
     if include_page:
         params["from"] = 0
         params["itemsCount"] = int(config.get("itemsCount", DEFAULT_ITEMS_COUNT))
@@ -179,6 +177,10 @@ def config_from_search_url(search_url: str) -> dict:
     if query.get("languages"):
         config["languages"] = ",".join(
             ",".join(query["languages"]).split(",")
+        )
+    if query.get("experience-level"):
+        config["experienceLevels"] = ",".join(
+            ",".join(query["experience-level"]).split(",")
         )
     if not config["mainTech"]:
         raise SystemExit(f"Could not infer mainTech from search URL: {search_url}")

@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common.job_filter import evaluate_required_languages
+from common.job_filter import evaluate_job
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
@@ -184,6 +184,7 @@ def update_valuations(
     schema_path: Path,
     config_path: Path,
     resume_path: Path,
+    filter_path: Path,
 ) -> list[tuple[int, int, int, str, str]]:
     config = load_config(config_path)
 
@@ -222,9 +223,14 @@ def update_valuations(
                     (row["id"],),
                 ).fetchall()
             ]
-            filter_result = evaluate_required_languages(
-                languages,
+            filter_result = evaluate_job(
+                title=row["title"],
+                required_languages=languages,
+                remote_type=row["remote_type"],
+                remote_scope=row["remote_scope"],
+                relocation=row["relocation"],
                 resume_path=resume_path,
+                filter_path=filter_path,
             )
             score = 0
             if filter_result.passed:
@@ -254,6 +260,7 @@ def main() -> None:
     parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
     parser.add_argument("--config", default=str(root / "analyzer" / "config" / "valuation.ini"))
     parser.add_argument("--resume", default=str(root / "common" / "config" / "resume.ini"))
+    parser.add_argument("--filter-config", default=str(root / "common" / "config" / "filter.ini"))
     args = parser.parse_args()
 
     updates = update_valuations(
@@ -261,6 +268,7 @@ def main() -> None:
         schema_path=Path(args.schema),
         config_path=Path(args.config),
         resume_path=Path(args.resume),
+        filter_path=Path(args.filter_config),
     )
     for job_id, score, fitability, title, reason in updates:
         print(f"{job_id}: {score} [{fitability}%] {title} ({reason})")

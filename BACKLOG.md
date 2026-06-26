@@ -9,6 +9,7 @@
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
 - Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
 - Use `common/job_filter.py` for shared early filters and language fitability.
+- Use `common/config/filter.ini` to turn filter blocks on and off.
 - Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
 - Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
 - Use `analyzer/calculate_fitability.py` and `common/config/resume.ini` for hidden

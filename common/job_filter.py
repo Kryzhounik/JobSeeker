@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import configparser
 from pathlib import Path
+import re
 from typing import Any, Iterable
 
 
@@ -16,6 +17,7 @@ LANGUAGE_RANKS = {
     "native": 6,
     "fluent": 6,
 }
+NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
 
 
 @dataclass(frozen=True)
@@ -31,6 +33,17 @@ def project_root() -> Path:
 
 def default_resume_path() -> Path:
     return project_root() / "common" / "config" / "resume.ini"
+
+
+def default_filter_path() -> Path:
+    return project_root() / "common" / "config" / "filter.ini"
+
+
+def load_filter_config(path: Path | None = None) -> configparser.ConfigParser:
+    config = configparser.ConfigParser()
+    config.optionxform = str
+    config.read(path or default_filter_path(), encoding="utf-8")
+    return config
 
 
 def load_resume(path: Path | None = None) -> dict[str, int]:
@@ -53,6 +66,61 @@ def language_rank(level: object) -> int:
         if token in text:
             return rank
     return 0
+
+
+def enabled(
+    config: configparser.ConfigParser,
+    section: str,
+    key: str,
+    default: bool,
+) -> bool:
+    try:
+        return config.getboolean(section, key, fallback=default)
+    except ValueError:
+        return default
+
+
+def setting(
+    config: configparser.ConfigParser,
+    section: str,
+    key: str,
+    default: str = "",
+) -> str:
+    if not config.has_section(section):
+        return default
+    return config.get(section, key, fallback=default)
+
+
+def csv_values(value: str) -> list[str]:
+    return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def normalized(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def split_match_values(value: object) -> list[str]:
+    return [
+        item.strip()
+        for item in re.split(r"[,;/|]+|\bor\b|\band\b", normalized(value))
+        if item.strip()
+    ]
+
+
+def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
+    haystack = normalized(value)
+    tokens = split_match_values(value)
+
+    for allowed in allowed_values:
+        needle = normalized(allowed)
+        if not needle:
+            continue
+        if needle in tokens:
+            return True
+        if len(needle) > 2 and needle in haystack:
+            return True
+
+    return False
 
 
 def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResult:
@@ -94,16 +162,115 @@ def evaluate_required_languages(
     return FilterResult(True, 100, "language filter passed")
 
 
+def evaluate_remote(
+    remote_type: str,
+    remote_scope: str,
+    config: configparser.ConfigParser,
+) -> FilterResult:
+    if normalized(remote_type) != "remote":
+        return FilterResult(False, 0, f"remote filter failed: {remote_type or 'empty'}")
+
+    scope = str(remote_scope or "").strip()
+    if enabled(config, "remote", "allow_any", True):
+        return FilterResult(True, 100, f"remote filter passed: {scope or 'remote'}")
+
+    if normalized(scope) in NO_VALUES:
+        return FilterResult(False, 0, "remote filter failed: remote scope is empty")
+
+    allowed = csv_values(setting(config, "remote", "allowed_scopes"))
+    if matches_allowed(scope, allowed):
+        return FilterResult(True, 100, f"remote filter passed: {scope}")
+
+    return FilterResult(False, 0, f"remote filter failed: {scope}")
+
+
+def evaluate_relocation(
+    relocation: str,
+    config: configparser.ConfigParser,
+) -> FilterResult:
+    destination = str(relocation or "").strip()
+    if normalized(destination) in NO_VALUES:
+        return FilterResult(False, 0, "relocation filter failed: NO")
+
+    if enabled(config, "relocation", "allow_any", True):
+        return FilterResult(True, 100, f"relocation filter passed: {destination}")
+
+    allowed = csv_values(setting(config, "relocation", "allowed_destinations"))
+    if matches_allowed(destination, allowed):
+        return FilterResult(True, 100, f"relocation filter passed: {destination}")
+
+    return FilterResult(False, 0, f"relocation filter failed: {destination}")
+
+
+def evaluate_remote_or_relocation(
+    remote_type: str,
+    remote_scope: str,
+    relocation: str,
+    config: configparser.ConfigParser,
+) -> FilterResult:
+    checks: list[FilterResult] = []
+
+    if enabled(config, "filters", "remote", False):
+        checks.append(evaluate_remote(remote_type, remote_scope, config))
+    if enabled(config, "filters", "relocation", False):
+        checks.append(evaluate_relocation(relocation, config))
+
+    if not checks:
+        return FilterResult(True, 100, "remote/relocation filters disabled")
+
+    mode = setting(config, "filters", "remote_relocation_mode", "any").lower()
+    if mode == "all":
+        if all(result.passed for result in checks):
+            return FilterResult(True, 100, "remote/relocation filters passed")
+        return FilterResult(
+            False,
+            0,
+            "; ".join(result.reason for result in checks if not result.passed),
+        )
+
+    for result in checks:
+        if result.passed:
+            return result
+
+    return FilterResult(False, 0, "; ".join(result.reason for result in checks))
+
+
 def evaluate_job(
     *,
     title: str = "",
     required_languages: Iterable[Any] = (),
+    remote_type: str = "",
+    remote_scope: str = "",
+    relocation: str = "",
     resume_path: Path | None = None,
+    filter_path: Path | None = None,
 ) -> FilterResult:
-    title_result = evaluate_title(title)
-    if not title_result.passed:
-        return title_result
-    return evaluate_required_languages(required_languages, resume_path=resume_path)
+    config = load_filter_config(filter_path)
+
+    if enabled(config, "filters", "title", False):
+        blocked_terms = csv_values(setting(config, "title", "blocked_terms"))
+        title_result = evaluate_title(title, blocked_terms)
+        if not title_result.passed:
+            return title_result
+
+    if enabled(config, "filters", "languages", True):
+        language_result = evaluate_required_languages(
+            required_languages,
+            resume_path=resume_path,
+        )
+        if not language_result.passed:
+            return language_result
+
+    logistics_result = evaluate_remote_or_relocation(
+        remote_type,
+        remote_scope,
+        relocation,
+        config,
+    )
+    if not logistics_result.passed:
+        return logistics_result
+
+    return FilterResult(True, 100, "job filter passed")
 
 
 def row_value(row: Any, *names: str) -> Any:
