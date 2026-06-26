@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     primary_language_id INTEGER REFERENCES languages(id) ON DELETE SET NULL,
     salary TEXT,
     valuation INTEGER NOT NULL DEFAULT 0,
+    fitability_percent INTEGER NOT NULL DEFAULT 100 CHECK (
+        fitability_percent >= 0 AND fitability_percent <= 100
+    ),
     summary TEXT,
     pros TEXT,
     cons TEXT,
@@ -59,6 +62,7 @@ CREATE TABLE IF NOT EXISTS job_technologies (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 CREATE INDEX IF NOT EXISTS idx_jobs_valuation ON jobs(valuation);
+CREATE INDEX IF NOT EXISTS idx_jobs_fitability ON jobs(fitability_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_remote_scope ON jobs(remote_scope);
 CREATE INDEX IF NOT EXISTS idx_jobs_relocation ON jobs(relocation);

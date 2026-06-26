@@ -141,6 +141,10 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN valuation INTEGER NOT NULL DEFAULT 0"
         )
+    if "fitability_percent" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN fitability_percent INTEGER NOT NULL DEFAULT 100"
+        )
 
 
 def get_or_create_id(
@@ -333,7 +337,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Write analyzed job JSON to SQLite.")
     parser.add_argument("--input", "-i", default="-")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
-    parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
+    parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
     args = parser.parse_args()
 
     record = load_record(args.input)

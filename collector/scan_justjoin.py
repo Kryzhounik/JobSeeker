@@ -38,6 +38,14 @@ BROWSER_HEADERS = {
 }
 
 
+def project_root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def collector_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
 def get_text(url: str, headers: dict[str, str] | None = None) -> str:
     request = Request(url, headers=headers or BROWSER_HEADERS)
     with urlopen(request, timeout=30) as response:
@@ -210,15 +218,19 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool
 
 
 def parse_args() -> argparse.Namespace:
+    root = project_root()
     parser = argparse.ArgumentParser(description="Find/download JustJoinIT vacancy pages.")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--search-url", help="JustJoinIT search page URL.")
     source.add_argument("--job-url", help="Single vacancy URL for debug download.")
-    parser.add_argument("--config", default="config/justjoin.properties")
+    parser.add_argument(
+        "--config",
+        default=str(collector_root() / "config" / "justjoin.properties"),
+    )
     parser.add_argument("--limit", type=int)
     parser.add_argument("--delay-seconds", type=float)
     parser.add_argument("--download", action="store_true", help="Download raw vacancy pages.")
-    parser.add_argument("--out-dir", default="data/raw/justjoin")
+    parser.add_argument("--out-dir", default=str(root / "data" / "raw" / "justjoin"))
     parser.add_argument("--force", action="store_true", help="Re-download existing raw pages.")
     return parser.parse_args()
 

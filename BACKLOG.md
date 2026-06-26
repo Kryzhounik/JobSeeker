@@ -6,8 +6,11 @@
   saves them into SQLite.
 - Use `data/jobs.sqlite` as the local prototype database.
 - Use `job_view` as the main DB Browser view.
-- Use `scripts/write_job.py` to write analyzed vacancies directly into SQLite.
-- Use `scripts/valuate_jobs.py` and `config/valuation.ini` for sorting score.
+- Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
+- Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
+- Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
+- Use `analyzer/calculate_fitability.py` and `analyzer/config/resume.ini` for hidden
+  fitability filters.
 
 ## Next
 
@@ -19,6 +22,7 @@
 - Add filtering fields:
   - `analysis_stage`
   - `reject_reason`
+- Granulate `fitability_percent` beyond the first language filter.
 - Add tech score rules for `valuation`, up to 99 points.
 - Add `remote_scope` expert detection:
   - `worldwide` only for explicit work-anywhere/global wording.

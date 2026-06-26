@@ -92,11 +92,34 @@ def tech_score(config: configparser.ConfigParser) -> int:
     return int_value(config, "tech", "default", 0)
 
 
-def valuation(config: configparser.ConfigParser, row: sqlite3.Row) -> int:
+def technology_score(config: configparser.ConfigParser, technologies: list[str]) -> int:
+    score = int_value(config, "tech", "default", 0)
+    if not config.has_section("tech.keywords"):
+        return score
+
+    for technology in technologies:
+        value = normalized(technology)
+        for keyword, raw_score in config.items("tech.keywords"):
+            if keyword.lower() not in value:
+                continue
+            try:
+                score += int(raw_score)
+            except ValueError:
+                continue
+            break
+
+    return min(score, int_value(config, "tech", "max", 99))
+
+
+def valuation(
+    config: configparser.ConfigParser,
+    row: sqlite3.Row,
+    technologies: list[str],
+) -> int:
     return (
         remote_score(config, row["remote_type"], row["remote_scope"])
         + relocation_score(config, row["relocation"])
-        + tech_score(config)
+        + technology_score(config, technologies)
     )
 
 
@@ -121,6 +144,10 @@ def ensure_valuation_column(connection: sqlite3.Connection) -> None:
     if "valuation" not in columns:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN valuation INTEGER NOT NULL DEFAULT 0"
+        )
+    if "fitability_percent" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN fitability_percent INTEGER NOT NULL DEFAULT 100"
         )
 
 
@@ -164,7 +191,19 @@ def update_valuations(
 
         updates: list[tuple[int, int, str]] = []
         for row in rows:
-            score = valuation(config, row)
+            technologies = [
+                tech_row[0]
+                for tech_row in connection.execute(
+                    """
+                    SELECT t.name
+                    FROM job_technologies jt
+                    JOIN technologies t ON t.id = jt.technology_id
+                    WHERE jt.job_id = ?
+                    """,
+                    (row["id"],),
+                ).fetchall()
+            ]
+            score = valuation(config, row, technologies)
             connection.execute(
                 "UPDATE jobs SET valuation = ? WHERE id = ?",
                 (score, row["id"]),
@@ -179,8 +218,8 @@ def main() -> None:
     root = project_root()
     parser = argparse.ArgumentParser(description="Recalculate job valuations.")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
-    parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
-    parser.add_argument("--config", default=str(root / "config" / "valuation.ini"))
+    parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
+    parser.add_argument("--config", default=str(root / "analyzer" / "config" / "valuation.ini"))
     args = parser.parse_args()
 
     updates = update_valuations(

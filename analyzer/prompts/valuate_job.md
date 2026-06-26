@@ -1,7 +1,7 @@
 Task: calculate vacancy valuation for sorting.
 
 The valuation is an algorithmic sorting score. Higher is better. Do not mix it
-with factual extraction. Use `config/valuation.ini` as the source of numeric
+with factual extraction. Use `analyzer/config/valuation.ini` as the source of numeric
 weights.
 
 Current formula:
@@ -23,8 +23,10 @@ Relocation score:
 - If relocation exists but no configured destination matches, use only base.
 
 Tech score:
-- Reserved for a later rule set.
-- Current default tech_score = 0.
+- Match required and optional technologies against `[tech.keywords]`.
+- Add the configured score once per matched technology keyword.
+- Cap the result by `[tech] max`.
+- This is intentionally rough and can be tuned later.
 
 Notes:
 - Keep EU and Europe distinct when scoring.

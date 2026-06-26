@@ -75,4 +75,4 @@ Default behavior:
 - Use unknown for unclear factual fields.
 - Keep text concise and single-line where possible.
 - Do not assign valuation here; valuation is calculated separately from
-  `config/valuation.ini`.
+  `analyzer/config/valuation.ini`.
