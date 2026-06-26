@@ -10,12 +10,20 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 import time
 from pathlib import Path
 from urllib.parse import parse_qs
 from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.job_filter import evaluate_title
 
 
 SITE_URL = "https://justjoin.it"
@@ -39,7 +47,7 @@ BROWSER_HEADERS = {
 
 
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return ROOT
 
 
 def collector_root() -> Path:
@@ -85,6 +93,11 @@ def find_job_urls_from_api(config: dict) -> list[str]:
         data = get_json(page_url, search_url).get("data", [])
 
         for offer in data:
+            title_result = evaluate_title(str(offer.get("title") or ""))
+            if not title_result.passed:
+                print(f"skip filtered {offer.get('title')}: {title_result.reason}")
+                continue
+
             slug = offer.get("slug")
             if not slug:
                 continue

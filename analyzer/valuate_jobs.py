@@ -3,14 +3,22 @@ from __future__ import annotations
 import argparse
 import configparser
 import sqlite3
+import sys
 from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.job_filter import evaluate_required_languages
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
 
 
 def project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    return ROOT
 
 
 def load_config(path: Path) -> configparser.ConfigParser:
@@ -175,7 +183,8 @@ def update_valuations(
     db_path: Path,
     schema_path: Path,
     config_path: Path,
-) -> list[tuple[int, int, str]]:
+    resume_path: Path,
+) -> list[tuple[int, int, int, str, str]]:
     config = load_config(config_path)
 
     with sqlite3.connect(db_path) as connection:
@@ -189,8 +198,18 @@ def update_valuations(
             """
         ).fetchall()
 
-        updates: list[tuple[int, int, str]] = []
+        updates: list[tuple[int, int, int, str, str]] = []
         for row in rows:
+            languages = connection.execute(
+                """
+                SELECT l.name AS language, jl.level, jl.level_rank
+                FROM job_languages jl
+                JOIN languages l ON l.id = jl.language_id
+                WHERE jl.job_id = ?
+                ORDER BY jl.level_rank DESC, l.name COLLATE NOCASE
+                """,
+                (row["id"],),
+            ).fetchall()
             technologies = [
                 tech_row[0]
                 for tech_row in connection.execute(
@@ -203,12 +222,26 @@ def update_valuations(
                     (row["id"],),
                 ).fetchall()
             ]
-            score = valuation(config, row, technologies)
-            connection.execute(
-                "UPDATE jobs SET valuation = ? WHERE id = ?",
-                (score, row["id"]),
+            filter_result = evaluate_required_languages(
+                languages,
+                resume_path=resume_path,
             )
-            updates.append((row["id"], score, row["title"]))
+            score = 0
+            if filter_result.passed:
+                score = valuation(config, row, technologies)
+            connection.execute(
+                "UPDATE jobs SET valuation = ?, fitability_percent = ? WHERE id = ?",
+                (score, filter_result.fitability_percent, row["id"]),
+            )
+            updates.append(
+                (
+                    row["id"],
+                    score,
+                    filter_result.fitability_percent,
+                    row["title"],
+                    filter_result.reason,
+                )
+            )
 
         connection.commit()
         return updates
@@ -220,15 +253,17 @@ def main() -> None:
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
     parser.add_argument("--config", default=str(root / "analyzer" / "config" / "valuation.ini"))
+    parser.add_argument("--resume", default=str(root / "common" / "config" / "resume.ini"))
     args = parser.parse_args()
 
     updates = update_valuations(
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         config_path=Path(args.config),
+        resume_path=Path(args.resume),
     )
-    for job_id, score, title in updates:
-        print(f"{job_id}: {score} {title}")
+    for job_id, score, fitability, title, reason in updates:
+        print(f"{job_id}: {score} [{fitability}%] {title} ({reason})")
 
 
 if __name__ == "__main__":

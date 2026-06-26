@@ -81,6 +81,99 @@ DROP VIEW IF EXISTS job_technology_list;
 DROP VIEW IF EXISTS job_list;
 DROP VIEW IF EXISTS job_view;
 
+CREATE VIEW job_list AS
+SELECT
+    CAST(j.valuation AS TEXT) AS valuation,
+    coalesce(j.remote_scope, '') AS remote_scope,
+    coalesce(j.relocation, '') AS relocation,
+    coalesce(j.remote_type, '') AS remote_type,
+    (
+        SELECT l.name || coalesce(': ' || nullif(jl.level, ''), '')
+        FROM job_languages jl
+        JOIN languages l ON l.id = jl.language_id
+        WHERE jl.job_id = j.id
+            AND jl.language_id = j.primary_language_id
+        LIMIT 1
+    ) AS primary_language,
+    coalesce((
+        SELECT group_concat(language_value, '; ')
+        FROM (
+            SELECT l.name || coalesce(': ' || nullif(jl.level, ''), '')
+                AS language_value
+            FROM job_languages jl
+            JOIN languages l ON l.id = jl.language_id
+            WHERE jl.job_id = j.id
+            ORDER BY
+                jl.level_rank DESC,
+                l.name COLLATE NOCASE
+        )
+    ), '') AS languages,
+    coalesce((
+        SELECT group_concat(technology_value, '; ')
+        FROM (
+            SELECT
+                t.name
+                || ' ('
+                || CASE jt.requirement_type
+                    WHEN 'required' THEN 'req'
+                    WHEN 'nice_to_have' THEN 'opt'
+                    ELSE jt.requirement_type
+                END
+                || coalesce(
+                    ', ' || nullif(
+                        CASE
+                            WHEN jt.requirement_type = 'nice_to_have'
+                                THEN 'nice to have'
+                            WHEN lower(coalesce(jt.level, '')) IN (
+                                '',
+                                'listed',
+                                'mentioned',
+                                'required',
+                                'required/listed'
+                            ) THEN
+                                CASE jt.level_rank
+                                    WHEN 1 THEN 'nice to have'
+                                    WHEN 2 THEN 'junior'
+                                    WHEN 3 THEN 'regular'
+                                    WHEN 4 THEN 'advanced'
+                                    WHEN 5 THEN 'master'
+                                    ELSE ''
+                                END
+                            WHEN lower(coalesce(jt.level, ''))
+                                LIKE '%experience required%' THEN 'regular'
+                            ELSE jt.level
+                        END,
+                        ''
+                    ),
+                    ''
+                )
+                || ')' AS technology_value
+            FROM job_technologies jt
+            JOIN technologies t ON t.id = jt.technology_id
+            WHERE jt.job_id = j.id
+            ORDER BY
+                CASE jt.requirement_type
+                    WHEN 'required' THEN 1
+                    WHEN 'nice_to_have' THEN 2
+                    ELSE 9
+                END,
+                jt.level_rank DESC,
+                t.name COLLATE NOCASE
+        )
+    ), '') AS technologies,
+    coalesce(j.salary, '') AS salary,
+    coalesce(j.seniority, '') AS seniority,
+    coalesce(j.role, '') AS role,
+    coalesce(j.title, '') AS title,
+    coalesce(j.source_url, '') AS source_url,
+    coalesce(j.company, '') AS company,
+    coalesce(j.added_at, '') AS added_at,
+    coalesce(j.summary, '') AS summary
+FROM jobs j
+ORDER BY
+    j.valuation DESC,
+    j.id;
+
 CREATE VIEW job_view AS
 WITH ordered AS (
     SELECT
@@ -102,7 +195,7 @@ WITH ordered AS (
         j.remote_type,
         j.remote_scope,
         j.relocation,
-        j.valuation,
+        j.valuation AS valuation_sort,
         j.seniority,
         j.role,
         (
@@ -163,7 +256,7 @@ WITH ordered AS (
     LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )
 SELECT
-    CASE WHEN row_in_job = 1 THEN CAST(valuation AS TEXT) ELSE '' END AS valuation,
+    CASE WHEN row_in_job = 1 THEN CAST(valuation_sort AS TEXT) ELSE '' END AS valuation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
     CASE WHEN row_in_job = 1 THEN coalesce(relocation, '') ELSE '' END AS relocation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
@@ -181,7 +274,8 @@ SELECT
     CASE WHEN row_in_job = 1 THEN coalesce(added_at, '') ELSE '' END AS added_at,
     CASE WHEN row_in_job = 1 THEN coalesce(summary, '') ELSE '' END AS summary
 FROM ordered
+WHERE valuation_sort > 0
 ORDER BY
-    valuation DESC,
+    valuation_sort DESC,
     job_id_sort,
     row_in_job;

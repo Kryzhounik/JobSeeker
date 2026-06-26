@@ -6,6 +6,7 @@ weights.
 
 Current formula:
 - valuation = remote_score + relocation_score + tech_score.
+- If the shared filter in `common/job_filter.py` fails, valuation is 0.
 
 Remote score:
 - Only fully remote vacancies can receive remote_score.
