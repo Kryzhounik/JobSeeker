@@ -19,15 +19,36 @@ LEVEL_RANKS = {
     "mid": 3,
     "b2": 4,
     "upper-intermediate": 4,
-    "advanced": 5,
-    "senior": 5,
+    "advanced": 4,
+    "senior": 4,
     "c1": 5,
-    "expert": 6,
-    "master": 6,
-    "c2": 6,
-    "fluent": 6,
-    "native": 7,
+    "expert": 5,
+    "master": 5,
+    "c2": 5,
+    "fluent": 5,
+    "native": 5,
 }
+TECH_EXPERIENCE_RANK_3 = (
+    "experience required",
+    "hands-on",
+    "hands on",
+    "commercial experience",
+    "production experience",
+    "solid experience",
+    "strong",
+)
+TECH_MENTION_RANK_2 = (
+    "listed",
+    "mentioned",
+    "required",
+)
+TECH_OPTIONAL_RANK_1 = (
+    "nice to have",
+    "nice-to-have",
+    "will be a plus",
+    "would be a plus",
+    "plus",
+)
 
 
 def project_root() -> Path:
@@ -57,13 +78,35 @@ def parse_item(item: str) -> tuple[str, str | None]:
 
 def level_rank(level: str | None) -> int | None:
     if not level:
-        return None
+        return 1
 
     normalized = level.lower().replace("_", "-").replace("/", " ")
     for token, rank in LEVEL_RANKS.items():
         if token in normalized:
             return rank
-    return None
+    return 1
+
+
+def technology_level_rank(level: str | None, requirement_type: str) -> int:
+    if requirement_type == "nice_to_have":
+        return 1
+
+    if not level:
+        return 2
+
+    normalized = level.lower().replace("_", "-").replace("/", " ")
+    if any(token in normalized for token in TECH_OPTIONAL_RANK_1):
+        return 1
+
+    for token, rank in LEVEL_RANKS.items():
+        if token in normalized:
+            return rank
+
+    if any(token in normalized for token in TECH_EXPERIENCE_RANK_3):
+        return 3
+    if any(token in normalized for token in TECH_MENTION_RANK_2):
+        return 2
+    return 2
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
@@ -216,7 +259,14 @@ def replace_technologies(
                 )
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (job_id, technology_id, requirement_type, level, level_rank(level), item),
+                (
+                    job_id,
+                    technology_id,
+                    requirement_type,
+                    level,
+                    technology_level_rank(level, requirement_type),
+                    item,
+                ),
             )
 
 

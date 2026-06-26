@@ -67,116 +67,68 @@ CREATE INDEX IF NOT EXISTS idx_job_technologies_technology
 CREATE INDEX IF NOT EXISTS idx_job_technologies_requirement_type
     ON job_technologies(requirement_type);
 
-DROP VIEW IF EXISTS job_technology_list;
 DROP VIEW IF EXISTS job_technology_display;
 DROP VIEW IF EXISTS job_language_list;
+DROP VIEW IF EXISTS job_technology_list;
 DROP VIEW IF EXISTS job_list;
+DROP VIEW IF EXISTS job_view;
 
-CREATE VIEW job_list AS
-SELECT
-    j.id,
-    j.title,
-    j.company,
-    j.location,
-    j.remote_type,
-    j.seniority,
-    j.role,
-    pl.name AS primary_language,
-    j.salary,
-    j.status,
-    (
-        SELECT group_concat(
-            l.name || coalesce(': ' || nullif(jl.level, ''), ''),
-            '; '
-        )
-        FROM job_languages jl
-        JOIN languages l ON l.id = jl.language_id
-        WHERE jl.job_id = j.id
-    ) AS languages,
-    j.source_url,
-    j.summary,
-    j.added_at
-FROM jobs j
-LEFT JOIN languages pl ON pl.id = j.primary_language_id;
-
-CREATE VIEW job_language_list AS
-SELECT
-    j.id AS job_id,
-    j.title,
-    j.company,
-    l.name AS language,
-    jl.level,
-    jl.level_rank,
-    CASE
-        WHEN j.primary_language_id = l.id THEN 1
-        ELSE 0
-    END AS is_primary,
-    j.source_url
-FROM job_languages jl
-JOIN jobs j ON j.id = jl.job_id
-JOIN languages l ON l.id = jl.language_id
-ORDER BY
-    j.id,
-    is_primary DESC,
-    coalesce(jl.level_rank, 0) DESC,
-    l.name COLLATE NOCASE;
-
-CREATE VIEW job_technology_list AS
-SELECT
-    j.id AS job_id,
-    j.title,
-    j.company,
-    j.remote_type,
-    j.seniority,
-    j.role,
-    t.name AS technology,
-    jt.requirement_type,
-    CASE jt.requirement_type
-        WHEN 'required' THEN 1
-        WHEN 'nice_to_have' THEN 2
-        ELSE 9
-    END AS requirement_priority,
-    jt.level,
-    jt.level_rank,
-    jt.raw_value,
-    j.source_url
-FROM job_technologies jt
-JOIN jobs j ON j.id = jt.job_id
-JOIN technologies t ON t.id = jt.technology_id
-ORDER BY
-    j.id,
-    requirement_priority,
-    coalesce(jt.level_rank, 0) DESC,
-    t.name COLLATE NOCASE;
-
-CREATE VIEW job_technology_display AS
+CREATE VIEW job_view AS
 WITH ordered AS (
     SELECT
         row_number() OVER (
-            PARTITION BY job_id
+            PARTITION BY j.id
             ORDER BY
-                requirement_priority,
-                coalesce(level_rank, 0) DESC,
-                technology COLLATE NOCASE
+                CASE jt.requirement_type
+                    WHEN 'required' THEN 1
+                    WHEN 'nice_to_have' THEN 2
+                    ELSE 9
+                END,
+                jt.level_rank DESC,
+                t.name COLLATE NOCASE
         ) AS row_in_job,
-        *
-    FROM job_technology_list
+        j.id AS job_id_sort,
+        j.title,
+        j.company,
+        j.location,
+        j.remote_type,
+        j.seniority,
+        j.role,
+        pl.name AS primary_language,
+        j.salary,
+        j.status,
+        t.name AS technology,
+        CASE jt.requirement_type
+            WHEN 'required' THEN 'required'
+            WHEN 'nice_to_have' THEN 'optional'
+            ELSE jt.requirement_type
+        END AS requirement,
+        jt.level,
+        j.source_url,
+        j.summary,
+        j.added_at
+    FROM job_technologies jt
+    JOIN jobs j ON j.id = jt.job_id
+    JOIN technologies t ON t.id = jt.technology_id
+    LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )
 SELECT
-    CASE WHEN row_in_job = 1 THEN job_id ELSE NULL END AS job_id,
-    CASE WHEN row_in_job = 1 THEN title ELSE '' END AS title,
-    CASE WHEN row_in_job = 1 THEN company ELSE '' END AS company,
-    CASE WHEN row_in_job = 1 THEN remote_type ELSE '' END AS remote_type,
-    CASE WHEN row_in_job = 1 THEN seniority ELSE '' END AS seniority,
-    CASE WHEN row_in_job = 1 THEN role ELSE '' END AS role,
-    technology,
-    requirement_type,
-    requirement_priority,
-    level,
-    level_rank,
-    raw_value,
-    CASE WHEN row_in_job = 1 THEN source_url ELSE '' END AS source_url
+    CASE WHEN row_in_job = 1 THEN CAST(job_id_sort AS TEXT) ELSE '' END AS job_id,
+    CASE WHEN row_in_job = 1 THEN coalesce(title, '') ELSE '' END AS title,
+    CASE WHEN row_in_job = 1 THEN coalesce(company, '') ELSE '' END AS company,
+    CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
+    CASE WHEN row_in_job = 1 THEN coalesce(seniority, '') ELSE '' END AS seniority,
+    CASE WHEN row_in_job = 1 THEN coalesce(role, '') ELSE '' END AS role,
+    CASE WHEN row_in_job = 1 THEN coalesce(primary_language, '') ELSE '' END AS primary_language,
+    CASE WHEN row_in_job = 1 THEN coalesce(salary, '') ELSE '' END AS salary,
+    CASE WHEN row_in_job = 1 THEN coalesce(status, '') ELSE '' END AS status,
+    coalesce(technology, '') AS technology,
+    coalesce(requirement, '') AS requirement,
+    coalesce(level, '') AS level,
+    CASE WHEN row_in_job = 1 THEN coalesce(source_url, '') ELSE '' END AS source_url,
+    CASE WHEN row_in_job = 1 THEN coalesce(summary, '') ELSE '' END AS summary,
+    CASE WHEN row_in_job = 1 THEN coalesce(added_at, '') ELSE '' END AS added_at
 FROM ordered
 ORDER BY
-    coalesce(job_id, 0),
+    job_id_sort,
     row_in_job;
