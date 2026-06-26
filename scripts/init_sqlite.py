@@ -110,7 +110,39 @@ def technology_level_rank(level: str | None, requirement_type: str) -> int:
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
+    ensure_existing_schema(connection)
     connection.executescript(schema_path.read_text(encoding="utf-8"))
+
+
+def ensure_existing_schema(connection: sqlite3.Connection) -> None:
+    jobs_exists = connection.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'jobs'
+        """
+    ).fetchone()
+    if not jobs_exists:
+        return
+
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+    }
+    if "remote_scope" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE jobs
+            ADD COLUMN remote_scope TEXT NOT NULL DEFAULT 'unknown'
+            """
+        )
+    if "relocation" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE jobs
+            ADD COLUMN relocation TEXT NOT NULL DEFAULT 'NO'
+            """
+        )
 
 
 def get_or_create_id(
@@ -142,6 +174,8 @@ def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
             company,
             location,
             remote_type,
+            remote_scope,
+            relocation,
             seniority,
             role,
             salary,
@@ -152,12 +186,14 @@ def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
             title = excluded.title,
             company = excluded.company,
             location = excluded.location,
             remote_type = excluded.remote_type,
+            remote_scope = excluded.remote_scope,
+            relocation = excluded.relocation,
             seniority = excluded.seniority,
             role = excluded.role,
             salary = excluded.salary,
@@ -175,6 +211,8 @@ def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
             row.get("company"),
             row.get("location"),
             row.get("remote_type"),
+            row.get("remote_scope") or "unknown",
+            row.get("relocation") or "NO",
             row.get("seniority"),
             row.get("role"),
             row.get("salary"),
