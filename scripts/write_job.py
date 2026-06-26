@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import csv
+import json
 import sqlite3
+import sys
 from pathlib import Path
+from typing import Any
 
 
-EMPTY_VALUES = {"", "unknown", "n/a", "none", "-"}
 LEVEL_RANKS = {
     "a1": 1,
     "a2": 2,
@@ -37,11 +38,7 @@ TECH_EXPERIENCE_RANK_3 = (
     "solid experience",
     "strong",
 )
-TECH_MENTION_RANK_2 = (
-    "listed",
-    "mentioned",
-    "required",
-)
+TECH_MENTION_RANK_2 = ("listed", "mentioned", "required")
 TECH_OPTIONAL_RANK_1 = (
     "nice to have",
     "nice-to-have",
@@ -55,32 +52,29 @@ def project_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def is_empty(value: str | None) -> bool:
-    return (value or "").strip().lower() in EMPTY_VALUES
+def clean(value: Any, default: str = "") -> str:
+    if value is None:
+        return default
+    text = str(value).strip()
+    return text if text else default
 
 
-def split_items(value: str | None) -> list[str]:
-    if is_empty(value):
-        return []
-
-    text = (value or "").strip()
-    separator = ";" if ";" in text else ","
-    return [item.strip() for item in text.split(separator) if item.strip()]
+def field(record: dict[str, Any], name: str, default: str = "") -> str:
+    if name not in record:
+        return default
+    return clean(record.get(name))
 
 
-def parse_item(item: str) -> tuple[str, str | None]:
-    if ":" not in item:
-        return item.strip(), None
-
-    name, level = item.split(":", 1)
-    return name.strip(), level.strip() or None
+def normalize_level(value: str | None) -> str:
+    return clean(value)
 
 
-def level_rank(level: str | None) -> int | None:
-    if not level:
+def level_rank(level: str | None) -> int:
+    text = normalize_level(level)
+    if not text:
         return 1
 
-    normalized = level.lower().replace("_", "-").replace("/", " ")
+    normalized = text.lower().replace("_", "-").replace("/", " ")
     for token, rank in LEVEL_RANKS.items():
         if token in normalized:
             return rank
@@ -91,22 +85,28 @@ def technology_level_rank(level: str | None, requirement_type: str) -> int:
     if requirement_type == "nice_to_have":
         return 1
 
-    if not level:
+    text = normalize_level(level)
+    if not text:
         return 2
 
-    normalized = level.lower().replace("_", "-").replace("/", " ")
+    normalized = text.lower().replace("_", "-").replace("/", " ")
     if any(token in normalized for token in TECH_OPTIONAL_RANK_1):
         return 1
-
     for token, rank in LEVEL_RANKS.items():
         if token in normalized:
             return rank
-
     if any(token in normalized for token in TECH_EXPERIENCE_RANK_3):
         return 3
     if any(token in normalized for token in TECH_MENTION_RANK_2):
         return 2
     return 2
+
+
+def requirement_type(value: str | None) -> str:
+    normalized = clean(value, "required").lower()
+    if normalized in {"opt", "optional", "nice_to_have", "nice to have"}:
+        return "nice_to_have"
+    return "required"
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
@@ -131,17 +131,11 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
     }
     if "remote_scope" not in columns:
         connection.execute(
-            """
-            ALTER TABLE jobs
-            ADD COLUMN remote_scope TEXT NOT NULL DEFAULT 'unknown'
-            """
+            "ALTER TABLE jobs ADD COLUMN remote_scope TEXT NOT NULL DEFAULT 'unknown'"
         )
     if "relocation" not in columns:
         connection.execute(
-            """
-            ALTER TABLE jobs
-            ADD COLUMN relocation TEXT NOT NULL DEFAULT 'NO'
-            """
+            "ALTER TABLE jobs ADD COLUMN relocation TEXT NOT NULL DEFAULT 'NO'"
         )
 
 
@@ -153,10 +147,7 @@ def get_or_create_id(
     if table not in {"languages", "technologies"}:
         raise ValueError(f"Unsupported dictionary table: {table}")
 
-    connection.execute(
-        f"INSERT OR IGNORE INTO {table} (name) VALUES (?)",
-        (name,),
-    )
+    connection.execute(f"INSERT OR IGNORE INTO {table} (name) VALUES (?)", (name,))
     row = connection.execute(
         f"SELECT id FROM {table} WHERE name = ?",
         (name,),
@@ -164,7 +155,14 @@ def get_or_create_id(
     return int(row[0])
 
 
-def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
+def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
+    source_url = clean(record.get("source_url"))
+    title = clean(record.get("title"))
+    if not source_url:
+        raise ValueError("Job record must include source_url.")
+    if not title:
+        raise ValueError("Job record must include title.")
+
     cursor = connection.execute(
         """
         INSERT INTO jobs (
@@ -205,46 +203,52 @@ def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
             updated_at = CURRENT_TIMESTAMP
         """,
         (
-            "justjoin",
-            row["source_url"],
-            row["title"],
-            row.get("company"),
-            row.get("location"),
-            row.get("remote_type"),
-            row.get("remote_scope") or "unknown",
-            row.get("relocation") or "NO",
-            row.get("seniority"),
-            row.get("role"),
-            row.get("salary"),
-            row.get("status") or "new",
-            row.get("summary"),
-            row.get("pros"),
-            row.get("cons"),
-            row.get("notes"),
-            row.get("added_at"),
+            clean(record.get("source"), "justjoin"),
+            source_url,
+            title,
+            clean(record.get("company")),
+            clean(record.get("location")),
+            clean(record.get("remote_type"), "unknown"),
+            field(record, "remote_scope", "unknown"),
+            field(record, "relocation", "NO"),
+            clean(record.get("seniority"), "unknown"),
+            clean(record.get("role"), "unknown"),
+            clean(record.get("salary"), "unknown"),
+            clean(record.get("status"), "new"),
+            clean(record.get("summary")),
+            clean(record.get("pros")),
+            clean(record.get("cons")),
+            clean(record.get("notes")),
+            clean(record.get("added_at")),
         ),
     )
-    if cursor.lastrowid:
-        return cursor.lastrowid
+    job_id = cursor.lastrowid or int(
+        connection.execute(
+            "SELECT id FROM jobs WHERE source_url = ?",
+            (source_url,),
+        ).fetchone()[0]
+    )
 
-    existing = connection.execute(
-        "SELECT id FROM jobs WHERE source_url = ?",
-        (row["source_url"],),
-    ).fetchone()
-    return int(existing[0])
+    replace_languages(connection, job_id, record.get("languages", []))
+    replace_technologies(connection, job_id, record.get("technologies", []))
+    return job_id
 
 
 def replace_languages(
     connection: sqlite3.Connection,
     job_id: int,
-    row: dict[str, str],
+    languages: list[dict[str, Any]],
 ) -> None:
     connection.execute("DELETE FROM job_languages WHERE job_id = ?", (job_id,))
 
     primary_language_id = None
     primary_rank = -1
-    for item in split_items(row.get("language_requirements")):
-        name, level = parse_item(item)
+    for language in languages:
+        name = clean(language.get("name"))
+        if not name:
+            continue
+
+        level = normalize_level(language.get("level"))
         rank = level_rank(level)
         language_id = get_or_create_id(connection, "languages", name)
         connection.execute(
@@ -258,10 +262,10 @@ def replace_languages(
             )
             VALUES (?, ?, ?, ?, ?)
             """,
-            (job_id, language_id, level, rank, item),
+            (job_id, language_id, level, rank, f"{name}: {level}" if level else name),
         )
 
-        if rank is not None and rank > primary_rank:
+        if rank > primary_rank:
             primary_language_id = language_id
             primary_rank = rank
 
@@ -274,92 +278,65 @@ def replace_languages(
 def replace_technologies(
     connection: sqlite3.Connection,
     job_id: int,
-    row: dict[str, str],
+    technologies: list[dict[str, Any]],
 ) -> None:
     connection.execute("DELETE FROM job_technologies WHERE job_id = ?", (job_id,))
 
-    for requirement_type, column in (
-        ("required", "technology_requirements"),
-        ("nice_to_have", "nice_to_have_technologies"),
-    ):
-        for item in split_items(row.get(column)):
-            name, level = parse_item(item)
-            technology_id = get_or_create_id(connection, "technologies", name)
-            connection.execute(
-                """
-                INSERT INTO job_technologies (
-                    job_id,
-                    technology_id,
-                    requirement_type,
-                    level,
-                    level_rank,
-                    raw_value
-                )
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    job_id,
-                    technology_id,
-                    requirement_type,
-                    level,
-                    technology_level_rank(level, requirement_type),
-                    item,
-                ),
+    for technology in technologies:
+        name = clean(technology.get("name"))
+        if not name:
+            continue
+
+        req_type = requirement_type(technology.get("requirement"))
+        level = normalize_level(technology.get("level"))
+        technology_id = get_or_create_id(connection, "technologies", name)
+        raw_value = clean(technology.get("raw_value"))
+        if not raw_value:
+            raw_value = f"{name}: {level}" if level else name
+
+        connection.execute(
+            """
+            INSERT INTO job_technologies (
+                job_id,
+                technology_id,
+                requirement_type,
+                level,
+                level_rank,
+                raw_value
             )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                job_id,
+                technology_id,
+                req_type,
+                level,
+                technology_level_rank(level, req_type),
+                raw_value,
+            ),
+        )
 
 
-def replace_requirements(
-    connection: sqlite3.Connection,
-    job_id: int,
-    row: dict[str, str],
-) -> None:
-    replace_languages(connection, job_id, row)
-    replace_technologies(connection, job_id, row)
-
-
-def import_jobs(
-    csv_path: Path,
-    db_path: Path,
-    schema_path: Path,
-    limit: int,
-    recreate: bool,
-) -> int:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-    if recreate and db_path.exists():
-        db_path.unlink()
-
-    with sqlite3.connect(db_path) as connection:
-        apply_schema(connection, schema_path)
-        with csv_path.open("r", encoding="utf-8", newline="") as file:
-            reader = csv.DictReader(file)
-            count = 0
-            for row in reader:
-                if limit and count >= limit:
-                    break
-                job_id = insert_job(connection, row)
-                replace_requirements(connection, job_id, row)
-                count += 1
-        return count
+def load_record(input_path: str) -> dict[str, Any]:
+    if input_path == "-":
+        return json.load(sys.stdin)
+    with Path(input_path).open("r", encoding="utf-8") as file:
+        return json.load(file)
 
 
 def main() -> None:
     root = project_root()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--csv", default=str(root / "data" / "jobs.csv"))
+    parser = argparse.ArgumentParser(description="Write analyzed job JSON to SQLite.")
+    parser.add_argument("--input", "-i", default="-")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
-    parser.add_argument("--limit", type=int, default=2)
-    parser.add_argument("--recreate", action="store_true")
     args = parser.parse_args()
 
-    count = import_jobs(
-        csv_path=Path(args.csv),
-        db_path=Path(args.db),
-        schema_path=Path(args.schema),
-        limit=args.limit,
-        recreate=args.recreate,
-    )
-    print(f"Imported {count} job(s) into {args.db}")
+    record = load_record(args.input)
+    with sqlite3.connect(args.db) as connection:
+        apply_schema(connection, Path(args.schema))
+        job_id = write_job(connection, record)
+    print(f"wrote job_id={job_id} {record['source_url']}")
 
 
 if __name__ == "__main__":
