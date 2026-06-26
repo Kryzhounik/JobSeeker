@@ -8,6 +8,12 @@ Runtime switches live in `common/config/filter.ini`.
 
 Current stage: languages plus remote/relocation logistics.
 
+Remote/relocation filter modes:
+- `off`: ignore the field.
+- `on`: require any remote or any relocation.
+- `location`: require remote_scope or relocation destination to match the
+  configured allowed list.
+
 Language rules:
 - Read known languages from `common/config/resume.ini`.
 - If required English is higher than B2, fitability is 0.

@@ -8,10 +8,15 @@
 - Use `job_view` as the main filtered DB Browser view.
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
 - Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
+- Use `collector/config/linkedin.properties` for the first LinkedIn search URL
+  and one-vacancy debug limit.
 - Use `common/job_filter.py` for shared early filters and language fitability.
+- Use `common/text_job_analysis.py` for text-based language, technology,
+  remote scope, relocation, and salary hints.
 - Use `common/config/filter.ini` to turn filter blocks on and off.
 - Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
 - Use `analyzer/analyze_justjoin_raw.py` for mechanical JustJoinIT raw imports.
+- Use `analyzer/analyze_linkedin_raw.py` for mechanical LinkedIn raw imports.
 - Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
 - Use `analyzer/calculate_fitability.py` and `common/config/resume.ini` for hidden
   fitability filters.

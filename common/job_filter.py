@@ -80,6 +80,22 @@ def enabled(
         return default
 
 
+def filter_mode(
+    config: configparser.ConfigParser,
+    section: str,
+    key: str,
+    default: str,
+) -> str:
+    value = setting(config, section, key, default).strip().lower()
+    if value in {"off", "false", "no", "0"}:
+        return "off"
+    if value in {"on", "true", "yes", "1", "any"}:
+        return "on"
+    if value in {"location", "locations", "loc"}:
+        return "location"
+    return default
+
+
 def setting(
     config: configparser.ConfigParser,
     section: str,
@@ -166,12 +182,16 @@ def evaluate_remote(
     remote_type: str,
     remote_scope: str,
     config: configparser.ConfigParser,
+    remote_mode: str,
 ) -> FilterResult:
+    if remote_mode == "off":
+        return FilterResult(True, 100, "remote filter disabled")
+
     if normalized(remote_type) != "remote":
         return FilterResult(False, 0, f"remote filter failed: {remote_type or 'empty'}")
 
     scope = str(remote_scope or "").strip()
-    if enabled(config, "remote", "allow_any", True):
+    if remote_mode == "on":
         return FilterResult(True, 100, f"remote filter passed: {scope or 'remote'}")
 
     if normalized(scope) in NO_VALUES:
@@ -187,12 +207,16 @@ def evaluate_remote(
 def evaluate_relocation(
     relocation: str,
     config: configparser.ConfigParser,
+    relocation_mode: str,
 ) -> FilterResult:
+    if relocation_mode == "off":
+        return FilterResult(True, 100, "relocation filter disabled")
+
     destination = str(relocation or "").strip()
     if normalized(destination) in NO_VALUES:
         return FilterResult(False, 0, "relocation filter failed: NO")
 
-    if enabled(config, "relocation", "allow_any", True):
+    if relocation_mode == "on":
         return FilterResult(True, 100, f"relocation filter passed: {destination}")
 
     allowed = csv_values(setting(config, "relocation", "allowed_destinations"))
@@ -209,11 +233,13 @@ def evaluate_remote_or_relocation(
     config: configparser.ConfigParser,
 ) -> FilterResult:
     checks: list[FilterResult] = []
+    remote_mode = filter_mode(config, "filters", "remote", "off")
+    relocation_mode = filter_mode(config, "filters", "relocation", "off")
 
-    if enabled(config, "filters", "remote", False):
-        checks.append(evaluate_remote(remote_type, remote_scope, config))
-    if enabled(config, "filters", "relocation", False):
-        checks.append(evaluate_relocation(relocation, config))
+    if remote_mode != "off":
+        checks.append(evaluate_remote(remote_type, remote_scope, config, remote_mode))
+    if relocation_mode != "off":
+        checks.append(evaluate_relocation(relocation, config, relocation_mode))
 
     if not checks:
         return FilterResult(True, 100, "remote/relocation filters disabled")

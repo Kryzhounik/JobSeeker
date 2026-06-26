@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import argparse
-from datetime import date
 import json
 from pathlib import Path
 import re
 import sqlite3
 import sys
 from typing import Any
-from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,44 +16,22 @@ if str(Path(__file__).resolve().parent) not in sys.path:
     sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from write_job import apply_schema, write_job
+from common.db_import import analyzed_urls
+from common.job_record import COUNTRY_NAMES
+from common.job_record import clean
+from common.job_record import infer_role
+from common.job_record import label_value
+from common.job_record import language_record
+from common.job_record import location_join
+from common.job_record import normalize_seniority
+from common.job_record import remote_scope_from_country
+from common.job_record import salary_from_employment_types
+from common.job_record import skill_level
+from common.job_record import technology_record
+from common.job_record import today_iso
 
 
 SITE_URL = "https://justjoin.it"
-
-LANGUAGE_NAMES = {
-    "en": "English",
-    "pl": "Polish",
-    "ru": "Russian",
-    "uk": "Ukrainian",
-    "ua": "Ukrainian",
-    "de": "German",
-    "fr": "French",
-    "es": "Spanish",
-    "it": "Italian",
-}
-
-COUNTRY_NAMES = {
-    "PL": "Poland",
-    "UA": "Ukraine",
-    "US": "United States",
-    "DE": "Germany",
-    "GB": "United Kingdom",
-    "CZ": "Czechia",
-    "LT": "Lithuania",
-    "LV": "Latvia",
-    "EE": "Estonia",
-    "MD": "Moldova",
-    "GE": "Georgia",
-    "RS": "Serbia",
-}
-
-SKILL_LEVELS = {
-    1: "nice to have",
-    2: "junior",
-    3: "regular",
-    4: "advanced",
-    5: "master",
-}
 
 
 def page_slug(path: Path) -> str:
@@ -64,26 +40,6 @@ def page_slug(path: Path) -> str:
 
 def source_url_for_slug(slug: str) -> str:
     return f"{SITE_URL}/job-offer/{slug}"
-
-
-def analyzed_urls(connection: sqlite3.Connection) -> set[str]:
-    ensure_jobs_table(connection)
-    return {
-        row[0]
-        for row in connection.execute("SELECT source_url FROM jobs").fetchall()
-    }
-
-
-def ensure_jobs_table(connection: sqlite3.Connection) -> None:
-    connection.execute(
-        """
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            source_url TEXT NOT NULL UNIQUE,
-            title TEXT NOT NULL
-        )
-        """
-    )
 
 
 def extract_offer(path: Path) -> dict[str, Any]:
@@ -157,122 +113,37 @@ def offer_to_record(offer: dict[str, Any]) -> dict[str, Any]:
         "source_url": source_url_for_slug(slug),
         "title": title,
         "company": company,
-        "location": location(offer, country),
+        "location": location_join(
+            clean(offer.get("city")),
+            clean(offer.get("street")),
+            country,
+        ),
         "remote_type": remote_type,
-        "remote_scope": remote_scope(remote_type, country),
+        "remote_scope": remote_scope_from_country(remote_type, country),
         "relocation": "NO",
         "valuation": 0,
-        "seniority": seniority(label_value(offer.get("experienceLevel"), "unknown")),
-        "role": role(title),
-        "salary": salary(offer.get("employmentTypes") or []),
+        "seniority": normalize_seniority(
+            label_value(offer.get("experienceLevel"), "unknown")
+        ),
+        "role": infer_role(title),
+        "salary": salary_from_employment_types(offer.get("employmentTypes") or []),
         "summary": f"{title} at {company}".strip(),
         "pros": "",
         "cons": "",
         "notes": "Imported mechanically from JustJoinIT raw HTML.",
-        "added_at": date.today().isoformat(),
+        "added_at": today_iso(),
         "languages": languages(offer.get("languages") or []),
         "technologies": technologies(offer),
     }
-
-
-def label_value(value: Any, default: str = "") -> str:
-    if isinstance(value, dict):
-        return clean(value.get("value") or value.get("label"), default)
-    return clean(value, default)
-
-
-def clean(value: Any, default: str = "") -> str:
-    text = str(value or "").strip()
-    return text if text else default
-
-
-def location(offer: dict[str, Any], country: str) -> str:
-    parts = [
-        clean(offer.get("city")),
-        clean(offer.get("street")),
-        country,
-    ]
-    return ", ".join(part for part in parts if part and part != "-")
-
-
-def remote_scope(remote_type: str, country: str) -> str:
-    if remote_type != "remote":
-        return ""
-    return country or "unknown"
-
-
-def seniority(value: str) -> str:
-    normalized = value.lower()
-    if normalized in {"mid", "middle", "regular"}:
-        return "middle"
-    if normalized in {"senior", "lead", "junior", "intern"}:
-        return normalized
-    return value or "unknown"
-
-
-def role(title: str) -> str:
-    normalized = title.lower()
-    if "fullstack" in normalized or "full-stack" in normalized:
-        return "fullstack"
-    if "test" in normalized or "qa" in normalized or "sdet" in normalized:
-        return "qa"
-    if "devops" in normalized or "platform" in normalized:
-        return "devops"
-    if "frontend" in normalized or "front-end" in normalized:
-        return "frontend"
-    return "backend"
-
-
-def salary(employment_types: list[dict[str, Any]]) -> str:
-    originals = [
-        item for item in employment_types
-        if item.get("currencySource") == "original"
-    ]
-    item = originals[0] if originals else (employment_types[0] if employment_types else None)
-    if not item:
-        return "unknown"
-
-    currency = clean(item.get("currency"))
-    unit = clean(item.get("unit"))
-    contract = clean(item.get("type"))
-    gross = item.get("gross")
-    tax = "gross" if gross else "net" if gross is False else ""
-    start = item.get("from")
-    end = item.get("to")
-
-    if start is None and end is None:
-        amount = "unknown"
-    elif start == end or end is None:
-        amount = format_number(start)
-    elif start is None:
-        amount = format_number(end)
-    else:
-        amount = f"{format_number(start)}-{format_number(end)}"
-
-    details = " ".join(part for part in [currency, tax, per_unit(unit), contract] if part)
-    return " ".join(part for part in [amount, details] if part).strip() or "unknown"
-
-
-def format_number(value: Any) -> str:
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return str(value)
-
-
-def per_unit(unit: str) -> str:
-    if not unit:
-        return ""
-    return f"/{unit}"
 
 
 def languages(raw_languages: list[dict[str, Any]]) -> list[dict[str, str]]:
     result: list[dict[str, str]] = []
     for language in raw_languages:
         code = clean(language.get("code")).lower()
-        name = LANGUAGE_NAMES.get(code, code.upper())
         level = clean(language.get("level"))
-        if name:
-            result.append({"name": name, "level": level})
+        if code:
+            result.append(language_record(code, level))
     return result
 
 
@@ -287,16 +158,8 @@ def technologies(offer: dict[str, Any]) -> list[dict[str, str]]:
 
 def technology(skill: dict[str, Any], requirement: str) -> dict[str, str]:
     name = clean(skill.get("name") or skill.get("id"))
-    level_number = skill.get("level")
-    level = SKILL_LEVELS.get(level_number, clean(level_number, "listed"))
-    if requirement == "nice_to_have":
-        level = "nice to have"
-    return {
-        "name": name,
-        "requirement": requirement,
-        "level": level,
-        "raw_value": f"{name}: {level}",
-    }
+    level = skill_level(skill.get("level"))
+    return technology_record(name, requirement, level)
 
 
 def import_raw_pages(
