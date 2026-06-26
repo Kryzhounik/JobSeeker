@@ -7,6 +7,27 @@ from pathlib import Path
 
 
 EMPTY_VALUES = {"", "unknown", "n/a", "none", "-"}
+LEVEL_RANKS = {
+    "a1": 1,
+    "a2": 2,
+    "basic": 2,
+    "beginner": 2,
+    "junior": 2,
+    "b1": 3,
+    "intermediate": 3,
+    "regular": 3,
+    "mid": 3,
+    "b2": 4,
+    "upper-intermediate": 4,
+    "advanced": 5,
+    "senior": 5,
+    "c1": 5,
+    "expert": 6,
+    "master": 6,
+    "c2": 6,
+    "fluent": 6,
+    "native": 7,
+}
 
 
 def project_root() -> Path:
@@ -34,8 +55,38 @@ def parse_item(item: str) -> tuple[str, str | None]:
     return name.strip(), level.strip() or None
 
 
+def level_rank(level: str | None) -> int | None:
+    if not level:
+        return None
+
+    normalized = level.lower().replace("_", "-").replace("/", " ")
+    for token, rank in LEVEL_RANKS.items():
+        if token in normalized:
+            return rank
+    return None
+
+
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
     connection.executescript(schema_path.read_text(encoding="utf-8"))
+
+
+def get_or_create_id(
+    connection: sqlite3.Connection,
+    table: str,
+    name: str,
+) -> int:
+    if table not in {"languages", "technologies"}:
+        raise ValueError(f"Unsupported dictionary table: {table}")
+
+    connection.execute(
+        f"INSERT OR IGNORE INTO {table} (name) VALUES (?)",
+        (name,),
+    )
+    row = connection.execute(
+        f"SELECT id FROM {table} WHERE name = ?",
+        (name,),
+    ).fetchone()
+    return int(row[0])
 
 
 def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
@@ -102,59 +153,93 @@ def insert_job(connection: sqlite3.Connection, row: dict[str, str]) -> int:
     return int(existing[0])
 
 
-def replace_requirements(
+def replace_languages(
     connection: sqlite3.Connection,
     job_id: int,
     row: dict[str, str],
 ) -> None:
     connection.execute("DELETE FROM job_languages WHERE job_id = ?", (job_id,))
-    connection.execute("DELETE FROM job_technologies WHERE job_id = ?", (job_id,))
 
+    primary_language_id = None
+    primary_rank = -1
     for item in split_items(row.get("language_requirements")):
         name, level = parse_item(item)
+        rank = level_rank(level)
+        language_id = get_or_create_id(connection, "languages", name)
         connection.execute(
             """
-            INSERT INTO job_languages (job_id, language, level, raw_value)
-            VALUES (?, ?, ?, ?)
-            """,
-            (job_id, name, level, item),
-        )
-
-    for item in split_items(row.get("technology_requirements")):
-        name, level = parse_item(item)
-        connection.execute(
-            """
-            INSERT INTO job_technologies (
+            INSERT INTO job_languages (
                 job_id,
-                technology,
+                language_id,
                 level,
-                is_required,
+                level_rank,
                 raw_value
             )
-            VALUES (?, ?, ?, 1, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (job_id, name, level, item),
+            (job_id, language_id, level, rank, item),
         )
 
-    for item in split_items(row.get("nice_to_have_technologies")):
-        name, level = parse_item(item)
-        connection.execute(
-            """
-            INSERT INTO job_technologies (
-                job_id,
-                technology,
-                level,
-                is_required,
-                raw_value
+        if rank is not None and rank > primary_rank:
+            primary_language_id = language_id
+            primary_rank = rank
+
+    connection.execute(
+        "UPDATE jobs SET primary_language_id = ? WHERE id = ?",
+        (primary_language_id, job_id),
+    )
+
+
+def replace_technologies(
+    connection: sqlite3.Connection,
+    job_id: int,
+    row: dict[str, str],
+) -> None:
+    connection.execute("DELETE FROM job_technologies WHERE job_id = ?", (job_id,))
+
+    for requirement_type, column in (
+        ("required", "technology_requirements"),
+        ("nice_to_have", "nice_to_have_technologies"),
+    ):
+        for item in split_items(row.get(column)):
+            name, level = parse_item(item)
+            technology_id = get_or_create_id(connection, "technologies", name)
+            connection.execute(
+                """
+                INSERT INTO job_technologies (
+                    job_id,
+                    technology_id,
+                    requirement_type,
+                    level,
+                    level_rank,
+                    raw_value
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (job_id, technology_id, requirement_type, level, level_rank(level), item),
             )
-            VALUES (?, ?, ?, 0, ?)
-            """,
-            (job_id, name, level, item),
-        )
 
 
-def import_jobs(csv_path: Path, db_path: Path, schema_path: Path, limit: int) -> int:
+def replace_requirements(
+    connection: sqlite3.Connection,
+    job_id: int,
+    row: dict[str, str],
+) -> None:
+    replace_languages(connection, job_id, row)
+    replace_technologies(connection, job_id, row)
+
+
+def import_jobs(
+    csv_path: Path,
+    db_path: Path,
+    schema_path: Path,
+    limit: int,
+    recreate: bool,
+) -> int:
     db_path.parent.mkdir(parents=True, exist_ok=True)
+    if recreate and db_path.exists():
+        db_path.unlink()
+
     with sqlite3.connect(db_path) as connection:
         apply_schema(connection, schema_path)
         with csv_path.open("r", encoding="utf-8", newline="") as file:
@@ -176,6 +261,7 @@ def main() -> None:
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
     parser.add_argument("--limit", type=int, default=2)
+    parser.add_argument("--recreate", action="store_true")
     args = parser.parse_args()
 
     count = import_jobs(
@@ -183,6 +269,7 @@ def main() -> None:
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         limit=args.limit,
+        recreate=args.recreate,
     )
     print(f"Imported {count} job(s) into {args.db}")
 
