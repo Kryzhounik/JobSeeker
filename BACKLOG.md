@@ -15,11 +15,11 @@
 - Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
 - Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
-- Use `analyzer/import_analyzed_jobs.py` or the source wrappers to import
-  analyzed JSON into SQLite.
-- Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
-- Use `analyzer/calculate_fitability.py` and `common/config/resume.ini` for hidden
-  fitability filters.
+- Use `analyzer/save_analyzed_job.py` to read analyzed JSON, calculate
+  filters/valuation, and save the result into SQLite.
+- Use `analyzer/config/valuation.ini` for sorting score rules.
+- Keep `analyzer/valuate_jobs.py` only as a manual recalculation utility.
+- Use `common/config/resume.ini` for hidden fitability filters.
 
 ## Next
 

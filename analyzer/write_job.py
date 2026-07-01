@@ -183,6 +183,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             remote_scope,
             relocation,
             valuation,
+            fitability_percent,
             seniority,
             role,
             salary,
@@ -192,7 +193,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
             title = excluded.title,
             company = excluded.company,
@@ -201,6 +202,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             remote_scope = excluded.remote_scope,
             relocation = excluded.relocation,
             valuation = excluded.valuation,
+            fitability_percent = excluded.fitability_percent,
             seniority = excluded.seniority,
             role = excluded.role,
             salary = excluded.salary,
@@ -220,6 +222,7 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             field(record, "remote_scope", "unknown"),
             field(record, "relocation", "NO"),
             int(record.get("valuation") or 0),
+            int(record.get("fitability_percent") or 100),
             clean(record.get("seniority"), "unknown"),
             clean(record.get("role"), "unknown"),
             clean(record.get("salary"), "unknown"),

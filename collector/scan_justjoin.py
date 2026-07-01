@@ -9,20 +9,22 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import time
 from pathlib import Path
-from urllib.parse import parse_qs
 from urllib.parse import urlencode
-from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+from justjoin_search_urls import API_URL as BROWSER_API_URL
+from justjoin_search_urls import DEFAULT_ITEMS_COUNT
+from justjoin_search_urls import SITE_URL
+from justjoin_search_urls import build_api_params
+from justjoin_search_urls import build_search_url
+from justjoin_search_urls import config_from_search_url
+from justjoin_search_urls import load_config
+from save_raw_page import save_content
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-SITE_URL = "https://justjoin.it"
-BROWSER_API_URL = SITE_URL + "/api/candidate-api"
-DEFAULT_ITEMS_COUNT = 100
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -108,128 +110,22 @@ def apply_limit(urls: list[str], limit: int) -> list[str]:
     return urls[:limit]
 
 
-def build_search_url(search: dict) -> str:
-    params = {
-        "published-date": search.get("publishedDays"),
-        "orderBy": search.get("orderBy", "DESC"),
-        "sortBy": search.get("sortBy", "published"),
-    }
-    languages = search.get("languages", "")
-    if languages:
-        params["languages"] = languages
-    experience_levels = search.get("experienceLevels", "")
-    if experience_levels:
-        params["experience-level"] = experience_levels
-
-    query = urlencode({key: value for key, value in params.items() if value})
-    location = search.get("location", "all-locations")
-    main_tech = search["mainTech"]
-    return f"https://justjoin.it/job-offers/{location}/{main_tech}?{query}"
-
-
-def build_api_params(config: dict, include_page: bool) -> dict:
-    params: dict[str, str | list[str] | int] = {
-        "categories": config["mainTech"],
-        "orderBy": {"ASC": "ascending", "DESC": "descending"}.get(
-            config.get("orderBy", "DESC"),
-            "descending",
-        ),
-        "sortBy": {"published": "publishedAt"}.get(
-            config.get("sortBy", "published"),
-            config.get("sortBy", "published"),
-        ),
-    }
-
-    if config.get("publishedDays"):
-        params["publishedSinceDays"] = config["publishedDays"]
-    if config.get("languages"):
-        params["languages"] = [
-            language.strip()
-            for language in config["languages"].split(",")
-            if language.strip()
-        ]
-    if config.get("experienceLevels"):
-        params["experienceLevels"] = [
-            level.strip()
-            for level in config["experienceLevels"].split(",")
-            if level.strip()
-        ]
-    if include_page:
-        params["from"] = 0
-        params["itemsCount"] = int(config.get("itemsCount", DEFAULT_ITEMS_COUNT))
-
-    return params
-
-
-def config_from_search_url(search_url: str) -> dict:
-    parsed = urlparse(search_url)
-    parts = [part for part in parsed.path.split("/") if part]
-    query = parse_qs(parsed.query)
-
-    config = {
-        "location": parts[1] if len(parts) > 1 else "all-locations",
-        "mainTech": parts[2] if len(parts) > 2 else "",
-        "orderBy": query.get("orderBy", ["DESC"])[0],
-        "sortBy": query.get("sortBy", ["published"])[0],
-    }
-    if query.get("published-date"):
-        config["publishedDays"] = query["published-date"][0]
-    if query.get("languages"):
-        config["languages"] = ",".join(
-            ",".join(query["languages"]).split(",")
-        )
-    if query.get("experience-level"):
-        config["experienceLevels"] = ",".join(
-            ",".join(query["experience-level"]).split(",")
-        )
-    if not config["mainTech"]:
-        raise SystemExit(f"Could not infer mainTech from search URL: {search_url}")
-
-    return config
-
-
-def load_config(config_path: Path) -> dict:
-    config: dict[str, str] = {}
-
-    for raw_line in config_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        key, separator, value = line.partition("=")
-        if separator:
-            config[key.strip()] = value.strip()
-
-    if "mainTech" not in config:
-        raise SystemExit(f"Config must define mainTech in {config_path}.")
-
-    return config
-
-
-def page_name(url: str) -> str:
-    slug = Path(urlparse(url).path).name or "job"
-    return re.sub(r"[^a-zA-Z0-9_.-]+", "_", slug) + ".html"
-
-
 def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool) -> None:
-    pages_dir = out_dir / "pages"
-    pages_dir.mkdir(parents=True, exist_ok=True)
-
     for index, url in enumerate(urls, start=1):
-        path = pages_dir / page_name(url)
-
-        if path.exists() and not force:
-            print(f"skip existing {index}/{len(urls)} {url}")
-            continue
-
         if index > 1 and delay_seconds > 0:
             print(f"sleep {delay_seconds:g}s")
             time.sleep(delay_seconds)
 
         print(f"GET {index}/{len(urls)} {url}")
         html = get_html(url)
-        path.write_text(html, encoding="utf-8")
-        print(f"saved {path}")
+        save_content(
+            source="justjoin",
+            url=url,
+            content=html,
+            out_dir=out_dir,
+            ext="html",
+            force=force,
+        )
 
 
 def parse_args() -> argparse.Namespace:

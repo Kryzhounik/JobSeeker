@@ -2,9 +2,10 @@ Task: Codex analyzes one job vacancy from a URL, raw HTML, or pasted vacancy
 text.
 
 Do not implement this analysis as Python string matching or regex extraction.
-Collector scripts only save raw pages. Import scripts only write a structured
-analysis JSON into SQLite. Codex/this prompt is the analysis layer until we
-explicitly decide to replace part of it with deterministic code.
+Collector scripts only save raw pages. Codex/this prompt produces structured
+analysis JSON. `analyzer/save_analyzed_job.py` calculates filters/valuation and
+saves the result into SQLite. Keep this analysis layer out of Python string
+heuristics unless we explicitly decide otherwise later.
 
 Return structured JSON data for saving into SQLite. Prefer visible facts from the
 vacancy. Use expert judgment only for fields that explicitly require text

@@ -6,20 +6,14 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 
-ROOT = Path(__file__).resolve().parents[1]
-LINKEDIN_SEARCH_URL = "https://www.linkedin.com/jobs/search/"
+ROOT = Path(__file__).resolve().parent
+SEARCH_URL = "https://www.linkedin.com/jobs/search/"
 
 EXPERIENCE = {
-    "internship": "1",
-    "entry": "2",
     "associate": "3",
     "mid_senior": "4",
-    "director": "5",
-    "executive": "6",
 }
 WORKPLACE = {
-    "onsite": "1",
-    "on_site": "1",
     "office": "1",
     "remote": "2",
     "hybrid": "3",
@@ -28,9 +22,6 @@ JOB_TYPES = {
     "full_time": "F",
     "part_time": "P",
     "contract": "C",
-    "temporary": "T",
-    "internship": "I",
-    "other": "O",
 }
 DATE_POSTED = {
     "day": "r86400",
@@ -41,114 +32,82 @@ SORT = {
     "newest": "DD",
     "relevant": "R",
 }
-LOCATIONLESS_REMOTE = {
+LOCATIONLESS = {
     "accountremote",
     "account_remote",
+    "remote",
     "worldwide",
     "global",
-    "global_remote",
-    "remote",
     "anywhere",
 }
-
-
-def collector_root() -> Path:
-    return Path(__file__).resolve().parent
 
 
 def load_config(path: Path) -> dict[str, str]:
     config: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-
-        key, separator, value = line.partition("=")
-        if separator:
+        if line and not line.startswith("#"):
+            key, _, value = line.partition("=")
             config[key.strip()] = value.strip()
     return config
 
 
-def csv_values(value: str) -> list[str]:
-    return [item.strip() for item in value.split(",") if item.strip()]
+def csv(value: str) -> list[str]:
+    return [part.strip() for part in value.split(",") if part.strip()]
 
 
-def mapped_csv(value: str, mapping: dict[str, str]) -> str:
+def mapped(value: str, mapping: dict[str, str]) -> str:
     result: list[str] = []
-    for item in csv_values(value):
+    for item in csv(value):
         key = item.lower().replace("-", "_").replace(" ", "_")
         result.append(mapping.get(key, item))
     return ",".join(result)
 
 
-def parse_location(value: str) -> tuple[str, str]:
-    name, separator, geo_id = value.partition(":")
-    return name.strip(), geo_id.strip() if separator else ""
-
-
-def build_search_url(config: dict[str, str], location: str, geo_id: str) -> str:
+def search_url(config: dict[str, str], raw_location: str) -> str:
     if config.get("searchUrl"):
         return config["searchUrl"]
 
+    location, _, geo_id = raw_location.partition(":")
+    location = location.strip()
     params = {
         "keywords": config.get("keywords", ""),
         "origin": "JOB_SEARCH_PAGE_SEARCH_BUTTON",
         "refresh": "true",
     }
-    if location and location.lower().replace(" ", "_") not in LOCATIONLESS_REMOTE:
+    if location and location.lower().replace(" ", "_") not in LOCATIONLESS:
         params["location"] = location
-    if geo_id and "location" in params:
-        params["geoId"] = geo_id
+        if geo_id.strip():
+            params["geoId"] = geo_id.strip()
 
-    experience = mapped_csv(config.get("experience", ""), EXPERIENCE)
-    if experience:
-        params["f_E"] = experience
-
-    workplace = mapped_csv(config.get("workplace", ""), WORKPLACE)
-    if workplace:
-        params["f_WT"] = workplace
-
-    job_types = mapped_csv(config.get("jobTypes", ""), JOB_TYPES)
-    if job_types:
-        params["f_JT"] = job_types
-
-    date_posted = DATE_POSTED.get(config.get("datePosted", "").lower(), config.get("datePosted", ""))
-    if date_posted:
-        params["f_TPR"] = date_posted
-
-    sort = SORT.get(config.get("sort", "").lower(), config.get("sort", ""))
-    if sort:
-        params["sortBy"] = sort
-
-    return LINKEDIN_SEARCH_URL + "?" + urlencode(params)
+    values = {
+        "f_E": mapped(config.get("experience", ""), EXPERIENCE),
+        "f_WT": mapped(config.get("workplace", ""), WORKPLACE),
+        "f_JT": mapped(config.get("jobTypes", ""), JOB_TYPES),
+        "f_TPR": DATE_POSTED.get(config.get("datePosted", ""), ""),
+        "sortBy": SORT.get(config.get("sort", ""), config.get("sort", "")),
+    }
+    params.update({key: value for key, value in values.items() if value})
+    return SEARCH_URL + "?" + urlencode(params)
 
 
 def build_urls(config: dict[str, str]) -> list[tuple[str, str]]:
-    locations = csv_values(config.get("locations", ""))
-    if not locations:
-        locations = [""]
-
+    locations = csv(config.get("locations", "")) or [""]
     result: list[tuple[str, str]] = []
     for raw_location in locations:
-        location, geo_id = parse_location(raw_location)
-        result.append((location or "all", build_search_url(config, location, geo_id)))
+        name = raw_location.partition(":")[0].strip() or "all"
+        result.append((name, search_url(config, raw_location)))
     return result
 
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build LinkedIn search URLs from config.")
-    parser.add_argument(
-        "--config",
-        default=str(collector_root() / "config" / "linkedin.properties"),
-    )
-    return parser.parse_args()
-
-
 def main() -> None:
-    args = parse_args()
+    parser = argparse.ArgumentParser(description="Build LinkedIn search URLs.")
+    parser.add_argument("--config", default=str(ROOT / "config" / "linkedin.properties"))
+    args = parser.parse_args()
+
     config = load_config(Path(args.config))
-    for location, url in build_urls(config):
-        print(f"{location}: {url}")
+    for name, url in build_urls(config):
+        print(f"{name}\t{url}")
 
 
 if __name__ == "__main__":
