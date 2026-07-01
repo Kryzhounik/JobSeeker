@@ -160,60 +160,7 @@ def save_queue(
 
 def raw_page_name(url: str) -> str:
     match = re.search(r"/jobs/view/(\d+)/", url)
-    return f"{match.group(1) if match else 'linkedin-job'}.json"
-
-
-def text_from_html(page_html: str) -> str:
-    page_html = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", page_html)
-    text = re.sub(r"(?s)<[^>]+>", " ", page_html)
-    text = html.unescape(text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-def meta_content(page_html: str, name: str) -> str:
-    patterns = (
-        rf'<meta[^>]+property=["\']{re.escape(name)}["\'][^>]+content=["\']([^"\']*)',
-        rf'<meta[^>]+name=["\']{re.escape(name)}["\'][^>]+content=["\']([^"\']*)',
-        rf'<meta[^>]+content=["\']([^"\']*)["\'][^>]+property=["\']{re.escape(name)}["\']',
-        rf'<meta[^>]+content=["\']([^"\']*)["\'][^>]+name=["\']{re.escape(name)}["\']',
-    )
-    for pattern in patterns:
-        match = re.search(pattern, page_html, flags=re.I)
-        if match:
-            return html.unescape(match.group(1)).strip()
-    return ""
-
-
-def title_from_html(page_html: str) -> str:
-    title = meta_content(page_html, "og:title")
-    if title:
-        return re.sub(r"\s*\|\s*LinkedIn.*$", "", title).strip()
-
-    match = re.search(r"(?is)<title[^>]*>(.*?)</title>", page_html)
-    if not match:
-        return ""
-    return re.sub(r"\s*\|\s*LinkedIn.*$", "", html.unescape(match.group(1))).strip()
-
-
-def title_parts(raw_title: str) -> tuple[str, str, str]:
-    match = re.match(r"(.+?) hiring (.+?) in (.+)$", raw_title, flags=re.I)
-    if match:
-        return match.group(2).strip(), match.group(1).strip(), match.group(3).strip()
-    return raw_title, "", ""
-
-
-def raw_job(url: str, page_html: str) -> dict[str, str]:
-    text = text_from_html(page_html)
-    title, company, location = title_parts(title_from_html(page_html))
-    return {
-        "source_url": url,
-        "title": title,
-        "company": company,
-        "location": location,
-        "workplace_type": "",
-        "salary": "",
-        "text": text,
-    }
+    return f"{match.group(1) if match else 'linkedin-job'}.html"
 
 
 def download_jobs(
@@ -238,10 +185,7 @@ def download_jobs(
 
         print(f"GET {index}/{len(jobs)} {url}")
         page_html = get_text(url)
-        path.write_text(
-            json.dumps(raw_job(url, page_html), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        path.write_text(page_html, encoding="utf-8")
         print(f"saved {path}")
 
 

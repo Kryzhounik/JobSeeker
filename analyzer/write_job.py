@@ -257,7 +257,7 @@ def replace_languages(
             continue
 
         level = normalize_level(language.get("level"))
-        rank = level_rank(level)
+        rank = int(language.get("level_rank") or level_rank(level))
         language_id = get_or_create_id(connection, "languages", name)
         connection.execute(
             """
@@ -319,7 +319,7 @@ def replace_technologies(
                 technology_id,
                 req_type,
                 level,
-                technology_level_rank(level, req_type),
+                int(technology.get("level_rank") or technology_level_rank(level, req_type)),
                 raw_value,
             ),
         )

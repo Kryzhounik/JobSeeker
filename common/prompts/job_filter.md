@@ -14,6 +14,11 @@ Remote/relocation filter modes:
 - `location`: require remote_scope or relocation destination to match the
   configured allowed list.
 
+For full remote jobs, use `remote_scope` as the source of truth. The listed
+office/job location does not matter if the job is truly remote. For
+office/hybrid jobs in unavailable locations, pass them only when relocation is
+offered and the relocation destination matches the configured list.
+
 Language rules:
 - Read known languages from `common/config/resume.ini`.
 - If required English is higher than B2, fitability is 0.

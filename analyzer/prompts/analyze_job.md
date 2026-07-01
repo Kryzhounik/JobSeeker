@@ -1,6 +1,12 @@
-Task: analyze one job vacancy from a URL, raw HTML, or pasted vacancy text.
+Task: Codex analyzes one job vacancy from a URL, raw HTML, or pasted vacancy
+text.
 
-Return structured data for saving into SQLite. Prefer visible facts from the
+Do not implement this analysis as Python string matching or regex extraction.
+Collector scripts only save raw pages. Import scripts only write a structured
+analysis JSON into SQLite. Codex/this prompt is the analysis layer until we
+explicitly decide to replace part of it with deterministic code.
+
+Return structured JSON data for saving into SQLite. Prefer visible facts from the
 vacancy. Use expert judgment only for fields that explicitly require text
 interpretation.
 

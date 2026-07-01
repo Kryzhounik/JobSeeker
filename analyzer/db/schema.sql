@@ -87,6 +87,7 @@ SELECT
     coalesce(j.remote_scope, '') AS remote_scope,
     coalesce(j.relocation, '') AS relocation,
     coalesce(j.remote_type, '') AS remote_type,
+    coalesce(j.location, '') AS location,
     (
         SELECT l.name || coalesce(': ' || nullif(jl.level, ''), '')
         FROM job_languages jl
@@ -260,6 +261,7 @@ SELECT
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
     CASE WHEN row_in_job = 1 THEN coalesce(relocation, '') ELSE '' END AS relocation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
+    CASE WHEN row_in_job = 1 THEN coalesce(location, '') ELSE '' END AS location,
     CASE WHEN row_in_job = 1 THEN coalesce(primary_language, '') ELSE '' END AS primary_language,
     CASE WHEN row_in_job = 1 THEN coalesce(languages, '') ELSE '' END AS languages,
     technology,

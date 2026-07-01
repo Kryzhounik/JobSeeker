@@ -11,12 +11,12 @@
 - Use `collector/config/linkedin.properties` for the first LinkedIn search URL
   and one-vacancy debug limit.
 - Use `common/job_filter.py` for shared early filters and language fitability.
-- Use `common/text_job_analysis.py` for text-based language, technology,
-  remote scope, relocation, and salary hints.
 - Use `common/config/filter.ini` to turn filter blocks on and off.
 - Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
-- Use `analyzer/analyze_justjoin_raw.py` for mechanical JustJoinIT raw imports.
-- Use `analyzer/analyze_linkedin_raw.py` for mechanical LinkedIn raw imports.
+- Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
+- Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
+- Use `analyzer/import_analyzed_jobs.py` or the source wrappers to import
+  analyzed JSON into SQLite.
 - Use `analyzer/valuate_jobs.py` and `analyzer/config/valuation.ini` for sorting score.
 - Use `analyzer/calculate_fitability.py` and `common/config/resume.ini` for hidden
   fitability filters.
@@ -33,22 +33,19 @@
   - `reject_reason`
 - Granulate `fitability_percent` beyond the first language filter.
 - Add tech score rules for `valuation`, up to 99 points.
-- Add `remote_scope` expert detection:
+- Keep `remote_scope` in Codex analysis for now:
   - `worldwide` only for explicit work-anywhere/global wording.
   - country/region only for fully remote roles.
   - empty for hybrid/office unless fully remote is also explicitly allowed.
   - keep `EU` and `Europe` distinct.
-- Add `relocation` expert detection:
+- Keep `relocation` in Codex analysis for now:
   - `NO` when relocation is absent or not mentioned.
   - country/place list when relocation is offered.
 
 ## Later
 
-- Split extraction into cheaper stages:
-  - code/API extracts objective fields where reliable.
-  - Codex analyzes expert fields and uncertain text.
-- Add JustJoinIT objective-field adapter for title, company, salary, location,
-  explicit skills, languages, and URLs.
+- Only add deterministic extraction later if it clearly removes cost without
+  creating a growing pile of fragile wording rules.
 - Add more sources after the JustJoinIT flow is comfortable.
 - Add scheduling only after manual runs are useful.
 - Add stale-vacancy cleanup.

@@ -2,6 +2,7 @@
 data/*.sqlite
 data/*.db
 data/raw/
+data/analyzed/
 
 # Local IDE settings
 .idea/
