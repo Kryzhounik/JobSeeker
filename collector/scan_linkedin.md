@@ -12,15 +12,19 @@ rate-limited and do not use the logged-in session.
 ## Workflow
 
 1. Run `python collector/linkedin_search_urls.py`.
-2. Open the printed search URL(s) in the logged-in in-app browser.
-3. Scroll search results slowly and collect canonical vacancy URLs:
+2. Open `seed:<location>` URL(s) first, but do not collect vacancies from them.
+   They only anchor LinkedIn's sticky remote-search location.
+3. Open the printed non-seed search URL(s) in the logged-in in-app browser.
+4. For search pages, use LinkedIn pagination (`start=...`) rather than
+   scrolling when possible.
+5. Collect canonical vacancy URLs:
    `https://www.linkedin.com/jobs/view/<id>/`.
-4. Stop at `limit` from `collector/config/linkedin.properties`.
-5. Save the queue as `data/raw/linkedin/queue.json`.
-6. Open each vacancy URL in the same browser.
-7. Wait `delaySeconds` between vacancies.
-8. Get the raw HTML from the browser page.
-9. Save it through the common saver:
+6. Stop at `limit` from `collector/config/linkedin.properties`.
+7. Save the queue as `data/raw/linkedin/queue.json`.
+8. Open each vacancy URL in the same browser.
+9. Wait `delaySeconds` between vacancies.
+10. Get the raw HTML from the browser page.
+11. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
 
 Do not use Python `urllib`, `requests`, hidden APIs, or copied cookies for

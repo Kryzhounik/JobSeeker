@@ -42,6 +42,14 @@ LOCATIONLESS = {
 }
 
 
+def location_key(raw_location: str) -> str:
+    return raw_location.partition(":")[0].strip().lower().replace(" ", "_")
+
+
+def is_locationless(raw_location: str) -> bool:
+    return location_key(raw_location) in LOCATIONLESS
+
+
 def load_config(path: Path) -> dict[str, str]:
     config: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -70,19 +78,25 @@ def search_url(config: dict[str, str], raw_location: str) -> str:
 
     location, _, geo_id = raw_location.partition(":")
     location = location.strip()
+    locationless = is_locationless(raw_location)
     params = {
         "keywords": config.get("keywords", ""),
         "origin": "JOB_SEARCH_PAGE_SEARCH_BUTTON",
         "refresh": "true",
     }
-    if location and location.lower().replace(" ", "_") not in LOCATIONLESS:
+    if location and not locationless:
         params["location"] = location
         if geo_id.strip():
             params["geoId"] = geo_id.strip()
 
+    workplace = (
+        config.get("remoteBroadWorkplace", "remote")
+        if locationless
+        else config.get("workplace", "")
+    )
     values = {
         "f_E": mapped(config.get("experience", ""), EXPERIENCE),
-        "f_WT": mapped(config.get("workplace", ""), WORKPLACE),
+        "f_WT": mapped(workplace, WORKPLACE),
         "f_JT": mapped(config.get("jobTypes", ""), JOB_TYPES),
         "f_TPR": DATE_POSTED.get(config.get("datePosted", ""), ""),
         "sortBy": SORT.get(config.get("sort", ""), config.get("sort", "")),
@@ -94,8 +108,13 @@ def search_url(config: dict[str, str], raw_location: str) -> str:
 def build_urls(config: dict[str, str]) -> list[tuple[str, str]]:
     locations = csv(config.get("locations", "")) or [""]
     result: list[tuple[str, str]] = []
-    for raw_location in locations:
+    for index, raw_location in enumerate(locations):
         name = raw_location.partition(":")[0].strip() or "all"
+        if is_locationless(raw_location) and index + 1 < len(locations):
+            seed_location = locations[index + 1]
+            seed_name = seed_location.partition(":")[0].strip()
+            if seed_name and not is_locationless(seed_location):
+                result.append((f"seed:{seed_name}", search_url(config, seed_location)))
         result.append((name, search_url(config, raw_location)))
     return result
 
