@@ -5,6 +5,8 @@
 - Keep the MVP small: Codex reads vacancy text, extracts structured fields, and
   saves them into SQLite.
 - Use `data/jobs.sqlite` as the local prototype database.
+- Use `WORKFLOW.md` as the public run contract: search, direct URL, and
+  reprocess saved raw all converge on the same raw analysis process.
 - Use `job_view` as the main filtered DB Browser view.
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
 - Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.

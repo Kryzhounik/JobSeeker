@@ -1,5 +1,13 @@
-Task: Codex analyzes one job vacancy from a URL, raw HTML, or pasted vacancy
-text.
+Task: Codex analyzes one job vacancy from a saved raw HTML file.
+
+Public analyzer call:
+- Input: one saved raw vacancy file, plus source/source_url when available.
+- Do not run search or collection here.
+- Do not reopen the vacancy in the browser unless the user explicitly asks.
+- Produce one analyzed JSON file under `data/analyzed/<source>/`.
+- Then save it with `python analyzer/save_analyzed_job.py --input <json> --source <source>`.
+- Direct URLs from the user must first be saved as raw HTML by the collection
+  side, then analyzed through this same raw-file call.
 
 Do not implement this analysis as Python string matching or regex extraction.
 Collector scripts only save raw pages. Codex/this prompt produces structured
