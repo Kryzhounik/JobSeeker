@@ -2,6 +2,8 @@
 data/*.sqlite
 data/*.db
 data/raw/
+data/readable/
+data/readable_v2/
 data/analyzed/
 
 # Local IDE settings

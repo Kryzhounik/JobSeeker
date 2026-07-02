@@ -1,0 +1,1407 @@
+{
+  "source": "linkedin",
+  "sample": "first 10 raw/v2-readable pairs sorted by file name",
+  "checked_fields": [
+    "source_url",
+    "title",
+    "company",
+    "location",
+    "remote_type",
+    "remote_scope",
+    "relocation",
+    "seniority",
+    "role",
+    "salary",
+    "languages",
+    "technologies"
+  ],
+  "result": {
+    "jobs_checked": 10,
+    "jobs_with_differences": 0,
+    "note": "For these 10 pairs, semantic analysis of v2 readable text matched the raw HTML baseline JSON on collected fields. This is intentionally not a prefix/tail/line-count test."
+  },
+  "pairs": [
+    {
+      "id": "4357714383",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4357714383/",
+        "title": "Staff Software Engineer",
+        "company": "ZenRows",
+        "location": "EMEA",
+        "remote_type": "remote",
+        "remote_scope": "worldwide",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "backend",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Go",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "distributed systems",
+            "requirement_type": "required",
+            "level_rank": 5
+          },
+          {
+            "name": "queueing and messaging systems",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "SQS",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Kafka",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "RabbitMQ",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Pub/Sub",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "BullMQ",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "OpenTelemetry",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Prometheus",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Grafana",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Playwright",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Puppeteer",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "proxy infrastructure",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "TLS fingerprinting",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "multi-cloud deployment",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4357714383/",
+        "title": "Staff Software Engineer",
+        "company": "ZenRows",
+        "location": "EMEA",
+        "remote_type": "remote",
+        "remote_scope": "worldwide",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "backend",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Go",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "distributed systems",
+            "requirement_type": "required",
+            "level_rank": 5
+          },
+          {
+            "name": "queueing and messaging systems",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "SQS",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Kafka",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "RabbitMQ",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Pub/Sub",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "BullMQ",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "OpenTelemetry",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Prometheus",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Grafana",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Playwright",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Puppeteer",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "proxy infrastructure",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "TLS fingerprinting",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "multi-cloud deployment",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4357714383.txt"
+    },
+    {
+      "id": "4357716936",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4357716936/",
+        "title": "Senior C++ Developer (Remote, Global)",
+        "company": "Teramind",
+        "location": "EMEA",
+        "remote_type": "remote",
+        "remote_scope": "worldwide",
+        "relocation": "NO",
+        "seniority": "senior",
+        "role": "backend",
+        "salary": "$35/hr - $55/hr",
+        "languages": [
+          {
+            "name": "English",
+            "level": "good spoken and written",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "C++11",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Git",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "client-server application development",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "unit testing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "design patterns",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "cybersecurity best practices",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Mac systems",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Objective-C",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "WinAPI",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "low-level software development",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "drivers development",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Boost",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "ClickHouse",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Golang",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Rust",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "AWS",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4357716936/",
+        "title": "Senior C++ Developer (Remote, Global)",
+        "company": "Teramind",
+        "location": "EMEA",
+        "remote_type": "remote",
+        "remote_scope": "worldwide",
+        "relocation": "NO",
+        "seniority": "senior",
+        "role": "backend",
+        "salary": "$35/hr - $55/hr",
+        "languages": [
+          {
+            "name": "English",
+            "level": "good spoken and written",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "C++11",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Git",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "client-server application development",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "unit testing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "design patterns",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "cybersecurity best practices",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Mac systems",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Objective-C",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "WinAPI",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "low-level software development",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "drivers development",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Boost",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "ClickHouse",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Golang",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "Rust",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "AWS",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4357716936.txt"
+    },
+    {
+      "id": "4386960689",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4386960689/",
+        "title": "Software Development Engineer in Test II",
+        "company": "Akamai Technologies",
+        "location": "Cracow, Małopolskie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "qa",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "test automation frameworks",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "performance testing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "benchmarking tools",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "AI/ML inference",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Python",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "CI/CD pipelines",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "containers",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "cloud-based testing infrastructure",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4386960689/",
+        "title": "Software Development Engineer in Test II",
+        "company": "Akamai Technologies",
+        "location": "Cracow, Małopolskie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "qa",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "test automation frameworks",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "performance testing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "benchmarking tools",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "AI/ML inference",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Python",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "CI/CD pipelines",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "containers",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "cloud-based testing infrastructure",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4386960689.txt"
+    },
+    {
+      "id": "4393037219",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4393037219/",
+        "title": "FinCrime Team Lead (Escalations)",
+        "company": "Revolut",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "other",
+        "salary": "11.1K PLN/month - 16.1K PLN/month",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "financial crime operations",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "operations quality management",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4393037219/",
+        "title": "FinCrime Team Lead (Escalations)",
+        "company": "Revolut",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "other",
+        "salary": "11.1K PLN/month - 16.1K PLN/month",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "financial crime operations",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "operations quality management",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4393037219.txt"
+    },
+    {
+      "id": "4405540974",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4405540974/",
+        "title": "Salesforce Business Solution Architect",
+        "company": "EPAM Systems",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "Business-driven relocation opportunities",
+        "seniority": "senior",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "fluent written and spoken",
+            "level_rank": 4
+          }
+        ],
+        "technologies": [
+          {
+            "name": "Salesforce",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Service Cloud",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Health Cloud",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Patient Services",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "pharmacovigilance processes",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4405540974/",
+        "title": "Salesforce Business Solution Architect",
+        "company": "EPAM Systems",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "Business-driven relocation opportunities",
+        "seniority": "senior",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "fluent written and spoken",
+            "level_rank": 4
+          }
+        ],
+        "technologies": [
+          {
+            "name": "Salesforce",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Service Cloud",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Health Cloud",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Patient Services",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "pharmacovigilance processes",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4405540974.txt"
+    },
+    {
+      "id": "4411180614",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4411180614/",
+        "title": "Konsultantka/ Konsultant SAP - Zespół Wdrożeniowy MDM",
+        "company": "IPOPEMA Business Consulting",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "good",
+            "level_rank": 3
+          },
+          {
+            "name": "Polish",
+            "level": "implicit job language",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "SAP MDM",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "SAP S/4HANA",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SAP ERP",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SAP CRM",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "data modeling",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "data cleansing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "data migration",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "workflows",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4411180614/",
+        "title": "Konsultantka/ Konsultant SAP - Zespół Wdrożeniowy MDM",
+        "company": "IPOPEMA Business Consulting",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "good",
+            "level_rank": 3
+          },
+          {
+            "name": "Polish",
+            "level": "implicit job language",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "SAP MDM",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "SAP S/4HANA",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SAP ERP",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SAP CRM",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "data modeling",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "data cleansing",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "data migration",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "workflows",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4411180614.txt"
+    },
+    {
+      "id": "4412746314",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4412746314/",
+        "title": "Lead .NET Software Engineer",
+        "company": "EPAM Systems",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "Business-driven relocation opportunities",
+        "seniority": "lead",
+        "role": "fullstack",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "B2 or higher",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": ".NET",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "ReactJS",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Azure",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "MS SQL",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "GitHub Copilot",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "microservices",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "serverless",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "event-driven architecture",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "CI/CD",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Docker",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Kubernetes",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "infrastructure as code",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4412746314/",
+        "title": "Lead .NET Software Engineer",
+        "company": "EPAM Systems",
+        "location": "Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "Business-driven relocation opportunities",
+        "seniority": "lead",
+        "role": "fullstack",
+        "salary": "unknown",
+        "languages": [
+          {
+            "name": "English",
+            "level": "B2 or higher",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": ".NET",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "ReactJS",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "Azure",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "MS SQL",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "GitHub Copilot",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "microservices",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "serverless",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "event-driven architecture",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "CI/CD",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Docker",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Kubernetes",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "infrastructure as code",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4412746314.txt"
+    },
+    {
+      "id": "4413331593",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4413331593/",
+        "title": "Lead Software Performance Engineer",
+        "company": "AMD",
+        "location": "Warsaw, Mazowieckie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "backend",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Python",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "C++",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "C#",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "system performance analysis",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "benchmarking automation",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "uProf",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "VTune",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "WPA",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SIMD",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Windows",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Linux",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "macOS",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Android",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "concurrent programming",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "multi-threaded systems",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4413331593/",
+        "title": "Lead Software Performance Engineer",
+        "company": "AMD",
+        "location": "Warsaw, Mazowieckie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "backend",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Python",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "C++",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "C#",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "system performance analysis",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "benchmarking automation",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "uProf",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "VTune",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "WPA",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "SIMD",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Windows",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Linux",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "macOS",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "Android",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "concurrent programming",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "multi-threaded systems",
+            "requirement_type": "required",
+            "level_rank": 3
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4413331593.txt"
+    },
+    {
+      "id": "4415958077",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4415958077/",
+        "title": "Total Rewards Team Lead",
+        "company": "Salmon Group Ltd",
+        "location": "European Union",
+        "remote_type": "remote",
+        "remote_scope": "EU",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Total Rewards",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "compensation frameworks",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "equity programs",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "HRIS tools",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "People Tech",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4415958077/",
+        "title": "Total Rewards Team Lead",
+        "company": "Salmon Group Ltd",
+        "location": "European Union",
+        "remote_type": "remote",
+        "remote_scope": "EU",
+        "relocation": "NO",
+        "seniority": "lead",
+        "role": "other",
+        "salary": "unknown",
+        "languages": [],
+        "technologies": [
+          {
+            "name": "Total Rewards",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "compensation frameworks",
+            "requirement_type": "required",
+            "level_rank": 4
+          },
+          {
+            "name": "equity programs",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "HRIS tools",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          },
+          {
+            "name": "People Tech",
+            "requirement_type": "nice_to_have",
+            "level_rank": 1
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4415958077.txt"
+    },
+    {
+      "id": "4417061676",
+      "raw_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4417061676/",
+        "title": "Tester Ferryt (He, She) -",
+        "company": "Astek",
+        "location": "Warsaw, Mazowieckie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "qa",
+        "salary": "580-680 PLN net/day",
+        "languages": [
+          {
+            "name": "Polish",
+            "level": "implicit job language",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "JIRA",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Confluence",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Ferryt",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "HP QC",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "UTP",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Katalon",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "ALM",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "ISEB/ISTQB",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "banking applications",
+            "requirement_type": "required",
+            "level_rank": 2
+          }
+        ]
+      },
+      "readable_json": {
+        "source_url": "https://www.linkedin.com/jobs/view/4417061676/",
+        "title": "Tester Ferryt (He, She) -",
+        "company": "Astek",
+        "location": "Warsaw, Mazowieckie, Poland",
+        "remote_type": "remote",
+        "remote_scope": "Poland",
+        "relocation": "NO",
+        "seniority": "middle",
+        "role": "qa",
+        "salary": "580-680 PLN net/day",
+        "languages": [
+          {
+            "name": "Polish",
+            "level": "implicit job language",
+            "level_rank": 3
+          }
+        ],
+        "technologies": [
+          {
+            "name": "JIRA",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Confluence",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Ferryt",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "HP QC",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "UTP",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "Katalon",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "ALM",
+            "requirement_type": "required",
+            "level_rank": 3
+          },
+          {
+            "name": "ISEB/ISTQB",
+            "requirement_type": "required",
+            "level_rank": 2
+          },
+          {
+            "name": "banking applications",
+            "requirement_type": "required",
+            "level_rank": 2
+          }
+        ]
+      },
+      "differences": [],
+      "readable_file": "data/readable_v2/linkedin/pages/4417061676.txt"
+    }
+  ],
+  "cleaner": "analyzer/extract_readable_text_v2.py",
+  "raw_baseline": "raw_json from the existing raw HTML semantic analysis report"
+}

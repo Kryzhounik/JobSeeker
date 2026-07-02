@@ -1,19 +1,21 @@
-Task: Codex analyzes one job vacancy from a saved raw HTML file.
+Task: Codex analyzes one job vacancy from a saved readable text file.
 
 Public analyzer call:
-- Input: one saved raw vacancy file, plus source/source_url when available.
+- Input: one saved readable vacancy text file, plus source/source_url when
+  available.
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `data/analyzed/<source>/`.
 - Then save it with `python analyzer/save_analyzed_job.py --input <json> --source <source>`.
 - Direct URLs from the user must first be saved as raw HTML by the collection
-  side, then analyzed through this same raw-file call.
+  side, converted to readable text, then analyzed through this same call.
 
 Do not implement this analysis as Python string matching or regex extraction.
-Collector scripts only save raw pages. Codex/this prompt produces structured
-analysis JSON. `analyzer/save_analyzed_job.py` calculates filters/valuation and
-saves the result into SQLite. Keep this analysis layer out of Python string
-heuristics unless we explicitly decide otherwise later.
+Collector scripts only save raw pages. `analyzer/extract_readable_text_v2.py`
+removes HTML/page noise but does not extract job fields. Codex/this prompt
+produces structured analysis JSON. `analyzer/save_analyzed_job.py` calculates
+filters/valuation and saves the result into SQLite. Keep this analysis layer out
+of Python string heuristics unless we explicitly decide otherwise later.
 
 Return structured JSON data for saving into SQLite. Prefer visible facts from the
 vacancy. Use expert judgment only for fields that explicitly require text

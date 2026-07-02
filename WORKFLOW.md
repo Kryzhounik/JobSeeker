@@ -17,16 +17,17 @@ flowchart TD
 
     E["fromUrl(source, url)"] --> D
 
-    F["reprocessRaw(source, selector)"] --> G["getSavedRaw(source, selector)"]
+    F["reprocessRaw(source)"] --> G["getSavedRaw(source)"]
     G --> H["for each raw"]
 
     D --> I["processRaw(source, raw)"]
     H --> I
 
-    I --> J["analyzeRawWithCodex(analyze_job.md)"]
-    J --> K["save analyzed JSON"]
-    K --> L["save_analyzed_job.py"]
-    L --> M["filters + valuation + SQLite"]
+    I --> J["extract_readable_text_v2.py"]
+    J --> K["analyzeReadableWithCodex(analyze_job.md)"]
+    K --> L["save analyzed JSON"]
+    L --> M["save_analyzed_job.py"]
+    M --> N["filters + valuation + SQLite"]
 ```
 
 Rules:
@@ -74,7 +75,7 @@ fromUrl(source, url) {
 For LinkedIn, `saveRaw` uses the logged-in browser page content. It must not use
 direct Python HTTP.
 
-### 3. reprocess_raw(source, selector)
+### 3. reprocessRaw(source)
 
 Does not search and does not download anything. It takes already saved raw HTML
 files and sends them to `process_raw`.
@@ -82,8 +83,8 @@ files and sends them to `process_raw`.
 Java-shaped flow:
 
 ```java
-reprocessRaw(source, selector) {
-    raws = findSavedRawFiles(source, selector);
+reprocessRaw(source) {
+    raws = findSavedRawFiles(source);
     for (raw : raws) {
         processRaw(source, raw);
     }
@@ -96,7 +97,8 @@ All public calls converge here.
 
 ```java
 processRaw(source, raw) {
-    json = analyzeRawWithCodex(source, raw, "analyzer/prompts/analyze_job.md");
+    text = extractReadableTextV2(source, raw);
+    json = analyzeReadableWithCodex(source, text, "analyzer/prompts/analyze_job.md");
     saveJson("data/analyzed/<source>/", json);
     run("python analyzer/save_analyzed_job.py --input <json> --source <source>");
 }
@@ -108,7 +110,8 @@ files. This is the main rule that keeps calibration honest.
 ## Boundaries
 
 - Collectors collect and save raw pages.
-- Analyzer prompt extracts structured JSON from saved raw pages.
+- `analyzer/extract_readable_text_v2.py` converts raw HTML into readable text.
+- Analyzer prompt extracts structured JSON from readable text.
 - `analyzer/save_analyzed_job.py` reads analyzed JSON, applies filters,
   calculates valuation, and writes SQLite.
 - Direct user links go through `fromUrl`; they are not analyzed live.
