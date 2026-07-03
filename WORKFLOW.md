@@ -2,8 +2,17 @@
 
 This file is the public contract for how JobSeeker is run.
 
-API here means a callable entry point for Codex/scripts. It is not an HTTP
-server yet.
+API here means a callable entry point for Codex and/or scripts. It is not an
+HTTP server yet.
+
+Current execution model:
+
+- Public calls like `batch linkedin`, `from-url linkedin <url>`, and
+  `reprocess-raw linkedin` are commands to Codex.
+- Some steps are scripts.
+- Some steps are Codex-agent steps.
+- A Codex-agent step is still part of the workflow contract. Codex must execute
+  it instead of stopping just because there is no Python module for that step.
 
 ## Execution Diagram
 
@@ -41,6 +50,9 @@ Rules:
 - `reprocessRaw` starts from already saved raw files.
 - After raw exists, every path must call the same `processRaw`.
 - No public call may analyze a live URL directly.
+- If a public call includes `processRaw`, Codex must continue through readable
+  extraction, agent analysis, JSON save, and SQLite save unless the user
+  explicitly asks to stop earlier.
 - If we later turn this into real code/API, this diagram is the contract it must
   implement.
 
@@ -108,9 +120,13 @@ All public calls converge here.
 
 ```java
 processRaw(source, raw) {
-    text = extractReadableTextV2(source, raw);
-    json = analyzeReadableWithCodex(source, text, "analyzer/prompts/analyze_job.md");
-    saveJson("data/analyzed/<source>/", json);
+    text = extractReadableTextV2(source, raw);                  // script
+    json = CodexAgent.analyze(
+        source,
+        text,
+        "analyzer/prompts/analyze_job.md"
+    );                                                          // agent step
+    saveJson("data/analyzed/<source>/", json);                  // file write
     run("python analyzer/save_analyzed_job.py --input <json> --source <source>");
 }
 ```
@@ -118,13 +134,19 @@ processRaw(source, raw) {
 `process_raw` must not care where raw came from: search, direct URL, or saved
 files. This is the main rule that keeps calibration honest.
 
+Important: `CodexAgent.analyze(...)` is intentionally not a Python script at the
+current stage. It means Codex reads the saved readable text, applies
+`analyzer/prompts/analyze_job.md`, writes one analyzed JSON file, and then calls
+the SQLite saver.
+
 ## Boundaries
 
 - Collectors collect and save raw pages.
 - Preview extraction reads visible search-card text only.
 - `common/preview_filter.py` may skip obvious misses before raw download.
 - `analyzer/extract_readable_text_v2.py` converts raw HTML into readable text.
-- Analyzer prompt extracts structured JSON from readable text.
+- Codex-agent analysis with `analyzer/prompts/analyze_job.md` extracts
+  structured JSON from readable text.
 - `analyzer/save_analyzed_job.py` reads analyzed JSON, applies filters,
   calculates valuation, and writes SQLite.
 - Direct user links go through `fromUrl`; they are not analyzed live.
