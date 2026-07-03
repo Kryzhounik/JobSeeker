@@ -65,6 +65,13 @@ def field(record: dict[str, Any], name: str, default: str = "") -> str:
     return clean(record.get(name))
 
 
+def int_field(record: dict[str, Any], name: str, default: int = 0) -> int:
+    value = record.get(name)
+    if value is None or value == "":
+        return default
+    return int(value)
+
+
 def normalize_level(value: str | None) -> str:
     return clean(value)
 
@@ -221,8 +228,8 @@ def write_job(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
             clean(record.get("remote_type"), "unknown"),
             field(record, "remote_scope", "unknown"),
             field(record, "relocation", "NO"),
-            int(record.get("valuation") or 0),
-            int(record.get("fitability_percent") or 100),
+            int_field(record, "valuation", 0),
+            int_field(record, "fitability_percent", 100),
             clean(record.get("seniority"), "unknown"),
             clean(record.get("role"), "unknown"),
             clean(record.get("salary"), "unknown"),

@@ -13,7 +13,10 @@ All public calls must reuse the same raw-processing branch.
 flowchart TD
     A["batch(source)"] --> B["getSettings(source)"]
     B --> C["findVacancies(settings)"]
-    C --> D["saveRaw(source, url)"]
+    C --> P["readPreview(source, search card)"]
+    P --> Q["common/preview_filter.py"]
+    Q -->|open| D["saveRaw(source, url)"]
+    Q -->|skip| R["savePreviewSkip(source, preview)"]
 
     E["fromUrl(source, url)"] --> D
 
@@ -33,6 +36,8 @@ flowchart TD
 Rules:
 
 - `batch` and `fromUrl` may differ only before `saveRaw`.
+- `batch` may use preview data from search result cards to skip obvious misses
+  before opening full vacancy pages.
 - `reprocessRaw` starts from already saved raw files.
 - After raw exists, every path must call the same `processRaw`.
 - No public call may analyze a live URL directly.
@@ -51,8 +56,14 @@ Java-shaped flow:
 ```java
 batch(source) {
     urls = findVacancies(sourceConfig);
-    for (url : urls) {
-        raw = saveRaw(source, url);
+    for (card : searchResultCards) {
+        preview = readPreview(source, card);
+        decision = runPreviewFilter(preview);
+        if (decision == "skip") {
+            savePreviewSkip(preview);
+            continue;
+        }
+        raw = saveRaw(source, preview.sourceUrl);
         processRaw(source, raw);
     }
 }
@@ -110,6 +121,8 @@ files. This is the main rule that keeps calibration honest.
 ## Boundaries
 
 - Collectors collect and save raw pages.
+- Preview extraction reads visible search-card text only.
+- `common/preview_filter.py` may skip obvious misses before raw download.
 - `analyzer/extract_readable_text_v2.py` converts raw HTML into readable text.
 - Analyzer prompt extracts structured JSON from readable text.
 - `analyzer/save_analyzed_job.py` reads analyzed JSON, applies filters,
