@@ -47,6 +47,11 @@ Rules:
 - `batch` and `fromUrl` may differ only before `saveRaw`.
 - `batch` may use preview data from search result cards to skip obvious misses
   before opening full vacancy pages.
+- If search settings define ordered locations and a global limit, `batch` must
+  process locations in order and continue within the current location until the
+  limit is reached or that location is exhausted. It must not sample a small
+  fixed percentage from every location unless a separate balancing mode is
+  explicitly configured.
 - `reprocessRaw` starts from already saved raw files.
 - After raw exists, every path must call the same `processRaw`.
 - No public call may analyze a live URL directly.
@@ -80,6 +85,11 @@ batch(source) {
     }
 }
 ```
+
+For LinkedIn, `findVacancies` must collect every loaded card from the current
+search-results page, including cards that require scrolling inside the results
+panel. Opening `start=0`, `start=25`, and so on is not enough by itself; each
+page must be exhausted before moving to the next `start`.
 
 ### 2. fromUrl(source, url)
 
