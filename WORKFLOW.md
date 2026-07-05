@@ -49,9 +49,8 @@ Rules:
   before opening full vacancy pages.
 - If search settings define ordered locations and a global limit, `batch` must
   process locations in order and continue within the current location until the
-  limit is reached or that location is exhausted. It must not sample a small
-  fixed percentage from every location unless a separate balancing mode is
-  explicitly configured.
+  limit is reached or that location is exhausted. It must never sample a small
+  fixed percentage from every location.
 - `reprocessRaw` starts from already saved raw files.
 - After raw exists, every path must call the same `processRaw`.
 - No public call may analyze a live URL directly.

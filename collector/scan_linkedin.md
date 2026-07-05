@@ -28,19 +28,21 @@ rate-limited and do not use the logged-in session.
    `start += 25` (or the next-page control if LinkedIn changes the URL shape).
    Do not use a fixed list like `0/25/50/75`; continue until exhausted or
    until `limit` is reached.
-8. For every collected search-result card, extract a small preview object:
+8. Wait `delaySeconds` from `collector/config/linkedin.properties` between
+   search-page transitions.
+9. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
-9. Run the preview object through:
+10. Run the preview object through:
    `python common/preview_filter.py --input <preview_json>`.
-10. Collect canonical vacancy URLs with `preview_decision = "open"`:
+11. Collect canonical vacancy URLs with `preview_decision = "open"`:
    `https://www.linkedin.com/jobs/view/<id>/`.
-11. Keep skipped preview cards in the queue/report for debugging false rejects.
-12. Stop at `limit` from `collector/config/linkedin.properties`.
-13. Save the queue as `data/raw/linkedin/queue.json`.
-14. Open each passed vacancy URL in the same browser.
-15. Wait `delaySeconds` between vacancies.
-16. Get the raw HTML from the browser page.
-17. Save it through the common saver:
+12. Keep skipped preview cards in the queue/report for debugging false rejects.
+13. Stop at `limit` from `collector/config/linkedin.properties`.
+14. Save the queue as `data/raw/linkedin/queue.json`.
+15. Open each passed vacancy URL in the same browser.
+16. Wait `delaySeconds` between vacancies.
+17. Get the raw HTML from the browser page.
+18. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
 
 ## Tool-call Limits
