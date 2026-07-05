@@ -5,6 +5,7 @@ data/raw/
 data/readable/
 data/readable_v2/
 data/analyzed/
+data/logs/
 
 # Local IDE settings
 .idea/

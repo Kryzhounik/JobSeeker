@@ -16,8 +16,8 @@ rate-limited and do not use the logged-in session.
    They only anchor LinkedIn's sticky remote-search location.
 3. Process printed non-seed search URLs strictly in config order.
 4. For each location, keep collecting pages until one of these happens:
-   the global `limit` is reached, LinkedIn has no more results for that
-   location, or a blocking error appears.
+   the global `limit` is reached, the location is exhausted by the rules below,
+   or a blocking error appears.
 5. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.
@@ -28,8 +28,11 @@ rate-limited and do not use the logged-in session.
    `start += 25` (or the next-page control if LinkedIn changes the URL shape).
    Do not use a fixed list like `0/25/50/75`; continue until exhausted or
    until `limit` is reached.
-8. Wait `delaySeconds` from `collector/config/linkedin.properties` between
-   search-page transitions.
+8. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
+   minimum interval between browser navigation actions. Measure it from the
+   previous search-page navigation start. If collecting, filtering, saving, or
+   logging the current page already took longer than `delaySeconds`, open the
+   next page immediately.
 9. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
 10. Run the preview object through:
@@ -40,10 +43,67 @@ rate-limited and do not use the logged-in session.
 13. Stop at `limit` from `collector/config/linkedin.properties`.
 14. Save the queue as `data/raw/linkedin/queue.json`.
 15. Open each passed vacancy URL in the same browser.
-16. Wait `delaySeconds` between vacancies.
+16. Respect `delaySeconds` as the minimum interval between vacancy navigation
+    starts. Do not wait a full extra delay after saving a vacancy. If opening
+    and saving the current vacancy already took longer than `delaySeconds`,
+    open the next vacancy immediately.
 17. Get the raw HTML from the browser page.
 18. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
+
+## Delay Semantics
+
+`delaySeconds` is a throttle for browser navigation/click frequency. It is not
+an extra sleep after work is already done.
+
+For both search pages and vacancy pages:
+
+```text
+nextAllowedNavigationAt = previousNavigationStartedAt + delaySeconds
+sleep(max(0, nextAllowedNavigationAt - now))
+open next URL
+```
+
+This prevents opening many LinkedIn pages in a burst, while avoiding useless
+extra waiting when loading, scrolling, saving, or logging already consumed the
+delay window.
+
+## Search Page Exhaustion
+
+A search page is processed only after the left LinkedIn results panel has been
+scrolled until it stops loading new cards. The initial visible cards are not
+enough.
+
+For every page, record:
+
+- search label;
+- `start` value;
+- page URL;
+- number of cards seen after scrolling the results panel;
+- number of new unique `job_id` values;
+- visible end-of-results text, if any;
+- next-page button state, if visible.
+
+The current location is exhausted only when at least one of these is true:
+
+- the page shows a clear no-results or end-of-results message;
+- there are no result cards after the page finishes loading;
+- LinkedIn exposes a Next button and it is missing or disabled;
+- two consecutive `start` pages produce no new unique `job_id` values after
+  the results panel has been fully scrolled.
+
+Do not treat a single weird page, timeout, empty DOM read, or unknown LinkedIn
+response as exhaustion. In that case retry once, log what happened, and only
+then decide whether to continue, stop, or report a blocking problem.
+
+If an intentionally huge `start` value is tested, record what LinkedIn actually
+does. It may show no results, redirect, clamp to another page, repeat earlier
+results, or show an error. Do not assume the behavior in advance.
+
+Observed LinkedIn behavior: a huge `start` may show `No matching jobs found`
+and still render unrelated fallback sections such as `Top job picks for you`
+with job links. Treat that as location exhaustion for the current search. Do
+not collect fallback recommendations as search results.
 
 ## Tool-call Limits
 
