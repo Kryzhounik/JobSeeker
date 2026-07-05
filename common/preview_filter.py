@@ -33,7 +33,18 @@ def enabled(config: configparser.ConfigParser) -> bool:
 
 
 def blocked_terms(config: configparser.ConfigParser) -> list[str]:
-    return csv_values(config.get("title", "blocked_terms", fallback=""))
+    terms = csv_values(config.get("title", "blocked_terms", fallback=""))
+    terms_file = config.get("title", "blocked_terms_file", fallback="").strip()
+    if terms_file:
+        path = Path(terms_file)
+        if not path.is_absolute():
+            path = DEFAULT_CONFIG.parent / path
+        if path.exists():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                term = line.strip()
+                if term and not term.startswith("#"):
+                    terms.append(term)
+    return terms
 
 
 def matches_term(text: str, term: str) -> bool:

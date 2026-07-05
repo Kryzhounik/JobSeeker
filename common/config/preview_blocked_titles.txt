@@ -1,0 +1,27 @@
+# One blocked title term per line. Case-insensitive.
+# Use short terms only when they are safe as whole words.
+.NET
+C++
+C#
+Salesforce
+SAP
+QA
+Tester
+Designer
+iOS
+Frontend
+Javascript
+Electronics Engineer
+Electrical Systems Specialist
+Database Administrator
+Quality Assurance Engineer
+English Specialist
+Mechanical Engineer
+Data Scientist
+SQL Developer
+Fullstack
+Python
+Talent Sourcer
+Website Manager
+Ruby
+Services Consultant
