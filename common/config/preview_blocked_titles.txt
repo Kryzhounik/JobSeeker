@@ -25,3 +25,22 @@ Talent Sourcer
 Website Manager
 Ruby
 Services Consultant
+Full Stack
+Data Solution Architect
+Node.js
+React
+Typescript
+Design Engineer
+Sales
+Project Manager
+Copywriter
+Director
+Security Software Engineer
+Logistics Manager
+Security Engineer
+AI Engineer
+Operations Manager
+Policy Consultant
+Operations Coordinator
+Firmware Engineer
+Instructor
