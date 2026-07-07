@@ -139,7 +139,7 @@ uses visible search-card text and deterministic rules from
 `common/config/preview_filter.ini`.
 
 After Codex produces analyzed JSON, save it with:
-`python analyzer/save_analyzed_job.py --input data/analyzed/linkedin --source linkedin`.
+`python workflow/save_analyzed_job.py --input data/analyzed/linkedin --source linkedin`.
 
 If LinkedIn shows CAPTCHA, checkpoint, suspicious-login, or account-warning UI,
 stop and report it.

@@ -197,6 +197,7 @@ WITH ordered AS (
         j.remote_scope,
         j.relocation,
         j.valuation AS valuation_sort,
+        j.fitability_percent AS fitability_sort,
         j.seniority,
         j.role,
         (
@@ -277,6 +278,7 @@ SELECT
     CASE WHEN row_in_job = 1 THEN coalesce(summary, '') ELSE '' END AS summary
 FROM ordered
 WHERE valuation_sort > 0
+    AND fitability_sort > 0
 ORDER BY
     valuation_sort DESC,
     job_id_sort,

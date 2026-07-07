@@ -347,7 +347,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Write analyzed job JSON to SQLite.")
     parser.add_argument("--input", "-i", default="-")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
-    parser.add_argument("--schema", default=str(root / "analyzer" / "db" / "schema.sql"))
+    parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
     args = parser.parse_args()
 
     record = load_record(args.input)

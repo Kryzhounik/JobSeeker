@@ -12,16 +12,18 @@
 - Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
 - Use `collector/config/linkedin.properties` for the first LinkedIn search URL
   and one-vacancy debug limit.
-- Use `common/job_filter.py` for shared early filters and language fitability.
-- Use `common/config/filter.ini` to turn filter blocks on and off.
-- Use `analyzer/write_job.py` to write analyzed vacancies directly into SQLite.
+- Use `scoring/candidate_fit/filter.py` for quick candidate-fit checks.
+- Use `scoring/candidate_fit/config/filter.ini` to turn quick checks on and off.
+- Use `db/save.py` to write final jobs directly into SQLite.
 - Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
-- Use `analyzer/save_analyzed_job.py` to read analyzed JSON, calculate
-  filters/valuation, and save the result into SQLite.
-- Use `analyzer/config/valuation.ini` for sorting score rules.
-- Keep `analyzer/valuate_jobs.py` only as a manual recalculation utility.
-- Use `common/config/resume.ini` for hidden fitability filters.
+- Use `workflow/save_analyzed_job.py` to read analyzed JSON, call scoring,
+  and save the result into SQLite.
+- Use `scoring/vacancy_valuation/config/valuation.ini` for sorting score rules.
+- Keep `analyzer/save_analyzed_job.py` and `analyzer/valuate_jobs.py` only as
+  compatibility/manual entry points.
+- Use `scoring/candidate_fit/config/resume.ini` for candidate languages and
+  available remote/relocation locations.
 
 ## Next
 

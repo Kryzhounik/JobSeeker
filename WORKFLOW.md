@@ -38,8 +38,12 @@ flowchart TD
     I --> J["extract_readable_text_v2.py"]
     J --> K["analyzeReadableWithCodex(analyze_job.md)"]
     K --> L["save analyzed JSON"]
-    L --> M["save_analyzed_job.py"]
-    M --> N["filters + valuation + SQLite"]
+    L --> M["workflow/save_analyzed_job.py"]
+    M --> O["scoring/candidate_fit"]
+    M --> V["scoring/vacancy_valuation"]
+    O --> S["db/save.py"]
+    V --> S
+    S --> N["SQLite"]
 ```
 
 Rules:
@@ -140,7 +144,7 @@ processRaw(source, raw) {
         "analyzer/prompts/analyze_job.md"
     );                                                          // agent step
     saveJson("data/analyzed/<source>/", json);                  // file write
-    run("python analyzer/save_analyzed_job.py --input <json> --source <source>");
+    run("python workflow/save_analyzed_job.py --input <json> --source <source>");
 }
 ```
 
@@ -149,8 +153,19 @@ files. This is the main rule that keeps calibration honest.
 
 Important: `CodexAgent.analyze(...)` is intentionally not a Python script at the
 current stage. It means Codex reads the saved readable text, applies
-`analyzer/prompts/analyze_job.md`, writes one analyzed JSON file, and then calls
-the SQLite saver.
+`analyzer/prompts/analyze_job.md`, writes one analyzed JSON file, and then
+continues through the top-level workflow.
+
+`WORKFLOW.md` is the orchestration contract. The current executable entry after
+analyzed JSON exists is `workflow/save_analyzed_job.py`:
+
+```java
+saveAnalyzedJob(json) {
+    fitability = candidateFit.calculate(json);
+    valuation = vacancyValuation.calculate(json);
+    db.save(json, fitability, valuation);
+}
+```
 
 ## Boundaries
 
@@ -160,8 +175,13 @@ the SQLite saver.
 - `analyzer/extract_readable_text_v2.py` converts raw HTML into readable text.
 - Codex-agent analysis with `analyzer/prompts/analyze_job.md` extracts
   structured JSON from readable text.
-- `analyzer/save_analyzed_job.py` reads analyzed JSON, applies filters,
-  calculates valuation, and writes SQLite.
+- `scoring/candidate_fit` calculates how well the vacancy fits the candidate.
+- `scoring/vacancy_valuation` calculates how attractive the vacancy is.
+- `workflow/save_analyzed_job.py` reads analyzed JSON and calls scoring in
+  order.
+- `db/save.py` writes the final job into SQLite.
+- `analyzer/save_analyzed_job.py` is only a compatibility entry point to the
+  workflow entry.
 - Direct user links go through `fromUrl`; they are not analyzed live.
 - No Python string heuristics for job meaning unless we explicitly decide to add
   them later.
