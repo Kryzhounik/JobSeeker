@@ -1,3 +1,9 @@
+"""Compatibility entry point.
+
+The real post-analysis workflow lives in workflow/save_analyzed_job.py. Keep
+this thin wrapper only so older commands do not break.
+"""
+
 from __future__ import annotations
 
 import sys

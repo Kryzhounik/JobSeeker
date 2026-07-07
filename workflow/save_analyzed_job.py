@@ -1,3 +1,10 @@
+"""Workflow entry after Codex produced analyzed JSON.
+
+This is the single executable bridge for:
+analyzed JSON -> candidate fit -> vacancy valuation -> SQLite save.
+Do not add extraction/parsing logic here.
+"""
+
 from __future__ import annotations
 
 import argparse

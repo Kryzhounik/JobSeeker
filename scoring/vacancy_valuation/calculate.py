@@ -1,3 +1,9 @@
+"""Vacancy attractiveness scoring.
+
+This answers "how interesting is this vacancy to the candidate?" and is separate
+from candidate fit. It scores remote, relocation, and tech bonuses.
+"""
+
 from __future__ import annotations
 
 import argparse

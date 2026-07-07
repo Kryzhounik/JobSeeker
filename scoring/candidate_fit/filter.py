@@ -1,3 +1,9 @@
+"""Fast candidate-fit filter.
+
+This answers "can this candidate consider this job at all?" using deterministic
+rules from config/resume. Deeper resume matching belongs in evaluate.md/Codex.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

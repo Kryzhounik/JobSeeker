@@ -1,5 +1,8 @@
 # JobSeeker Backlog
 
+Purpose: small project backlog and current conventions. This is not an
+execution contract; use WORKFLOW.md for pipeline behavior.
+
 ## Now
 
 - Keep the MVP small: Codex reads vacancy text, extracts structured fields, and

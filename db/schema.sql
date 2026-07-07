@@ -1,3 +1,6 @@
+-- JobSeeker SQLite schema.
+-- Keep storage/view definitions here; do not put scoring or analysis logic in SQL.
+
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS languages (

@@ -1,3 +1,6 @@
+Purpose: Codex analysis prompt for one readable vacancy. It extracts structured
+job fields into JSON, then hands that JSON to the workflow save step.
+
 Task: Codex analyzes one job vacancy from a saved readable text file.
 
 Public analyzer call:

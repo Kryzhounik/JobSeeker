@@ -1,3 +1,9 @@
+"""Pure SQLite writer for analyzed jobs.
+
+This module should only persist already prepared job data. Candidate-fit,
+valuation, extraction, and Codex analysis belong to other layers.
+"""
+
 from __future__ import annotations
 
 import argparse

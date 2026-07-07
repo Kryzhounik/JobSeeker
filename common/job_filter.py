@@ -1,3 +1,9 @@
+"""Compatibility import for the old common job filter path.
+
+The real candidate-fit filter now lives in scoring/candidate_fit/filter.py.
+Do not add new logic here.
+"""
+
 from __future__ import annotations
 
 import sys

@@ -1,3 +1,6 @@
+Purpose: candidate-fit rules only. This file describes how to decide whether
+the candidate fits the vacancy; vacancy attractiveness lives elsewhere.
+
 Task: calculate vacancy fitability/filter result.
 
 The candidate-fit process calculates how well the vacancy fits the candidate.

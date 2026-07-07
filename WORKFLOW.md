@@ -1,5 +1,8 @@
 # JobSeeker Workflow
 
+Purpose: top-level orchestration contract. Keep the public pipeline shape here;
+module-specific rules belong in collector/analyzer/scoring/db files.
+
 This file is the public contract for how JobSeeker is run.
 
 API here means a callable entry point for Codex and/or scripts. It is not an

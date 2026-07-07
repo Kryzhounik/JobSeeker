@@ -5,6 +5,9 @@ description: Browser-based LinkedIn collector for JobSeeker. Use this when colle
 
 # Scan LinkedIn
 
+Purpose: LinkedIn collection skill. It collects raw pages through the logged-in
+browser and must hand saved raw/readable pages to the common workflow.
+
 Use this as the LinkedIn counterpart of `collector/scan_justjoin.py`.
 LinkedIn collection is browser-driven because direct Python HTTP requests get
 rate-limited and do not use the logged-in session.

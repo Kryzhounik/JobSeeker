@@ -1,3 +1,9 @@
+"""Compatibility entry point for recalculating valuation/fitability.
+
+The real implementation lives in scoring/vacancy_valuation/calculate.py.
+Keep this thin wrapper only so older commands do not break.
+"""
+
 from __future__ import annotations
 
 import sys
