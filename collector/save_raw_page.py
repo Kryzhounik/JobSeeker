@@ -38,6 +38,30 @@ def fetch(url: str) -> str:
         return response.read().decode(charset, errors="replace")
 
 
+def validate_content(source: str, content: str) -> None:
+    if source.lower() != "linkedin":
+        return
+
+    details_loaded = any(
+        marker in content
+        for marker in (
+            "About the job",
+            "Role Overview",
+            "Requirements",
+            "Key Responsibilities",
+        )
+    )
+    still_loading = "In progress" in content or "progressbar" in content
+    if still_loading and not details_loaded:
+        raise SystemExit(
+            "LinkedIn raw page looks incomplete: details are still loading."
+        )
+    if not details_loaded:
+        raise SystemExit(
+            "LinkedIn raw page looks incomplete: job details were not found."
+        )
+
+
 def save_content(
     *,
     source: str,
@@ -47,6 +71,8 @@ def save_content(
     ext: str,
     force: bool,
 ) -> Path:
+    validate_content(source, content)
+
     pages_dir = out_dir / "pages"
     pages_dir.mkdir(parents=True, exist_ok=True)
     path = pages_dir / raw_name(url, ext)

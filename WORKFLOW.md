@@ -105,7 +105,11 @@ fromUrl(source, url) {
 ```
 
 For LinkedIn, `saveRaw` uses the logged-in browser page content. It must not use
-direct Python HTTP.
+direct Python HTTP. It must wait for loaded job details before saving: no
+visible `progressbar` / `In progress` for the job details, plus at least one
+detail marker such as `About the job`, `Role Overview`, `Requirements`, or
+`Key Responsibilities`. If those conditions are not met before timeout, record
+`incomplete_raw` and do not send that page to `processRaw`.
 
 ### 3. reprocessRaw(source)
 

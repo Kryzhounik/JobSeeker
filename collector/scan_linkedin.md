@@ -47,8 +47,15 @@ rate-limited and do not use the logged-in session.
     starts. Do not wait a full extra delay after saving a vacancy. If opening
     and saving the current vacancy already took longer than `delaySeconds`,
     open the next vacancy immediately.
-17. Get the raw HTML from the browser page.
-18. Save it through the common saver:
+17. Before saving raw HTML, wait until the vacancy details are loaded:
+    no visible `progressbar` / `In progress` remains for the job details, and
+    at least one detail marker is visible: `About the job`, `Role Overview`,
+    `Requirements`, or `Key Responsibilities`.
+18. If details do not load before the timeout, do not save the page as a normal
+    raw vacancy. Log it as `incomplete_raw` and continue or report the blocking
+    problem.
+19. Get the raw HTML from the browser page.
+20. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
 
 ## Delay Semantics
