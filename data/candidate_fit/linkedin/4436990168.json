@@ -84,6 +84,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 50,
-  "candidate_fit_reason": "Partial fit: Java, design, cloud, Git/CI/testing match partly; AI/ML and Python/C++ requirements are major gaps.",
-  "job_interest": 1020
+  "candidate_fit_reason": "Partial fit: Java, design, cloud, Git/CI/testing match partly; AI/ML and Python/C++ requirements are major gaps."
 }

@@ -70,6 +70,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 20,
-  "candidate_fit_reason": "Low fit: system engineer role centered on Windows/Linux/network/VMware/cloud operations, outside Java backend core.",
-  "job_interest": 720
+  "candidate_fit_reason": "Low fit: system engineer role centered on Windows/Linux/network/VMware/cloud operations, outside Java backend core."
 }

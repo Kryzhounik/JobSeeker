@@ -77,6 +77,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 55,
-  "candidate_fit_reason": "Partial fit: backend APIs and Java option match; broad language/security/AI-evaluation scope leaves significant uncertainty.",
-  "job_interest": 1
+  "candidate_fit_reason": "Partial fit: backend APIs and Java option match; broad language/security/AI-evaluation scope leaves significant uncertainty."
 }

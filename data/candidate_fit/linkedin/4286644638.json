@@ -84,6 +84,5 @@
   "candidate_fit_filter_passed": false,
   "candidate_fit_filter_reason": "required programming language missing: Python/Go/C/C++ rank 3",
   "candidate_fit_percent": 0,
-  "candidate_fit_reason": "required programming language missing: Python/Go/C/C++ rank 3",
-  "job_interest": 1020
+  "candidate_fit_reason": "required programming language missing: Python/Go/C/C++ rank 3"
 }

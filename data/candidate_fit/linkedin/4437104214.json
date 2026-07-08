@@ -77,6 +77,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 55,
-  "candidate_fit_reason": "Partial fit: Java, SQL/NoSQL, distributed systems and Git/CI adjacency match; Go/Python and stronger cloud-native stack are gaps.",
-  "job_interest": 1020
+  "candidate_fit_reason": "Partial fit: Java, SQL/NoSQL, distributed systems and Git/CI adjacency match; Go/Python and stronger cloud-native stack are gaps."
 }

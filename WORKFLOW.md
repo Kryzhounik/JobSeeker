@@ -1,192 +1,59 @@
 # JobSeeker Workflow
 
-Purpose: top-level orchestration contract. Keep the public pipeline shape here;
-module-specific rules belong in collector/analyzer/scoring/db files.
-Use `db/job_mapper.py` for canonical JSON <-> SQLite mapping.
+Purpose: top-level run order only.
 
-This file is the public contract for how JobSeeker is run.
+This file does not define internals of collector, analyzer, scoring, or db.
+Each stage owns its own rules in its own files.
 
-API here means a callable entry point for Codex and/or scripts. It is not an
-HTTP server yet.
+## Main Pipeline
 
-Current execution model:
-
-- Public calls like `batch linkedin`, `from-url linkedin <url>`, and
-  `reprocess-raw linkedin` are commands to Codex.
-- Some steps are scripts.
-- Some steps are Codex-agent steps.
-- A Codex-agent step is still part of the workflow contract. Codex must execute
-  it instead of stopping just because there is no Python module for that step.
-
-## Execution Diagram
-
-All public calls must reuse the same raw-processing branch.
-
-```mermaid
-flowchart TD
-    A["batch(source)"] --> B["getSettings(source)"]
-    B --> C["findVacancies(settings)"]
-    C --> P["readPreview(source, search card)"]
-    P --> Q["common/preview_filter.py"]
-    Q -->|open| D["saveRaw(source, url)"]
-    Q -->|skip| R["savePreviewSkip(source, preview)"]
-
-    E["fromUrl(source, url)"] --> D
-
-    F["reprocessRaw(source)"] --> G["getSavedRaw(source)"]
-    G --> H["for each raw"]
-
-    D --> I["processRaw(source, raw)"]
-    H --> I
-
-    I --> J["extract_readable_text_v2.py"]
-    J --> K["analyzeReadableWithCodex(analyze_job.md)"]
-    K --> L["save analyzed JSON"]
-    L --> O["scoring/candidate_fit"]
-    O --> V["scoring/job_interest"]
-    V --> M["workflow/save_analyzed_job.py"]
-    M --> S["db/save.py"]
-    S --> N["SQLite"]
+```text
+collector
+-> raw HTML
+-> analyzer/extract_readable_text_v2.py
+-> readable text
+-> analyzer/prompts/analyze_job.md
+-> analyzed JSON
+-> scoring/candidate_fit/evaluate.md
+-> candidate-fit-scored JSON
+-> scoring/job_interest
+-> fully scored JSON
+-> workflow/save_analyzed_job.py
+-> SQLite
 ```
 
-Rules:
+## Public Commands
 
-- `batch` and `fromUrl` may differ only before `saveRaw`.
-- `batch` may use preview data from search result cards to skip obvious misses
-  before opening full vacancy pages.
-- If search settings define ordered locations and a global limit, `batch` must
-  process locations in order and continue within the current location until the
-  limit is reached or that location is exhausted. It must never sample a small
-  fixed percentage from every location.
-- `reprocessRaw` starts from already saved raw files.
-- After raw exists, every path must call the same `processRaw`.
-- No public call may analyze a live URL directly.
-- If a public call includes `processRaw`, Codex must continue through readable
-  extraction, agent analysis, JSON save, and SQLite save unless the user
-  explicitly asks to stop earlier.
-- If we later turn this into real code/API, this diagram is the contract it must
-  implement.
-
-## Public Calls
-
-### 1. batch(source)
-
-Reads `collector/config/<source>.properties`, finds vacancy URLs, saves each
-vacancy as raw HTML, then sends every saved raw file to `process_raw`.
-
-Java-shaped flow:
-
-```java
-batch(source) {
-    urls = findVacancies(sourceConfig);
-    for (card : searchResultCards) {
-        preview = readPreview(source, card);
-        decision = runPreviewFilter(preview);
-        if (decision == "skip") {
-            savePreviewSkip(preview);
-            continue;
-        }
-        raw = saveRaw(source, preview.sourceUrl);
-        processRaw(source, raw);
-    }
-}
+```text
+batch <source>
+from-url <source> <url>
+reprocess-raw <source>
 ```
 
-For LinkedIn, `findVacancies` must collect every loaded card from the current
-search-results page, including cards that require scrolling inside the results
-panel. Opening `start=0`, `start=25`, and so on is not enough by itself; each
-page must be exhausted before moving to the next `start`.
+All three commands must enter the same pipeline at `raw HTML`.
 
-### 2. fromUrl(source, url)
+- `batch`: find vacancies from source settings, save raw HTML, then continue.
+- `from-url`: save that URL as raw HTML first, then continue.
+- `reprocess-raw`: use already saved raw HTML, then continue.
 
-Used for debug and calibration. It saves exactly this vacancy as raw HTML, then
-sends that saved raw file to `process_raw`.
+## Stage Rules
 
-Java-shaped flow:
+- Do not skip stages.
+- Do not duplicate a stage's internals in `WORKFLOW.md`.
+- Before running a stage, use that stage's own file as the source of truth.
+- If a stage is an agent step, Codex must execute that instruction instead of
+  replacing it with an unrelated script.
+- `workflow/save_analyzed_job.py` only saves fully scored JSON. It must not
+  calculate `candidate_fit_percent` or `job_interest`.
+- Database JSON mapping must go through `db/job_mapper.py`.
 
-```java
-fromUrl(source, url) {
-    raw = saveRaw(source, url);
-    processRaw(source, raw);
-}
+## Manual URL Rule
+
+Manual URL debug uses the same raw pipeline:
+
+```text
+URL -> raw HTML -> readable text -> analyzed JSON -> scoring -> save
 ```
 
-For LinkedIn, `saveRaw` uses the logged-in browser page content. It must not use
-direct Python HTTP. It must wait for loaded job details before saving: no
-visible `progressbar` / `In progress` for the job details, plus at least one
-detail marker such as `About the job`, `Role Overview`, `Requirements`, or
-`Key Responsibilities`. If those conditions are not met before timeout, record
-`incomplete_raw` and do not send that page to `processRaw`.
-
-### 3. reprocessRaw(source)
-
-Does not search and does not download anything. It takes already saved raw HTML
-files and sends them to `process_raw`.
-
-Java-shaped flow:
-
-```java
-reprocessRaw(source) {
-    raws = findSavedRawFiles(source);
-    for (raw : raws) {
-        processRaw(source, raw);
-    }
-}
-```
-
-## One Internal Process
-
-All public calls converge here.
-
-```java
-processRaw(source, raw) {
-    text = extractReadableTextV2(source, raw);                  // script
-    json = CodexAgent.analyze(
-        source,
-        text,
-        "analyzer/prompts/analyze_job.md"
-    );                                                          // agent step
-    saveJson("data/analyzed/<source>/", json);                  // file write
-    json = candidateFit.evaluate(json);                         // scoring/candidate_fit
-    json = jobInterest.calculate(json);                         // scoring/job_interest
-    run("python workflow/save_analyzed_job.py --input <json> --source <source>");
-}
-```
-
-`process_raw` must not care where raw came from: search, direct URL, or saved
-files. This is the main rule that keeps calibration honest.
-
-Important: `CodexAgent.analyze(...)` is intentionally not a Python script at the
-current stage. It means Codex reads the saved readable text, applies
-`analyzer/prompts/analyze_job.md`, writes one analyzed JSON file, and then
-continues through the top-level workflow.
-
-`WORKFLOW.md` is the orchestration contract. Candidate-fit and job-interest
-scoring must both run before `workflow/save_analyzed_job.py`. The save script
-must not calculate either score.
-
-```java
-saveScoredJob(json) {
-    require(json.candidate_fit_percent);
-    require(json.job_interest);
-    db.save(json);
-}
-```
-
-## Boundaries
-
-- Collectors collect and save raw pages.
-- Preview extraction reads visible search-card text only.
-- `common/preview_filter.py` may skip obvious misses before raw download.
-- `analyzer/extract_readable_text_v2.py` converts raw HTML into readable text.
-- Codex-agent analysis with `analyzer/prompts/analyze_job.md` extracts
-  structured JSON from readable text.
-- `scoring/candidate_fit` calculates how well the vacancy fits the candidate.
-- `scoring/job_interest` calculates how interesting the vacancy is.
-- `workflow/save_analyzed_job.py` reads fully scored JSON and saves it.
-- `db/save.py` writes the final job into SQLite.
-- `analyzer/save_analyzed_job.py` is only a compatibility entry point to the
-  workflow entry.
-- Direct user links go through `fromUrl`; they are not analyzed live.
-- No Python string heuristics for job meaning unless we explicitly decide to add
-  them later.
+Do not bypass raw/readable/analyzed/scoring stages just because the URL was
+provided manually.

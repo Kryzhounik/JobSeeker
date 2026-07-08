@@ -20,6 +20,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 0,
-  "candidate_fit_reason": "Cannot evaluate fairly: saved readable text has title/location only and no requirements or technology stack.",
-  "job_interest": 700
+  "candidate_fit_reason": "Cannot evaluate fairly: saved readable text has title/location only and no requirements or technology stack."
 }

@@ -12,8 +12,8 @@ Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
 Current stage: fast deterministic filtering plus agent technology-fit scoring.
 
 Before agent evaluation:
-- Always run the fast deterministic filter first (`filter.py` / configured
-  candidate-fit filter).
+- Always run the fast deterministic filter first with
+  `filter.py::filter_job_json(job_json)`.
 - If the fast filter returns `candidate_fit_percent = 0`, stop the agent-stage
   evaluation and keep the rejection reason from the filter.
 - Do not spend agent analysis on vacancies already rejected by simple hard

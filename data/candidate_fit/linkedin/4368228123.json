@@ -84,6 +84,5 @@
   "candidate_fit_filter_passed": true,
   "candidate_fit_filter_reason": "job filter passed",
   "candidate_fit_percent": 75,
-  "candidate_fit_reason": "Good fit: Java, Spring Boot and PostgreSQL match strongly; gaps are GCP/Kubernetes/Kafka depth and AI-assistant requirement.",
-  "job_interest": 760
+  "candidate_fit_reason": "Good fit: Java, Spring Boot and PostgreSQL match strongly; gaps are GCP/Kubernetes/Kafka depth and AI-assistant requirement."
 }

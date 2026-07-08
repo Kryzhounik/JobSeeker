@@ -1,11 +1,11 @@
 {
   "source": "linkedin",
-  "source_url": "https://www.linkedin.com/jobs/view/4436753767/",
+  "source_url": "https://www.linkedin.com/jobs/view/4435790525/",
   "added_at": "2026-07-06",
-  "salary": "unknown",
+  "salary": "$40/hr - $80/hr",
   "relocation": "NO",
-  "pros": "Remote contract; algorithmic work connected to AI training.",
-  "cons": "C++ competitive programming, not Java/backend; EMEA-only scope from search result.",
+  "pros": "Remote contract; algorithmic coding work.",
+  "cons": "C++ competitive programming role, not Java/backend; EMEA-only scope from search result.",
   "notes": "",
   "languages": [
     {
@@ -45,24 +45,23 @@
       "raw_value": "Checker development: advanced"
     },
     {
-      "name": "AI training",
+      "name": "Technical documentation",
       "requirement": "required",
       "level": "regular",
       "level_rank": 3,
-      "raw_value": "AI training: regular"
+      "raw_value": "Technical documentation: regular"
     }
   ],
-  "title": "Competitive Coder",
-  "company": "micro1",
+  "title": "Competitive Programming Engineer | $80/hr Remote",
+  "company": "Crossing Hurdles",
   "location": "EMEA",
   "remote_type": "remote",
   "remote_scope": "EMEA",
   "seniority": "regular",
   "role": "competitive_programming",
-  "summary": "Contract role designing C++ checkers and validating competitive programming tasks to train next-generation AI systems.",
+  "summary": "Contract role writing C++ checkers and validating competitive programming submissions/problem statements.",
   "candidate_fit_filter_passed": false,
   "candidate_fit_filter_reason": "required programming language missing: C++ rank 4",
   "candidate_fit_percent": 0,
-  "candidate_fit_reason": "required programming language missing: C++ rank 4",
-  "job_interest": 0
+  "candidate_fit_reason": "required programming language missing: C++ rank 4"
 }

@@ -84,6 +84,5 @@
   "candidate_fit_filter_passed": false,
   "candidate_fit_filter_reason": "required programming language missing: Python rank 5",
   "candidate_fit_percent": 0,
-  "candidate_fit_reason": "required programming language missing: Python rank 5",
-  "job_interest": 40
+  "candidate_fit_reason": "required programming language missing: Python rank 5"
 }

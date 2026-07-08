@@ -60,7 +60,9 @@
   "seniority": "regular",
   "role": "competitive_programming",
   "summary": "Contract role writing C++ checkers and validating competitive programming submissions/problem statements.",
-  "candidate_fit_percent": 5,
-  "candidate_fit_reason": "Very low fit: competitive-programming/C++ role; Java backend experience is not a close match.",
-  "job_interest": 1
+  "candidate_fit_filter_passed": false,
+  "candidate_fit_filter_reason": "required programming language missing: C++ rank 4",
+  "candidate_fit_percent": 0,
+  "candidate_fit_reason": "required programming language missing: C++ rank 4",
+  "job_interest": 0
 }

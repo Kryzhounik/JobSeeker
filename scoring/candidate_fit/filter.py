@@ -609,6 +609,25 @@ def evaluate_job(
     return FilterResult(True, 100, "job filter passed")
 
 
+def filter_job_json(
+    record: dict[str, Any],
+    *,
+    resume_path: Path | None = None,
+    filter_path: Path | None = None,
+) -> FilterResult:
+    """Evaluate one analyzed job JSON through the complete fast filter."""
+    return evaluate_job(
+        title=str(record.get("title") or ""),
+        required_languages=record.get("languages", []),
+        technologies=record.get("technologies", []),
+        remote_type=str(record.get("remote_type") or ""),
+        remote_scope=str(record.get("remote_scope") or ""),
+        relocation=str(record.get("relocation") or ""),
+        resume_path=resume_path,
+        filter_path=filter_path,
+    )
+
+
 def row_value(row: Any, *names: str) -> Any:
     for name in names:
         if isinstance(row, dict) and name in row:
