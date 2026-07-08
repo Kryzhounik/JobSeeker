@@ -24,12 +24,80 @@ LANGUAGE_RANKS = {
     "fluent": 6,
 }
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
+LOCATION_ALIASES = {
+    "anywhere": "worldwide",
+    "anywhere worldwide": "worldwide",
+    "global": "worldwide",
+    "globally": "worldwide",
+    "world-wide": "worldwide",
+    "worldwide": "worldwide",
+    "emea": "emea",
+    "europe": "europe",
+    "european union": "eu",
+    "eu": "eu",
+    "central europe": "central europe",
+    "southern europe": "southern europe",
+    "czech republic": "czechia",
+    "czechia": "czechia",
+    "united kingdom": "united kingdom",
+    "uk": "united kingdom",
+    "usa": "united states",
+    "us": "united states",
+    "united states": "united states",
+}
+REGION_MEMBERS = {
+    "emea": {
+        "europe",
+        "eu",
+        "central europe",
+        "southern europe",
+        "ukraine",
+        "moldova",
+        "georgia",
+        "serbia",
+        "poland",
+        "lithuania",
+        "latvia",
+        "czechia",
+        "estonia",
+        "united kingdom",
+    },
+    "europe": {
+        "eu",
+        "central europe",
+        "southern europe",
+        "ukraine",
+        "moldova",
+        "georgia",
+        "serbia",
+        "poland",
+        "lithuania",
+        "latvia",
+        "czechia",
+        "estonia",
+        "united kingdom",
+    },
+    "eu": {"poland", "lithuania", "latvia", "czechia", "estonia"},
+    "central europe": {"poland", "czechia"},
+    "southern europe": {"serbia"},
+    "americas": {"united states", "canada"},
+}
+TIMEZONE_MARKERS = (
+    "timezone",
+    "time zone",
+    "utc",
+    "gmt",
+    "cet",
+    "cest",
+    "eet",
+    "uk time",
+)
 
 
 @dataclass(frozen=True)
 class FilterResult:
     passed: bool
-    fitability_percent: int
+    candidate_fit_percent: int
     reason: str
 
 
@@ -133,7 +201,50 @@ def split_match_values(value: object) -> list[str]:
     ]
 
 
-def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
+def canonical_location(value: object) -> str:
+    text = normalized(value)
+    text = re.sub(r"\([^)]*\)", "", text)
+    text = re.sub(r"[^a-z0-9+ -]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return LOCATION_ALIASES.get(text, text)
+
+
+def location_tokens(value: object) -> list[str]:
+    raw = normalized(value)
+    result: list[str] = []
+
+    for item in [raw, *split_match_values(value)]:
+        token = canonical_location(item)
+        if token and token not in result:
+            result.append(token)
+
+    for alias, token in LOCATION_ALIASES.items():
+        if re.search(rf"(^|\W){re.escape(alias)}($|\W)", raw) and token not in result:
+            result.append(token)
+
+    return result
+
+
+def location_contains(container: str, item: str, seen: set[str] | None = None) -> bool:
+    if not container or not item:
+        return False
+    if container == item:
+        return True
+    if container == "worldwide":
+        return True
+
+    visited = seen or set()
+    if container in visited:
+        return False
+    visited.add(container)
+
+    members = REGION_MEMBERS.get(container, set())
+    if item in members:
+        return True
+    return any(location_contains(member, item, visited) for member in members)
+
+
+def text_matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
     haystack = normalized(value)
     tokens = split_match_values(value)
 
@@ -147,6 +258,50 @@ def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
             return True
 
     return False
+
+
+def matches_remote_scope(scope: object, allowed_values: Iterable[str]) -> bool:
+    allowed = list(allowed_values)
+    if text_matches_allowed(scope, allowed):
+        return True
+
+    scope_tokens = location_tokens(scope)
+    allowed_tokens = [
+        token
+        for allowed_value in allowed
+        for token in location_tokens(allowed_value)
+    ]
+
+    return any(
+        location_contains(scope_token, allowed_token)
+        for scope_token in scope_tokens
+        for allowed_token in allowed_tokens
+    )
+
+
+def is_timezone_scope(value: object) -> bool:
+    text = normalized(value)
+    return any(marker in text for marker in TIMEZONE_MARKERS)
+
+
+def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
+    allowed = list(allowed_values)
+    if text_matches_allowed(value, allowed):
+        return True
+
+    value_tokens = location_tokens(value)
+    allowed_tokens = [
+        token
+        for allowed_value in allowed
+        for token in location_tokens(allowed_value)
+    ]
+
+    return any(
+        location_contains(value_token, allowed_token)
+        or location_contains(allowed_token, value_token)
+        for value_token in value_tokens
+        for allowed_token in allowed_tokens
+    )
 
 
 def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResult:
@@ -208,8 +363,11 @@ def evaluate_remote(
     if normalized(scope) in NO_VALUES:
         return FilterResult(False, 0, "remote filter failed: remote scope is empty")
 
+    if is_timezone_scope(scope):
+        return FilterResult(True, 100, f"remote timezone scope accepted: {scope}")
+
     allowed = csv_values(setting(resume_config, "remote", "allowed_scopes"))
-    if matches_allowed(scope, allowed):
+    if matches_remote_scope(scope, allowed):
         return FilterResult(True, 100, f"remote filter passed: {scope}")
 
     return FilterResult(False, 0, f"remote filter failed: {scope}")

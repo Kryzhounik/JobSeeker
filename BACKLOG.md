@@ -17,13 +17,15 @@ execution contract; use WORKFLOW.md for pipeline behavior.
   and one-vacancy debug limit.
 - Use `scoring/candidate_fit/filter.py` for quick candidate-fit checks.
 - Use `scoring/candidate_fit/config/filter.ini` to turn quick checks on and off.
-- Use `db/save.py` to write final jobs directly into SQLite.
+- Use `db/job_mapper.py` for canonical JSON <-> SQLite mapping.
+- Use `db/save.py` only as the CLI wrapper for writing final jobs.
 - Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
 - Use `workflow/save_analyzed_job.py` to read analyzed JSON, call scoring,
   and save the result into SQLite.
-- Use `scoring/vacancy_valuation/config/valuation.ini` for sorting score rules.
-- Keep `analyzer/save_analyzed_job.py` and `analyzer/valuate_jobs.py` only as
+- Use `scoring/job_interest/config/interest.ini` for job-interest score rules.
+- Keep `analyzer/save_analyzed_job.py` and
+  `analyzer/recalculate_job_interest.py` only as
   compatibility/manual entry points.
 - Use `scoring/candidate_fit/config/resume.ini` for candidate languages and
   available remote/relocation locations.
@@ -38,8 +40,8 @@ execution contract; use WORKFLOW.md for pipeline behavior.
 - Add filtering fields:
   - `analysis_stage`
   - `reject_reason`
-- Granulate `fitability_percent` beyond the first language filter.
-- Add tech score rules for `valuation`, up to 99 points.
+- Granulate `candidate_fit_percent` beyond the first language filter.
+- Add tech score rules for `job_interest`, up to 99 points.
 - Keep `remote_scope` in Codex analysis for now:
   - `worldwide` only for explicit work-anywhere/global wording.
   - country/region only for fully remote roles.
@@ -71,4 +73,5 @@ execution contract; use WORKFLOW.md for pipeline behavior.
   - 4: advanced / senior.
   - 5: master / expert.
 - `req` means required, `opt` means optional.
-- `valuation` is the first sorting field in `job_view`; higher is better.
+- `score` is the first sorting field in `job_view`; it combines `fit` and
+  `interest`.

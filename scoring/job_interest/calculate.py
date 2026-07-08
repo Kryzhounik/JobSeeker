@@ -1,4 +1,4 @@
-"""Vacancy attractiveness scoring.
+"""Job interest scoring.
 
 This answers "how interesting is this vacancy to the candidate?" and is separate
 from candidate fit. It scores remote, relocation, and tech bonuses.
@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from db.job_mapper import apply_schema
 from scoring.candidate_fit.filter import evaluate_job
 
 
@@ -125,7 +126,7 @@ def technology_score(config: configparser.ConfigParser, technologies: list[str])
     return min(score, int_value(config, "tech", "max", 99))
 
 
-def valuation(
+def job_interest(
     config: configparser.ConfigParser,
     row: sqlite3.Row,
     technologies: list[str],
@@ -137,55 +138,7 @@ def valuation(
     )
 
 
-def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
-    connection.executescript(
-        """
-        DROP VIEW IF EXISTS job_technology_display;
-        DROP VIEW IF EXISTS job_language_list;
-        DROP VIEW IF EXISTS job_technology_list;
-        DROP VIEW IF EXISTS job_list;
-        DROP VIEW IF EXISTS job_view;
-        DROP INDEX IF EXISTS idx_jobs_status;
-        """
-    )
-    ensure_valuation_column(connection)
-    drop_legacy_status(connection)
-    connection.executescript(schema_path.read_text(encoding="utf-8"))
-
-
-def ensure_valuation_column(connection: sqlite3.Connection) -> None:
-    columns = table_columns(connection, "jobs")
-    if "valuation" not in columns:
-        connection.execute(
-            "ALTER TABLE jobs ADD COLUMN valuation INTEGER NOT NULL DEFAULT 0"
-        )
-    if "fitability_percent" not in columns:
-        connection.execute(
-            "ALTER TABLE jobs ADD COLUMN fitability_percent INTEGER NOT NULL DEFAULT 100"
-        )
-
-
-def drop_legacy_status(connection: sqlite3.Connection) -> None:
-    columns = table_columns(connection, "jobs")
-    if "status" not in columns:
-        return
-
-    try:
-        connection.execute("ALTER TABLE jobs DROP COLUMN status")
-    except sqlite3.OperationalError:
-        # Older SQLite builds may not support DROP COLUMN. The schema/view no
-        # longer uses status, so leaving the legacy column hidden is harmless.
-        pass
-
-
-def table_columns(connection: sqlite3.Connection, table: str) -> set[str]:
-    return {
-        row[1]
-        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
-    }
-
-
-def update_valuations(
+def update_job_interest(
     db_path: Path,
     schema_path: Path,
     config_path: Path,
@@ -238,18 +191,22 @@ def update_valuations(
                 resume_path=resume_path,
                 filter_path=filter_path,
             )
-            score = valuation(config, row, technologies)
-            if score == 0 and filter_result.fitability_percent > 0:
+            score = job_interest(config, row, technologies)
+            if score == 0 and filter_result.candidate_fit_percent > 0:
                 score = 1
             connection.execute(
-                "UPDATE jobs SET valuation = ?, fitability_percent = ? WHERE id = ?",
-                (score, filter_result.fitability_percent, row["id"]),
+                """
+                UPDATE jobs
+                SET job_interest = ?, candidate_fit_percent = ?
+                WHERE id = ?
+                """,
+                (score, filter_result.candidate_fit_percent, row["id"]),
             )
             updates.append(
                 (
                     row["id"],
                     score,
-                    filter_result.fitability_percent,
+                    filter_result.candidate_fit_percent,
                     row["title"],
                     filter_result.reason,
                 )
@@ -264,12 +221,12 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     root = project_root()
-    parser = argparse.ArgumentParser(description="Recalculate job valuations.")
+    parser = argparse.ArgumentParser(description="Recalculate job interest.")
     parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
     parser.add_argument(
         "--config",
-        default=str(root / "scoring" / "vacancy_valuation" / "config" / "valuation.ini"),
+        default=str(root / "scoring" / "job_interest" / "config" / "interest.ini"),
     )
     parser.add_argument(
         "--resume",
@@ -281,15 +238,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    updates = update_valuations(
+    updates = update_job_interest(
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         config_path=Path(args.config),
         resume_path=Path(args.resume),
         filter_path=Path(args.filter_config),
     )
-    for job_id, score, fitability, title, reason in updates:
-        print(f"{job_id}: {score} [{fitability}%] {title} ({reason})")
+    for job_id, score, candidate_fit, title, reason in updates:
+        print(f"{job_id}: {score} [{candidate_fit}%] {title} ({reason})")
 
 
 if __name__ == "__main__":

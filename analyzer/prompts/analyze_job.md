@@ -17,7 +17,7 @@ Do not implement this analysis as Python string matching or regex extraction.
 Collector scripts only save raw pages. `analyzer/extract_readable_text_v2.py`
 removes HTML/page noise but does not extract job fields. Codex/this prompt
 produces structured analysis JSON. `workflow/save_analyzed_job.py` follows the
-top-level workflow: candidate-fit scoring, vacancy-valuation scoring, and DB
+top-level workflow: candidate-fit scoring, job-interest scoring, and DB
 save. Keep this analysis layer out of Python string heuristics unless we
 explicitly decide otherwise later.
 
@@ -95,5 +95,5 @@ Default behavior:
 - Do not invent company facts, salary, or benefits that are not visible.
 - Use unknown for unclear factual fields.
 - Keep text concise and single-line where possible.
-- Do not assign fitability or valuation here; they are calculated later by
-  `scoring/candidate_fit` and `scoring/vacancy_valuation`.
+- Do not assign candidate fit or job interest here; they are calculated later by
+  `scoring/candidate_fit` and `scoring/job_interest`.

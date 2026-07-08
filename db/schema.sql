@@ -1,5 +1,6 @@
 -- JobSeeker SQLite schema.
 -- Keep storage/view definitions here; do not put scoring or analysis logic in SQL.
+-- JSON <-> table mapping belongs in db/job_mapper.py.
 
 PRAGMA foreign_keys = ON;
 
@@ -27,9 +28,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     role TEXT,
     primary_language_id INTEGER REFERENCES languages(id) ON DELETE SET NULL,
     salary TEXT,
-    valuation INTEGER NOT NULL DEFAULT 0,
-    fitability_percent INTEGER NOT NULL DEFAULT 100 CHECK (
-        fitability_percent >= 0 AND fitability_percent <= 100
+    job_interest INTEGER NOT NULL DEFAULT 0,
+    candidate_fit_percent INTEGER NOT NULL DEFAULT 100 CHECK (
+        candidate_fit_percent >= 0 AND candidate_fit_percent <= 100
     ),
     summary TEXT,
     pros TEXT,
@@ -64,8 +65,10 @@ CREATE TABLE IF NOT EXISTS job_technologies (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
-CREATE INDEX IF NOT EXISTS idx_jobs_valuation ON jobs(valuation);
-CREATE INDEX IF NOT EXISTS idx_jobs_fitability ON jobs(fitability_percent);
+DROP INDEX IF EXISTS idx_jobs_valuation;
+DROP INDEX IF EXISTS idx_jobs_fitability;
+CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
+CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_remote_scope ON jobs(remote_scope);
 CREATE INDEX IF NOT EXISTS idx_jobs_relocation ON jobs(relocation);
@@ -86,7 +89,9 @@ DROP VIEW IF EXISTS job_view;
 
 CREATE VIEW job_list AS
 SELECT
-    CAST(j.valuation AS TEXT) AS valuation,
+    CAST(CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER) AS TEXT) AS score,
+    CAST(j.candidate_fit_percent AS TEXT) AS fit,
+    CAST(j.job_interest AS TEXT) AS interest,
     coalesce(j.remote_scope, '') AS remote_scope,
     coalesce(j.relocation, '') AS relocation,
     coalesce(j.remote_type, '') AS remote_type,
@@ -175,7 +180,8 @@ SELECT
     coalesce(j.summary, '') AS summary
 FROM jobs j
 ORDER BY
-    j.valuation DESC,
+    CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER) DESC,
+    j.job_interest DESC,
     j.id;
 
 CREATE VIEW job_view AS
@@ -199,8 +205,10 @@ WITH ordered AS (
         j.remote_type,
         j.remote_scope,
         j.relocation,
-        j.valuation AS valuation_sort,
-        j.fitability_percent AS fitability_sort,
+        CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER)
+            AS score_sort,
+        j.job_interest AS interest_sort,
+        j.candidate_fit_percent AS fit_sort,
         j.seniority,
         j.role,
         (
@@ -261,7 +269,9 @@ WITH ordered AS (
     LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )
 SELECT
-    CASE WHEN row_in_job = 1 THEN CAST(valuation_sort AS TEXT) ELSE '' END AS valuation,
+    CASE WHEN row_in_job = 1 THEN CAST(score_sort AS TEXT) ELSE '' END AS score,
+    CASE WHEN row_in_job = 1 THEN CAST(fit_sort AS TEXT) ELSE '' END AS fit,
+    CASE WHEN row_in_job = 1 THEN CAST(interest_sort AS TEXT) ELSE '' END AS interest,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
     CASE WHEN row_in_job = 1 THEN coalesce(relocation, '') ELSE '' END AS relocation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
@@ -280,9 +290,10 @@ SELECT
     CASE WHEN row_in_job = 1 THEN coalesce(added_at, '') ELSE '' END AS added_at,
     CASE WHEN row_in_job = 1 THEN coalesce(summary, '') ELSE '' END AS summary
 FROM ordered
-WHERE valuation_sort > 0
-    AND fitability_sort > 0
+WHERE interest_sort > 0
+    AND fit_sort > 0
 ORDER BY
-    valuation_sort DESC,
+    score_sort DESC,
+    interest_sort DESC,
     job_id_sort,
     row_in_job;

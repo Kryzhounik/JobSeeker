@@ -2,6 +2,7 @@
 
 Purpose: top-level orchestration contract. Keep the public pipeline shape here;
 module-specific rules belong in collector/analyzer/scoring/db files.
+Use `db/job_mapper.py` for canonical JSON <-> SQLite mapping.
 
 This file is the public contract for how JobSeeker is run.
 
@@ -43,7 +44,7 @@ flowchart TD
     K --> L["save analyzed JSON"]
     L --> M["workflow/save_analyzed_job.py"]
     M --> O["scoring/candidate_fit"]
-    M --> V["scoring/vacancy_valuation"]
+    M --> V["scoring/job_interest"]
     O --> S["db/save.py"]
     V --> S
     S --> N["SQLite"]
@@ -164,9 +165,9 @@ analyzed JSON exists is `workflow/save_analyzed_job.py`:
 
 ```java
 saveAnalyzedJob(json) {
-    fitability = candidateFit.calculate(json);
-    valuation = vacancyValuation.calculate(json);
-    db.save(json, fitability, valuation);
+    candidateFit = candidateFit.calculate(json);
+    jobInterest = jobInterest.calculate(json);
+    db.save(json, candidateFit, jobInterest);
 }
 ```
 
@@ -179,7 +180,7 @@ saveAnalyzedJob(json) {
 - Codex-agent analysis with `analyzer/prompts/analyze_job.md` extracts
   structured JSON from readable text.
 - `scoring/candidate_fit` calculates how well the vacancy fits the candidate.
-- `scoring/vacancy_valuation` calculates how attractive the vacancy is.
+- `scoring/job_interest` calculates how interesting the vacancy is.
 - `workflow/save_analyzed_job.py` reads analyzed JSON and calls scoring in
   order.
 - `db/save.py` writes the final job into SQLite.

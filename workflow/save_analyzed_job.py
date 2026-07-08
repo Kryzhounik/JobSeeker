@@ -1,7 +1,7 @@
 """Workflow entry after Codex produced analyzed JSON.
 
 This is the single executable bridge for:
-analyzed JSON -> candidate fit -> vacancy valuation -> SQLite save.
+analyzed JSON -> candidate fit -> job interest -> SQLite save.
 Do not add extraction/parsing logic here.
 """
 
@@ -20,13 +20,13 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.db_import import analyzed_urls
-from db.save import apply_schema
-from db.save import write_job
+from db.job_mapper import apply_schema
+from db.job_mapper import save_job_json
 from scoring.candidate_fit.filter import evaluate_job
-from scoring.vacancy_valuation.calculate import load_config
-from scoring.vacancy_valuation.calculate import relocation_score
-from scoring.vacancy_valuation.calculate import remote_score
-from scoring.vacancy_valuation.calculate import technology_score
+from scoring.job_interest.calculate import load_config
+from scoring.job_interest.calculate import relocation_score
+from scoring.job_interest.calculate import remote_score
+from scoring.job_interest.calculate import technology_score
 
 
 def analyzed_paths(input_path: Path) -> list[Path]:
@@ -71,14 +71,14 @@ def calculate_candidate_fit(
         resume_path=resume_path,
         filter_path=filter_path,
     )
-    return result.fitability_percent, result.reason
+    return result.candidate_fit_percent, result.reason
 
 
-def calculate_vacancy_valuation(
+def calculate_job_interest(
     record: dict[str, Any],
-    valuation_config_path: Path,
+    interest_config_path: Path,
 ) -> int:
-    config = load_config(valuation_config_path)
+    config = load_config(interest_config_path)
     score = (
         remote_score(
             config,
@@ -93,17 +93,19 @@ def calculate_vacancy_valuation(
 
 def score_record(
     record: dict[str, Any],
-    valuation_config_path: Path,
+    interest_config_path: Path,
     resume_path: Path,
     filter_path: Path,
 ) -> str:
-    fitability, reason = calculate_candidate_fit(record, resume_path, filter_path)
-    score = calculate_vacancy_valuation(record, valuation_config_path)
-    if score == 0 and fitability > 0:
+    candidate_fit, reason = calculate_candidate_fit(record, resume_path, filter_path)
+    interest = calculate_job_interest(record, interest_config_path)
+    if interest == 0 and candidate_fit > 0:
         score = 1
+    else:
+        score = interest
 
-    record["fitability_percent"] = fitability
-    record["valuation"] = score
+    record["candidate_fit_percent"] = candidate_fit
+    record["job_interest"] = score
     return reason
 
 
@@ -111,7 +113,7 @@ def save_records(
     input_path: Path,
     db_path: Path,
     schema_path: Path,
-    valuation_config_path: Path,
+    interest_config_path: Path,
     resume_path: Path,
     filter_path: Path,
     source: str,
@@ -133,18 +135,18 @@ def save_records(
 
                 reason = score_record(
                     record,
-                    valuation_config_path,
+                    interest_config_path,
                     resume_path,
                     filter_path,
                 )
-                write_job(connection, record)
+                save_job_json(connection, record)
                 if source_url:
                     done.add(source_url)
                 results.append(
                     (
                         "save",
-                        f"{source_url or path} valuation={record['valuation']} "
-                        f"fitability={record['fitability_percent']} reason={reason}",
+                        f"{source_url or path} interest={record['job_interest']} "
+                        f"fit={record['candidate_fit_percent']} reason={reason}",
                     )
                 )
             except Exception as error:
@@ -160,15 +162,15 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Save analyzed job JSON into SQLite with filters and valuation."
+        description="Save analyzed job JSON into SQLite with fit and interest scoring."
     )
     parser.add_argument("--input", required=True, help="Analyzed JSON file or directory.")
     parser.add_argument("--source", default="")
     parser.add_argument("--db", default=str(ROOT / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(ROOT / "db" / "schema.sql"))
     parser.add_argument(
-        "--valuation-config",
-        default=str(ROOT / "scoring" / "vacancy_valuation" / "config" / "valuation.ini"),
+        "--interest-config",
+        default=str(ROOT / "scoring" / "job_interest" / "config" / "interest.ini"),
     )
     parser.add_argument(
         "--resume",
@@ -185,7 +187,7 @@ def main() -> None:
         input_path=Path(args.input),
         db_path=Path(args.db),
         schema_path=Path(args.schema),
-        valuation_config_path=Path(args.valuation_config),
+        interest_config_path=Path(args.interest_config),
         resume_path=Path(args.resume),
         filter_path=Path(args.filter_config),
         source=args.source,
