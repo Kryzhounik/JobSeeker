@@ -1,0 +1,23 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4433193125/",
+  "added_at": "2026-07-06",
+  "salary": "unknown",
+  "relocation": "NO",
+  "pros": "Remote Ukraine; backend title.",
+  "cons": "Vacancy description was not captured, so requirements are unknown.",
+  "notes": "Readable text is incomplete: only header metadata was extracted.",
+  "languages": [],
+  "technologies": [],
+  "title": "Senior Backend Engineer",
+  "company": "Scrambly",
+  "location": "Ukraine",
+  "remote_type": "remote",
+  "remote_scope": "Ukraine",
+  "seniority": "senior",
+  "role": "backend",
+  "summary": "Senior backend engineer role; LinkedIn readable text captured only header metadata, so technical details are missing.",
+  "candidate_fit_percent": 0,
+  "candidate_fit_reason": "Cannot evaluate fairly: saved readable text has title/location only and no requirements or technology stack.",
+  "job_interest": 700
+}

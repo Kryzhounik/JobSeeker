@@ -1,0 +1,94 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4286650008/",
+  "added_at": "2026-07-06",
+  "salary": "unknown",
+  "relocation": "NO",
+  "pros": "Globally remote; deep Linux/platform/cloud-adjacent engineering.",
+  "cons": "Systems/embedded/platform focus, not Java/backend.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "globally distributed team, level not specified"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Linux",
+      "requirement": "required",
+      "level": "master",
+      "level_rank": 5,
+      "raw_value": "Linux: master"
+    },
+    {
+      "name": "Ubuntu",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Ubuntu: advanced"
+    },
+    {
+      "name": "Python/C/C++",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Python/C/C++: advanced"
+    },
+    {
+      "name": "Debian/RPM/Yocto packaging",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Debian/RPM/Yocto packaging: advanced"
+    },
+    {
+      "name": "Open source communities",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Open source communities: regular"
+    },
+    {
+      "name": "Networking",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "Networking: nice to have"
+    },
+    {
+      "name": "Docker/Kubernetes",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "Docker/Kubernetes: nice to have"
+    },
+    {
+      "name": "Virtualization",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "Virtualization: nice to have"
+    },
+    {
+      "name": "IoT/Embedded",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "IoT/Embedded: nice to have"
+    }
+  ],
+  "title": "Linux Platform Integration - Ubuntu Systems Senior Engineer",
+  "company": "Canonical",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "worldwide",
+  "seniority": "senior",
+  "role": "systems/platform",
+  "summary": "Senior Ubuntu platform integration role across Linux kernel, packaging, networking, virtualization, graphics and hardware enablement.",
+  "candidate_fit_percent": 10,
+  "candidate_fit_reason": "Very low fit: Ubuntu/Linux platform integration and packaging role outside core Java backend stack.",
+  "job_interest": 1020
+}

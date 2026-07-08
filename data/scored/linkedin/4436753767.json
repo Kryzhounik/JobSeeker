@@ -1,0 +1,66 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4436753767/",
+  "added_at": "2026-07-06",
+  "salary": "unknown",
+  "relocation": "NO",
+  "pros": "Remote contract; algorithmic work connected to AI training.",
+  "cons": "C++ competitive programming, not Java/backend; EMEA-only scope from search result.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "written/verbal technical communication required"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "C++",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "C++: advanced"
+    },
+    {
+      "name": "Competitive programming",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Competitive programming: advanced"
+    },
+    {
+      "name": "Codeforces-style problems",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Codeforces-style problems: advanced"
+    },
+    {
+      "name": "Checker development",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Checker development: advanced"
+    },
+    {
+      "name": "AI training",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "AI training: regular"
+    }
+  ],
+  "title": "Competitive Coder",
+  "company": "micro1",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "EMEA",
+  "seniority": "regular",
+  "role": "competitive_programming",
+  "summary": "Contract role designing C++ checkers and validating competitive programming tasks to train next-generation AI systems.",
+  "candidate_fit_percent": 5,
+  "candidate_fit_reason": "Very low fit: competitive coding/C++ and AI-training task profile, not Java backend.",
+  "job_interest": 1
+}

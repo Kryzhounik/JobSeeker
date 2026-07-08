@@ -24,6 +24,30 @@ LANGUAGE_RANKS = {
     "fluent": 6,
 }
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
+PROGRAMMING_LANGUAGE_ALIASES = {
+    "c": "c",
+    "c sharp": "c#",
+    "c#": "c#",
+    "cpp": "c++",
+    "c++": "c++",
+    "go": "go",
+    "golang": "go",
+    "java": "java",
+    "javascript": "javascript",
+    "js": "javascript",
+    "kotlin": "kotlin",
+    "node": "javascript",
+    "node js": "javascript",
+    "node.js": "javascript",
+    "php": "php",
+    "python": "python",
+    "ruby": "ruby",
+    "rust": "rust",
+    "scala": "scala",
+    "typescript": "typescript",
+    "ts": "typescript",
+}
+KOTLIN_JVM_FALLBACK = "java"
 LOCATION_ALIASES = {
     "anywhere": "worldwide",
     "anywhere worldwide": "worldwide",
@@ -100,6 +124,10 @@ class FilterResult:
     candidate_fit_percent: int
     reason: str
 
+    @property
+    def fitability_percent(self) -> int:
+        return self.candidate_fit_percent
+
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]
@@ -135,6 +163,19 @@ def load_resume(path: Path | None = None) -> dict[str, int]:
 
     for language, level in config.items("languages"):
         result[language.lower()] = language_rank(level)
+    return result
+
+
+def load_technology_levels(path: Path | None = None) -> dict[str, int]:
+    config = load_resume_config(path)
+    result: dict[str, int] = {}
+    if not config.has_section("technology_levels"):
+        return result
+
+    for technology, level in config.items("technology_levels"):
+        canonical = canonical_programming_language(technology)
+        if canonical:
+            result[canonical] = int_value(level, 0)
     return result
 
 
@@ -187,6 +228,13 @@ def setting(
 
 def csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def int_value(value: object, default: int = 0) -> int:
+    try:
+        return int(value or default)
+    except (TypeError, ValueError):
+        return default
 
 
 def normalized(value: object) -> str:
@@ -302,6 +350,78 @@ def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
         for value_token in value_tokens
         for allowed_token in allowed_tokens
     )
+
+
+def canonical_programming_language(value: object) -> str:
+    text = normalized(value)
+    text = text.replace("_", " ")
+    text = re.sub(r"[^a-z0-9+#.]+", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return PROGRAMMING_LANGUAGE_ALIASES.get(text, "")
+
+
+def programming_language_options(value: object) -> list[str]:
+    result: list[str] = []
+    for item in split_match_values(value):
+        language = canonical_programming_language(item)
+        if language and language not in result:
+            result.append(language)
+    language = canonical_programming_language(value)
+    if language and language not in result:
+        result.append(language)
+    return result
+
+
+def technology_requirement_type(row: Any) -> str:
+    value = normalized(row_value(row, "requirement", "requirement_type"))
+    if value in {"nice_to_have", "nice to have", "optional", "opt"}:
+        return "nice_to_have"
+    return "required"
+
+
+def programming_language_level(
+    language: str,
+    technology_levels: dict[str, int],
+) -> int:
+    if language == "kotlin":
+        return max(
+            technology_levels.get("kotlin", 0),
+            technology_levels.get(KOTLIN_JVM_FALLBACK, 0),
+        )
+    return technology_levels.get(language, 0)
+
+
+def evaluate_required_programming_languages(
+    technologies: Iterable[Any],
+    technology_levels: dict[str, int] | None = None,
+    resume_path: Path | None = None,
+) -> FilterResult:
+    levels = technology_levels if technology_levels is not None else load_technology_levels(resume_path)
+
+    for row in technologies:
+        if technology_requirement_type(row) != "required":
+            continue
+
+        required_rank = int_value(row_value(row, "level_rank"), 0)
+        if required_rank <= 2:
+            continue
+
+        name = row_value(row, "name", "technology")
+        options = programming_language_options(name)
+        if not options:
+            continue
+
+        if any(programming_language_level(option, levels) >= required_rank for option in options):
+            continue
+
+        label = str(name or "").strip()
+        return FilterResult(
+            False,
+            0,
+            f"required programming language missing: {label} rank {required_rank}",
+        )
+
+    return FilterResult(True, 100, "programming language filter passed")
 
 
 def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResult:
@@ -444,6 +564,7 @@ def evaluate_job(
     *,
     title: str = "",
     required_languages: Iterable[Any] = (),
+    technologies: Iterable[Any] = (),
     remote_type: str = "",
     remote_scope: str = "",
     relocation: str = "",
@@ -466,6 +587,14 @@ def evaluate_job(
         )
         if not language_result.passed:
             return language_result
+
+    if enabled(config, "filters", "programming_languages", True):
+        programming_language_result = evaluate_required_programming_languages(
+            technologies,
+            technology_levels=load_technology_levels(resume_path),
+        )
+        if not programming_language_result.passed:
+            return programming_language_result
 
     logistics_result = evaluate_remote_or_relocation(
         remote_type,

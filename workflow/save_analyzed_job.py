@@ -1,7 +1,7 @@
-"""Workflow entry after Codex produced analyzed JSON.
+"""Final workflow save entry after scoring is complete.
 
 This is the single executable bridge for:
-analyzed JSON -> candidate fit -> job interest -> SQLite save.
+scored JSON -> SQLite save.
 Do not add extraction/parsing logic here.
 """
 
@@ -22,11 +22,6 @@ if str(ROOT) not in sys.path:
 from common.db_import import analyzed_urls
 from db.job_mapper import apply_schema
 from db.job_mapper import save_job_json
-from scoring.candidate_fit.filter import evaluate_job
-from scoring.job_interest.calculate import load_config
-from scoring.job_interest.calculate import relocation_score
-from scoring.job_interest.calculate import remote_score
-from scoring.job_interest.calculate import technology_score
 
 
 def analyzed_paths(input_path: Path) -> list[Path]:
@@ -45,77 +40,31 @@ def load_record(path: Path, source: str) -> dict[str, Any]:
     return record
 
 
-def technology_names(record: dict[str, Any]) -> list[str]:
-    result: list[str] = []
-    for item in record.get("technologies", []):
-        if isinstance(item, dict):
-            name = str(item.get("name") or "").strip()
-        else:
-            name = str(item or "").strip()
-        if name:
-            result.append(name)
-    return result
-
-
-def calculate_candidate_fit(
-    record: dict[str, Any],
-    resume_path: Path,
-    filter_path: Path,
-) -> tuple[int, str]:
-    result = evaluate_job(
-        title=str(record.get("title") or ""),
-        required_languages=record.get("languages", []),
-        remote_type=str(record.get("remote_type") or ""),
-        remote_scope=str(record.get("remote_scope") or ""),
-        relocation=str(record.get("relocation") or ""),
-        resume_path=resume_path,
-        filter_path=filter_path,
-    )
-    return result.candidate_fit_percent, result.reason
-
-
-def calculate_job_interest(
-    record: dict[str, Any],
-    interest_config_path: Path,
-) -> int:
-    config = load_config(interest_config_path)
-    score = (
-        remote_score(
-            config,
-            str(record.get("remote_type") or ""),
-            str(record.get("remote_scope") or ""),
+def require_candidate_fit(record: dict[str, Any]) -> int:
+    value = record.get("candidate_fit_percent")
+    if value is None or value == "":
+        raise ValueError(
+            "candidate_fit_percent is missing; run scoring/candidate_fit before save"
         )
-        + relocation_score(config, str(record.get("relocation") or ""))
-        + technology_score(config, technology_names(record))
-    )
-    return score
+    return int(value)
 
 
-def score_record(
-    record: dict[str, Any],
-    interest_config_path: Path,
-    resume_path: Path,
-    filter_path: Path,
-) -> str:
-    candidate_fit, reason = calculate_candidate_fit(record, resume_path, filter_path)
-    interest = calculate_job_interest(record, interest_config_path)
-    if interest == 0 and candidate_fit > 0:
-        score = 1
-    else:
-        score = interest
+def require_job_interest(record: dict[str, Any]) -> int:
+    value = record.get("job_interest")
+    if value is None or value == "":
+        raise ValueError("job_interest is missing; run scoring/job_interest before save")
+    return int(value)
 
-    record["candidate_fit_percent"] = candidate_fit
-    record["job_interest"] = score
-    return reason
+
+def validate_scored_record(record: dict[str, Any]) -> None:
+    record["candidate_fit_percent"] = require_candidate_fit(record)
+    record["job_interest"] = require_job_interest(record)
 
 
 def save_records(
     input_path: Path,
     db_path: Path,
     schema_path: Path,
-    interest_config_path: Path,
-    resume_path: Path,
-    filter_path: Path,
     source: str,
     force: bool,
 ) -> list[tuple[str, str]]:
@@ -133,12 +82,7 @@ def save_records(
                     results.append(("skip", source_url))
                     continue
 
-                reason = score_record(
-                    record,
-                    interest_config_path,
-                    resume_path,
-                    filter_path,
-                )
+                validate_scored_record(record)
                 save_job_json(connection, record)
                 if source_url:
                     done.add(source_url)
@@ -146,7 +90,7 @@ def save_records(
                     (
                         "save",
                         f"{source_url or path} interest={record['job_interest']} "
-                        f"fit={record['candidate_fit_percent']} reason={reason}",
+                        f"fit={record['candidate_fit_percent']}",
                     )
                 )
             except Exception as error:
@@ -162,24 +106,12 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Save analyzed job JSON into SQLite with fit and interest scoring."
+        description="Save fully scored job JSON into SQLite."
     )
     parser.add_argument("--input", required=True, help="Analyzed JSON file or directory.")
     parser.add_argument("--source", default="")
     parser.add_argument("--db", default=str(ROOT / "data" / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(ROOT / "db" / "schema.sql"))
-    parser.add_argument(
-        "--interest-config",
-        default=str(ROOT / "scoring" / "job_interest" / "config" / "interest.ini"),
-    )
-    parser.add_argument(
-        "--resume",
-        default=str(ROOT / "scoring" / "candidate_fit" / "config" / "resume.ini"),
-    )
-    parser.add_argument(
-        "--filter-config",
-        default=str(ROOT / "scoring" / "candidate_fit" / "config" / "filter.ini"),
-    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
@@ -187,9 +119,6 @@ def main() -> None:
         input_path=Path(args.input),
         db_path=Path(args.db),
         schema_path=Path(args.schema),
-        interest_config_path=Path(args.interest_config),
-        resume_path=Path(args.resume),
-        filter_path=Path(args.filter_config),
         source=args.source,
         force=args.force,
     )

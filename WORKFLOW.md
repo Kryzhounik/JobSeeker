@@ -42,11 +42,10 @@ flowchart TD
     I --> J["extract_readable_text_v2.py"]
     J --> K["analyzeReadableWithCodex(analyze_job.md)"]
     K --> L["save analyzed JSON"]
-    L --> M["workflow/save_analyzed_job.py"]
-    M --> O["scoring/candidate_fit"]
-    M --> V["scoring/job_interest"]
-    O --> S["db/save.py"]
-    V --> S
+    L --> O["scoring/candidate_fit"]
+    O --> V["scoring/job_interest"]
+    V --> M["workflow/save_analyzed_job.py"]
+    M --> S["db/save.py"]
     S --> N["SQLite"]
 ```
 
@@ -148,6 +147,8 @@ processRaw(source, raw) {
         "analyzer/prompts/analyze_job.md"
     );                                                          // agent step
     saveJson("data/analyzed/<source>/", json);                  // file write
+    json = candidateFit.evaluate(json);                         // scoring/candidate_fit
+    json = jobInterest.calculate(json);                         // scoring/job_interest
     run("python workflow/save_analyzed_job.py --input <json> --source <source>");
 }
 ```
@@ -160,14 +161,15 @@ current stage. It means Codex reads the saved readable text, applies
 `analyzer/prompts/analyze_job.md`, writes one analyzed JSON file, and then
 continues through the top-level workflow.
 
-`WORKFLOW.md` is the orchestration contract. The current executable entry after
-analyzed JSON exists is `workflow/save_analyzed_job.py`:
+`WORKFLOW.md` is the orchestration contract. Candidate-fit and job-interest
+scoring must both run before `workflow/save_analyzed_job.py`. The save script
+must not calculate either score.
 
 ```java
-saveAnalyzedJob(json) {
-    candidateFit = candidateFit.calculate(json);
-    jobInterest = jobInterest.calculate(json);
-    db.save(json, candidateFit, jobInterest);
+saveScoredJob(json) {
+    require(json.candidate_fit_percent);
+    require(json.job_interest);
+    db.save(json);
 }
 ```
 
@@ -181,8 +183,7 @@ saveAnalyzedJob(json) {
   structured JSON from readable text.
 - `scoring/candidate_fit` calculates how well the vacancy fits the candidate.
 - `scoring/job_interest` calculates how interesting the vacancy is.
-- `workflow/save_analyzed_job.py` reads analyzed JSON and calls scoring in
-  order.
+- `workflow/save_analyzed_job.py` reads fully scored JSON and saves it.
 - `db/save.py` writes the final job into SQLite.
 - `analyzer/save_analyzed_job.py` is only a compatibility entry point to the
   workflow entry.

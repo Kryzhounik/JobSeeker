@@ -1,0 +1,100 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4426997768/",
+  "added_at": "2026-07-06",
+  "salary": "unknown",
+  "relocation": "NO",
+  "pros": "Remote; AWS, microservices, Kubernetes and performance engineering.",
+  "cons": "Performance QA role rather than Java development; fluent English required.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "C1",
+      "level_rank": 5,
+      "raw_value": "Fluent English communication skills"
+    },
+    {
+      "name": "Czech",
+      "level": "A2",
+      "level_rank": 2,
+      "raw_value": "additional Czech language skills as a plus"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Performance testing",
+      "requirement": "required",
+      "level": "master",
+      "level_rank": 5,
+      "raw_value": "Performance testing: master"
+    },
+    {
+      "name": "AWS",
+      "requirement": "required",
+      "level": "master",
+      "level_rank": 5,
+      "raw_value": "AWS: master"
+    },
+    {
+      "name": "Microservices",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Microservices: advanced"
+    },
+    {
+      "name": "Locust/k6/Gatling/JMeter",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Locust/k6/Gatling/JMeter: advanced"
+    },
+    {
+      "name": "Prometheus/Grafana/Datadog/ELK/CloudWatch",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Prometheus/Grafana/Datadog/ELK/CloudWatch: advanced"
+    },
+    {
+      "name": "Docker",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Docker: advanced"
+    },
+    {
+      "name": "Kubernetes",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Kubernetes: advanced"
+    },
+    {
+      "name": "Python",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Python: regular"
+    },
+    {
+      "name": "CI/CD",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "CI/CD: regular"
+    }
+  ],
+  "title": "Senior Performance Engineer (Locust)",
+  "company": "SoftServe",
+  "location": "Ukraine",
+  "remote_type": "remote",
+  "remote_scope": "Ukraine",
+  "seniority": "senior",
+  "role": "performance/qa",
+  "summary": "Senior performance engineering role for cloud-hosted microservices SaaS on AWS with Locust/k6/Gatling/JMeter and observability tooling.",
+  "candidate_fit_percent": 0,
+  "candidate_fit_reason": "Hard fail: English C1 required, resume English is B2.",
+  "job_interest": 780
+}

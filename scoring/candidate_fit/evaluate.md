@@ -9,7 +9,7 @@ It writes `jobs.candidate_fit_percent`.
 Runtime switches live in `scoring/candidate_fit/config/filter.ini`.
 Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
 
-Current stage: languages plus remote/relocation logistics.
+Current stage: fast deterministic filtering plus agent technology-fit scoring.
 
 Before agent evaluation:
 - Always run the fast deterministic filter first (`filter.py` / configured

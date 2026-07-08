@@ -1,0 +1,87 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4436990168/",
+  "added_at": "2026-07-06",
+  "salary": "$40/hr - $85/hr",
+  "relocation": "NO",
+  "pros": "Work from anywhere; Java acceptable; cloud/DevOps/Git/CI stack.",
+  "cons": "Staffing-agency generic description; AI/ML details are shallow.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "communication expected, level not specified"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Python/Java/C++",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Python/Java/C++: advanced"
+    },
+    {
+      "name": "Software design patterns",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Software design patterns: advanced"
+    },
+    {
+      "name": "Algorithms and data structures",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Algorithms and data structures: advanced"
+    },
+    {
+      "name": "AWS/Azure/GCP",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "AWS/Azure/GCP: regular"
+    },
+    {
+      "name": "DevOps",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "DevOps: regular"
+    },
+    {
+      "name": "Git",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Git: regular"
+    },
+    {
+      "name": "CI/CD",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "CI/CD: regular"
+    },
+    {
+      "name": "Automated testing",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Automated testing: regular"
+    }
+  ],
+  "title": "Senior Software Engineer - AI/ML (Remote)",
+  "company": "Quik Hire Staffing",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "worldwide",
+  "seniority": "senior",
+  "role": "software/ai_ml",
+  "summary": "Contract senior software engineer role for AI/ML-labeled software systems using Python/Java/C++, cloud and DevOps practices.",
+  "candidate_fit_percent": 50,
+  "candidate_fit_reason": "Partial fit: Java, design, cloud, Git/CI/testing match partly; AI/ML and Python/C++ requirements are major gaps.",
+  "job_interest": 1020
+}

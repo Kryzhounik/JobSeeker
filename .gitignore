@@ -13,3 +13,7 @@ data/logs/
 # Python cache
 __pycache__/
 *.pyc
+
+# Local GUI build artifacts
+GUI/*.exe
+GUI/~*

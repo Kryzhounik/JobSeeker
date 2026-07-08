@@ -18,7 +18,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from db.job_mapper import apply_schema
-from scoring.candidate_fit.filter import evaluate_job
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
@@ -142,8 +141,6 @@ def update_job_interest(
     db_path: Path,
     schema_path: Path,
     config_path: Path,
-    resume_path: Path,
-    filter_path: Path,
 ) -> list[tuple[int, int, int, str, str]]:
     config = load_config(config_path)
 
@@ -152,7 +149,13 @@ def update_job_interest(
         apply_schema(connection, schema_path)
         rows = connection.execute(
             """
-            SELECT id, title, remote_type, remote_scope, relocation
+            SELECT
+                id,
+                title,
+                remote_type,
+                remote_scope,
+                relocation,
+                candidate_fit_percent
             FROM jobs
             ORDER BY id
             """
@@ -160,16 +163,6 @@ def update_job_interest(
 
         updates: list[tuple[int, int, int, str, str]] = []
         for row in rows:
-            languages = connection.execute(
-                """
-                SELECT l.name AS language, jl.level, jl.level_rank
-                FROM job_languages jl
-                JOIN languages l ON l.id = jl.language_id
-                WHERE jl.job_id = ?
-                ORDER BY jl.level_rank DESC, l.name COLLATE NOCASE
-                """,
-                (row["id"],),
-            ).fetchall()
             technologies = [
                 tech_row[0]
                 for tech_row in connection.execute(
@@ -182,33 +175,25 @@ def update_job_interest(
                     (row["id"],),
                 ).fetchall()
             ]
-            filter_result = evaluate_job(
-                title=row["title"],
-                required_languages=languages,
-                remote_type=row["remote_type"],
-                remote_scope=row["remote_scope"],
-                relocation=row["relocation"],
-                resume_path=resume_path,
-                filter_path=filter_path,
-            )
             score = job_interest(config, row, technologies)
-            if score == 0 and filter_result.candidate_fit_percent > 0:
+            candidate_fit = int(row["candidate_fit_percent"] or 0)
+            if score == 0 and candidate_fit > 0:
                 score = 1
             connection.execute(
                 """
                 UPDATE jobs
-                SET job_interest = ?, candidate_fit_percent = ?
+                SET job_interest = ?
                 WHERE id = ?
                 """,
-                (score, filter_result.candidate_fit_percent, row["id"]),
+                (score, row["id"]),
             )
             updates.append(
                 (
                     row["id"],
                     score,
-                    filter_result.candidate_fit_percent,
+                    candidate_fit,
                     row["title"],
-                    filter_result.reason,
+                    "candidate fit unchanged",
                 )
             )
 
@@ -228,22 +213,12 @@ def main() -> None:
         "--config",
         default=str(root / "scoring" / "job_interest" / "config" / "interest.ini"),
     )
-    parser.add_argument(
-        "--resume",
-        default=str(root / "scoring" / "candidate_fit" / "config" / "resume.ini"),
-    )
-    parser.add_argument(
-        "--filter-config",
-        default=str(root / "scoring" / "candidate_fit" / "config" / "filter.ini"),
-    )
     args = parser.parse_args()
 
     updates = update_job_interest(
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         config_path=Path(args.config),
-        resume_path=Path(args.resume),
-        filter_path=Path(args.filter_config),
     )
     for job_id, score, candidate_fit, title, reason in updates:
         print(f"{job_id}: {score} [{candidate_fit}%] {title} ({reason})")

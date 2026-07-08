@@ -21,9 +21,13 @@ execution contract; use WORKFLOW.md for pipeline behavior.
 - Use `db/save.py` only as the CLI wrapper for writing final jobs.
 - Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
-- Use `workflow/save_analyzed_job.py` to read analyzed JSON, call scoring,
-  and save the result into SQLite.
+- Run `scoring/candidate_fit` before `workflow/save_analyzed_job.py`; the save
+  script requires `candidate_fit_percent` to already exist.
 - Use `scoring/job_interest/config/interest.ini` for job-interest score rules.
+- Run `scoring/job_interest` before `workflow/save_analyzed_job.py`; the save
+  script requires `job_interest` to already exist.
+- Use `workflow/save_analyzed_job.py` only to save fully scored JSON into
+  SQLite.
 - Keep `analyzer/save_analyzed_job.py` and
   `analyzer/recalculate_job_interest.py` only as
   compatibility/manual entry points.

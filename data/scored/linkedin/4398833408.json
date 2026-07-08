@@ -1,0 +1,101 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4398833408/",
+  "added_at": "2026-07-06",
+  "salary": "unknown",
+  "relocation": "NO",
+  "pros": "Remote Ukraine; strong data/cloud stack; EPAM internal mobility and training.",
+  "cons": "Data engineering rather than Java backend; possible late PST meetings; professional English required.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "C1",
+      "level_rank": 5,
+      "raw_value": "professional-level English aptitude enabling direct client communication"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "SQL",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "5+ years with SQL"
+    },
+    {
+      "name": "Spark",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "5+ years with Spark and Spark Streaming"
+    },
+    {
+      "name": "Scala",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "5+ years with Scala"
+    },
+    {
+      "name": "Databricks",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Databricks: advanced"
+    },
+    {
+      "name": "Kafka",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Kafka: advanced"
+    },
+    {
+      "name": "Azure",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Azure: advanced"
+    },
+    {
+      "name": "ADF",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "ADF: regular"
+    },
+    {
+      "name": "Spring Boot",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "Spring Boot: nice to have"
+    },
+    {
+      "name": "ReactJS",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "ReactJS: nice to have"
+    },
+    {
+      "name": "NoSQL",
+      "requirement": "nice_to_have",
+      "level": "nice to have",
+      "level_rank": 1,
+      "raw_value": "NoSQL: nice to have"
+    }
+  ],
+  "title": "Senior Data Engineer",
+  "company": "EPAM Systems",
+  "location": "Lviv, Ukraine",
+  "remote_type": "remote",
+  "remote_scope": "Ukraine",
+  "seniority": "senior",
+  "role": "data_engineer",
+  "summary": "Senior Data Engineer role for ETL/ELT, Spark/Scala, Databricks, Kafka and Azure data solutions; remote only from Ukraine.",
+  "candidate_fit_percent": 0,
+  "candidate_fit_reason": "Hard fail: English C1 required, resume English is B2.",
+  "job_interest": 740
+}

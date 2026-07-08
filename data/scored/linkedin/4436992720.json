@@ -1,0 +1,66 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4436992720/",
+  "added_at": "2026-07-06",
+  "salary": "$250K/yr - $400K/yr",
+  "relocation": "NO",
+  "pros": "Work from anywhere; AI/data platform context.",
+  "cons": "Business partnerships role, not software engineering.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "cross-functional communication required, level not specified"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Data partnerships",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Data partnerships: advanced"
+    },
+    {
+      "name": "Data licensing",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Data licensing: advanced"
+    },
+    {
+      "name": "Data infrastructure",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Data infrastructure: regular"
+    },
+    {
+      "name": "Data analysis",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Data analysis: regular"
+    },
+    {
+      "name": "GDPR/CCPA",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "GDPR/CCPA: regular"
+    }
+  ],
+  "title": "Data Partnerships Lead (Remote)",
+  "company": "Hired",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "worldwide",
+  "seniority": "lead",
+  "role": "data_partnerships",
+  "summary": "Business/data partnerships lead role for data licensing, monetization and cross-functional coordination with engineering/product/legal.",
+  "candidate_fit_percent": 5,
+  "candidate_fit_reason": "Very low fit: data partnerships/business role, not software engineering.",
+  "job_interest": 1000
+}

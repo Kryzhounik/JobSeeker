@@ -1,0 +1,66 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4436997249/",
+  "added_at": "2026-07-06",
+  "salary": "$300K/yr - $500K/yr",
+  "relocation": "NO",
+  "pros": "Work from anywhere; technology/data infrastructure context.",
+  "cons": "Project/program leadership, not developer role.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "stakeholder communication required, level not specified"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Project management",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Project management: advanced"
+    },
+    {
+      "name": "Agile/Waterfall",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Agile/Waterfall: advanced"
+    },
+    {
+      "name": "Technology/data infrastructure",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Technology/data infrastructure: regular"
+    },
+    {
+      "name": "Remote team coordination",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Remote team coordination: regular"
+    },
+    {
+      "name": "KPI/reporting",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "KPI/reporting: regular"
+    }
+  ],
+  "title": "Strategic Project Lead (Remote)",
+  "company": "Quik Hire Staffing",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "worldwide",
+  "seniority": "lead",
+  "role": "project/program_management",
+  "summary": "Strategic project lead role for cross-functional technology/data infrastructure initiatives and stakeholder/program execution.",
+  "candidate_fit_percent": 5,
+  "candidate_fit_reason": "Very low fit: strategic project lead/PM role rather than software engineering.",
+  "job_interest": 1000
+}

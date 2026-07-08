@@ -1,0 +1,66 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4435790525/",
+  "added_at": "2026-07-06",
+  "salary": "$40/hr - $80/hr",
+  "relocation": "NO",
+  "pros": "Remote contract; algorithmic coding work.",
+  "cons": "C++ competitive programming role, not Java/backend; EMEA-only scope from search result.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "written/verbal technical communication required"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "C++",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "C++: advanced"
+    },
+    {
+      "name": "Competitive programming",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Competitive programming: advanced"
+    },
+    {
+      "name": "Codeforces-style problems",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Codeforces-style problems: advanced"
+    },
+    {
+      "name": "Checker development",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Checker development: advanced"
+    },
+    {
+      "name": "Technical documentation",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Technical documentation: regular"
+    }
+  ],
+  "title": "Competitive Programming Engineer | $80/hr Remote",
+  "company": "Crossing Hurdles",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "EMEA",
+  "seniority": "regular",
+  "role": "competitive_programming",
+  "summary": "Contract role writing C++ checkers and validating competitive programming submissions/problem statements.",
+  "candidate_fit_percent": 5,
+  "candidate_fit_reason": "Very low fit: competitive-programming/C++ role; Java backend experience is not a close match.",
+  "job_interest": 1
+}

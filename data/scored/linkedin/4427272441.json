@@ -1,0 +1,80 @@
+{
+  "source": "linkedin",
+  "source_url": "https://www.linkedin.com/jobs/view/4427272441/",
+  "added_at": "2026-07-06",
+  "salary": "$220K/yr - $500K/yr",
+  "relocation": "NO",
+  "pros": "High compensation; coding agents/evaluation work.",
+  "cons": "Remote scope not specified beyond EMEA search result; research/evaluation rather than Java backend.",
+  "notes": "",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B2",
+      "level_rank": 4,
+      "raw_value": "technical communication expected, level not specified"
+    }
+  ],
+  "technologies": [
+    {
+      "name": "Python",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Python: advanced"
+    },
+    {
+      "name": "C++",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "C++: advanced"
+    },
+    {
+      "name": "LLM/coding agents",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "LLM/coding agents: advanced"
+    },
+    {
+      "name": "Model evaluation",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Model evaluation: advanced"
+    },
+    {
+      "name": "Benchmarking",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "Benchmarking: advanced"
+    },
+    {
+      "name": "Data generation",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Data generation: regular"
+    },
+    {
+      "name": "Automation tooling",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "Automation tooling: regular"
+    }
+  ],
+  "title": "Member of Technical Staff - Coding Research | Remote",
+  "company": "Crossing Hurdles",
+  "location": "EMEA",
+  "remote_type": "remote",
+  "remote_scope": "EMEA",
+  "seniority": "senior",
+  "role": "ai/research/software",
+  "summary": "Coding research role designing evaluation frameworks, datasets, benchmarks and tooling for coding agents and model evaluation.",
+  "candidate_fit_percent": 10,
+  "candidate_fit_reason": "Very low fit: coding-research role centered on Python, C++, LLM evaluation and benchmarking, outside resume stack.",
+  "job_interest": 1
+}
