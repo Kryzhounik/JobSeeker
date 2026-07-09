@@ -12,6 +12,10 @@ Use this as the LinkedIn counterpart of `collector/scan_justjoin.py`.
 LinkedIn collection is browser-driven because direct Python HTTP requests get
 rate-limited and do not use the logged-in session.
 
+For browser mechanics, follow `collector/browser.md`. In particular, LinkedIn
+collection currently uses the Chrome extension browser and saves the
+right-side details pane from the search UI.
+
 ## Workflow
 
 1. Run `python collector/linkedin_search_urls.py`.
@@ -40,25 +44,27 @@ rate-limited and do not use the logged-in session.
    title, company, location, workplace, salary when visible, and canonical URL.
 10. Run the preview object through:
    `python common/preview_filter.py --input <preview_json>`.
-11. Collect canonical vacancy URLs with `preview_decision = "open"`:
-   `https://www.linkedin.com/jobs/view/<id>/`.
-12. Keep skipped preview cards in the queue/report for debugging false rejects.
+11. For every card with `preview_decision = "open"`, click the card in the
+    left LinkedIn search results and wait for the right-side job details pane.
+12. Keep skipped preview cards in the report for debugging false rejects.
 13. Stop at `limit` from `collector/config/linkedin.properties`.
-14. Save the queue as `data/raw/linkedin/queue.json`.
-15. Open each passed vacancy URL in the same browser.
-16. Respect `delaySeconds` as the minimum interval between vacancy navigation
-    starts. Do not wait a full extra delay after saving a vacancy. If opening
-    and saving the current vacancy already took longer than `delaySeconds`,
-    open the next vacancy immediately.
-17. Before saving raw HTML, wait until the vacancy details are loaded:
-    no visible `progressbar` / `In progress` remains for the job details, and
-    at least one detail marker is visible: `About the job`, `Role Overview`,
-    `Requirements`, or `Key Responsibilities`.
-18. If details do not load before the timeout, do not save the page as a normal
+14. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
+    The normal LinkedIn path is search UI card -> details pane -> raw save.
+15. Respect `delaySeconds` as the minimum interval between browser
+    navigation/click actions. Do not wait a full extra delay after saving a
+    vacancy. If filtering, clicking, loading, saving, or logging the current
+    vacancy already took longer than `delaySeconds`, continue immediately.
+16. Before saving raw HTML, wait until the vacancy details are loaded:
+    no visible `progressbar` / `In progress` remains for the job details, the
+    selected job id matches the clicked card, and at least one detail marker is
+    visible: `About the job`, `Role Overview`, `Requirements`, or
+    `Key Responsibilities`.
+17. If details do not load before the timeout, do not save the page as a normal
     raw vacancy. Log it as `incomplete_raw` and continue or report the blocking
     problem.
-19. Get the raw HTML from the browser page.
-20. Save it through the common saver:
+18. Get the raw HTML from the right-side details pane, not from the whole
+    search page.
+19. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
 
 ## Delay Semantics
