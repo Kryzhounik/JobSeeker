@@ -21,50 +21,53 @@ right-side details pane from the search UI.
 1. Run `python collector/linkedin_search_urls.py`.
 2. Open `seed:<location>` URL(s) first, but do not collect vacancies from them.
    They only anchor LinkedIn's sticky remote-search location.
-3. Process printed non-seed search URLs strictly in config order.
-4. For each location, keep collecting pages until one of these happens:
+3. After a seed URL, always open the first printed non-seed URL explicitly,
+   even if the current page is already a LinkedIn search page. The seed page is
+   a workaround, not the first collection page.
+4. Process printed non-seed search URLs strictly in config order.
+5. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
    or a blocking error appears.
-5. Do not sample a few pages from every location. If the first location has
+6. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.
-6. On each LinkedIn search page, collect the complete result page, not only the
+7. On each LinkedIn search page, collect the complete result page, not only the
    initially visible cards. Scroll the left search-results panel until no new
    cards appear, then extract previews from all cards found on that page.
-7. After the current result page is exhausted, move to the next page with
+8. After the current result page is exhausted, move to the next page with
    `start += 25` (or the next-page control if LinkedIn changes the URL shape).
    Do not use a fixed list like `0/25/50/75`; continue until exhausted or
    until `limit` is reached.
-8. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
+9. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
    minimum interval between browser navigation actions. Measure it from the
    previous search-page navigation start. If collecting, filtering, saving, or
    logging the current page already took longer than `delaySeconds`, open the
    next page immediately.
-9. For every collected search-result card, extract a small preview object:
+10. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
-10. Run the preview object through:
+11. Run the preview object through:
    `python common/preview_filter.py --input <preview_json>`.
-11. For every card with `preview_decision = "open"`, click the card in the
+12. For every card with `preview_decision = "open"`, click the card in the
     left LinkedIn search results and wait for the right-side job details pane.
-12. Keep skipped preview cards in the report for debugging false rejects.
-13. Stop at `limit` from `collector/config/linkedin.properties`.
-14. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
+13. Keep skipped preview cards in the report for debugging false rejects.
+14. Stop at `limit` from `collector/config/linkedin.properties`.
+15. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
     The normal LinkedIn path is search UI card -> details pane -> raw save.
-15. Respect `delaySeconds` as the minimum interval between browser
+16. Respect `delaySeconds` as the minimum interval between browser
     navigation/click actions. Do not wait a full extra delay after saving a
     vacancy. If filtering, clicking, loading, saving, or logging the current
     vacancy already took longer than `delaySeconds`, continue immediately.
-16. Before saving raw HTML, wait until the vacancy details are loaded:
+17. Before saving raw HTML, wait until the vacancy details are loaded:
     no visible `progressbar` / `In progress` remains for the job details, the
     selected job id matches the clicked card, and at least one detail marker is
     visible: `About the job`, `Role Overview`, `Requirements`, or
     `Key Responsibilities`.
-17. If details do not load before the timeout, do not save the page as a normal
+18. If details do not load before the timeout, do not save the page as a normal
     raw vacancy. Log it as `incomplete_raw` and continue or report the blocking
     problem.
-18. Get the raw HTML from the right-side details pane, not from the whole
+19. Get the raw HTML from the right-side details pane, not from the whole
     search page.
-19. Save it through the common saver:
+20. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
 
 ## Delay Semantics
