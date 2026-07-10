@@ -150,7 +150,9 @@ the user asks for calibration. Preview filtering is allowed because it only
 uses visible search-card text and deterministic rules from
 `collector/config/linkedin_preview_filter.ini`.
 
-After Codex produces analyzed JSON, save it with:
+After Codex produces candidate-fit-scored analyzed JSON, add job interest with:
+`python scoring/job_interest/calculate.py --input ../Data/analyzed/linkedin`.
+Then save fully scored JSON with:
 `python db/save.py --input ../Data/analyzed/linkedin --source linkedin`.
 
 If LinkedIn shows CAPTCHA, checkpoint, suspicious-login, or account-warning UI,

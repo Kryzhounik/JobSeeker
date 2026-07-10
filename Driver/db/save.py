@@ -74,7 +74,10 @@ def reject_fast_filter_only_candidate_fit(record: dict[str, Any]) -> None:
 def require_job_interest(record: dict[str, Any]) -> int:
     value = record.get("job_interest")
     if value is None or value == "":
-        raise ValueError("job_interest is missing; run scoring/job_interest before save")
+        raise ValueError(
+            "job_interest is missing; run "
+            "scoring/job_interest/calculate.py --input <json-or-dir> before save"
+        )
     return int(value)
 
 

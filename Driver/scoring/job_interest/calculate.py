@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import argparse
 import configparser
+import json
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -138,6 +140,65 @@ def job_interest(
     )
 
 
+def job_interest_for_json(
+    config: configparser.ConfigParser,
+    record: dict[str, Any],
+) -> int:
+    """Calculate job-interest for one analyzed/scored JSON record."""
+    technologies = [
+        str(technology.get("name") or "")
+        for technology in record.get("technologies", [])
+        if isinstance(technology, dict)
+    ]
+    score = (
+        remote_score(
+            config,
+            str(record.get("remote_type") or ""),
+            str(record.get("remote_scope") or ""),
+        )
+        + relocation_score(config, str(record.get("relocation") or ""))
+        + technology_score(config, technologies)
+    )
+    candidate_fit = int(record.get("candidate_fit_percent") or 0)
+    if score == 0 and candidate_fit > 0:
+        score = 1
+    return score
+
+
+def score_job_json(
+    record: dict[str, Any],
+    config: configparser.ConfigParser,
+) -> dict[str, Any]:
+    """Add job_interest to a fully analyzed candidate-fit-scored JSON record."""
+    record["job_interest"] = job_interest_for_json(config, record)
+    return record
+
+
+def json_paths(input_path: Path) -> list[Path]:
+    if input_path.is_file():
+        return [input_path]
+    return sorted(input_path.glob("*.json"))
+
+
+def score_json_files(input_path: Path, config_path: Path) -> list[tuple[Path, int, str]]:
+    config = load_config(config_path)
+    results: list[tuple[Path, int, str]] = []
+
+    for path in json_paths(input_path):
+        record = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(record, dict):
+            raise ValueError(f"{path} does not contain a JSON object")
+
+        score_job_json(record, config)
+        path.write_text(
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        results.append((path, int(record["job_interest"]), str(record.get("title") or "")))
+
+    return results
+
+
 def update_job_interest(
     db_path: Path,
     schema_path: Path,
@@ -211,10 +272,27 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
     parser.add_argument(
+        "--input",
+        help=(
+            "Analyzed JSON file or directory. When set, calculate job_interest "
+            "in JSON before db/save.py."
+        ),
+    )
+    parser.add_argument(
         "--config",
         default=str(root / "scoring" / "job_interest" / "config" / "interest.ini"),
     )
     args = parser.parse_args()
+
+    if args.input:
+        results = score_json_files(
+            input_path=Path(args.input),
+            config_path=Path(args.config),
+        )
+        for path, score, title in results:
+            print(f"{path}: job_interest={score} {title}")
+        print(f"processed {len(results)} analyzed JSON records")
+        return
 
     updates = update_job_interest(
         db_path=Path(args.db),

@@ -24,8 +24,9 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 - Run `Driver/scoring/candidate_fit` before `Driver/db/save.py`; the save
   script requires `candidate_fit_percent` to already exist.
 - Use `Driver/scoring/job_interest/config/interest.ini` for job-interest score rules.
-- Run `Driver/scoring/job_interest` before `Driver/db/save.py`; the save
-  script requires `job_interest` to already exist.
+- Run `python Driver/scoring/job_interest/calculate.py --input <json-or-dir>`
+  before `Driver/db/save.py`; the save script requires `job_interest` to
+  already exist in JSON.
 - Use `Driver/db/save.py` only to save fully scored JSON into
   SQLite.
 - Use `Driver/scoring/candidate_fit/config/resume.ini` for candidate languages and

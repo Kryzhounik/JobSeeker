@@ -10,7 +10,8 @@ Public analyzer call:
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
 - Then pass it to `scoring/candidate_fit` to add `candidate_fit_percent`.
-- Then pass it to `scoring/job_interest` to add `job_interest`.
+- Then run `python scoring/job_interest/calculate.py --input <json>` to add
+  `job_interest`.
 - Save only fully scored JSON with
   `python db/save.py --input <json> --source <source>`.
 - Direct URLs from the user must first be saved as raw HTML by the collection
@@ -27,10 +28,12 @@ otherwise later.
 Return structured JSON data for saving into SQLite. The final saved DTO contract
 is `contracts/job_analysis.schema.json`; use exactly those field names and
 shapes for the analysis-owned fields. Scoring stages add
-`candidate_fit_percent`, `candidate_fit_reason`, and `job_interest` later. Do
-not invent aliases such as `language` instead of `name`, or `requirement_type`
-instead of `requirement`. Prefer visible facts from the vacancy. Use expert
-judgment only for fields that explicitly require text interpretation.
+`candidate_fit_percent`, `candidate_fit_reason`, and `job_interest` later.
+`job_interest` is added to the JSON before DB save by
+`scoring/job_interest/calculate.py --input <json>`. Do not invent aliases such
+as `language` instead of `name`, or `requirement_type` instead of
+`requirement`. Prefer visible facts from the vacancy. Use expert judgment only
+for fields that explicitly require text interpretation.
 
 Job fields:
 - added_at: current date in YYYY-MM-DD format.
