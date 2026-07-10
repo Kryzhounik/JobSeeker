@@ -50,6 +50,10 @@ save the right-side details pane HTML
 continue through the search results
 ```
 
+For every saved LinkedIn vacancy, update the current collection state in
+`data/raw/linkedin/chrome_collection_state.json`. Downstream batch processing
+must use that state file as the current batch list.
+
 Do not normally build a queue of job URLs and then open each
 `/jobs/view/<id>/` URL as a separate navigation. That direct-navigation mode is
 slower and easier to get wrong.
@@ -73,6 +77,10 @@ Before saving a LinkedIn pane, verify:
 - no visible job-details progressbar remains;
 - the pane text contains `About the job` or another detail marker accepted by
   `collector/save_raw_page.py`.
+
+Do not let orphan raw files define work. `data/raw/linkedin/pages/*.html` is
+storage, not the current batch selector. The current batch selector is the
+saved id list in `chrome_collection_state.json`.
 
 ## Chrome API Notes
 
