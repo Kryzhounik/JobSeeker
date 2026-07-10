@@ -5,6 +5,15 @@ Purpose: top-level run order only.
 This file does not define internals of collector, analyzer, scoring, or db.
 Each stage owns its own rules in its own files.
 
+## Roots
+
+Run driver commands from this `Driver` folder unless a command says
+otherwise.
+
+- Project root: parent folder of `Driver`.
+- Data root: `../Data`.
+- GUI root: `../GUI`.
+
 ## Main Pipeline
 
 ```text
@@ -12,13 +21,13 @@ collector
 -> raw HTML
 -> analyzer/extract_readable_text_v2.py
 -> readable text
--> analyzer/prompts/analyze_job.md
+-> analyzer/analyze_job.md
 -> analyzed JSON
 -> scoring/candidate_fit/evaluate.md
 -> candidate-fit-scored JSON
 -> scoring/job_interest
 -> fully scored JSON
--> workflow/save_analyzed_job.py
+-> db/save.py
 -> SQLite
 ```
 
@@ -46,33 +55,41 @@ read LinkedIn collector settings
 -> inspect search result cards
 -> apply the preview filter to each visible card
 -> save accepted vacancy detail panes as raw HTML
--> record the saved job ids in data/raw/linkedin/chrome_collection_state.json
--> continue the main pipeline only for those saved ids
+-> continue the main pipeline for the explicit run scope
 ```
 
-For the current LinkedIn batch, the source of truth is
-`data/raw/linkedin/chrome_collection_state.json`, not a directory listing.
+Every run must have an explicit processing scope. Do not infer scope by picking
+one arbitrary file.
 
-Batch processing must iterate the complete saved-id list from that state file,
-in saved order, and run the main pipeline for each saved id:
+Current MVP scopes:
+
+- `from-url linkedin <url>`: process only that URL's saved raw file.
+- `reprocess-raw linkedin`: process every raw HTML file currently present in
+  `../Data/raw/linkedin/pages/`.
+- `batch linkedin`: process the raw files saved by that batch run. If the batch
+  starts from a clean workspace, this is the same as all raw files in
+  `../Data/raw/linkedin/pages/`.
+
+For any multi-file scope, iterate all files in that scope and run the main
+pipeline for each file:
 
 ```text
-for each saved id in chrome_collection_state.json:
-    raw HTML for that id
-    -> readable text for that id
-    -> analyzed JSON for that id
-    -> candidate fit for that id
-    -> job interest for that id
-    -> SQLite save for that id
+for each raw HTML file in the explicit scope:
+    raw HTML
+    -> readable text
+    -> analyzed JSON
+    -> candidate fit
+    -> job interest
+    -> SQLite save
 ```
 
 Do not pick one arbitrary raw/readable/analyzed file from a batch unless the
 user explicitly asks for a single-id debug run.
 
-Do not treat every file in `data/raw/linkedin/pages/*.html` as part of the
-current batch unless the user explicitly asks to reprocess all raw files. Raw
-HTML files outside the current state are leftovers/orphans and must not be
-silently pulled into a batch run.
+If collection is split by the Codex five-minute tool-call limit, a temporary
+checkpoint may record where to resume the search UI, such as search URL,
+page/card offset, and counters. That checkpoint does not change the processing
+scope.
 
 ## Stage Rules
 
@@ -85,9 +102,19 @@ silently pulled into a batch run.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `scoring/candidate_fit/evaluate.md`.
-- `workflow/save_analyzed_job.py` only saves fully scored JSON. It must not
+- `db/save.py` only saves fully scored JSON. It must not
   calculate `candidate_fit_percent` or `job_interest`.
 - Database JSON mapping must go through `db/job_mapper.py`.
+
+## GUI Rule
+
+The `../GUI/` app is a user-facing viewer only. It is not a Codex/agent
+driver.
+
+Agents must not use the GUI to run the workflow, inspect batch state, validate
+records, or mutate data. Use files, SQLite queries, and workflow scripts
+instead. Open or interact with the GUI only when the user explicitly asks for
+GUI viewing/debugging.
 
 ## Manual URL Rule
 

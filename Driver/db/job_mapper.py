@@ -84,6 +84,13 @@ def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
     connection.executescript(schema_path.read_text(encoding="utf-8"))
 
 
+def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
+    return {
+        row[0]
+        for row in connection.execute("SELECT source_url FROM jobs").fetchall()
+    }
+
+
 def ensure_existing_schema(connection: sqlite3.Connection) -> None:
     jobs_exists = connection.execute(
         """

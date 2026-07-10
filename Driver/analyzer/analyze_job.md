@@ -8,11 +8,11 @@ Public analyzer call:
   available.
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
-- Produce one analyzed JSON file under `data/analyzed/<source>/`.
+- Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
 - Then pass it to `scoring/candidate_fit` to add `candidate_fit_percent`.
 - Then pass it to `scoring/job_interest` to add `job_interest`.
 - Save only fully scored JSON with
-  `python workflow/save_analyzed_job.py --input <json> --source <source>`.
+  `python db/save.py --input <json> --source <source>`.
 - Direct URLs from the user must first be saved as raw HTML by the collection
   side, converted to readable text, then analyzed through this same call.
 
@@ -20,7 +20,7 @@ Do not implement this analysis as Python string matching or regex extraction.
 Collector scripts only save raw pages. `analyzer/extract_readable_text_v2.py`
 removes HTML/page noise but does not extract job fields. Codex/this prompt
 produces structured analysis JSON. Candidate-fit and job-interest scoring happen
-after this analysis and before `workflow/save_analyzed_job.py`. Keep this
+after this analysis and before `db/save.py`. Keep this
 analysis layer out of Python string heuristics unless we explicitly decide
 otherwise later.
 

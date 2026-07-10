@@ -11,6 +11,12 @@ from urllib.request import urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.paths import DATA_ROOT
+
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -95,7 +101,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
-    out_dir = Path(args.out_dir) if args.out_dir else ROOT / "data" / "raw" / args.source
+    out_dir = Path(args.out_dir) if args.out_dir else DATA_ROOT / "raw" / args.source
     if args.content_file:
         content = Path(args.content_file).read_text(encoding="utf-8", errors="replace")
     elif args.stdin:

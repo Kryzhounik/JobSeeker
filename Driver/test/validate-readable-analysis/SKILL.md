@@ -19,9 +19,9 @@ compare raw_json vs readable_json
 
 ## Inputs
 
-- Raw HTML files: `data/raw/<source>/pages/*.html`
-- Readable text files: `data/readable_v*/<source>/pages/*.txt`
-- Analysis rules: `analyzer/prompts/analyze_job.md`
+- Raw HTML files: `../Data/raw/<source>/pages/*.html`
+- Readable text files: `../Data/readable_v*/<source>/pages/*.txt`
+- Analysis rules: `analyzer/analyze_job.md`
 
 Use the same vacancy id/stem for both files.
 
@@ -31,11 +31,11 @@ file name.
 ## Test Flow
 
 ```text
-raw_html = data/raw/<source>/pages/<id>.html
-raw_json = analyze(raw_html, analyzer/prompts/analyze_job.md)
+raw_html = ../Data/raw/<source>/pages/<id>.html
+raw_json = analyze(raw_html, analyzer/analyze_job.md)
 
 txt = extract(raw_html)
-txt_json = analyze(txt, analyzer/prompts/analyze_job.md)
+txt_json = analyze(txt, analyzer/analyze_job.md)
 
 assert raw_json == txt_json for collected fields
 ```

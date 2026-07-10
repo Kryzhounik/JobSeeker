@@ -18,6 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from db.job_mapper import apply_schema
+from common.paths import DATA_ROOT
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
@@ -207,7 +208,7 @@ def main() -> None:
 
     root = project_root()
     parser = argparse.ArgumentParser(description="Recalculate job interest.")
-    parser.add_argument("--db", default=str(root / "data" / "jobs.sqlite"))
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(root / "db" / "schema.sql"))
     parser.add_argument(
         "--config",

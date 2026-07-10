@@ -1,9 +1,4 @@
-"""Final workflow save entry after scoring is complete.
-
-This is the single executable bridge for:
-scored JSON -> SQLite save.
-Do not add extraction/parsing logic here.
-"""
+"""Save fully scored analyzed job JSON into SQLite."""
 
 from __future__ import annotations
 
@@ -19,28 +14,40 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from common.db_import import analyzed_urls
+from common.paths import DATA_ROOT
 from db.job_mapper import apply_schema
+from db.job_mapper import existing_source_urls
 from db.job_mapper import save_job_json
 
 
-def analyzed_paths(input_path: Path) -> list[Path]:
+def json_paths(input_path: Path) -> list[Path]:
     if input_path.is_file():
         return [input_path]
     return sorted(input_path.glob("*.json"))
 
 
-def load_record(path: Path, source: str) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    record = payload.get("analysis", payload)
+def record_from_payload(payload: Any, label: str, source: str) -> dict[str, Any]:
+    record = payload.get("analysis", payload) if isinstance(payload, dict) else payload
     if not isinstance(record, dict):
-        raise ValueError(f"{path} must contain a job analysis object")
+        raise ValueError(f"{label} must contain a job analysis object")
     if source and record.get("source") != source:
         raise ValueError(
-            f"{path} source mismatch: JSON has {record.get('source')!r}, "
+            f"{label} source mismatch: JSON has {record.get('source')!r}, "
             f"command expected {source!r}"
         )
     return record
+
+
+def load_record(path: Path, source: str) -> dict[str, Any]:
+    return record_from_payload(
+        json.loads(path.read_text(encoding="utf-8")),
+        path.name,
+        source,
+    )
+
+
+def load_stdin_record(source: str) -> dict[str, Any]:
+    return record_from_payload(json.load(sys.stdin), "stdin", source)
 
 
 def require_candidate_fit(record: dict[str, Any]) -> int:
@@ -77,8 +84,30 @@ def validate_scored_record(record: dict[str, Any]) -> None:
     record["job_interest"] = require_job_interest(record)
 
 
+def save_one_record(
+    connection: sqlite3.Connection,
+    record: dict[str, Any],
+    done: set[str],
+    force: bool,
+) -> tuple[str, str]:
+    source_url = str(record["source_url"] or "").strip()
+    if not source_url:
+        raise ValueError("source_url is empty")
+    if source_url in done and not force:
+        return ("skip", source_url)
+
+    validate_scored_record(record)
+    save_job_json(connection, record)
+    done.add(source_url)
+    return (
+        "save",
+        f"{source_url} interest={record['job_interest']} "
+        f"fit={record['candidate_fit_percent']}",
+    )
+
+
 def save_records(
-    input_path: Path,
+    input_value: str,
     db_path: Path,
     schema_path: Path,
     source: str,
@@ -88,31 +117,31 @@ def save_records(
 
     with sqlite3.connect(db_path) as connection:
         apply_schema(connection, schema_path)
-        done = analyzed_urls(connection)
+        done = existing_source_urls(connection)
 
-        for path in analyzed_paths(input_path):
+        if input_value == "-":
             try:
-                record = load_record(path, source)
-                source_url = str(record["source_url"] or "").strip()
-                if not source_url:
-                    raise ValueError("source_url is empty")
-                if source_url in done and not force:
-                    results.append(("skip", source_url))
-                    continue
-
-                validate_scored_record(record)
-                save_job_json(connection, record)
-                if source_url:
-                    done.add(source_url)
-                results.append(
-                    (
-                        "save",
-                        f"{source_url or path} interest={record['job_interest']} "
-                        f"fit={record['candidate_fit_percent']}",
-                    )
+                result = save_one_record(
+                    connection,
+                    load_stdin_record(source),
+                    done,
+                    force,
                 )
+                results.append(result)
             except Exception as error:
-                results.append(("error", f"{path.name} :: {error}"))
+                results.append(("error", f"stdin :: {error}"))
+        else:
+            for path in json_paths(Path(input_value)):
+                try:
+                    result = save_one_record(
+                        connection,
+                        load_record(path, source),
+                        done,
+                        force,
+                    )
+                    results.append(result)
+                except Exception as error:
+                    results.append(("error", f"{path.name} :: {error}"))
 
         connection.commit()
 
@@ -124,17 +153,17 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Save fully scored job JSON into SQLite."
+        description="Save fully scored analyzed job JSON into SQLite."
     )
-    parser.add_argument("--input", required=True, help="Analyzed JSON file or directory.")
+    parser.add_argument("--input", "-i", required=True, help="JSON file, directory, or stdin.")
     parser.add_argument("--source", default="")
-    parser.add_argument("--db", default=str(ROOT / "data" / "jobs.sqlite"))
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(ROOT / "db" / "schema.sql"))
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
 
     results = save_records(
-        input_path=Path(args.input),
+        input_value=args.input,
         db_path=Path(args.db),
         schema_path=Path(args.schema),
         source=args.source,

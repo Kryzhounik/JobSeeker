@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 from urllib.parse import urlencode
@@ -25,6 +26,10 @@ from save_raw_page import save_content
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.paths import DATA_ROOT
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -129,7 +134,6 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool
 
 
 def parse_args() -> argparse.Namespace:
-    root = project_root()
     parser = argparse.ArgumentParser(description="Find/download JustJoinIT vacancy pages.")
     source = parser.add_mutually_exclusive_group()
     source.add_argument("--search-url", help="JustJoinIT search page URL.")
@@ -141,7 +145,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int)
     parser.add_argument("--delay-seconds", type=float)
     parser.add_argument("--download", action="store_true", help="Download raw vacancy pages.")
-    parser.add_argument("--out-dir", default=str(root / "data" / "raw" / "justjoin"))
+    parser.add_argument("--out-dir", default=str(DATA_ROOT / "raw" / "justjoin"))
     parser.add_argument("--force", action="store_true", help="Re-download existing raw pages.")
     return parser.parse_args()
 

@@ -1,11 +1,11 @@
 # Local job data
-data/*.sqlite
-data/*.db
-data/raw/
-data/readable/
-data/readable_v2/
-data/analyzed/
-data/logs/
+Data/*.sqlite
+Data/*.db
+Data/raw/
+Data/readable/
+Data/readable_v2/
+Data/analyzed/
+Data/logs/
 
 # Local IDE settings
 .idea/

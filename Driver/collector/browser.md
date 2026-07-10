@@ -42,7 +42,7 @@ Use the human-like search UI flow:
 ```text
 open search page
 read visible left-side search cards
-run preview_filter.py on each card
+run linkedin_preview_filter.py on each card
 skip rejected cards
 click an accepted card in the left search results
 wait for the right-side details pane
@@ -50,9 +50,12 @@ save the right-side details pane HTML
 continue through the search results
 ```
 
-For every saved LinkedIn vacancy, update the current collection state in
-`data/raw/linkedin/chrome_collection_state.json`. Downstream batch processing
-must use that state file as the current batch list.
+If the collection has to be split because of the Codex five-minute tool-call
+limit, a temporary checkpoint may record where to resume the search UI, such as
+search URL/page/card offset and counters.
+
+That checkpoint is only for resuming browser collection and does not define
+what downstream stages process.
 
 Do not normally build a queue of job URLs and then open each
 `/jobs/view/<id>/` URL as a separate navigation. That direct-navigation mode is
@@ -78,9 +81,9 @@ Before saving a LinkedIn pane, verify:
 - the pane text contains `About the job` or another detail marker accepted by
   `collector/save_raw_page.py`.
 
-Do not let orphan raw files define work. `data/raw/linkedin/pages/*.html` is
-storage, not the current batch selector. The current batch selector is the
-saved id list in `chrome_collection_state.json`.
+Raw files are source-owned storage. Whether a run processes one raw file or all
+raw files must be decided by the workflow command scope, not by the browser
+collector.
 
 ## Chrome API Notes
 

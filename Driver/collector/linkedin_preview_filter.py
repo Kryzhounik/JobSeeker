@@ -10,7 +10,14 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CONFIG = ROOT / "common" / "config" / "preview_filter.ini"
+COMMON_ROOT = ROOT / "common"
+if str(COMMON_ROOT) not in sys.path:
+    sys.path.insert(0, str(COMMON_ROOT))
+
+from linkedin_preview_logger import record_preview_filter
+
+
+DEFAULT_CONFIG = ROOT / "collector" / "config" / "linkedin_preview_filter.ini"
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> configparser.ConfigParser:
@@ -101,7 +108,7 @@ def apply_decision(payload: Any, config_path: Path) -> Any:
         preview = payload
 
     result = decide_preview(preview, config_path)
-    return __import__("logger").record_preview_filter({**payload, **result})
+    return record_preview_filter({**payload, **result})
 
 
 def load_payload(input_path: str, title: str) -> Any:

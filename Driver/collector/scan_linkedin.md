@@ -46,7 +46,7 @@ right-side details pane from the search UI.
 10. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
 11. Run the preview object through:
-   `python common/preview_filter.py --input <preview_json>`.
+   `python collector/linkedin_preview_filter.py --input <preview_json>`.
 12. For every card with `preview_decision = "open"`, click the card in the
     left LinkedIn search results and wait for the right-side job details pane.
 13. Keep skipped preview cards in the report for debugging false rejects.
@@ -148,10 +148,10 @@ Do not use Python `urllib`, `requests`, hidden APIs, or copied cookies for
 LinkedIn collection. Do not run full vacancy analysis while collecting unless
 the user asks for calibration. Preview filtering is allowed because it only
 uses visible search-card text and deterministic rules from
-`common/config/preview_filter.ini`.
+`collector/config/linkedin_preview_filter.ini`.
 
 After Codex produces analyzed JSON, save it with:
-`python workflow/save_analyzed_job.py --input data/analyzed/linkedin --source linkedin`.
+`python db/save.py --input ../Data/analyzed/linkedin --source linkedin`.
 
 If LinkedIn shows CAPTCHA, checkpoint, suspicious-login, or account-warning UI,
 stop and report it.

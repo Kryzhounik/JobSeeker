@@ -10,7 +10,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "data" / "jobs.sqlite"
+DB_PATH = ROOT / "Data" / "jobs.sqlite"
 
 
 JOB_COLUMNS = (

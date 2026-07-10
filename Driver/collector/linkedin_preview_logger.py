@@ -10,7 +10,13 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DB = Path(os.environ.get("JOBSEEKER_PREVIEW_STATS_DB", ROOT / "data" / "jobs.sqlite"))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.paths import DATA_ROOT
+
+
+DEFAULT_DB = Path(os.environ.get("JOBSEEKER_PREVIEW_STATS_DB", DATA_ROOT / "jobs.sqlite"))
 
 
 def apply_schema(connection: sqlite3.Connection) -> None:

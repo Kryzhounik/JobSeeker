@@ -1,37 +1,34 @@
 # JobSeeker Backlog
 
 Purpose: small project backlog and current conventions. This is not an
-execution contract; use WORKFLOW.md for pipeline behavior.
+execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Now
 
 - Keep the MVP small: Codex reads vacancy text, extracts structured fields, and
   saves them into SQLite.
-- Use `data/jobs.sqlite` as the local prototype database.
-- Use `WORKFLOW.md` as the public run contract: search, direct URL, and
+- Use `Data/jobs.sqlite` as the local prototype database.
+- Use `Driver/WORKFLOW.md` as the public run contract: search, direct URL, and
   reprocess saved raw all converge on the same raw analysis process.
 - Use `job_view` as the main filtered DB Browser view.
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
-- Use `collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
-- Use `collector/config/linkedin.properties` for the first LinkedIn search URL
+- Use `Driver/collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
+- Use `Driver/collector/config/linkedin.properties` for the first LinkedIn search URL
   and one-vacancy debug limit.
-- Use `scoring/candidate_fit/filter.py` for quick candidate-fit checks.
-- Use `scoring/candidate_fit/config/filter.ini` to turn quick checks on and off.
-- Use `db/job_mapper.py` for canonical JSON <-> SQLite mapping.
-- Use `db/save.py` only as the CLI wrapper for writing final jobs.
-- Use `analyzer/prompts/analyze_job.md` as the analysis skill/prompt.
-- Put Codex-analyzed job JSON under `data/analyzed/<source>/`.
-- Run `scoring/candidate_fit` before `workflow/save_analyzed_job.py`; the save
+- Use `Driver/scoring/candidate_fit/filter.py` for quick candidate-fit checks.
+- Use `Driver/scoring/candidate_fit/config/filter.ini` to turn quick checks on and off.
+- Use `Driver/db/job_mapper.py` for canonical JSON <-> SQLite mapping.
+- Use `Driver/db/save.py` only as the CLI wrapper for writing final jobs.
+- Use `Driver/analyzer/analyze_job.md` as the analysis skill/prompt.
+- Put Codex-analyzed job JSON under `Data/analyzed/<source>/`.
+- Run `Driver/scoring/candidate_fit` before `Driver/db/save.py`; the save
   script requires `candidate_fit_percent` to already exist.
-- Use `scoring/job_interest/config/interest.ini` for job-interest score rules.
-- Run `scoring/job_interest` before `workflow/save_analyzed_job.py`; the save
+- Use `Driver/scoring/job_interest/config/interest.ini` for job-interest score rules.
+- Run `Driver/scoring/job_interest` before `Driver/db/save.py`; the save
   script requires `job_interest` to already exist.
-- Use `workflow/save_analyzed_job.py` only to save fully scored JSON into
+- Use `Driver/db/save.py` only to save fully scored JSON into
   SQLite.
-- Keep `analyzer/save_analyzed_job.py` and
-  `analyzer/recalculate_job_interest.py` only as
-  compatibility/manual entry points.
-- Use `scoring/candidate_fit/config/resume.ini` for candidate languages and
+- Use `Driver/scoring/candidate_fit/config/resume.ini` for candidate languages and
   available remote/relocation locations.
 
 ## Next
@@ -66,7 +63,7 @@ execution contract; use WORKFLOW.md for pipeline behavior.
 
 ## Rules We Agreed On
 
-- Data stays local under `data/` and is ignored by Git.
+- Data stays local under `Data/` and is ignored by Git.
 - Do not commit inserts or raw downloaded pages.
 - Avoid building a large framework before the MVP proves useful.
 - Prefer one clear main view over many temporary display views.

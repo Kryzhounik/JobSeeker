@@ -2,106 +2,93 @@ from __future__ import annotations
 
 import argparse
 import re
-from html.parser import HTMLParser
 from pathlib import Path
 
+from extract_readable_text_v1 import ROOT
+from extract_readable_text_v1 import DATA_ROOT
+from extract_readable_text_v1 import TextExtractor
+from extract_readable_text_v1 import input_paths
+from extract_readable_text_v1 import output_path
+from extract_readable_text_v1 import source_url
 
-ROOT = Path(__file__).resolve().parents[1]
-SKIP_TAGS = {"head", "script", "style", "svg", "noscript", "template"}
-BLOCK_TAGS = {
-    "address",
-    "article",
-    "aside",
-    "blockquote",
-    "br",
-    "dd",
-    "div",
-    "dl",
-    "dt",
-    "fieldset",
-    "figcaption",
-    "figure",
-    "footer",
-    "form",
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "header",
-    "hr",
-    "li",
-    "main",
-    "nav",
-    "ol",
-    "p",
-    "pre",
-    "section",
-    "table",
-    "td",
-    "th",
-    "tr",
-    "ul",
-}
+
 TAIL_MARKERS = (
     "Set alert for similar jobs",
     "More jobs",
     "Looking for talent?",
 )
 
+CHROME_LINES = {
+    "0 notifications",
+    "Skip to main contentSkip to primary contentSkip to asideSkip to footer",
+    "Home",
+    "My Network",
+    "Jobs",
+    "Messaging",
+    "Me",
+    "For Business",
+    "Try Premium for $0",
+    "Apply",
+    "Save",
+    "Use AI to assess how you fit",
+    "Show match details",
+    "Tailor my resume",
+    "Help me stand out",
+    "Show all",
+    "Job poster",
+    "Message",
+}
+CHROME_PREFIXES = (
+    "Get AI-powered advice on this job",
+    "Easy Apply is now LinkedIn Apply.",
+)
+BLOCK_UNTIL_ABOUT_JOB = {
+    "People you can reach out to",
+    "Meet the hiring team",
+}
 
-class TextExtractor(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self.skip_depth = 0
 
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag in SKIP_TAGS:
-            self.skip_depth += 1
-            return
-        if self.skip_depth == 0 and tag in BLOCK_TAGS:
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in SKIP_TAGS and self.skip_depth > 0:
-            self.skip_depth -= 1
-            return
-        if self.skip_depth == 0 and tag in BLOCK_TAGS:
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        if self.skip_depth == 0:
-            self.parts.append(data)
-
-    def text(self) -> str:
-        return "".join(self.parts)
+def should_drop_line(line: str) -> bool:
+    if line in CHROME_LINES:
+        return True
+    if re.fullmatch(r"\d+Notifications", line):
+        return True
+    return any(line.startswith(prefix) for prefix in CHROME_PREFIXES)
 
 
 def normalize_text(text: str) -> str:
     text = text.replace("\xa0", " ")
-    lines = []
+    lines: list[str] = []
     previous = ""
+    skip_until_about_job = False
+
     for raw_line in text.splitlines():
         line = re.sub(r"\s+", " ", raw_line).strip()
         if not line:
             continue
+
+        if line in TAIL_MARKERS:
+            break
+
+        if skip_until_about_job:
+            if line == "About the job":
+                skip_until_about_job = False
+            else:
+                continue
+
+        if line in BLOCK_UNTIL_ABOUT_JOB:
+            skip_until_about_job = True
+            continue
+
+        if should_drop_line(line):
+            continue
+
         if line == previous:
             continue
         lines.append(line)
         previous = line
-    for index, line in enumerate(lines):
-        if line in TAIL_MARKERS:
-            lines = lines[:index]
-            break
+
     return "\n".join(lines).strip() + "\n"
-
-
-def source_url(source: str, raw_path: Path) -> str:
-    if source == "linkedin" and raw_path.stem.isdigit():
-        return f"https://www.linkedin.com/jobs/view/{raw_path.stem}/"
-    return ""
 
 
 def readable_text(source: str, raw_path: Path) -> str:
@@ -116,16 +103,6 @@ def readable_text(source: str, raw_path: Path) -> str:
     if url:
         metadata.append(f"source_url: {url}")
     return "\n".join(metadata) + "\n\n" + text
-
-
-def input_paths(input_path: Path) -> list[Path]:
-    if input_path.is_file():
-        return [input_path]
-    return sorted(input_path.glob("*.html"))
-
-
-def output_path(raw_path: Path, output_dir: Path) -> Path:
-    return output_dir / (raw_path.stem + ".txt")
 
 
 def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit: int) -> None:
@@ -153,7 +130,7 @@ def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract readable text from raw job HTML.")
+    parser = argparse.ArgumentParser(description="Extract readable text v2 from raw job HTML.")
     parser.add_argument("--source", required=True)
     parser.add_argument("--input")
     parser.add_argument("--out-dir")
@@ -164,12 +141,12 @@ def main() -> None:
     input_path = (
         Path(args.input)
         if args.input
-        else ROOT / "data" / "raw" / args.source / "pages"
+        else DATA_ROOT / "raw" / args.source / "pages"
     )
     output_dir = (
         Path(args.out_dir)
         if args.out_dir
-        else ROOT / "data" / "readable" / args.source / "pages"
+        else DATA_ROOT / "readable_v2" / args.source / "pages"
     )
     convert(args.source, input_path, output_dir, args.force, args.limit)
 
