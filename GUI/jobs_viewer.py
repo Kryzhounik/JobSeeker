@@ -53,6 +53,17 @@ TECH_COLUMNS = (
     ("raw_value", "Raw", 280, "w"),
 )
 
+JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
+TECH_NUMERIC_COLUMNS = {"level"}
+LEVEL_SORT_VALUES = {
+    "": 0,
+    "nice to have": 1,
+    "junior": 2,
+    "regular": 3,
+    "advanced": 4,
+    "master": 5,
+}
+
 
 def db_uri() -> str:
     return f"{DB_PATH.as_uri()}?mode=ro"
@@ -74,6 +85,10 @@ class JobsViewer(tk.Tk):
         self.job_rows: dict[str, dict[str, str]] = {}
         self.current_source_url = ""
         self.detail_vars: dict[str, tk.StringVar] = {}
+        self.job_sort_column: str | None = None
+        self.job_sort_descending = False
+        self.tech_sort_column: str | None = None
+        self.tech_sort_descending = False
 
         self._configure_style()
         self._build_ui()
@@ -145,11 +160,17 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
 
         for name, label, width, anchor in JOB_COLUMNS:
-            self.jobs_tree.heading(name, text=label)
+            self.jobs_tree.heading(
+                name,
+                text=label,
+                command=lambda column=name: self._sort_jobs_tree(column),
+            )
             self.jobs_tree.column(name, width=width, minwidth=42, anchor=anchor, stretch=True)
 
         self.jobs_tree.tag_configure("odd", background="#f7f9fb")
         self.jobs_tree.bind("<<TreeviewSelect>>", self._on_job_selected)
+        self.jobs_tree.bind("<Control-c>", self._copy_tree_selection)
+        self.jobs_tree.bind("<Control-C>", self._copy_tree_selection)
 
     def _build_detail(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -167,14 +188,25 @@ class JobsViewer(tk.Tk):
         )
 
         self.link_var = tk.StringVar(value="")
-        self.link_label = ttk.Label(
-            header,
+        link_frame = ttk.Frame(header)
+        link_frame.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+        link_frame.columnconfigure(0, weight=1)
+
+        self.link_entry = ttk.Entry(
+            link_frame,
             textvariable=self.link_var,
-            foreground="#1f5da8",
-            cursor="hand2",
+            state="readonly",
         )
-        self.link_label.grid(row=1, column=0, sticky="w", pady=(3, 0))
-        self.link_label.bind("<Button-1>", self._open_current_link)
+        self.link_entry.grid(row=0, column=0, sticky="ew")
+        self.link_entry.bind("<Control-a>", self._select_entry_text)
+        self.link_entry.bind("<Control-A>", self._select_entry_text)
+
+        ttk.Button(link_frame, text="Open", command=self._open_current_link).grid(
+            row=0,
+            column=1,
+            sticky="e",
+            padx=(8, 0),
+        )
 
         body = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
         body.grid(row=1, column=0, sticky="nsew")
@@ -200,12 +232,15 @@ class JobsViewer(tk.Tk):
             )
             var = tk.StringVar(value="")
             self.detail_vars[name] = var
-            ttk.Label(parent, textvariable=var, wraplength=360).grid(
+            entry = ttk.Entry(parent, textvariable=var, state="readonly")
+            entry.grid(
                 row=row_index,
                 column=1,
                 sticky="ew",
                 pady=3,
             )
+            entry.bind("<Control-a>", self._select_entry_text)
+            entry.bind("<Control-A>", self._select_entry_text)
 
     def _build_tech_and_summary(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -222,7 +257,7 @@ class JobsViewer(tk.Tk):
             tech_box,
             columns=columns,
             show="headings",
-            selectmode="none",
+            selectmode="browse",
         )
         self.tech_tree.grid(row=0, column=0, sticky="nsew")
 
@@ -235,10 +270,16 @@ class JobsViewer(tk.Tk):
         self.tech_tree.configure(yscrollcommand=tech_scroll.set)
 
         for name, label, width, anchor in TECH_COLUMNS:
-            self.tech_tree.heading(name, text=label)
+            self.tech_tree.heading(
+                name,
+                text=label,
+                command=lambda column=name: self._sort_tech_tree(column),
+            )
             self.tech_tree.column(name, width=width, minwidth=52, anchor=anchor, stretch=True)
 
         self.tech_tree.tag_configure("odd", background="#f7f9fb")
+        self.tech_tree.bind("<Control-c>", self._copy_tree_selection)
+        self.tech_tree.bind("<Control-C>", self._copy_tree_selection)
 
         ttk.Label(parent, text="Summary", style="Muted.TLabel").grid(
             row=1,
@@ -257,7 +298,8 @@ class JobsViewer(tk.Tk):
             pady=6,
         )
         self.summary_text.grid(row=2, column=0, sticky="nsew")
-        self.summary_text.configure(state=tk.DISABLED)
+        self.summary_text.bind("<KeyPress>", self._block_readonly_text_edit)
+        self.summary_text.bind("<<Paste>>", self._break_event)
 
     def connect(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
@@ -288,6 +330,15 @@ class JobsViewer(tk.Tk):
             self.job_rows[item_id] = {key: clean(row[key]) for key in row.keys()}
 
         self.status_var.set(f"{len(rows)} jobs")
+        self.job_sort_column = None
+        self.job_sort_descending = False
+        self._update_tree_headings(
+            self.jobs_tree,
+            JOB_COLUMNS,
+            self._sort_jobs_tree,
+            self.job_sort_column,
+            self.job_sort_descending,
+        )
         children = self.jobs_tree.get_children()
         if children:
             self.jobs_tree.selection_set(children[0])
@@ -463,10 +514,19 @@ class JobsViewer(tk.Tk):
             self.detail_vars[name].set(detail.get(name, ""))
 
         self.tech_tree.delete(*self.tech_tree.get_children())
+        self.tech_sort_column = None
+        self.tech_sort_descending = False
         for index, row in enumerate(technologies):
             values = [clean(row[name]) for name, _label, _width, _anchor in TECH_COLUMNS]
             tags = ("odd",) if index % 2 else ()
             self.tech_tree.insert("", tk.END, values=values, tags=tags)
+        self._update_tree_headings(
+            self.tech_tree,
+            TECH_COLUMNS,
+            self._sort_tech_tree,
+            self.tech_sort_column,
+            self.tech_sort_descending,
+        )
 
         self._set_summary(detail.get("summary", ""))
 
@@ -476,18 +536,171 @@ class JobsViewer(tk.Tk):
         for var in self.detail_vars.values():
             var.set("")
         self.tech_tree.delete(*self.tech_tree.get_children())
+        self.tech_sort_column = None
+        self.tech_sort_descending = False
+        self._update_tree_headings(
+            self.tech_tree,
+            TECH_COLUMNS,
+            self._sort_tech_tree,
+            self.tech_sort_column,
+            self.tech_sort_descending,
+        )
         self._set_summary("")
 
     def _set_summary(self, value: str) -> None:
-        self.summary_text.configure(state=tk.NORMAL)
         self.summary_text.delete("1.0", tk.END)
         if value:
             self.summary_text.insert("1.0", value)
-        self.summary_text.configure(state=tk.DISABLED)
+        self.summary_text.mark_set(tk.INSERT, "1.0")
 
-    def _open_current_link(self, _event: tk.Event[tk.Misc]) -> None:
+    def _open_current_link(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         if self.current_source_url:
             webbrowser.open_new_tab(self.current_source_url)
+
+    def _sort_jobs_tree(self, column: str) -> None:
+        self.job_sort_column, self.job_sort_descending = self._sort_tree(
+            self.jobs_tree,
+            JOB_COLUMNS,
+            JOB_NUMERIC_COLUMNS,
+            column,
+            self.job_sort_column,
+            self.job_sort_descending,
+        )
+        self._update_tree_headings(
+            self.jobs_tree,
+            JOB_COLUMNS,
+            self._sort_jobs_tree,
+            self.job_sort_column,
+            self.job_sort_descending,
+        )
+
+    def _sort_tech_tree(self, column: str) -> None:
+        self.tech_sort_column, self.tech_sort_descending = self._sort_tree(
+            self.tech_tree,
+            TECH_COLUMNS,
+            TECH_NUMERIC_COLUMNS,
+            column,
+            self.tech_sort_column,
+            self.tech_sort_descending,
+        )
+        self._update_tree_headings(
+            self.tech_tree,
+            TECH_COLUMNS,
+            self._sort_tech_tree,
+            self.tech_sort_column,
+            self.tech_sort_descending,
+        )
+
+    def _sort_tree(
+        self,
+        tree: ttk.Treeview,
+        columns: tuple[tuple[str, str, int, str], ...],
+        numeric_columns: set[str],
+        column: str,
+        current_column: str | None,
+        current_descending: bool,
+    ) -> tuple[str, bool]:
+        descending = not current_descending if current_column == column else column in numeric_columns
+        items = list(tree.get_children(""))
+
+        def sort_key(item: str) -> Any:
+            value = tree.set(item, column)
+            if column == "level":
+                return LEVEL_SORT_VALUES.get(value.casefold(), 0)
+            if column in numeric_columns:
+                try:
+                    return float(value)
+                except ValueError:
+                    return float("-inf")
+            return value.casefold()
+
+        items.sort(key=sort_key, reverse=descending)
+        for index, item in enumerate(items):
+            tree.move(item, "", index)
+        self._retag_tree(tree)
+        return column, descending
+
+    def _update_tree_headings(
+        self,
+        tree: ttk.Treeview,
+        columns: tuple[tuple[str, str, int, str], ...],
+        sort_command: Any,
+        sort_column: str | None,
+        descending: bool,
+    ) -> None:
+        marker = " v" if descending else " ^"
+        for name, label, _width, _anchor in columns:
+            text = f"{label}{marker}" if name == sort_column else label
+            tree.heading(
+                name,
+                text=text,
+                command=lambda column=name: sort_command(column),
+            )
+
+    def _retag_tree(self, tree: ttk.Treeview) -> None:
+        for index, item in enumerate(tree.get_children("")):
+            tree.item(item, tags=("odd",) if index % 2 else ())
+
+    def _copy_tree_selection(self, event: tk.Event[tk.Misc]) -> str:
+        tree = event.widget
+        if not hasattr(tree, "selection") or not hasattr(tree, "set"):
+            return "break"
+
+        selected = tree.selection()
+        if not selected and tree.focus():
+            selected = (tree.focus(),)
+        if not selected:
+            return "break"
+
+        columns = tree["columns"]
+        lines = [
+            "\t".join(clean(tree.set(item, column)) for column in columns)
+            for item in selected
+        ]
+        self.clipboard_clear()
+        self.clipboard_append("\n".join(lines))
+        self.status_var.set("Copied row")
+        return "break"
+
+    def _select_entry_text(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        if hasattr(widget, "selection_range") and hasattr(widget, "icursor"):
+            widget.selection_range(0, tk.END)
+            widget.icursor(tk.END)
+        return "break"
+
+    def _block_readonly_text_edit(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        ctrl_pressed = bool(event.state & 0x4)
+        if ctrl_pressed and key == "a":
+            event.widget.tag_add(tk.SEL, "1.0", "end-1c")
+            event.widget.mark_set(tk.INSERT, "1.0")
+            event.widget.see(tk.INSERT)
+            return "break"
+        if ctrl_pressed and key in {"c", "insert"}:
+            return None
+
+        allowed_keys = {
+            "left",
+            "right",
+            "up",
+            "down",
+            "home",
+            "end",
+            "prior",
+            "next",
+            "tab",
+            "shift_l",
+            "shift_r",
+            "control_l",
+            "control_r",
+        }
+        if key in allowed_keys:
+            return None
+        return "break"
+
+    def _break_event(self, _event: tk.Event[tk.Misc]) -> str:
+        return "break"
 
 
 if __name__ == "__main__":
