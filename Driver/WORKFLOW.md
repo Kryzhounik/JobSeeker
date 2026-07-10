@@ -61,6 +61,10 @@ read LinkedIn collector settings
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.
 
+If source, run scope, or target stage is ambiguous, stop and ask before running.
+Do not guess source, pick an arbitrary file, or choose a later pipeline stage by
+yourself.
+
 Current MVP scopes:
 
 - `from-url linkedin <url>`: process only that URL's saved raw file.
