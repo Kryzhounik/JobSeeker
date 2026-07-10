@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/job_analysis.schema.json",
+  "title": "JobSeeker fully scored job DTO",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "added_at",
+    "source_url",
+    "title",
+    "company",
+    "location",
+    "remote_type",
+    "remote_scope",
+    "relocation",
+    "seniority",
+    "role",
+    "salary",
+    "summary",
+    "pros",
+    "cons",
+    "notes",
+    "languages",
+    "technologies",
+    "candidate_fit_percent",
+    "candidate_fit_reason",
+    "job_interest"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "added_at": {
+      "type": "string"
+    },
+    "source_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "company": {
+      "type": "string"
+    },
+    "location": {
+      "type": "string"
+    },
+    "remote_type": {
+      "type": "string",
+      "enum": ["remote", "hybrid", "office", "unknown"]
+    },
+    "remote_scope": {
+      "type": "string"
+    },
+    "relocation": {
+      "type": "string"
+    },
+    "seniority": {
+      "type": "string",
+      "enum": ["intern", "junior", "middle", "senior", "lead", "unknown"]
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "backend",
+        "frontend",
+        "fullstack",
+        "devops",
+        "data",
+        "ml_ai",
+        "qa",
+        "product",
+        "mobile",
+        "automation",
+        "support",
+        "artist",
+        "other"
+      ]
+    },
+    "salary": {
+      "type": "string",
+      "not": {
+        "const": "unknown"
+      }
+    },
+    "summary": {
+      "type": "string"
+    },
+    "pros": {
+      "type": "string"
+    },
+    "cons": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "level", "level_rank", "raw_value"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "string"
+          },
+          "level_rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 6
+          },
+          "raw_value": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "technologies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "requirement", "level", "level_rank", "raw_value"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requirement": {
+            "type": "string",
+            "enum": ["required", "nice_to_have"]
+          },
+          "level": {
+            "type": "string",
+            "enum": ["nice to have", "junior", "regular", "advanced", "master"]
+          },
+          "level_rank": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "raw_value": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "candidate_fit_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "candidate_fit_reason": {
+      "type": "string"
+    },
+    "job_interest": {
+      "type": "integer",
+      "minimum": 0
+    }
+  }
+}

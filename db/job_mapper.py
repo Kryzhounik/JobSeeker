@@ -12,45 +12,6 @@ from pathlib import Path
 from typing import Any
 
 
-LEVEL_RANKS = {
-    "a1": 1,
-    "a2": 2,
-    "basic": 2,
-    "beginner": 2,
-    "junior": 2,
-    "b1": 3,
-    "intermediate": 3,
-    "regular": 3,
-    "mid": 3,
-    "b2": 4,
-    "upper-intermediate": 4,
-    "advanced": 4,
-    "senior": 4,
-    "c1": 5,
-    "expert": 5,
-    "master": 5,
-    "c2": 5,
-    "fluent": 5,
-    "native": 5,
-}
-TECH_EXPERIENCE_RANK_3 = (
-    "experience required",
-    "hands-on",
-    "hands on",
-    "commercial experience",
-    "production experience",
-    "solid experience",
-    "strong",
-)
-TECH_MENTION_RANK_2 = ("listed", "mentioned", "required")
-TECH_OPTIONAL_RANK_1 = (
-    "nice to have",
-    "nice-to-have",
-    "will be a plus",
-    "would be a plus",
-    "plus",
-)
-
 JOB_COLUMNS = (
     "id",
     "source",
@@ -82,16 +43,17 @@ def clean(value: Any, default: str = "") -> str:
     return text if text else default
 
 
-def field(record: dict[str, Any], name: str, default: str = "") -> str:
-    if name not in record:
-        return default
-    return clean(record.get(name))
+def required_text(record: dict[str, Any], name: str) -> str:
+    value = clean(record[name])
+    if not value:
+        raise ValueError(f"Required text field is empty: {name}")
+    return value
 
 
-def int_field(record: dict[str, Any], name: str, default: int = 0) -> int:
-    value = record.get(name)
+def required_int(record: dict[str, Any], name: str) -> int:
+    value = record[name]
     if value is None or value == "":
-        return default
+        raise ValueError(f"Required integer field is empty: {name}")
     return int(value)
 
 
@@ -99,44 +61,13 @@ def normalize_level(value: str | None) -> str:
     return clean(value)
 
 
-def level_rank(level: str | None) -> int:
-    text = normalize_level(level)
-    if not text:
-        return 1
-
-    normalized = text.lower().replace("_", "-").replace("/", " ")
-    for token, rank in LEVEL_RANKS.items():
-        if token in normalized:
-            return rank
-    return 1
-
-
-def technology_level_rank(level: str | None, requirement_type: str) -> int:
-    if requirement_type == "nice_to_have":
-        return 1
-
-    text = normalize_level(level)
-    if not text:
-        return 2
-
-    normalized = text.lower().replace("_", "-").replace("/", " ")
-    if any(token in normalized for token in TECH_OPTIONAL_RANK_1):
-        return 1
-    for token, rank in LEVEL_RANKS.items():
-        if token in normalized:
-            return rank
-    if any(token in normalized for token in TECH_EXPERIENCE_RANK_3):
-        return 3
-    if any(token in normalized for token in TECH_MENTION_RANK_2):
-        return 2
-    return 2
-
-
 def requirement_type(value: str | None) -> str:
     normalized = clean(value, "required").lower()
-    if normalized in {"opt", "optional", "nice_to_have", "nice to have"}:
+    if normalized == "nice_to_have":
         return "nice_to_have"
-    return "required"
+    if normalized == "required":
+        return "required"
+    raise ValueError(f"Unsupported technology requirement: {value}")
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
@@ -147,8 +78,6 @@ def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
         DROP VIEW IF EXISTS job_technology_list;
         DROP VIEW IF EXISTS job_list;
         DROP VIEW IF EXISTS job_view;
-        DROP INDEX IF EXISTS idx_jobs_valuation;
-        DROP INDEX IF EXISTS idx_jobs_fitability;
         """
     )
     ensure_existing_schema(connection)
@@ -178,17 +107,6 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN relocation TEXT NOT NULL DEFAULT 'NO'"
         )
-    if "valuation" in columns and "job_interest" not in columns:
-        connection.execute("ALTER TABLE jobs RENAME COLUMN valuation TO job_interest")
-        columns.remove("valuation")
-        columns.add("job_interest")
-    if "fitability_percent" in columns and "candidate_fit_percent" not in columns:
-        connection.execute(
-            "ALTER TABLE jobs RENAME COLUMN fitability_percent TO candidate_fit_percent"
-        )
-        columns.remove("fitability_percent")
-        columns.add("candidate_fit_percent")
-
     if "job_interest" not in columns:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN job_interest INTEGER NOT NULL DEFAULT 0"
@@ -216,12 +134,11 @@ def get_or_create_id(
 
 
 def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
-    source_url = clean(record.get("source_url"))
-    title = clean(record.get("title"))
-    if not source_url:
-        raise ValueError("Job record must include source_url.")
-    if not title:
-        raise ValueError("Job record must include title.")
+    source_url = required_text(record, "source_url")
+    title = required_text(record, "title")
+    salary = clean(record["salary"])
+    if salary.lower() == "unknown":
+        raise ValueError("salary must be empty when unavailable, not 'unknown'")
 
     connection.execute(
         """
@@ -265,28 +182,24 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             updated_at = CURRENT_TIMESTAMP
         """,
         (
-            clean(record.get("source"), "justjoin"),
+            required_text(record, "source"),
             source_url,
             title,
-            clean(record.get("company")),
-            clean(record.get("location")),
-            clean(record.get("remote_type"), "unknown"),
-            field(record, "remote_scope", "unknown"),
-            field(record, "relocation", "NO"),
-            int_field(record, "job_interest", int_field(record, "valuation", 0)),
-            int_field(
-                record,
-                "candidate_fit_percent",
-                int_field(record, "fitability_percent", 100),
-            ),
-            clean(record.get("seniority"), "unknown"),
-            clean(record.get("role"), "unknown"),
-            clean(record.get("salary"), "unknown"),
-            clean(record.get("summary")),
-            clean(record.get("pros")),
-            clean(record.get("cons")),
-            clean(record.get("notes")),
-            clean(record.get("added_at")),
+            clean(record["company"]),
+            clean(record["location"]),
+            required_text(record, "remote_type"),
+            clean(record["remote_scope"]),
+            required_text(record, "relocation"),
+            required_int(record, "job_interest"),
+            required_int(record, "candidate_fit_percent"),
+            required_text(record, "seniority"),
+            required_text(record, "role"),
+            salary,
+            clean(record["summary"]),
+            clean(record["pros"]),
+            clean(record["cons"]),
+            clean(record["notes"]),
+            clean(record["added_at"]),
         ),
     )
     job_id = int(
@@ -296,8 +209,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
         ).fetchone()[0]
     )
 
-    replace_languages(connection, job_id, record.get("languages", []))
-    replace_technologies(connection, job_id, record.get("technologies", []))
+    replace_languages(connection, job_id, record["languages"])
+    replace_technologies(connection, job_id, record["technologies"])
     return job_id
 
 
@@ -311,12 +224,11 @@ def replace_languages(
     primary_language_id = None
     primary_rank = -1
     for language in languages:
-        name = clean(language.get("name"))
-        if not name:
-            continue
+        name = required_text(language, "name")
 
-        level = normalize_level(language.get("level"))
-        rank = int(language.get("level_rank") or level_rank(level))
+        level = normalize_level(language["level"])
+        rank = required_int(language, "level_rank")
+        raw_value = clean(language["raw_value"])
         language_id = get_or_create_id(connection, "languages", name)
         connection.execute(
             """
@@ -329,7 +241,7 @@ def replace_languages(
             )
             VALUES (?, ?, ?, ?, ?)
             """,
-            (job_id, language_id, level, rank, f"{name}: {level}" if level else name),
+            (job_id, language_id, level, rank, raw_value),
         )
 
         if rank > primary_rank:
@@ -350,16 +262,12 @@ def replace_technologies(
     connection.execute("DELETE FROM job_technologies WHERE job_id = ?", (job_id,))
 
     for technology in technologies:
-        name = clean(technology.get("name"))
-        if not name:
-            continue
+        name = required_text(technology, "name")
 
-        req_type = requirement_type(technology.get("requirement"))
-        level = normalize_level(technology.get("level"))
+        req_type = requirement_type(technology["requirement"])
+        level = normalize_level(technology["level"])
         technology_id = get_or_create_id(connection, "technologies", name)
-        raw_value = clean(technology.get("raw_value"))
-        if not raw_value:
-            raw_value = f"{name}: {level}" if level else name
+        raw_value = clean(technology["raw_value"])
 
         connection.execute(
             """
@@ -378,7 +286,7 @@ def replace_technologies(
                 technology_id,
                 req_type,
                 level,
-                int(technology.get("level_rank") or technology_level_rank(level, req_type)),
+                required_int(technology, "level_rank"),
                 raw_value,
             ),
         )
@@ -418,7 +326,7 @@ def load_job_json(
         "source": clean(job["source"], "justjoin"),
         "source_url": clean(job["source_url"]),
         "added_at": clean(job["added_at"]),
-        "salary": clean(job["salary"], "unknown"),
+        "salary": clean(job["salary"]),
         "relocation": clean(job["relocation"], "NO"),
         "job_interest": int(job["job_interest"] or 0),
         "candidate_fit_percent": int(job["candidate_fit_percent"] or 0),

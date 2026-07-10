@@ -24,9 +24,13 @@ after this analysis and before `workflow/save_analyzed_job.py`. Keep this
 analysis layer out of Python string heuristics unless we explicitly decide
 otherwise later.
 
-Return structured JSON data for saving into SQLite. Prefer visible facts from the
-vacancy. Use expert judgment only for fields that explicitly require text
-interpretation.
+Return structured JSON data for saving into SQLite. The final saved DTO contract
+is `contracts/job_analysis.schema.json`; use exactly those field names and
+shapes for the analysis-owned fields. Scoring stages add
+`candidate_fit_percent`, `candidate_fit_reason`, and `job_interest` later. Do
+not invent aliases such as `language` instead of `name`, or `requirement_type`
+instead of `requirement`. Prefer visible facts from the vacancy. Use expert
+judgment only for fields that explicitly require text interpretation.
 
 Job fields:
 - added_at: current date in YYYY-MM-DD format.
@@ -40,7 +44,7 @@ Job fields:
 - relocation: NO, or a concise list of relocation destination countries/places.
 - seniority: intern, junior, middle, senior, lead, unknown.
 - role: backend, frontend, fullstack, devops, data, ml_ai, qa, product, other.
-- salary: salary range/currency if available, otherwise unknown.
+- salary: salary range/currency if available, otherwise empty string.
 - summary: one short sentence about the vacancy.
 - pros: short reasons why it may fit.
 - cons: short reasons why it may not fit.
@@ -49,12 +53,18 @@ Job fields:
 Languages:
 - Extract human languages only.
 - Store each language separately with its level when stated.
+- Use this JSON shape for each language:
+  `{"name": "English", "level": "B2", "level_rank": 4, "raw_value": "..."}`
 - Pick primary_language as the language with the highest required level.
 - If a language is unclear, do not confuse it with a programming language.
 
 Technology requirements:
 - Store technologies separately.
-- requirement_type:
+- Use this JSON shape for each technology:
+  `{"name": "Java", "requirement": "required", "level": "advanced", "level_rank": 4, "raw_value": "..."}`
+- `level` must be the normalized label matching `level_rank`, not raw wording.
+  Put raw wording such as "3+ years" or "hands-on experience" into `raw_value`.
+- requirement:
   - required: the vacancy says or strongly implies the technology is required.
   - nice_to_have: the vacancy says nice to have, will be a plus, optional, bonus.
 - level_rank:

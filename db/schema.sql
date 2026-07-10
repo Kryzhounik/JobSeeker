@@ -19,24 +19,44 @@ CREATE TABLE IF NOT EXISTS jobs (
     source TEXT NOT NULL DEFAULT 'justjoin',
     source_url TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
-    company TEXT,
-    location TEXT,
-    remote_type TEXT,
+    company TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
+    remote_type TEXT NOT NULL DEFAULT 'unknown' CHECK (
+        remote_type IN ('remote', 'hybrid', 'office', 'unknown')
+    ),
     remote_scope TEXT NOT NULL DEFAULT 'unknown',
     relocation TEXT NOT NULL DEFAULT 'NO',
-    seniority TEXT,
-    role TEXT,
+    seniority TEXT NOT NULL DEFAULT 'unknown' CHECK (
+        seniority IN ('intern', 'junior', 'middle', 'senior', 'lead', 'unknown')
+    ),
+    role TEXT NOT NULL DEFAULT 'other' CHECK (
+        role IN (
+            'backend',
+            'frontend',
+            'fullstack',
+            'devops',
+            'data',
+            'ml_ai',
+            'qa',
+            'product',
+            'mobile',
+            'automation',
+            'support',
+            'artist',
+            'other'
+        )
+    ),
     primary_language_id INTEGER REFERENCES languages(id) ON DELETE SET NULL,
-    salary TEXT,
+    salary TEXT NOT NULL DEFAULT '',
     job_interest INTEGER NOT NULL DEFAULT 0,
     candidate_fit_percent INTEGER NOT NULL DEFAULT 100 CHECK (
         candidate_fit_percent >= 0 AND candidate_fit_percent <= 100
     ),
-    summary TEXT,
-    pros TEXT,
-    cons TEXT,
-    notes TEXT,
-    added_at TEXT,
+    summary TEXT NOT NULL DEFAULT '',
+    pros TEXT NOT NULL DEFAULT '',
+    cons TEXT NOT NULL DEFAULT '',
+    notes TEXT NOT NULL DEFAULT '',
+    added_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -45,9 +65,11 @@ CREATE TABLE IF NOT EXISTS job_languages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     language_id INTEGER NOT NULL REFERENCES languages(id) ON DELETE CASCADE,
-    level TEXT,
-    level_rank INTEGER,
-    raw_value TEXT,
+    level TEXT NOT NULL DEFAULT '',
+    level_rank INTEGER NOT NULL CHECK (
+        level_rank >= 1 AND level_rank <= 6
+    ),
+    raw_value TEXT NOT NULL DEFAULT '',
     UNIQUE(job_id, language_id)
 );
 
@@ -58,15 +80,17 @@ CREATE TABLE IF NOT EXISTS job_technologies (
     requirement_type TEXT NOT NULL CHECK (
         requirement_type IN ('required', 'nice_to_have')
     ),
-    level TEXT,
-    level_rank INTEGER,
-    raw_value TEXT,
+    level TEXT NOT NULL CHECK (
+        level IN ('nice to have', 'junior', 'regular', 'advanced', 'master')
+    ),
+    level_rank INTEGER NOT NULL CHECK (
+        level_rank >= 1 AND level_rank <= 5
+    ),
+    raw_value TEXT NOT NULL DEFAULT '',
     UNIQUE(job_id, technology_id, requirement_type)
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
-DROP INDEX IF EXISTS idx_jobs_valuation;
-DROP INDEX IF EXISTS idx_jobs_fitability;
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
@@ -148,9 +172,15 @@ SELECT
                                     WHEN 5 THEN 'master'
                                     ELSE ''
                                 END
-                            WHEN lower(coalesce(jt.level, ''))
-                                LIKE '%experience required%' THEN 'regular'
-                            ELSE jt.level
+                            ELSE
+                                CASE jt.level_rank
+                                    WHEN 1 THEN 'nice to have'
+                                    WHEN 2 THEN 'junior'
+                                    WHEN 3 THEN 'regular'
+                                    WHEN 4 THEN 'advanced'
+                                    WHEN 5 THEN 'master'
+                                    ELSE ''
+                                END
                         END,
                         ''
                     ),
@@ -170,7 +200,7 @@ SELECT
                 t.name COLLATE NOCASE
         )
     ), '') AS technologies,
-    coalesce(j.salary, '') AS salary,
+    coalesce(nullif(j.salary, 'unknown'), '') AS salary,
     coalesce(j.seniority, '') AS seniority,
     coalesce(j.role, '') AS role,
     coalesce(j.title, '') AS title,
@@ -256,9 +286,15 @@ WITH ordered AS (
                     WHEN 5 THEN 'master'
                     ELSE ''
                 END
-            WHEN lower(coalesce(jt.level, '')) LIKE '%experience required%'
-                THEN 'regular'
-            ELSE jt.level
+            ELSE
+                CASE jt.level_rank
+                    WHEN 1 THEN 'nice to have'
+                    WHEN 2 THEN 'junior'
+                    WHEN 3 THEN 'regular'
+                    WHEN 4 THEN 'advanced'
+                    WHEN 5 THEN 'master'
+                    ELSE ''
+                END
         END AS level,
         j.source_url,
         j.summary,
@@ -281,7 +317,7 @@ SELECT
     technology,
     coalesce(req, '') AS req,
     coalesce(level, '') AS level,
-    CASE WHEN row_in_job = 1 THEN coalesce(salary, '') ELSE '' END AS salary,
+    CASE WHEN row_in_job = 1 THEN coalesce(nullif(salary, 'unknown'), '') ELSE '' END AS salary,
     CASE WHEN row_in_job = 1 THEN coalesce(seniority, '') ELSE '' END AS seniority,
     CASE WHEN row_in_job = 1 THEN coalesce(role, '') ELSE '' END AS role,
     CASE WHEN row_in_job = 1 THEN coalesce(title, '') ELSE '' END AS title,

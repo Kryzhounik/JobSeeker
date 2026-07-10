@@ -43,6 +43,10 @@ All three commands must enter the same pipeline at `raw HTML`.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
+- `scoring/candidate_fit/filter.py` is only the fast rejection gate. A passed
+  fast filter is not a final positive candidate-fit score.
+- Positive candidate fit must come from the semantic agent step in
+  `scoring/candidate_fit/evaluate.md`.
 - `workflow/save_analyzed_job.py` only saves fully scored JSON. It must not
   calculate `candidate_fit_percent` or `job_interest`.
 - Database JSON mapping must go through `db/job_mapper.py`.

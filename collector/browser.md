@@ -79,6 +79,11 @@ Before saving a LinkedIn pane, verify:
 In the Chrome extension browser, `domSnapshot()` may fail. Use
 `playwright.evaluate()` for LinkedIn collection.
 
+Treat `playwright.evaluate()` as read-oriented in the Chrome extension browser.
+Do not scroll LinkedIn by assigning `scrollTop` inside `evaluate()`. Find the
+left search-results scroll container, then scroll it with a user action such as
+`locator(...).press("PageDown")`.
+
 Use selectors or coordinates only after reading the visible cards from the DOM.
 Do not click blindly.
 

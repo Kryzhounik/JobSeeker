@@ -35,8 +35,11 @@ def load_record(path: Path, source: str) -> dict[str, Any]:
     record = payload.get("analysis", payload)
     if not isinstance(record, dict):
         raise ValueError(f"{path} must contain a job analysis object")
-    if source and not record.get("source"):
-        record["source"] = source
+    if source and record.get("source") != source:
+        raise ValueError(
+            f"{path} source mismatch: JSON has {record.get('source')!r}, "
+            f"command expected {source!r}"
+        )
     return record
 
 
@@ -49,6 +52,18 @@ def require_candidate_fit(record: dict[str, Any]) -> int:
     return int(value)
 
 
+def reject_fast_filter_only_candidate_fit(record: dict[str, Any]) -> None:
+    candidate_fit = int(record.get("candidate_fit_percent") or 0)
+    reason = str(record.get("candidate_fit_reason") or "").strip().lower()
+    if candidate_fit <= 0:
+        return
+    if reason == "job filter passed":
+        raise ValueError(
+            "candidate_fit_percent contains only fast-filter pass result; "
+            "run scoring/candidate_fit/evaluate.md semantic candidate-fit step before save"
+        )
+
+
 def require_job_interest(record: dict[str, Any]) -> int:
     value = record.get("job_interest")
     if value is None or value == "":
@@ -58,6 +73,7 @@ def require_job_interest(record: dict[str, Any]) -> int:
 
 def validate_scored_record(record: dict[str, Any]) -> None:
     record["candidate_fit_percent"] = require_candidate_fit(record)
+    reject_fast_filter_only_candidate_fit(record)
     record["job_interest"] = require_job_interest(record)
 
 
@@ -77,7 +93,9 @@ def save_records(
         for path in analyzed_paths(input_path):
             try:
                 record = load_record(path, source)
-                source_url = str(record.get("source_url") or "").strip()
+                source_url = str(record["source_url"] or "").strip()
+                if not source_url:
+                    raise ValueError("source_url is empty")
                 if source_url in done and not force:
                     results.append(("skip", source_url))
                     continue

@@ -124,10 +124,6 @@ class FilterResult:
     candidate_fit_percent: int
     reason: str
 
-    @property
-    def fitability_percent(self) -> int:
-        return self.candidate_fit_percent
-
 
 def project_root() -> Path:
     return Path(__file__).resolve().parents[2]

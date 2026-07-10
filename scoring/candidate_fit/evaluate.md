@@ -9,7 +9,8 @@ It writes `jobs.candidate_fit_percent`.
 Runtime switches live in `scoring/candidate_fit/config/filter.ini`.
 Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
 
-Current stage: fast deterministic filtering plus agent technology-fit scoring.
+Current stage: fast deterministic filtering plus mandatory agent
+candidate-fit scoring for all jobs that pass the fast filter.
 
 Before agent evaluation:
 - Always run the fast deterministic filter first with
@@ -20,6 +21,10 @@ Before agent evaluation:
   rules, such as language level mismatch, unavailable remote/relocation
   conditions, or other configured fast-filter checks.
 - Run semantic agent evaluation only for vacancies that pass the fast filter.
+- A positive fast-filter result is not the final candidate-fit score.
+- Never save `candidate_fit_percent = 100` with
+  `candidate_fit_reason = "job filter passed"` as final scoring. That value
+  only means "continue to semantic candidate-fit evaluation".
 
 Remote/relocation filter modes:
 - `off`: ignore the field.
@@ -49,8 +54,8 @@ Remote/relocation rules:
   `[relocation]`.
 - `filter.ini` decides whether those checks are off, loose, or location-based.
 
-Technology-fit agent stage:
-- Return a technology fit score from 0.0 to 1.0.
+Semantic candidate-fit agent stage:
+- Return the final `candidate_fit_percent` from 0 to 100.
 - This is semantic matching, not a fast script filter.
 - Use the vacancy's required and nice-to-have technologies together with the
   candidate profile from `config/resume.ini`.
@@ -65,15 +70,16 @@ Technology-fit agent stage:
   experience can cover many Java backend framework variants.
 - Explain important substitutions, gaps, and uncertainty.
 
-Technology fit score meaning:
-- 0.0: clear mismatch; the core required stack is outside the candidate profile.
-- 0.25: major gaps; possible only with serious retraining.
-- 0.5: partial fit; candidate has adjacent experience but important gaps remain.
-- 0.75: good fit; most required technologies are covered directly or by close
+Candidate-fit score meaning:
+- 0: rejected by hard filter or clear mismatch.
+- 25: major gaps; possible only with serious retraining.
+- 50: partial fit; candidate has adjacent experience but important gaps remain.
+- 75: good fit; most required technologies are covered directly or by close
   equivalents.
-- 0.9-1.0: very strong fit; core stack and responsibility level match well.
+- 90-100: very strong fit; core stack and responsibility level match well.
 
-Later stage:
-- Wire resume-to-technology fit analysis into the workflow as a separate agent
-  step.
+Workflow requirement:
+- The semantic candidate-fit agent stage is already part of the required
+  workflow. If it has not been performed for a fast-filter-passed job, stop
+  instead of saving the job.
 - Keep every new filter step explainable and independently runnable.
