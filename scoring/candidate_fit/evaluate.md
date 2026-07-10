@@ -26,34 +26,6 @@ Before agent evaluation:
   `candidate_fit_reason = "job filter passed"` as final scoring. That value
   only means "continue to semantic candidate-fit evaluation".
 
-Remote/relocation filter modes:
-- `off`: ignore the field.
-- `on`: require any remote or any relocation.
-- `location`: require remote_scope or relocation destination to match the
-  configured allowed list.
-
-For full remote jobs, use `remote_scope` as the source of truth. The listed
-office/job location does not matter if the job is truly remote. For
-office/hybrid jobs in unavailable locations, pass them only when relocation is
-offered and the relocation destination matches the configured list.
-
-Language rules:
-- Read known languages from `scoring/candidate_fit/config/resume.ini`.
-- If required English is higher than B2, candidate fit is 0.
-- If the vacancy requires another human language that is not listed in the
-  resume config, candidate fit is 0.
-- If the vacancy requires a known language above the resume level, candidate fit
-  is 0.
-- Otherwise candidate fit remains 100.
-- If the vacancy has no explicit language requirements, do not reject it at
-  this stage.
-
-Remote/relocation rules:
-- Read available remote scopes from `resume.ini` section `[remote]`.
-- Read acceptable relocation destinations from `resume.ini` section
-  `[relocation]`.
-- `filter.ini` decides whether those checks are off, loose, or location-based.
-
 Semantic candidate-fit agent stage:
 - Return the final `candidate_fit_percent` from 0 to 100.
 - This is semantic matching, not a fast script filter.
