@@ -21,8 +21,9 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 - Use `Driver/db/save.py` only as the CLI wrapper for writing final jobs.
 - Use `Driver/analyzer/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `Data/analyzed/<source>/`.
-- Run `Driver/scoring/candidate_fit` before `Driver/db/save.py`; the save
-  script requires `candidate_fit_percent` to already exist.
+- Run `Driver/scoring/candidate_fit/evaluate.md` before `Driver/db/save.py`;
+  it updates the same analyzed JSON with `candidate_fit_percent` and
+  `candidate_fit_reason`.
 - Use `Driver/scoring/job_interest/config/interest.ini` for job-interest score rules.
 - Run `python Driver/scoring/job_interest/calculate.py --input <json-or-dir>`
   before `Driver/db/save.py`; the save script requires `job_interest` to

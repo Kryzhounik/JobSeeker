@@ -24,9 +24,9 @@ collector
 -> analyzer/analyze_job.md
 -> analyzed JSON
 -> scoring/candidate_fit/evaluate.md
--> candidate-fit-scored JSON
+-> same JSON with candidate_fit_percent/candidate_fit_reason
 -> scoring/job_interest/calculate.py --input <json-or-dir>
--> fully scored JSON
+-> same JSON with job_interest
 -> db/save.py
 -> SQLite
 ```
@@ -102,6 +102,8 @@ scope.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `scoring/candidate_fit/evaluate.md`.
+- Candidate-fit scoring updates the same JSON file under
+  `../Data/analyzed/<source>/`; it does not create a second main output folder.
 - `scoring/job_interest/calculate.py --input <json-or-dir>` adds
   `job_interest` to JSON before save. Its DB recalculation mode is maintenance,
   not the main pipeline.

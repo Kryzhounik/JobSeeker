@@ -9,7 +9,9 @@ Public analyzer call:
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
-- Then pass it to `scoring/candidate_fit` to add `candidate_fit_percent`.
+- Then pass that same JSON file to `scoring/candidate_fit/evaluate.md`;
+  candidate-fit updates the same file in place with `candidate_fit_percent`
+  and `candidate_fit_reason`.
 - Then run `python scoring/job_interest/calculate.py --input <json>` to add
   `job_interest`.
 - Save only fully scored JSON with
