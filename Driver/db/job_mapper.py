@@ -7,6 +7,7 @@ agent-specific code.
 
 from __future__ import annotations
 
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -15,6 +16,7 @@ from typing import Any
 JOB_COLUMNS = (
     "id",
     "source",
+    "source_job_id",
     "source_url",
     "title",
     "company",
@@ -41,6 +43,13 @@ def clean(value: Any, default: str = "") -> str:
         return default
     text = str(value).strip()
     return text if text else default
+
+
+def source_job_id(source: str, source_url: str) -> str:
+    if source == "linkedin":
+        match = re.search(r"/jobs/view/(\d+)", source_url)
+        return match.group(1) if match else ""
+    return ""
 
 
 def required_text(record: dict[str, Any], name: str) -> str:
@@ -122,6 +131,29 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN candidate_fit_percent INTEGER NOT NULL DEFAULT 100"
         )
+    if "source_job_id" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
+        )
+    connection.execute(
+        """
+        UPDATE jobs
+        SET source_job_id = substr(
+            source_url,
+            instr(source_url, '/jobs/view/') + length('/jobs/view/'),
+            instr(
+                substr(
+                    source_url,
+                    instr(source_url, '/jobs/view/') + length('/jobs/view/')
+                ),
+                '/'
+            ) - 1
+        )
+        WHERE source = 'linkedin'
+            AND source_job_id = ''
+            AND instr(source_url, '/jobs/view/') > 0
+        """
+    )
 
 
 def get_or_create_id(
@@ -141,6 +173,7 @@ def get_or_create_id(
 
 
 def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
+    source = required_text(record, "source")
     source_url = required_text(record, "source_url")
     title = required_text(record, "title")
     salary = clean(record["salary"])
@@ -151,6 +184,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
         """
         INSERT INTO jobs (
             source,
+            source_job_id,
             source_url,
             title,
             company,
@@ -169,8 +203,9 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
+            source_job_id = excluded.source_job_id,
             title = excluded.title,
             company = excluded.company,
             location = excluded.location,
@@ -189,7 +224,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             updated_at = CURRENT_TIMESTAMP
         """,
         (
-            required_text(record, "source"),
+            source,
+            source_job_id(source, source_url),
             source_url,
             title,
             clean(record["company"]),

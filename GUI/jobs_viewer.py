@@ -171,6 +171,9 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.bind("<<TreeviewSelect>>", self._on_job_selected)
         self.jobs_tree.bind("<Control-c>", self._copy_tree_selection)
         self.jobs_tree.bind("<Control-C>", self._copy_tree_selection)
+        self.jobs_tree.bind("<Control-Insert>", self._copy_tree_selection)
+        self.jobs_tree.bind("<<Copy>>", self._copy_tree_selection)
+        self.jobs_tree.bind("<Button-3>", self._show_copy_menu)
 
     def _build_detail(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -198,8 +201,7 @@ class JobsViewer(tk.Tk):
             state="readonly",
         )
         self.link_entry.grid(row=0, column=0, sticky="ew")
-        self.link_entry.bind("<Control-a>", self._select_entry_text)
-        self.link_entry.bind("<Control-A>", self._select_entry_text)
+        self._bind_copyable_entry(self.link_entry)
 
         ttk.Button(link_frame, text="Open", command=self._open_current_link).grid(
             row=0,
@@ -239,8 +241,7 @@ class JobsViewer(tk.Tk):
                 sticky="ew",
                 pady=3,
             )
-            entry.bind("<Control-a>", self._select_entry_text)
-            entry.bind("<Control-A>", self._select_entry_text)
+            self._bind_copyable_entry(entry)
 
     def _build_tech_and_summary(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -280,6 +281,9 @@ class JobsViewer(tk.Tk):
         self.tech_tree.tag_configure("odd", background="#f7f9fb")
         self.tech_tree.bind("<Control-c>", self._copy_tree_selection)
         self.tech_tree.bind("<Control-C>", self._copy_tree_selection)
+        self.tech_tree.bind("<Control-Insert>", self._copy_tree_selection)
+        self.tech_tree.bind("<<Copy>>", self._copy_tree_selection)
+        self.tech_tree.bind("<Button-3>", self._show_copy_menu)
 
         ttk.Label(parent, text="Summary", style="Muted.TLabel").grid(
             row=1,
@@ -300,6 +304,8 @@ class JobsViewer(tk.Tk):
         self.summary_text.grid(row=2, column=0, sticky="nsew")
         self.summary_text.bind("<KeyPress>", self._block_readonly_text_edit)
         self.summary_text.bind("<<Paste>>", self._break_event)
+        self.summary_text.bind("<<Cut>>", self._break_event)
+        self._bind_copyable_text(self.summary_text)
 
     def connect(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
@@ -641,26 +647,71 @@ class JobsViewer(tk.Tk):
         for index, item in enumerate(tree.get_children("")):
             tree.item(item, tags=("odd",) if index % 2 else ())
 
+    def _bind_copyable_entry(self, widget: tk.Widget) -> None:
+        widget.bind("<Control-a>", self._select_entry_text)
+        widget.bind("<Control-A>", self._select_entry_text)
+        widget.bind("<Control-c>", self._copy_widget_event)
+        widget.bind("<Control-C>", self._copy_widget_event)
+        widget.bind("<Control-Insert>", self._copy_widget_event)
+        widget.bind("<<Copy>>", self._copy_widget_event)
+        widget.bind("<Button-3>", self._show_copy_menu)
+
+    def _bind_copyable_text(self, widget: tk.Text) -> None:
+        widget.bind("<Control-a>", self._select_text)
+        widget.bind("<Control-A>", self._select_text)
+        widget.bind("<Control-c>", self._copy_widget_event)
+        widget.bind("<Control-C>", self._copy_widget_event)
+        widget.bind("<Control-Insert>", self._copy_widget_event)
+        widget.bind("<<Copy>>", self._copy_widget_event)
+        widget.bind("<Button-3>", self._show_copy_menu)
+
     def _copy_tree_selection(self, event: tk.Event[tk.Misc]) -> str:
-        tree = event.widget
-        if not hasattr(tree, "selection") or not hasattr(tree, "set"):
+        return self._copy_widget_selection(event.widget)
+
+    def _copy_widget_event(self, event: tk.Event[tk.Misc]) -> str:
+        return self._copy_widget_selection(event.widget)
+
+    def _copy_widget_selection(self, widget: tk.Misc) -> str:
+        if hasattr(widget, "selection") and hasattr(widget, "set"):
+            text = self._tree_selection_text(widget)
+        elif isinstance(widget, tk.Text):
+            text = self._text_selection(widget)
+        elif hasattr(widget, "selection_get") and hasattr(widget, "get"):
+            text = self._entry_selection(widget)
+        else:
             return "break"
 
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.status_var.set("Copied")
+        return "break"
+
+    def _tree_selection_text(self, tree: tk.Misc) -> str:
         selected = tree.selection()
         if not selected and tree.focus():
             selected = (tree.focus(),)
         if not selected:
-            return "break"
+            return ""
 
         columns = tree["columns"]
         lines = [
             "\t".join(clean(tree.set(item, column)) for column in columns)
             for item in selected
         ]
-        self.clipboard_clear()
-        self.clipboard_append("\n".join(lines))
-        self.status_var.set("Copied row")
-        return "break"
+        return "\n".join(lines)
+
+    def _text_selection(self, widget: tk.Text) -> str:
+        try:
+            return widget.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except tk.TclError:
+            return widget.get("1.0", "end-1c")
+
+    def _entry_selection(self, widget: tk.Misc) -> str:
+        try:
+            return widget.selection_get()
+        except tk.TclError:
+            return clean(widget.get())
 
     def _select_entry_text(self, event: tk.Event[tk.Misc]) -> str:
         widget = event.widget
@@ -669,15 +720,53 @@ class JobsViewer(tk.Tk):
             widget.icursor(tk.END)
         return "break"
 
+    def _select_text(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        if isinstance(widget, tk.Text):
+            widget.tag_add(tk.SEL, "1.0", "end-1c")
+            widget.mark_set(tk.INSERT, "1.0")
+            widget.see(tk.INSERT)
+        return "break"
+
+    def _show_copy_menu(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        if hasattr(widget, "identify_row") and hasattr(widget, "selection_set"):
+            item = widget.identify_row(event.y)
+            if item:
+                widget.selection_set(item)
+                widget.focus(item)
+
+        menu = tk.Menu(self, tearoff=False)
+        menu.add_command(
+            label="Copy",
+            command=lambda widget=widget: self._copy_widget_selection(widget),
+        )
+        if not hasattr(widget, "selection") or not hasattr(widget, "set"):
+            menu.add_command(
+                label="Select all",
+                command=lambda widget=widget: self._select_all_widget_text(widget),
+            )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def _select_all_widget_text(self, widget: tk.Misc) -> None:
+        if isinstance(widget, tk.Text):
+            widget.tag_add(tk.SEL, "1.0", "end-1c")
+            widget.mark_set(tk.INSERT, "1.0")
+            widget.see(tk.INSERT)
+        elif hasattr(widget, "selection_range") and hasattr(widget, "icursor"):
+            widget.selection_range(0, tk.END)
+            widget.icursor(tk.END)
+
     def _block_readonly_text_edit(self, event: tk.Event[tk.Misc]) -> str | None:
         key = event.keysym.lower()
         ctrl_pressed = bool(event.state & 0x4)
         if ctrl_pressed and key == "a":
-            event.widget.tag_add(tk.SEL, "1.0", "end-1c")
-            event.widget.mark_set(tk.INSERT, "1.0")
-            event.widget.see(tk.INSERT)
-            return "break"
-        if ctrl_pressed and key in {"c", "insert"}:
+            return self._select_text(event)
+        if ctrl_pressed:
             return None
 
         allowed_keys = {

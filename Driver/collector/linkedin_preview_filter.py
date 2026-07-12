@@ -4,6 +4,7 @@ import argparse
 import configparser
 import json
 import re
+import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
@@ -18,6 +19,7 @@ from linkedin_preview_logger import record_preview_filter
 
 
 DEFAULT_CONFIG = ROOT / "collector" / "config" / "linkedin_preview_filter.ini"
+DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> configparser.ConfigParser:
@@ -66,6 +68,82 @@ def matches_term(text: str, term: str) -> bool:
     return re.search(rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])", haystack) is not None
 
 
+def source_job_id(preview: dict[str, Any]) -> str:
+    value = str(preview.get("job_id") or "").strip()
+    if value:
+        return value
+    source_url = str(preview.get("source_url") or "").strip()
+    match = re.search(r"/jobs/view/(\d+)", source_url)
+    return match.group(1) if match else ""
+
+
+def ensure_dedup_schema(connection: sqlite3.Connection) -> None:
+    jobs_exists = connection.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'jobs'
+        """
+    ).fetchone()
+    if not jobs_exists:
+        return
+
+    columns = {
+        row[1]
+        for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
+    }
+    if "source_job_id" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
+        )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id)"
+    )
+    connection.execute(
+        """
+        UPDATE jobs
+        SET source_job_id = substr(
+            source_url,
+            instr(source_url, '/jobs/view/') + length('/jobs/view/'),
+            instr(
+                substr(
+                    source_url,
+                    instr(source_url, '/jobs/view/') + length('/jobs/view/')
+                ),
+                '/'
+            ) - 1
+        )
+        WHERE source = 'linkedin'
+            AND source_job_id = ''
+            AND instr(source_url, '/jobs/view/') > 0
+        """
+    )
+
+
+def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) -> bool:
+    if not db_path.exists():
+        return False
+
+    job_id = source_job_id(preview)
+    if not job_id:
+        return False
+
+    with sqlite3.connect(db_path) as connection:
+        ensure_dedup_schema(connection)
+        row = connection.execute(
+            """
+            SELECT 1
+            FROM jobs
+            WHERE source = 'linkedin'
+                AND source_job_id = ?
+            LIMIT 1
+            """,
+            (job_id,),
+        ).fetchone()
+        return row is not None
+    return False
+
+
 def decide_preview(
     preview: dict[str, Any],
     config_path: Path = DEFAULT_CONFIG,
@@ -86,6 +164,13 @@ def decide_preview(
             "preview_decision": "skip",
             "preview_reason": "title blocked: " + ", ".join(matches),
             "preview_blocked_terms": matches,
+        }
+
+    if is_duplicate_preview(preview):
+        return {
+            "preview_decision": "skip",
+            "preview_reason": "duplicate source_job_id",
+            "preview_blocked_terms": [],
         }
 
     when_unsure = config.get("decision", "when_unsure", fallback="open").strip().lower()

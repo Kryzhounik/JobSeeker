@@ -62,3 +62,6 @@ Data Partnerships Lead
 Product Owner
 UI Engineer
 Mobile Engineer
+Journalist
+Research Engineer
+Computer Science Specialist

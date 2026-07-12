@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS technologies (
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL DEFAULT 'justjoin',
+    source_job_id TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     company TEXT NOT NULL DEFAULT '',
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS job_technologies (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
+CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
