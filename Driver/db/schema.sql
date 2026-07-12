@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     source TEXT NOT NULL DEFAULT 'justjoin',
     source_job_id TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'New',
+    status TEXT NOT NULL DEFAULT 'New' CHECK (
+        status IN ('New', 'Checked', 'Approved', 'Closed')
+    ),
     title TEXT NOT NULL,
     company TEXT NOT NULL DEFAULT '',
     location TEXT NOT NULL DEFAULT '',

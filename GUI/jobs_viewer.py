@@ -57,7 +57,7 @@ TECH_COLUMNS = (
 
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
-STATUS_VALUES = ("New", "Checked", "Approved", "Close")
+STATUS_VALUES = ("New", "Checked", "Approved", "Closed")
 LEVEL_SORT_VALUES = {
     "": 0,
     "nice to have": 1,
@@ -90,6 +90,11 @@ class JobsViewer(tk.Tk):
         self.current_status = ""
         self.detail_vars: dict[str, tk.StringVar] = {}
         self.status_buttons: list[ttk.Button] = []
+        self.status_values = self._available_status_values()
+        self.status_filter_vars = {
+            status: tk.BooleanVar(value=True) for status in self.status_values
+        }
+        self.show_zero_var = tk.BooleanVar(value=False)
         self.job_sort_column: str | None = None
         self.job_sort_descending = False
         self.tech_sort_column: str | None = None
@@ -119,10 +124,34 @@ class JobsViewer(tk.Tk):
         refresh_button = ttk.Button(toolbar, text="Refresh", command=self.refresh_jobs)
         refresh_button.grid(row=0, column=0, sticky="w")
 
+        filters = ttk.Frame(toolbar)
+        filters.grid(row=0, column=1, sticky="w", padx=(8, 8))
+
+        ttk.Label(filters, text="Status", style="Muted.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=(0, 5),
+        )
+        for column_index, status in enumerate(self.status_values, start=1):
+            ttk.Checkbutton(
+                filters,
+                text=status,
+                variable=self.status_filter_vars[status],
+                command=self.refresh_jobs,
+            ).grid(row=0, column=column_index, sticky="w", padx=(0, 4))
+
+        ttk.Checkbutton(
+            filters,
+            text="Show zero",
+            variable=self.show_zero_var,
+            command=self.refresh_jobs,
+        ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
+
         self.status_var = tk.StringVar(value="")
         ttk.Label(toolbar, textvariable=self.status_var, style="Muted.TLabel").grid(
             row=0,
-            column=1,
+            column=2,
             sticky="e",
         )
 
@@ -338,6 +367,30 @@ class JobsViewer(tk.Tk):
         connection.execute("PRAGMA query_only = ON")
         return connection
 
+    def _available_status_values(self) -> tuple[str, ...]:
+        values = list(STATUS_VALUES)
+        if not DB_PATH.exists():
+            return tuple(values)
+
+        try:
+            with sqlite3.connect(db_uri(), uri=True) as connection:
+                rows = connection.execute(
+                    """
+                    SELECT DISTINCT status
+                    FROM jobs
+                    WHERE status <> ''
+                    ORDER BY status
+                    """
+                ).fetchall()
+        except sqlite3.Error:
+            return tuple(values)
+
+        for row in rows:
+            status = clean(row[0])
+            if status and status not in values:
+                values.append(status)
+        return tuple(values)
+
     def connect_writable(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
             raise FileNotFoundError(f"Database not found: {DB_PATH}")
@@ -383,10 +436,35 @@ class JobsViewer(tk.Tk):
             self.jobs_tree.see(children[0])
 
     def _load_jobs(self) -> list[sqlite3.Row]:
+        statuses = [
+            status
+            for status, variable in self.status_filter_vars.items()
+            if variable.get()
+        ]
+        where_parts: list[str] = []
+        parameters: list[str] = []
+
+        if statuses:
+            placeholders = ", ".join("?" for _status in statuses)
+            where_parts.append(f"status IN ({placeholders})")
+            parameters.extend(statuses)
+        else:
+            where_parts.append("0")
+
+        if not self.show_zero_var.get():
+            where_parts.append(
+                """
+                CAST(score AS INTEGER) <> 0
+                AND CAST(fit AS INTEGER) <> 0
+                AND CAST(interest AS INTEGER) <> 0
+                """
+            )
+
+        where_sql = "WHERE " + " AND ".join(where_parts)
         with self.connect() as connection:
             return list(
                 connection.execute(
-                    """
+                    f"""
                     SELECT
                         score,
                         fit,
@@ -404,7 +482,9 @@ class JobsViewer(tk.Tk):
                         added_at,
                         source_url
                     FROM job_list
-                    """
+                    {where_sql}
+                    """,
+                    parameters,
                 )
             )
 
@@ -633,6 +713,12 @@ class JobsViewer(tk.Tk):
             return
 
         item = selected[0]
+        if not self._status_visible(status):
+            self.jobs_tree.delete(item)
+            self.job_rows.pop(item, None)
+            self._clear_detail()
+            return
+
         if item in self.job_rows:
             self.job_rows[item]["status"] = status
 
@@ -647,6 +733,10 @@ class JobsViewer(tk.Tk):
         state = tk.NORMAL if enabled else tk.DISABLED
         for button in self.status_buttons:
             button.configure(state=state)
+
+    def _status_visible(self, status: str) -> bool:
+        variable = self.status_filter_vars.get(status)
+        return bool(variable and variable.get())
 
     def _sort_jobs_tree(self, column: str) -> None:
         self.job_sort_column, self.job_sort_descending = self._sort_tree(

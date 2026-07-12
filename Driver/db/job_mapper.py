@@ -38,12 +38,24 @@ JOB_COLUMNS = (
     "primary_language_id",
 )
 
+JOB_STATUSES = ("New", "Checked", "Approved", "Closed")
+
 
 def clean(value: Any, default: str = "") -> str:
     if value is None:
         return default
     text = str(value).strip()
     return text if text else default
+
+
+def job_status(value: Any) -> str:
+    status = clean(value, "New")
+    if status not in JOB_STATUSES:
+        raise ValueError(
+            "Unsupported job status: "
+            f"{status!r}. Expected one of: {', '.join(JOB_STATUSES)}"
+        )
+    return status
 
 
 def source_job_id(source: str, source_url: str) -> str:
@@ -81,6 +93,7 @@ def requirement_type(value: str | None) -> str:
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
+    schema_sql = schema_path.read_text(encoding="utf-8")
     connection.executescript(
         """
         DROP VIEW IF EXISTS job_technology_display;
@@ -90,8 +103,8 @@ def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
         DROP VIEW IF EXISTS job_view;
         """
     )
-    ensure_existing_schema(connection)
-    connection.executescript(schema_path.read_text(encoding="utf-8"))
+    ensure_existing_schema(connection, schema_sql)
+    connection.executescript(schema_sql)
 
 
 def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
@@ -101,7 +114,7 @@ def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
     }
 
 
-def ensure_existing_schema(connection: sqlite3.Connection) -> None:
+def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> None:
     jobs_exists = connection.execute(
         """
         SELECT 1
@@ -140,6 +153,24 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN status TEXT NOT NULL DEFAULT 'New'"
         )
+    connection.execute("UPDATE jobs SET status = 'Closed' WHERE status = 'Close'")
+    invalid_statuses = [
+        row[0]
+        for row in connection.execute(
+            """
+            SELECT DISTINCT status
+            FROM jobs
+            WHERE status NOT IN ('New', 'Checked', 'Approved', 'Closed')
+            """
+        ).fetchall()
+    ]
+    if invalid_statuses:
+        raise ValueError(
+            "Unsupported job statuses in database: "
+            + ", ".join(repr(status) for status in invalid_statuses)
+        )
+    if not jobs_status_check_present(connection):
+        rebuild_jobs_with_status_check(connection, schema_sql)
     connection.execute(
         """
         UPDATE jobs
@@ -159,6 +190,68 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
             AND instr(source_url, '/jobs/view/') > 0
         """
     )
+
+
+def jobs_status_check_present(connection: sqlite3.Connection) -> bool:
+    row = connection.execute(
+        """
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'jobs'
+        """
+    ).fetchone()
+    ddl = row[0] if row else ""
+    return (
+        "status TEXT NOT NULL DEFAULT 'New' CHECK" in ddl
+        and "'Closed'" in ddl
+    )
+
+
+def jobs_new_table_sql(schema_sql: str) -> str:
+    marker = "CREATE TABLE IF NOT EXISTS jobs ("
+    start = schema_sql.index(marker)
+    end_marker = "\n);\n\nCREATE TABLE IF NOT EXISTS job_languages"
+    end = schema_sql.index(end_marker, start) + len("\n);")
+    return schema_sql[start:end].replace(
+        "CREATE TABLE IF NOT EXISTS jobs",
+        "CREATE TABLE jobs_new",
+        1,
+    )
+
+
+def table_columns(connection: sqlite3.Connection, table: str) -> list[str]:
+    return [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
+
+
+def rebuild_jobs_with_status_check(
+    connection: sqlite3.Connection,
+    schema_sql: str,
+) -> None:
+    connection.commit()
+    foreign_keys_enabled = int(
+        connection.execute("PRAGMA foreign_keys").fetchone()[0]
+    )
+    connection.execute("PRAGMA foreign_keys = OFF")
+    try:
+        connection.execute("DROP TABLE IF EXISTS jobs_new")
+        connection.execute(jobs_new_table_sql(schema_sql))
+        columns = [
+            column
+            for column in table_columns(connection, "jobs_new")
+            if column in set(table_columns(connection, "jobs"))
+        ]
+        column_sql = ", ".join(columns)
+        connection.execute(
+            f"INSERT INTO jobs_new ({column_sql}) SELECT {column_sql} FROM jobs"
+        )
+        connection.execute("DROP TABLE jobs")
+        connection.execute("ALTER TABLE jobs_new RENAME TO jobs")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.execute(f"PRAGMA foreign_keys = {foreign_keys_enabled}")
 
 
 def get_or_create_id(
@@ -233,7 +326,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             source,
             source_job_id(source, source_url),
             source_url,
-            clean(record.get("status"), "New"),
+            job_status(record.get("status")),
             title,
             clean(record["company"]),
             clean(record["location"]),
@@ -374,7 +467,7 @@ def load_job_json(
 
     record: dict[str, Any] = {
         "source": clean(job["source"], "justjoin"),
-        "status": clean(job["status"], "New"),
+        "status": job_status(job["status"]),
         "source_url": clean(job["source_url"]),
         "added_at": clean(job["added_at"]),
         "salary": clean(job["salary"]),
