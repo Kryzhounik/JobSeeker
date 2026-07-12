@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS jobs (
     source TEXT NOT NULL DEFAULT 'justjoin',
     source_job_id TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL UNIQUE,
+    status TEXT NOT NULL DEFAULT 'New',
     title TEXT NOT NULL,
     company TEXT NOT NULL DEFAULT '',
     location TEXT NOT NULL DEFAULT '',
@@ -106,6 +107,7 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
@@ -139,6 +141,7 @@ SELECT
     CAST(j.candidate_fit_percent AS TEXT) AS fit,
     CAST(j.job_interest AS TEXT) AS interest,
     coalesce(j.remote_scope, '') AS remote_scope,
+    coalesce(j.status, 'New') AS status,
     coalesce(j.relocation, '') AS relocation,
     coalesce(j.remote_type, '') AS remote_type,
     coalesce(j.location, '') AS location,
@@ -256,6 +259,7 @@ WITH ordered AS (
         j.location,
         j.remote_type,
         j.remote_scope,
+        j.status,
         j.relocation,
         CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER)
             AS score_sort,
@@ -331,6 +335,7 @@ SELECT
     CASE WHEN row_in_job = 1 THEN CAST(fit_sort AS TEXT) ELSE '' END AS fit,
     CASE WHEN row_in_job = 1 THEN CAST(interest_sort AS TEXT) ELSE '' END AS interest,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
+    CASE WHEN row_in_job = 1 THEN coalesce(status, 'New') ELSE '' END AS status,
     CASE WHEN row_in_job = 1 THEN coalesce(relocation, '') ELSE '' END AS relocation,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_type, '') ELSE '' END AS remote_type,
     CASE WHEN row_in_job = 1 THEN coalesce(location, '') ELSE '' END AS location,

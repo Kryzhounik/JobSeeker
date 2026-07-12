@@ -1,6 +1,7 @@
 # JobSeeker GUI
 
-Purpose: user-facing viewer for inspecting SQLite results.
+Purpose: user-facing viewer for inspecting SQLite results and manually triaging
+job status.
 
 The GUI is for the human user. It is not an automation driver for Codex/agents.
 

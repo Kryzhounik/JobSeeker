@@ -18,6 +18,7 @@ JOB_COLUMNS = (
     "source",
     "source_job_id",
     "source_url",
+    "status",
     "title",
     "company",
     "location",
@@ -135,6 +136,10 @@ def ensure_existing_schema(connection: sqlite3.Connection) -> None:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
         )
+    if "status" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN status TEXT NOT NULL DEFAULT 'New'"
+        )
     connection.execute(
         """
         UPDATE jobs
@@ -186,6 +191,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             source,
             source_job_id,
             source_url,
+            status,
             title,
             company,
             location,
@@ -203,7 +209,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
             source_job_id = excluded.source_job_id,
             title = excluded.title,
@@ -227,6 +233,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             source,
             source_job_id(source, source_url),
             source_url,
+            clean(record.get("status"), "New"),
             title,
             clean(record["company"]),
             clean(record["location"]),
@@ -367,6 +374,7 @@ def load_job_json(
 
     record: dict[str, Any] = {
         "source": clean(job["source"], "justjoin"),
+        "status": clean(job["status"], "New"),
         "source_url": clean(job["source_url"]),
         "added_at": clean(job["added_at"]),
         "salary": clean(job["salary"]),

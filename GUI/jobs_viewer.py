@@ -17,6 +17,7 @@ JOB_COLUMNS = (
     ("score", "Score", 56, "center"),
     ("fit", "Fit", 48, "center"),
     ("interest", "Interest", 72, "center"),
+    ("status", "Status", 72, "center"),
     ("remote_scope", "Remote", 92, "w"),
     ("relocation", "Reloc", 72, "center"),
     ("location", "Location", 150, "w"),
@@ -35,6 +36,7 @@ DETAIL_FIELDS = (
     ("score", "Score"),
     ("fit", "Fit"),
     ("interest", "Interest"),
+    ("status", "Status"),
     ("role", "Role"),
     ("seniority", "Seniority"),
     ("location", "Location"),
@@ -55,6 +57,7 @@ TECH_COLUMNS = (
 
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
+STATUS_VALUES = ("New", "Checked", "Approved", "Close")
 LEVEL_SORT_VALUES = {
     "": 0,
     "nice to have": 1,
@@ -84,7 +87,9 @@ class JobsViewer(tk.Tk):
 
         self.job_rows: dict[str, dict[str, str]] = {}
         self.current_source_url = ""
+        self.current_status = ""
         self.detail_vars: dict[str, tk.StringVar] = {}
+        self.status_buttons: list[ttk.Button] = []
         self.job_sort_column: str | None = None
         self.job_sort_descending = False
         self.tech_sort_column: str | None = None
@@ -210,6 +215,24 @@ class JobsViewer(tk.Tk):
             padx=(8, 0),
         )
 
+        status_frame = ttk.Frame(header)
+        status_frame.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        ttk.Label(status_frame, text="Set status", style="Muted.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=(0, 8),
+        )
+        for column_index, status in enumerate(STATUS_VALUES, start=1):
+            button = ttk.Button(
+                status_frame,
+                text=status,
+                command=lambda value=status: self._set_current_status(value),
+            )
+            button.grid(row=0, column=column_index, sticky="w", padx=(0, 6))
+            self.status_buttons.append(button)
+        self._set_status_buttons_state(False)
+
         body = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
         body.grid(row=1, column=0, sticky="nsew")
 
@@ -315,6 +338,14 @@ class JobsViewer(tk.Tk):
         connection.execute("PRAGMA query_only = ON")
         return connection
 
+    def connect_writable(self) -> sqlite3.Connection:
+        if not DB_PATH.exists():
+            raise FileNotFoundError(f"Database not found: {DB_PATH}")
+        connection = sqlite3.connect(DB_PATH)
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA foreign_keys = ON")
+        return connection
+
     def refresh_jobs(self) -> None:
         try:
             rows = self._load_jobs()
@@ -360,6 +391,7 @@ class JobsViewer(tk.Tk):
                         score,
                         fit,
                         interest,
+                        status,
                         remote_scope,
                         relocation,
                         location,
@@ -412,6 +444,7 @@ class JobsViewer(tk.Tk):
                     location,
                     remote_type,
                     remote_scope,
+                    status,
                     relocation,
                     seniority,
                     role,
@@ -511,6 +544,7 @@ class JobsViewer(tk.Tk):
         technologies: list[sqlite3.Row],
     ) -> None:
         self.current_source_url = detail.get("source_url", "")
+        self.current_status = detail.get("status", "")
         title = detail.get("title") or "Untitled"
         company = detail.get("company", "")
         self.detail_title_var.set(f"{title} - {company}" if company else title)
@@ -518,6 +552,7 @@ class JobsViewer(tk.Tk):
 
         for name, _label in DETAIL_FIELDS:
             self.detail_vars[name].set(detail.get(name, ""))
+        self._set_status_buttons_state(True)
 
         self.tech_tree.delete(*self.tech_tree.get_children())
         self.tech_sort_column = None
@@ -539,8 +574,10 @@ class JobsViewer(tk.Tk):
     def _clear_detail(self) -> None:
         self.detail_title_var.set("Select a job")
         self.link_var.set("")
+        self.current_status = ""
         for var in self.detail_vars.values():
             var.set("")
+        self._set_status_buttons_state(False)
         self.tech_tree.delete(*self.tech_tree.get_children())
         self.tech_sort_column = None
         self.tech_sort_descending = False
@@ -562,6 +599,54 @@ class JobsViewer(tk.Tk):
     def _open_current_link(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         if self.current_source_url:
             webbrowser.open_new_tab(self.current_source_url)
+
+    def _set_current_status(self, status: str) -> None:
+        if not self.current_source_url:
+            return
+
+        try:
+            with self.connect_writable() as connection:
+                result = connection.execute(
+                    """
+                    UPDATE jobs
+                    SET status = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE source_url = ?
+                    """,
+                    (status, self.current_source_url),
+                )
+                if result.rowcount != 1:
+                    raise KeyError(f"Job not found: {self.current_source_url}")
+        except Exception as error:
+            messagebox.showerror("Status update failed", str(error))
+            self.status_var.set("Status update failed")
+            return
+
+        self.current_status = status
+        self.detail_vars["status"].set(status)
+        self._update_selected_job_status(status)
+        self.status_var.set(f"Status -> {status}")
+
+    def _update_selected_job_status(self, status: str) -> None:
+        selected = self.jobs_tree.selection()
+        if not selected:
+            return
+
+        item = selected[0]
+        if item in self.job_rows:
+            self.job_rows[item]["status"] = status
+
+        columns = [name for name, _label, _width, _anchor in JOB_COLUMNS]
+        status_index = columns.index("status")
+        values = list(self.jobs_tree.item(item, "values"))
+        if len(values) > status_index:
+            values[status_index] = status
+            self.jobs_tree.item(item, values=values)
+
+    def _set_status_buttons_state(self, enabled: bool) -> None:
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for button in self.status_buttons:
+            button.configure(state=state)
 
     def _sort_jobs_tree(self, column: str) -> None:
         self.job_sort_column, self.job_sort_descending = self._sort_tree(
