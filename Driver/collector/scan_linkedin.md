@@ -47,12 +47,21 @@ right-side details pane from the search UI.
    title, company, location, workplace, salary when visible, and canonical URL.
 11. Run the preview object through:
    `python collector/linkedin_preview_filter.py --input <preview_json>`.
-12. For every card with `preview_decision = "open"`, click the card in the
-    left LinkedIn search results and wait for the right-side job details pane.
+12. For every card with `preview_decision = "open"`, process it until it has
+    exactly one collection outcome logged with
+    `collector/logging/linkedin_logger.py collection`.
+    First try the normal search UI path: find/click the left search-result
+    card by `job_id` or canonical `/jobs/view/<job_id>/` href, not by title
+    text. Then wait for the right-side job details pane.
 13. Keep skipped preview cards in the report for debugging false rejects.
 14. Stop at `limit` from `collector/config/linkedin.properties`.
 15. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
     The normal LinkedIn path is search UI card -> details pane -> raw save.
+    If the accepted card cannot be found/clicked in the current search UI
+    (`locator_count_0`, virtualized-card miss, or stale DOM), use the card's
+    `source_url` as a fallback: open that exact LinkedIn job URL in the
+    logged-in Chrome tab, wait for complete details, and save it through the
+    same raw saver. This fallback is only for already accepted preview cards.
 16. Respect `delaySeconds` as the minimum interval between browser
     navigation/click actions. Do not wait a full extra delay after saving a
     vacancy. If filtering, clicking, loading, saving, or logging the current
@@ -66,9 +75,43 @@ right-side details pane from the search UI.
     raw vacancy. Log it as `incomplete_raw` and continue or report the blocking
     problem.
 19. Get the raw HTML from the right-side details pane, not from the whole
-    search page.
+    search page. For `source_url` fallback pages, get the loaded job details
+    content from the job page instead.
 20. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
+
+## Collection Outcomes
+
+Every preview card with `preview_decision = "open"` must end with one logged
+outcome in SQLite:
+
+```text
+raw_saved
+already_raw
+not_processed_due_to_limit
+incomplete_raw
+open_failed
+```
+
+Log with:
+
+```text
+python collector/logging/linkedin_logger.py collection \
+  --label <search-label> \
+  --start <start> \
+  --card-index <index> \
+  --job-id <job_id> \
+  --source-url <source_url> \
+  --title <title> \
+  --company <company> \
+  --status <status> \
+  --reason <short reason>
+```
+
+Use `open_failed` only after both the normal search-card click and the
+`source_url` fallback fail. If the global `limit` is reached before opening an
+accepted preview card, log `not_processed_due_to_limit`. Accepted preview cards
+must not remain only in `_tmp_collect` without one of these statuses.
 
 ## Delay Semantics
 
@@ -142,6 +185,8 @@ Each technical run must report and persist enough state to explain:
 - how many cards were seen on the page;
 - how many new unique candidates were added;
 - how many cards were skipped by preview filter;
+- how many accepted cards became `raw_saved`, `already_raw`,
+  `not_processed_due_to_limit`, `incomplete_raw`, or `open_failed`;
 - why the collector continued, moved to the next location, or stopped.
 
 Do not use Python `urllib`, `requests`, hidden APIs, or copied cookies for

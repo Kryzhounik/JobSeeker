@@ -14,8 +14,11 @@ ROOT = Path(__file__).resolve().parents[1]
 COMMON_ROOT = ROOT / "common"
 if str(COMMON_ROOT) not in sys.path:
     sys.path.insert(0, str(COMMON_ROOT))
+LOGGING_ROOT = ROOT / "collector" / "logging"
+if str(LOGGING_ROOT) not in sys.path:
+    sys.path.insert(0, str(LOGGING_ROOT))
 
-from linkedin_preview_logger import record_preview_filter
+from linkedin_logger import record_preview_filter
 
 
 DEFAULT_CONFIG = ROOT / "collector" / "config" / "linkedin_preview_filter.ini"

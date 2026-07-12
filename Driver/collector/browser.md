@@ -44,7 +44,7 @@ open search page
 read visible left-side search cards
 run linkedin_preview_filter.py on each card
 skip rejected cards
-click an accepted card in the left search results
+click an accepted card in the left search results by job_id/href
 wait for the right-side details pane
 save the right-side details pane HTML
 continue through the search results
@@ -60,6 +60,12 @@ what downstream stages process.
 Do not normally build a queue of job URLs and then open each
 `/jobs/view/<id>/` URL as a separate navigation. That direct-navigation mode is
 slower and easier to get wrong.
+
+Exception: if a card passed the preview filter but the current search UI cannot
+find/click that card by `job_id` or canonical `/jobs/view/<job_id>/` href, open
+that accepted card's `source_url` directly in the logged-in Chrome tab as a
+fallback. This is a recovery path for a specific accepted card, not the normal
+collection mode.
 
 ## LinkedIn Raw HTML
 
@@ -80,6 +86,10 @@ Before saving a LinkedIn pane, verify:
 - no visible job-details progressbar remains;
 - the pane text contains `About the job` or another detail marker accepted by
   `collector/save_raw_page.py`.
+
+For every accepted preview card, log the final collection outcome with
+`collector/logging/linkedin_logger.py collection`. A card may be skipped
+silently only when the preview filter rejected it before acceptance.
 
 Raw files are source-owned storage. Whether a run processes one raw file or all
 raw files must be decided by the workflow command scope, not by the browser
