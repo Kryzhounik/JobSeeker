@@ -28,6 +28,11 @@ PROGRAMMING_LANGUAGE_ALIASES = {
     "c": "c",
     "c sharp": "c#",
     "c#": "c#",
+    ".net": ".net",
+    ".net core": ".net",
+    ".net framework": ".net",
+    "asp net": ".net",
+    "asp.net": ".net",
     "cpp": "c++",
     "c++": "c++",
     "clojure": "clojure",
@@ -47,6 +52,9 @@ PROGRAMMING_LANGUAGE_ALIASES = {
     "kotlin": "kotlin",
     "lua": "lua",
     "matlab": "matlab",
+    "dot net": ".net",
+    "dotnet": ".net",
+    "dotnet core": ".net",
     "node": "javascript",
     "node js": "javascript",
     "node.js": "javascript",
@@ -64,6 +72,7 @@ PROGRAMMING_LANGUAGE_ALIASES = {
     "swift": "swift",
     "typescript": "typescript",
     "ts": "typescript",
+    "wordpress": "wordpress",
 }
 KOTLIN_JVM_FALLBACK = "java"
 LOCATION_ALIASES = {

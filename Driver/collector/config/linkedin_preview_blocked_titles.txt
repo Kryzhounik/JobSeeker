@@ -71,3 +71,4 @@ Analyst
 Sound Engineer
 Design Expert
 Telecommunications Specialist
+Support Specialist
