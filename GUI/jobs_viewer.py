@@ -55,9 +55,23 @@ TECH_COLUMNS = (
     ("raw_value", "Raw", 280, "w"),
 )
 
+SCORE_EDIT_FIELDS = {"fit", "interest"}
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
 STATUS_VALUES = ("New", "Checked", "Approved", "Closed")
+READONLY_FIELD_COLORS = {
+    "background": "#f4f4f0",
+    "foreground": "#303030",
+    "highlightbackground": "#a9a9a9",
+    "highlightcolor": "#a9a9a9",
+}
+EDITABLE_FIELD_COLORS = {
+    "background": "#fff3b0",
+    "foreground": "#000000",
+    "insertbackground": "#000000",
+    "highlightbackground": "#000000",
+    "highlightcolor": "#000000",
+}
 LEVEL_SORT_VALUES = {
     "": 0,
     "nice to have": 1,
@@ -78,6 +92,10 @@ def clean(value: Any) -> str:
     return str(value)
 
 
+def calculate_score(fit: int, interest: int) -> int:
+    return (interest * fit + 50) // 100
+
+
 class JobsViewer(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -88,7 +106,9 @@ class JobsViewer(tk.Tk):
         self.job_rows: dict[str, dict[str, str]] = {}
         self.current_source_url = ""
         self.current_status = ""
-        self.detail_vars: dict[str, tk.StringVar] = {}
+        self.current_fit = ""
+        self.current_interest = ""
+        self.detail_fields: dict[str, tk.Text] = {}
         self.status_buttons: list[ttk.Button] = []
         self.status_values = self._available_status_values()
         self.status_filter_vars = {
@@ -224,18 +244,21 @@ class JobsViewer(tk.Tk):
             sticky="w",
         )
 
-        self.link_var = tk.StringVar(value="")
         link_frame = ttk.Frame(header)
         link_frame.grid(row=1, column=0, sticky="ew", pady=(3, 0))
         link_frame.columnconfigure(0, weight=1)
 
-        self.link_entry = ttk.Entry(
+        self.link_text = tk.Text(
             link_frame,
-            textvariable=self.link_var,
-            state="readonly",
+            height=1,
+            wrap="none",
+            borderwidth=1,
+            relief="solid",
+            padx=4,
+            pady=2,
         )
-        self.link_entry.grid(row=0, column=0, sticky="ew")
-        self._bind_copyable_entry(self.link_entry)
+        self.link_text.grid(row=0, column=0, sticky="ew")
+        self._bind_copyable_text(self.link_text)
 
         ttk.Button(link_frame, text="Open", command=self._open_current_link).grid(
             row=0,
@@ -284,16 +307,33 @@ class JobsViewer(tk.Tk):
                 padx=(0, 10),
                 pady=3,
             )
-            var = tk.StringVar(value="")
-            self.detail_vars[name] = var
-            entry = ttk.Entry(parent, textvariable=var, state="readonly")
-            entry.grid(
+            field = tk.Text(
+                parent,
+                height=1,
+                wrap="none",
+                borderwidth=1,
+                relief="solid",
+                highlightthickness=1,
+                padx=4,
+                pady=2,
+            )
+            field.grid(
                 row=row_index,
                 column=1,
                 sticky="ew",
                 pady=3,
             )
-            self._bind_copyable_entry(entry)
+            if name in SCORE_EDIT_FIELDS:
+                field.configure(
+                    borderwidth=2,
+                    highlightthickness=2,
+                    **EDITABLE_FIELD_COLORS,
+                )
+                self._bind_score_field(field)
+            else:
+                field.configure(**READONLY_FIELD_COLORS)
+                self._bind_copyable_text(field)
+            self.detail_fields[name] = field
 
     def _build_tech_and_summary(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -623,13 +663,15 @@ class JobsViewer(tk.Tk):
     ) -> None:
         self.current_source_url = detail.get("source_url", "")
         self.current_status = detail.get("status", "")
+        self.current_fit = detail.get("fit", "")
+        self.current_interest = detail.get("interest", "")
         title = detail.get("title") or "Untitled"
         company = detail.get("company", "")
         self.detail_title_var.set(f"{title} - {company}" if company else title)
-        self.link_var.set(self.current_source_url)
+        self._set_text_widget(self.link_text, self.current_source_url)
 
         for name, _label in DETAIL_FIELDS:
-            self.detail_vars[name].set(detail.get(name, ""))
+            self._set_text_widget(self.detail_fields[name], detail.get(name, ""))
         self._set_status_buttons_state(True)
 
         self.tech_tree.delete(*self.tech_tree.get_children())
@@ -651,10 +693,12 @@ class JobsViewer(tk.Tk):
 
     def _clear_detail(self) -> None:
         self.detail_title_var.set("Select a job")
-        self.link_var.set("")
+        self._set_text_widget(self.link_text, "")
         self.current_status = ""
-        for var in self.detail_vars.values():
-            var.set("")
+        self.current_fit = ""
+        self.current_interest = ""
+        for field in self.detail_fields.values():
+            self._set_text_widget(field, "")
         self._set_status_buttons_state(False)
         self.tech_tree.delete(*self.tech_tree.get_children())
         self.tech_sort_column = None
@@ -701,9 +745,69 @@ class JobsViewer(tk.Tk):
             return
 
         self.current_status = status
-        self.detail_vars["status"].set(status)
+        self._set_text_widget(self.detail_fields["status"], status)
         self._update_selected_job_status(status)
         self.status_var.set(f"Status -> {status}")
+
+    def _save_scores_from_detail(self, _event: tk.Event[tk.Misc] | None = None) -> str:
+        if not self.current_source_url:
+            return "break"
+
+        fit_text = self._widget_text(self.detail_fields["fit"])
+        interest_text = self._widget_text(self.detail_fields["interest"])
+        if fit_text == self.current_fit and interest_text == self.current_interest:
+            return "break"
+
+        try:
+            fit = int(fit_text)
+            interest = int(interest_text)
+        except ValueError:
+            messagebox.showerror("Invalid scores", "Fit and Interest must be integers.")
+            self._restore_score_fields()
+            return "break"
+
+        if fit < 0 or fit > 100:
+            messagebox.showerror("Invalid fit", "Fit must be between 0 and 100.")
+            self._restore_score_fields()
+            return "break"
+        if interest < 0:
+            messagebox.showerror("Invalid interest", "Interest must be 0 or greater.")
+            self._restore_score_fields()
+            return "break"
+
+        score = calculate_score(fit, interest)
+        try:
+            with self.connect_writable() as connection:
+                result = connection.execute(
+                    """
+                    UPDATE jobs
+                    SET candidate_fit_percent = ?,
+                        job_interest = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE source_url = ?
+                    """,
+                    (fit, interest, self.current_source_url),
+                )
+                if result.rowcount != 1:
+                    raise KeyError(f"Job not found: {self.current_source_url}")
+        except Exception as error:
+            messagebox.showerror("Score update failed", str(error))
+            self._restore_score_fields()
+            self.status_var.set("Score update failed")
+            return "break"
+
+        self.current_fit = str(fit)
+        self.current_interest = str(interest)
+        self._set_text_widget(self.detail_fields["fit"], self.current_fit)
+        self._set_text_widget(self.detail_fields["interest"], self.current_interest)
+        self._set_text_widget(self.detail_fields["score"], str(score))
+        self._update_selected_job_scores(score, fit, interest)
+        self.status_var.set(f"Scores -> {score}")
+        return "break"
+
+    def _restore_score_fields(self) -> None:
+        self._set_text_widget(self.detail_fields["fit"], self.current_fit)
+        self._set_text_widget(self.detail_fields["interest"], self.current_interest)
 
     def _update_selected_job_status(self, status: str) -> None:
         selected = self.jobs_tree.selection()
@@ -727,14 +831,55 @@ class JobsViewer(tk.Tk):
             values[status_index] = status
             self.jobs_tree.item(item, values=values)
 
+    def _update_selected_job_scores(self, score: int, fit: int, interest: int) -> None:
+        selected = self.jobs_tree.selection()
+        if not selected:
+            return
+
+        item = selected[0]
+        if not self._score_visible(score):
+            self.jobs_tree.delete(item)
+            self.job_rows.pop(item, None)
+            self._clear_detail()
+            return
+
+        if item in self.job_rows:
+            self.job_rows[item]["score"] = str(score)
+            self.job_rows[item]["fit"] = str(fit)
+            self.job_rows[item]["interest"] = str(interest)
+
+        columns = [name for name, _label, _width, _anchor in JOB_COLUMNS]
+        values = list(self.jobs_tree.item(item, "values"))
+        for name, value in (
+            ("score", str(score)),
+            ("fit", str(fit)),
+            ("interest", str(interest)),
+        ):
+            index = columns.index(name)
+            if len(values) > index:
+                values[index] = value
+        self.jobs_tree.item(item, values=values)
+
     def _set_status_buttons_state(self, enabled: bool) -> None:
         state = tk.NORMAL if enabled else tk.DISABLED
         for button in self.status_buttons:
             button.configure(state=state)
 
+    def _set_text_widget(self, widget: tk.Text, value: str) -> None:
+        widget.delete("1.0", tk.END)
+        if value:
+            widget.insert("1.0", value)
+        widget.mark_set(tk.INSERT, "1.0")
+
+    def _widget_text(self, widget: tk.Text) -> str:
+        return widget.get("1.0", "end-1c").strip()
+
     def _status_visible(self, status: str) -> bool:
         variable = self.status_filter_vars.get(status)
         return bool(variable and variable.get())
+
+    def _score_visible(self, score: int) -> bool:
+        return self.show_zero_var.get() or score != 0
 
     def _sort_jobs_tree(self, column: str) -> None:
         self.job_sort_column, self.job_sort_descending = self._sort_tree(
@@ -820,22 +965,33 @@ class JobsViewer(tk.Tk):
         for index, item in enumerate(tree.get_children("")):
             tree.item(item, tags=("odd",) if index % 2 else ())
 
-    def _bind_copyable_entry(self, widget: tk.Widget) -> None:
-        widget.bind("<Control-a>", self._select_entry_text)
-        widget.bind("<Control-A>", self._select_entry_text)
-        widget.bind("<Control-c>", self._copy_widget_event)
-        widget.bind("<Control-C>", self._copy_widget_event)
-        widget.bind("<Control-Insert>", self._copy_widget_event)
-        widget.bind("<<Copy>>", self._copy_widget_event)
-        widget.bind("<Button-3>", self._show_copy_menu)
-
     def _bind_copyable_text(self, widget: tk.Text) -> None:
         widget.bind("<Control-a>", self._select_text)
         widget.bind("<Control-A>", self._select_text)
         widget.bind("<Control-c>", self._copy_widget_event)
         widget.bind("<Control-C>", self._copy_widget_event)
         widget.bind("<Control-Insert>", self._copy_widget_event)
+        widget.bind("<Control-KeyPress>", self._copy_shortcut_event)
         widget.bind("<<Copy>>", self._copy_widget_event)
+        widget.bind("<<Cut>>", self._break_event)
+        widget.bind("<<Paste>>", self._break_event)
+        widget.bind("<KeyPress>", self._block_readonly_text_edit)
+        widget.bind("<Button-3>", self._show_copy_menu)
+
+    def _bind_score_field(self, widget: tk.Text) -> None:
+        widget.bind("<Control-a>", self._select_text)
+        widget.bind("<Control-A>", self._select_text)
+        widget.bind("<Control-c>", self._copy_widget_event)
+        widget.bind("<Control-C>", self._copy_widget_event)
+        widget.bind("<Control-Insert>", self._copy_widget_event)
+        widget.bind("<Control-KeyPress>", self._copy_shortcut_event)
+        widget.bind("<<Copy>>", self._copy_widget_event)
+        widget.bind("<<Cut>>", self._break_event)
+        widget.bind("<<Paste>>", self._break_event)
+        widget.bind("<KeyPress>", self._score_field_keypress)
+        widget.bind("<Return>", self._save_scores_from_detail)
+        widget.bind("<KP_Enter>", self._save_scores_from_detail)
+        widget.bind("<FocusOut>", self._save_scores_from_detail)
         widget.bind("<Button-3>", self._show_copy_menu)
 
     def _copy_tree_selection(self, event: tk.Event[tk.Misc]) -> str:
@@ -843,6 +999,17 @@ class JobsViewer(tk.Tk):
 
     def _copy_widget_event(self, event: tk.Event[tk.Misc]) -> str:
         return self._copy_widget_selection(event.widget)
+
+    def _copy_shortcut_event(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if key == "a" or keycode == 65:
+            if isinstance(event.widget, tk.Text):
+                return self._select_text(event)
+            return self._select_entry_text(event)
+        if key in {"c", "insert"} or keycode in {45, 67}:
+            return self._copy_widget_selection(event.widget)
+        return None
 
     def _copy_widget_selection(self, widget: tk.Misc) -> str:
         if hasattr(widget, "selection") and hasattr(widget, "set"):
@@ -857,6 +1024,7 @@ class JobsViewer(tk.Tk):
         if text:
             self.clipboard_clear()
             self.clipboard_append(text)
+            self.update_idletasks()
             self.status_var.set("Copied")
         return "break"
 
@@ -958,6 +1126,33 @@ class JobsViewer(tk.Tk):
             "control_r",
         }
         if key in allowed_keys:
+            return None
+        return "break"
+
+    def _score_field_keypress(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        ctrl_pressed = bool(event.state & 0x4)
+        if ctrl_pressed:
+            return None
+
+        allowed_keys = {
+            "backspace",
+            "delete",
+            "left",
+            "right",
+            "home",
+            "end",
+            "tab",
+            "shift_l",
+            "shift_r",
+            "control_l",
+            "control_r",
+        }
+        if key in allowed_keys:
+            return None
+        if key in {"return", "kp_enter"}:
+            return self._save_scores_from_detail(event)
+        if event.char and event.char.isdigit():
             return None
         return "break"
 

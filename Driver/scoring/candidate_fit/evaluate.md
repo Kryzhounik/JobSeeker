@@ -45,8 +45,31 @@ Semantic candidate-fit agent stage:
 - Use the vacancy's required and nice-to-have technologies together with the
   candidate profile from `config/resume.ini`.
 - Required technologies have much higher weight than nice-to-have technologies.
-- Nice-to-have gaps should not push a strong required-stack match below 0.7 by
+- Nice-to-have gaps should not push a strong required-stack match below 70 by
   themselves.
+- Base the score on coverage of the vacancy's required requirements. Enumerate
+  every required technology, skill, and responsibility represented in the JSON,
+  estimate how well the candidate covers each one, and keep uncovered
+  requirements in the denominator. Do not silently ignore requirements that do
+  not match the candidate profile.
+- Use approximate per-requirement coverage:
+  - 1.0: direct strong match at the required level.
+  - 0.75: direct match with a small level/context gap.
+  - 0.5: meaningful partial match, but important depth or context is missing.
+  - 0.25-0.35: weak adjacent match only.
+  - 0.0: not covered.
+- The base score should roughly follow the weighted average of required
+  requirement coverage, converted to 0-100. Core-stack and high-rank
+  requirements should weigh more than peripheral required mentions.
+- If only 2 of 8 required items are directly covered, the score is around 25
+  before small adjustments. If 5 of 10 required items are only half-covered, the
+  score is also around 25. Weak adjacent matches should not be counted as
+  half-covered.
+- Nice-to-have matches may add only a small bonus after required coverage is
+  assessed. They cannot compensate for missing core required requirements.
+- If a required item lists true alternatives in one field, for example
+  `Python/Java/Go`, use the best matching alternative for that item. If the
+  vacancy separately requires several technologies, each one must be counted.
 - Identify the vacancy's core technical track and primary role stack before
   scoring. Do not let secondary overlaps dominate the score.
 - If a candidate strength appears only as a supporting tool inside a different
