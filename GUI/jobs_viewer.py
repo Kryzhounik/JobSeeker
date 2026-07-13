@@ -455,8 +455,6 @@ class JobsViewer(tk.Tk):
             where_parts.append(
                 """
                 CAST(score AS INTEGER) <> 0
-                AND CAST(fit AS INTEGER) <> 0
-                AND CAST(interest AS INTEGER) <> 0
                 """
             )
 

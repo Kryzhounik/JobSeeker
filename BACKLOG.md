@@ -35,6 +35,8 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Next
 
+- Add `Mistaken` to the allowed job statuses for vacancies where analysis or
+  collection produced a wrong result.
 - Add staged analysis:
   - raw: vacancy downloaded but not analyzed.
   - tech_checked: technology requirements extracted and checked.

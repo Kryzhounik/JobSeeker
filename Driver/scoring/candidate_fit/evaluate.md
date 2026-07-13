@@ -47,6 +47,20 @@ Semantic candidate-fit agent stage:
 - Required technologies have much higher weight than nice-to-have technologies.
 - Nice-to-have gaps should not push a strong required-stack match below 0.7 by
   themselves.
+- Identify the vacancy's core technical track and primary role stack before
+  scoring. Do not let secondary overlaps dominate the score.
+- If a candidate strength appears only as a supporting tool inside a different
+  core technical track, treat it as limited evidence. For example, experience
+  with one backend ORM or framework does not make a senior Python, data
+  engineering, ML/AI, mobile, frontend, DevOps/SRE, or product/program role a
+  strong fit by itself.
+- If the primary role stack is outside the candidate profile and requires
+  substantial dedicated experience, keep the score at 50 or below even when
+  some supporting tools match.
+- If the vacancy requires many years of experience in a different core
+  technical track, such as senior data engineering with a specific cloud data
+  stack, score it around 25 unless the candidate profile directly covers that
+  track.
 - Do not invent experience. If a technology is not present in the candidate
   profile, treat it as unknown unless there is a clear adjacent technology.
 - Use judgment for adjacent technologies. For example, NATS can partially cover
