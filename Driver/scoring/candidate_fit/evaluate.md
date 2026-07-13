@@ -67,9 +67,34 @@ Semantic candidate-fit agent stage:
   half-covered.
 - Nice-to-have matches may add only a small bonus after required coverage is
   assessed. They cannot compensate for missing core required requirements.
+- Human languages are handled by the fast deterministic filter. Do not add
+  bonus candidate-fit points for English, Russian, Ukrainian, Belarusian, or
+  other human-language requirements that already passed the filter.
 - If a required item lists true alternatives in one field, for example
   `Python/Java/Go`, use the best matching alternative for that item. If the
   vacancy separately requires several technologies, each one must be counted.
+
+Mandatory scoring procedure:
+- Before choosing `candidate_fit_percent`, build a required-coverage table.
+- The table must include every required technology, skill, and responsibility
+  from the JSON. Do not merge away missing requirements.
+- Each row must have:
+  - requirement
+  - requirement weight: core / normal / peripheral
+  - candidate evidence
+  - coverage: 1.0, 0.75, 0.5, 0.25-0.35, or 0.0
+- Missing required items must stay in the denominator as 0.0.
+- Compute the base score as weighted average coverage * 100.
+- Nice-to-have items may add at most 5 points total and never compensate for
+  missing core required items.
+- The final score may not exceed the base score by more than 5 points unless
+  the reason explicitly justifies why.
+
+Output requirement:
+- `candidate_fit_reason` must summarize the required-coverage calculation:
+  mention covered count, missing core items, and why the final number follows
+  from the denominator.
+- If no required-coverage calculation was done, the score is invalid.
 - Identify the vacancy's core technical track and primary role stack before
   scoring. Do not let secondary overlaps dominate the score.
 - If a candidate strength appears only as a supporting tool inside a different
@@ -77,13 +102,6 @@ Semantic candidate-fit agent stage:
   with one backend ORM or framework does not make a senior Python, data
   engineering, ML/AI, mobile, frontend, DevOps/SRE, or product/program role a
   strong fit by itself.
-- If the primary role stack is outside the candidate profile and requires
-  substantial dedicated experience, keep the score at 50 or below even when
-  some supporting tools match.
-- If the vacancy requires many years of experience in a different core
-  technical track, such as senior data engineering with a specific cloud data
-  stack, score it around 25 unless the candidate profile directly covers that
-  track.
 - Do not invent experience. If a technology is not present in the candidate
   profile, treat it as unknown unless there is a clear adjacent technology.
 - Use judgment for adjacent technologies. For example, NATS can partially cover
