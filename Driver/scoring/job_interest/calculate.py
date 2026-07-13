@@ -21,6 +21,8 @@ if str(ROOT) not in sys.path:
 
 from db.job_mapper import apply_schema
 from common.paths import DATA_ROOT
+from scoring.candidate_fit.filter import location_contains
+from scoring.candidate_fit.filter import location_tokens
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
@@ -81,6 +83,39 @@ def best_match_score(
     return best
 
 
+def covered_location_score(
+    config: configparser.ConfigParser,
+    section: str,
+    value: str,
+    skip_keys: set[str] | None = None,
+) -> int:
+    skip = {key.lower() for key in (skip_keys or set())}
+    value_tokens = location_tokens(value)
+    best = 0
+
+    if not config.has_section(section):
+        return 0
+
+    for key, raw_score in config.items(section):
+        if key.lower() in skip:
+            continue
+
+        key_tokens = location_tokens(key)
+        if not any(
+            location_contains(value_token, key_token)
+            for value_token in value_tokens
+            for key_token in key_tokens
+        ):
+            continue
+
+        try:
+            best = max(best, int(raw_score))
+        except ValueError:
+            continue
+
+    return best
+
+
 def remote_score(config: configparser.ConfigParser, remote_type: str, remote_scope: str) -> int:
     if normalized(remote_type) != "remote":
         return 0
@@ -89,8 +124,17 @@ def remote_score(config: configparser.ConfigParser, remote_type: str, remote_sco
     if normalized(scope) in NO_VALUES:
         return 0
 
-    if normalized(scope) == "worldwide":
+    if "worldwide" in location_tokens(scope):
         return int_value(config, "remote", "worldwide", 1000)
+
+    covered_score = covered_location_score(
+        config,
+        "remote",
+        scope,
+        skip_keys={"worldwide"},
+    )
+    if covered_score:
+        return covered_score
 
     return best_match_score(config, "remote", scope, skip_keys={"worldwide"})
 
