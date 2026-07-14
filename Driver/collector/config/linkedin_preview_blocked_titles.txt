@@ -3,6 +3,7 @@
 .NET
 C++
 C#
+Rust
 Salesforce
 SAP
 QA
@@ -11,6 +12,9 @@ Designer
 iOS
 Frontend
 Javascript
+
+Angular Developer
+
 Electronics Engineer
 Electrical Systems Specialist
 Database Administrator
@@ -72,3 +76,38 @@ Sound Engineer
 Design Expert
 Telecommunications Specialist
 Support Specialist
+Research Specialist
+Landing Page Expert
+Transaction Coordinator
+Power Submitter
+Private Equity Specialist
+Electronic Engineer
+Banking Associate
+Safety Specialist
+PHP Developer
+PHP Engineer
+Physics Expert
+Healthcare Specialist
+WordPress
+Go Developer
+Go Engineer
+Golang Developer
+Golang Engineer
+Juju Software Engineer
+
+Mobile App Developer
+Mobile Game Developer
+
+Researcher
+
+Language Expert
+Content Writer
+UI Developer
+Next.js Developer
+Test Engineer
+Unity Software Engineer
+Researcher
+Senior Full-Stack
+Machine Learning Engineer
+Linux Kernel Engineer
+ServiceNow
