@@ -24,9 +24,9 @@ collector
 -> analyzer/analyze_job.md
 -> analyzed JSON
 -> scoring/candidate_fit/evaluate.md
--> same JSON with candidate_fit_percent/candidate_fit_reason
--> scoring/job_interest/calculate.py --input <json-or-dir>
--> same JSON with job_interest
+-> scored JSON with candidate_fit_percent/candidate_fit_reason
+-> scoring/job_interest/calculate.py --input <scored-json-or-dir>
+-> scored JSON with job_interest
 -> db/save.py
 -> SQLite
 ```
@@ -82,8 +82,8 @@ for each raw HTML file in the explicit scope:
     raw HTML
     -> readable text
     -> analyzed JSON
-    -> candidate fit
-    -> job interest
+    -> scored JSON with candidate fit
+    -> scored JSON with job interest
     -> SQLite save
 ```
 
@@ -106,13 +106,17 @@ scope.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `scoring/candidate_fit/evaluate.md`.
-- Candidate-fit scoring updates the same JSON file under
-  `../Data/analyzed/<source>/`; it does not create a second main output folder.
-- `scoring/job_interest/calculate.py --input <json-or-dir>` adds
-  `job_interest` to JSON before save. Its DB recalculation mode is maintenance,
-  not the main pipeline.
+- `../Data/analyzed/<source>/` contains analysis facts only. It must not contain
+  candidate-fit or job-interest fields in the main workflow.
+- Candidate-fit scoring reads analyzed JSON and writes scored JSON under
+  `../Data/scored/<source>/` with the same file name.
+- `scoring/job_interest/calculate.py --input <scored-json-or-dir>` adds
+  `job_interest` to scored JSON before save. Its DB recalculation mode is
+  maintenance, not the main pipeline.
 - `db/save.py` only saves fully scored JSON. It must not
   calculate `candidate_fit_percent` or `job_interest`.
+- `db/save.py` input is `../Data/scored/<source>/`, not
+  `../Data/analyzed/<source>/`.
 - Database JSON mapping must go through `db/job_mapper.py`.
 
 ## GUI Rule

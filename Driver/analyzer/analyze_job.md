@@ -1,5 +1,5 @@
 Purpose: Codex analysis prompt for one readable vacancy. It extracts structured
-job fields into JSON, then hands that JSON to the workflow save step.
+job facts into JSON. It must not write candidate-fit or job-interest scores.
 
 Task: Codex analyzes one job vacancy from a saved readable text file.
 
@@ -9,13 +9,13 @@ Public analyzer call:
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
-- Then pass that same JSON file to `scoring/candidate_fit/evaluate.md`;
-  candidate-fit updates the same file in place with `candidate_fit_percent`
-  and `candidate_fit_reason`.
-- Then run `python scoring/job_interest/calculate.py --input <json>` to add
-  `job_interest`.
+- Then pass that analyzed JSON file to `scoring/candidate_fit/evaluate.md`;
+  candidate-fit writes a scored JSON file under `../Data/scored/<source>/`
+  with the same file name.
+- Then run `python scoring/job_interest/calculate.py --input <scored-json>` to
+  add `job_interest` to the scored JSON.
 - Save only fully scored JSON with
-  `python db/save.py --input <json> --source <source>`.
+  `python db/save.py --input <scored-json> --source <source>`.
 - Direct URLs from the user must first be saved as raw HTML by the collection
   side, converted to readable text, then analyzed through this same call.
 
@@ -27,13 +27,14 @@ after this analysis and before `db/save.py`. Keep this
 analysis layer out of Python string heuristics unless we explicitly decide
 otherwise later.
 
-Return structured JSON data for saving into SQLite. The final saved DTO contract
-is `contracts/job_analysis.schema.json`; use exactly those field names and
-shapes for the analysis-owned fields. Scoring stages add
-`candidate_fit_percent`, `candidate_fit_reason`, and `job_interest` later.
-`job_interest` is added to the JSON before DB save by
-`scoring/job_interest/calculate.py --input <json>`. Do not invent aliases such
-as `language` instead of `name`, or `requirement_type` instead of
+Return structured JSON data for later scoring. The analysis DTO contract is
+`contracts/job_analysis.schema.json`; use exactly those field names and shapes.
+Scoring stages create a scored DTO matching `contracts/scored_job.schema.json`
+by adding `candidate_fit_percent`, `candidate_fit_reason`, and `job_interest`
+later.
+`job_interest` is added to the scored JSON before DB save by
+`scoring/job_interest/calculate.py --input <scored-json>`. Do not invent
+aliases such as `language` instead of `name`, or `requirement_type` instead of
 `requirement`. Prefer visible facts from the vacancy. Use expert judgment only
 for fields that explicitly require text interpretation.
 

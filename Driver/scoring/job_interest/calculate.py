@@ -213,7 +213,7 @@ def score_job_json(
     record: dict[str, Any],
     config: configparser.ConfigParser,
 ) -> dict[str, Any]:
-    """Add job_interest to a fully analyzed candidate-fit-scored JSON record."""
+    """Add job_interest to a candidate-fit-scored JSON record."""
     record["job_interest"] = job_interest_for_json(config, record)
     return record
 
@@ -224,7 +224,11 @@ def json_paths(input_path: Path) -> list[Path]:
     return sorted(input_path.glob("*.json"))
 
 
-def score_json_files(input_path: Path, config_path: Path) -> list[tuple[Path, int, str]]:
+def score_json_files(
+    input_path: Path,
+    config_path: Path,
+    output_dir: Path | None = None,
+) -> list[tuple[Path, int, str]]:
     config = load_config(config_path)
     results: list[tuple[Path, int, str]] = []
 
@@ -234,11 +238,18 @@ def score_json_files(input_path: Path, config_path: Path) -> list[tuple[Path, in
             raise ValueError(f"{path} does not contain a JSON object")
 
         score_job_json(record, config)
-        path.write_text(
+        output_path = path
+        if output_dir is not None:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            output_path = output_dir / path.name
+
+        output_path.write_text(
             json.dumps(record, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8",
         )
-        results.append((path, int(record["job_interest"]), str(record.get("title") or "")))
+        results.append(
+            (output_path, int(record["job_interest"]), str(record.get("title") or ""))
+        )
 
     return results
 
@@ -318,8 +329,15 @@ def main() -> None:
     parser.add_argument(
         "--input",
         help=(
-            "Analyzed JSON file or directory. When set, calculate job_interest "
+            "Scored JSON file or directory. When set, calculate job_interest "
             "in JSON before db/save.py."
+        ),
+    )
+    parser.add_argument(
+        "--output-dir",
+        help=(
+            "Optional output directory. Use this when converting analyzed JSON "
+            "into scored JSON without rewriting Data/analyzed."
         ),
     )
     parser.add_argument(
@@ -332,6 +350,7 @@ def main() -> None:
         results = score_json_files(
             input_path=Path(args.input),
             config_path=Path(args.config),
+            output_dir=Path(args.output_dir) if args.output_dir else None,
         )
         for path, score, title in results:
             print(f"{path}: job_interest={score} {title}")

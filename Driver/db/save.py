@@ -1,4 +1,4 @@
-"""Save fully scored analyzed job JSON into SQLite."""
+"""Save scored job JSON into SQLite."""
 
 from __future__ import annotations
 
@@ -75,8 +75,8 @@ def require_job_interest(record: dict[str, Any]) -> int:
     value = record.get("job_interest")
     if value is None or value == "":
         raise ValueError(
-            "job_interest is missing; run "
-            "scoring/job_interest/calculate.py --input <json-or-dir> before save"
+            "job_interest is missing; run scoring/job_interest/calculate.py "
+            "--input <scored-json-or-dir> before save"
         )
     return int(value)
 
@@ -156,7 +156,7 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="Save fully scored analyzed job JSON into SQLite."
+        description="Save scored job JSON into SQLite."
     )
     parser.add_argument("--input", "-i", required=True, help="JSON file, directory, or stdin.")
     parser.add_argument("--source", default="")

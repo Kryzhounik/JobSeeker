@@ -4,17 +4,18 @@ the candidate fits the vacancy; vacancy attractiveness lives elsewhere.
 Task: calculate candidate-fit/filter result.
 
 The candidate-fit process calculates how well the vacancy fits the candidate.
-It writes `candidate_fit_percent` and `candidate_fit_reason` into the same
-analyzed JSON file that came from `analyzer/analyze_job.md`.
+It reads the analyzed JSON from `analyzer/analyze_job.md` and writes a scored
+JSON file with `candidate_fit_percent` and `candidate_fit_reason`.
 
 Input/output contract:
 - Input: one analyzed JSON file from `../Data/analyzed/<source>/`.
 - For a directory/run scope, process every JSON file in that explicit scope.
-- Output: update the same JSON file in place.
-- Do not create a parallel candidate-fit output folder for the main workflow.
+- Output: write the scored JSON file to `../Data/scored/<source>/`.
 - Keep the same file name. For example:
-  `../Data/analyzed/linkedin/4439016192.json`.
-- After this stage, that same JSON is the candidate-fit-scored JSON.
+  `../Data/analyzed/linkedin/4439016192.json` becomes
+  `../Data/scored/linkedin/4439016192.json`.
+- Do not put scoring fields into `../Data/analyzed/<source>/` in the main
+  workflow.
 
 Runtime switches live in `scoring/candidate_fit/config/filter.ini`.
 Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
@@ -27,7 +28,7 @@ Before agent evaluation:
   `filter.py::filter_job_json(job_json)`.
 - If the fast filter returns `candidate_fit_percent = 0`, stop the agent-stage
   evaluation, write `candidate_fit_percent = 0` and
-  `candidate_fit_reason = <filter reason>` into the same JSON file.
+  `candidate_fit_reason = <filter reason>` into the scored JSON file.
 - Do not spend agent analysis on vacancies already rejected by simple hard
   rules, such as language level mismatch, unavailable remote/relocation
   conditions, or other configured fast-filter checks.
@@ -39,7 +40,7 @@ Before agent evaluation:
 
 Semantic candidate-fit agent stage:
 - Return the final `candidate_fit_percent` from 0 to 100.
-- Write both `candidate_fit_percent` and `candidate_fit_reason` into the same
+- Write both `candidate_fit_percent` and `candidate_fit_reason` into the scored
   JSON file.
 - This is semantic matching, not a fast script filter.
 - Use the vacancy's required and nice-to-have technologies together with the

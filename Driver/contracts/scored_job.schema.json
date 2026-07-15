@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/scored_job.schema.json",
+  "title": "JobSeeker scored job DTO",
+  "description": "Analysis facts plus candidate-fit and job-interest scores.",
+  "allOf": [
+    {
+      "$ref": "job_analysis.schema.json#/$defs/analysisCore"
+    },
+    {
+      "type": "object",
+      "required": [
+        "candidate_fit_percent",
+        "candidate_fit_reason",
+        "job_interest"
+      ],
+      "properties": {
+        "candidate_fit_percent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "candidate_fit_reason": {
+          "type": "string"
+        },
+        "job_interest": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  ],
+  "unevaluatedProperties": false
+}
