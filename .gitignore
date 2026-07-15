@@ -5,9 +5,18 @@ Data/raw/
 Data/readable/
 Data/readable_v2/
 Data/analyzed/
-Data/scored/
+Data/scored/*
+!Data/scored/.gitkeep
+!Data/scored/linkedin/
+Data/scored/linkedin/*
+!Data/scored/linkedin/.gitkeep
 Data/_tmp_collect/
 Data/logs/
+
+# Local transfer archives and tool dumps
+Seeker_Data_*.zip
+python-*-embed-amd64.zip
+.tools/
 
 # Local IDE settings
 .idea/
