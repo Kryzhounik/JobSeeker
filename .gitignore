@@ -5,6 +5,8 @@ Data/raw/
 Data/readable/
 Data/readable_v2/
 Data/analyzed/
+Data/scored/
+Data/_tmp_collect/
 Data/logs/
 
 # Local IDE settings
