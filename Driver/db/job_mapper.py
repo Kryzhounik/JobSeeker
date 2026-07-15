@@ -27,6 +27,8 @@ JOB_COLUMNS = (
     "relocation",
     "job_interest",
     "candidate_fit_percent",
+    "candidate_fit_reason_code",
+    "candidate_fit_reason",
     "seniority",
     "role",
     "salary",
@@ -39,6 +41,15 @@ JOB_COLUMNS = (
 )
 
 JOB_STATUSES = ("New", "Checked", "Approved", "Closed")
+CANDIDATE_FIT_REASON_CODES = (
+    "undefined",
+    "ok",
+    "lang",
+    "loc",
+    "tech",
+    "role_mismatch",
+    "skill_mismatch",
+)
 
 
 def clean(value: Any, default: str = "") -> str:
@@ -56,6 +67,17 @@ def job_status(value: Any) -> str:
             f"{status!r}. Expected one of: {', '.join(JOB_STATUSES)}"
         )
     return status
+
+
+def candidate_fit_reason_code(value: Any) -> str:
+    code = clean(value, "undefined")
+    if code not in CANDIDATE_FIT_REASON_CODES:
+        raise ValueError(
+            "Unsupported candidate-fit reason code: "
+            f"{code!r}. Expected one of: "
+            f"{', '.join(CANDIDATE_FIT_REASON_CODES)}"
+        )
+    return code
 
 
 def source_job_id(source: str, source_url: str) -> str:
@@ -145,6 +167,28 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN candidate_fit_percent INTEGER NOT NULL DEFAULT 100"
         )
+    if "candidate_fit_reason_code" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE jobs
+            ADD COLUMN candidate_fit_reason_code TEXT NOT NULL DEFAULT 'undefined'
+            CHECK (
+                candidate_fit_reason_code IN (
+                    'undefined',
+                    'ok',
+                    'lang',
+                    'loc',
+                    'tech',
+                    'role_mismatch',
+                    'skill_mismatch'
+                )
+            )
+            """
+        )
+    if "candidate_fit_reason" not in columns:
+        connection.execute(
+            "ALTER TABLE jobs ADD COLUMN candidate_fit_reason TEXT NOT NULL DEFAULT ''"
+        )
     if "source_job_id" not in columns:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
@@ -169,8 +213,34 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
             "Unsupported job statuses in database: "
             + ", ".join(repr(status) for status in invalid_statuses)
         )
-    if not jobs_status_check_present(connection):
-        rebuild_jobs_with_status_check(connection, schema_sql)
+    invalid_reason_codes = [
+        row[0]
+        for row in connection.execute(
+            """
+            SELECT DISTINCT candidate_fit_reason_code
+            FROM jobs
+            WHERE candidate_fit_reason_code NOT IN (
+                'undefined',
+                'ok',
+                'lang',
+                'loc',
+                'tech',
+                'role_mismatch',
+                'skill_mismatch'
+            )
+            """
+        ).fetchall()
+    ]
+    if invalid_reason_codes:
+        raise ValueError(
+            "Unsupported candidate-fit reason codes in database: "
+            + ", ".join(repr(code) for code in invalid_reason_codes)
+        )
+    if (
+        not jobs_status_check_present(connection)
+        or not jobs_candidate_fit_reason_code_check_present(connection)
+    ):
+        rebuild_jobs_with_current_schema(connection, schema_sql)
     connection.execute(
         """
         UPDATE jobs
@@ -207,6 +277,24 @@ def jobs_status_check_present(connection: sqlite3.Connection) -> bool:
     )
 
 
+def jobs_candidate_fit_reason_code_check_present(
+    connection: sqlite3.Connection,
+) -> bool:
+    row = connection.execute(
+        """
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'jobs'
+        """
+    ).fetchone()
+    ddl = row[0] if row else ""
+    return (
+        "candidate_fit_reason_code TEXT NOT NULL DEFAULT 'undefined' CHECK" in ddl
+        and "'role_mismatch'" in ddl
+        and "'skill_mismatch'" in ddl
+    )
+
+
 def jobs_new_table_sql(schema_sql: str) -> str:
     marker = "CREATE TABLE IF NOT EXISTS jobs ("
     start = schema_sql.index(marker)
@@ -223,7 +311,7 @@ def table_columns(connection: sqlite3.Connection, table: str) -> list[str]:
     return [row[1] for row in connection.execute(f"PRAGMA table_info({table})")]
 
 
-def rebuild_jobs_with_status_check(
+def rebuild_jobs_with_current_schema(
     connection: sqlite3.Connection,
     schema_sql: str,
 ) -> None:
@@ -293,6 +381,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             relocation,
             job_interest,
             candidate_fit_percent,
+            candidate_fit_reason_code,
+            candidate_fit_reason,
             seniority,
             role,
             salary,
@@ -302,7 +392,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
             source_job_id = excluded.source_job_id,
             title = excluded.title,
@@ -313,6 +403,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             relocation = excluded.relocation,
             job_interest = excluded.job_interest,
             candidate_fit_percent = excluded.candidate_fit_percent,
+            candidate_fit_reason_code = excluded.candidate_fit_reason_code,
+            candidate_fit_reason = excluded.candidate_fit_reason,
             seniority = excluded.seniority,
             role = excluded.role,
             salary = excluded.salary,
@@ -335,6 +427,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             required_text(record, "relocation"),
             required_int(record, "job_interest"),
             required_int(record, "candidate_fit_percent"),
+            candidate_fit_reason_code(record.get("candidate_fit_reason_code")),
+            clean(record.get("candidate_fit_reason")),
             required_text(record, "seniority"),
             required_text(record, "role"),
             salary,
@@ -474,6 +568,10 @@ def load_job_json(
         "relocation": clean(job["relocation"], "NO"),
         "job_interest": int(job["job_interest"] or 0),
         "candidate_fit_percent": int(job["candidate_fit_percent"] or 0),
+        "candidate_fit_reason_code": candidate_fit_reason_code(
+            job["candidate_fit_reason_code"]
+        ),
+        "candidate_fit_reason": clean(job["candidate_fit_reason"]),
         "pros": clean(job["pros"]),
         "cons": clean(job["cons"]),
         "notes": clean(job["notes"]),

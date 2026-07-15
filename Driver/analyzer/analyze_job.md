@@ -30,8 +30,8 @@ otherwise later.
 Return structured JSON data for later scoring. The analysis DTO contract is
 `contracts/job_analysis.schema.json`; use exactly those field names and shapes.
 Scoring stages create a scored DTO matching `contracts/scored_job.schema.json`
-by adding `candidate_fit_percent`, `candidate_fit_reason`, and `job_interest`
-later.
+by adding `candidate_fit_percent`, `candidate_fit_reason_code`,
+`candidate_fit_reason`, and `job_interest` later.
 `job_interest` is added to the scored JSON before DB save by
 `scoring/job_interest/calculate.py --input <scored-json>`. Do not invent
 aliases such as `language` instead of `name`, or `requirement_type` instead of

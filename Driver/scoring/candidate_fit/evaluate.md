@@ -5,7 +5,8 @@ Task: calculate candidate-fit/filter result.
 
 The candidate-fit process calculates how well the vacancy fits the candidate.
 It reads the analyzed JSON from `analyzer/analyze_job.md` and writes a scored
-JSON file with `candidate_fit_percent` and `candidate_fit_reason`.
+JSON file with `candidate_fit_percent`, `candidate_fit_reason_code`, and
+`candidate_fit_reason`.
 
 Input/output contract:
 - Input: one analyzed JSON file from `../Data/analyzed/<source>/`.
@@ -29,6 +30,8 @@ Before agent evaluation:
 - If the fast filter returns `candidate_fit_percent = 0`, stop the agent-stage
   evaluation, write `candidate_fit_percent = 0` and
   `candidate_fit_reason = <filter reason>` into the scored JSON file.
+  `candidate_fit_reason_code` may stay `undefined` until filter.py starts
+  returning reason codes.
 - Do not spend agent analysis on vacancies already rejected by simple hard
   rules, such as language level mismatch, unavailable remote/relocation
   conditions, or other configured fast-filter checks.
@@ -40,8 +43,8 @@ Before agent evaluation:
 
 Semantic candidate-fit agent stage:
 - Return the final `candidate_fit_percent` from 0 to 100.
-- Write both `candidate_fit_percent` and `candidate_fit_reason` into the scored
-  JSON file.
+- Write `candidate_fit_percent`, `candidate_fit_reason_code`, and
+  `candidate_fit_reason` into the scored JSON file.
 - This is semantic matching, not a fast script filter.
 - Use the vacancy's required and nice-to-have technologies together with the
   candidate profile from `config/resume.ini`.
@@ -118,6 +121,22 @@ Candidate-fit score meaning:
 - 75: good fit; most required technologies are covered directly or by close
   equivalents.
 - 90-100: very strong fit; core stack and responsibility level match well.
+
+Candidate-fit reason codes:
+- `undefined`: temporary/default value for old records or records not yet
+  categorized by reason code.
+- `ok`: no hard reject; score is positive or the stage intentionally keeps the
+  vacancy.
+- `lang`: hard reject by human-language requirements.
+- `loc`: hard reject by location, remote scope, relocation, work permit, or
+  similar availability condition.
+- `tech`: hard reject by technical stack, including programming languages,
+  frameworks, platforms, databases, cloud, or tooling.
+- `role_mismatch`: agent-stage hard reject because the vacancy is not a
+  software/backend/engineering role relevant to the candidate at all.
+- `skill_mismatch`: agent-stage hard reject because the vacancy is a technical
+  or software-adjacent role, but the core required skill set is outside the
+  candidate profile.
 
 Workflow requirement:
 - The semantic candidate-fit agent stage is already part of the required

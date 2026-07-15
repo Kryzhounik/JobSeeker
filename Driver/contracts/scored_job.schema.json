@@ -20,6 +20,19 @@
           "minimum": 0,
           "maximum": 100
         },
+        "candidate_fit_reason_code": {
+          "type": "string",
+          "enum": [
+            "undefined",
+            "ok",
+            "lang",
+            "loc",
+            "tech",
+            "role_mismatch",
+            "skill_mismatch"
+          ],
+          "default": "undefined"
+        },
         "candidate_fit_reason": {
           "type": "string"
         },

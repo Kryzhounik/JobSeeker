@@ -24,7 +24,7 @@ collector
 -> analyzer/analyze_job.md
 -> analyzed JSON
 -> scoring/candidate_fit/evaluate.md
--> scored JSON with candidate_fit_percent/candidate_fit_reason
+-> scored JSON with candidate_fit_percent/candidate_fit_reason_code/candidate_fit_reason
 -> scoring/job_interest/calculate.py --input <scored-json-or-dir>
 -> scored JSON with job_interest
 -> db/save.py
@@ -110,6 +110,8 @@ scope.
   candidate-fit or job-interest fields in the main workflow.
 - Candidate-fit scoring reads analyzed JSON and writes scored JSON under
   `../Data/scored/<source>/` with the same file name.
+- Scored JSON may use `candidate_fit_reason_code = "undefined"` for old or
+  not-yet-categorized records. Do not infer a specific reason from that value.
 - `scoring/job_interest/calculate.py --input <scored-json-or-dir>` adds
   `job_interest` to scored JSON before save. Its DB recalculation mode is
   maintenance, not the main pipeline.

@@ -56,6 +56,18 @@ CREATE TABLE IF NOT EXISTS jobs (
     candidate_fit_percent INTEGER NOT NULL DEFAULT 100 CHECK (
         candidate_fit_percent >= 0 AND candidate_fit_percent <= 100
     ),
+    candidate_fit_reason_code TEXT NOT NULL DEFAULT 'undefined' CHECK (
+        candidate_fit_reason_code IN (
+            'undefined',
+            'ok',
+            'lang',
+            'loc',
+            'tech',
+            'role_mismatch',
+            'skill_mismatch'
+        )
+    ),
+    candidate_fit_reason TEXT NOT NULL DEFAULT '',
     summary TEXT NOT NULL DEFAULT '',
     pros TEXT NOT NULL DEFAULT '',
     cons TEXT NOT NULL DEFAULT '',
@@ -113,6 +125,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
+CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit_reason_code
+    ON jobs(candidate_fit_reason_code);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_remote_scope ON jobs(remote_scope);
 CREATE INDEX IF NOT EXISTS idx_jobs_relocation ON jobs(relocation);
