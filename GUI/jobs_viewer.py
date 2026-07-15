@@ -33,6 +33,8 @@ JOB_COLUMNS = (
 DETAIL_FIELDS = (
     ("title", "Title"),
     ("company", "Company"),
+    ("id", "ID"),
+    ("source_job_id", "Source ID"),
     ("score", "Score"),
     ("fit", "Fit"),
     ("interest", "Interest"),
@@ -115,6 +117,7 @@ class JobsViewer(tk.Tk):
             status: tk.BooleanVar(value=True) for status in self.status_values
         }
         self.show_zero_var = tk.BooleanVar(value=False)
+        self.id_search_var = tk.StringVar(value="")
         self.job_sort_column: str | None = None
         self.job_sort_descending = False
         self.tech_sort_column: str | None = None
@@ -167,6 +170,29 @@ class JobsViewer(tk.Tk):
             variable=self.show_zero_var,
             command=self.refresh_jobs,
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
+
+        search_column = len(self.status_values) + 2
+        ttk.Label(filters, text="ID", style="Muted.TLabel").grid(
+            row=0,
+            column=search_column,
+            sticky="w",
+            padx=(10, 4),
+        )
+        id_entry = ttk.Entry(filters, textvariable=self.id_search_var, width=16)
+        id_entry.grid(row=0, column=search_column + 1, sticky="w")
+        id_entry.bind("<Return>", self._refresh_from_event)
+        ttk.Button(filters, text="Search", command=self.refresh_jobs).grid(
+            row=0,
+            column=search_column + 2,
+            sticky="w",
+            padx=(4, 0),
+        )
+        ttk.Button(filters, text="Clear", command=self._clear_id_search).grid(
+            row=0,
+            column=search_column + 3,
+            sticky="w",
+            padx=(4, 0),
+        )
 
         self.status_var = tk.StringVar(value="")
         ttk.Label(toolbar, textvariable=self.status_var, style="Muted.TLabel").grid(
@@ -475,6 +501,14 @@ class JobsViewer(tk.Tk):
             self.jobs_tree.focus(children[0])
             self.jobs_tree.see(children[0])
 
+    def _refresh_from_event(self, _event: tk.Event[tk.Misc]) -> str:
+        self.refresh_jobs()
+        return "break"
+
+    def _clear_id_search(self) -> None:
+        self.id_search_var.set("")
+        self.refresh_jobs()
+
     def _load_jobs(self) -> list[sqlite3.Row]:
         statuses = [
             status
@@ -486,7 +520,7 @@ class JobsViewer(tk.Tk):
 
         if statuses:
             placeholders = ", ".join("?" for _status in statuses)
-            where_parts.append(f"status IN ({placeholders})")
+            where_parts.append(f"jl.status IN ({placeholders})")
             parameters.extend(statuses)
         else:
             where_parts.append("0")
@@ -494,9 +528,27 @@ class JobsViewer(tk.Tk):
         if not self.show_zero_var.get():
             where_parts.append(
                 """
-                CAST(score AS INTEGER) <> 0
+                CAST(jl.score AS INTEGER) <> 0
                 """
             )
+
+        id_query = self.id_search_var.get().strip()
+        if id_query:
+            where_parts.append(
+                """
+                EXISTS (
+                    SELECT 1
+                    FROM jobs j
+                    WHERE j.source_url = jl.source_url
+                        AND (
+                            CAST(j.id AS TEXT) = ?
+                            OR j.source_job_id = ?
+                            OR j.source_url LIKE ?
+                        )
+                )
+                """
+            )
+            parameters.extend([id_query, id_query, f"%{id_query}%"])
 
         where_sql = "WHERE " + " AND ".join(where_parts)
         with self.connect() as connection:
@@ -519,7 +571,7 @@ class JobsViewer(tk.Tk):
                         salary,
                         added_at,
                         source_url
-                    FROM job_list
+                    FROM job_list jl
                     {where_sql}
                     """,
                     parameters,
@@ -557,6 +609,7 @@ class JobsViewer(tk.Tk):
                 """
                 SELECT
                     id,
+                    source_job_id,
                     title,
                     company,
                     location,

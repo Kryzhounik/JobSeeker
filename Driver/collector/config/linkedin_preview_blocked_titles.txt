@@ -20,17 +20,29 @@ Android Developer
 
 Analytics Engineer
 
+Administrator IT
+
 Artificial Intelligence Engineer
 AI Engineer
+AI Trainer
+AI/ML Engineer
+
+Azure Technical Architect
 
 Avionics Systems Architect
 Aerospace Simulation Engineer
 
 Access Management Engineer
 
+Business Development
+
 C Software Engineer
+C Developer
+Senior Software Engineer C
 Sitecore
 Sharepoint
+
+Cloud Infrastructure Engineer
 
 Adaptive Autosar
 
@@ -39,7 +51,17 @@ DevOps Engineer
 Devops Architect
 
 Data Architect
+Cloud Data Engineer
+Staff Data Engineer
+Senior Big Data Engineer
+Digital Commerce Data Domain Lead
+Hadoop / Big Data Developer
+
+DBT Data Engineer
 Database Developer
+Database CloudOps
+
+Deputy Team Leader
 
 Senior ETL Developer
 
@@ -55,14 +77,32 @@ Project Engineer for Aerospace
 Commissioning Engineer
 Hardware Engineer
 Assurance Engineer
+Calibration Engineer
+Component Validation Engineer
+Control System Application Engineer
+Cost Engineer
+FEM Engineer
+Field Project Engineer
+Field Services Engineer
+Flight Engineer
+plumbing engineer
+Senior Project Engineer
+Project Engineer (Water)
+
+
 Electronic Controls
 
 Embedded Developer
 Embedded Software
+Embedded Systems/Firmware
 
+Full-Stack Developer
 Full-Stack Software
 Full-Stack Engineer
 Senior Full-Stack
+
+Flutter Developer
+Forward Deployed Engineer
 
 Fire Protection Engineer
 
@@ -87,13 +127,19 @@ Microsoft Dynamics
 
 Management Specialist
 
+macOS platform
+
+MLOps Engineer
+LLM Engineer
+
 PHP Developer
 PHP Engineer
 Symfony
 Magento
 Laravel
 
-Power Platform Engineer
+Power Automate
+Power Platform
 
 Relationship Management Developer
 
@@ -107,12 +153,15 @@ Satellite Control Systems Engineer
 
 GPU Systems Architect
 
+Presales Expert
+
 Vmware Engineer
 
 Test Automation Engineer
 QA
 Tester
 TestOps Engineer
+Pentester
 
 Unreal Engine
 
@@ -212,3 +261,4 @@ Researcher
 
 ServiceNow
 Roaming Business Expert
+Switching Devices
