@@ -3,17 +3,118 @@
 .NET
 C++
 C#
+UiPath
 Rust
 Salesforce
 SAP
-QA
-Tester
+SAPUI5
 Designer
 iOS
 Frontend
 Javascript
+Ferryt
 
 Angular Developer
+
+Android Developer
+
+Analytics Engineer
+
+Artificial Intelligence Engineer
+AI Engineer
+
+Avionics Systems Architect
+Aerospace Simulation Engineer
+
+Access Management Engineer
+
+C Software Engineer
+Sitecore
+Sharepoint
+
+Adaptive Autosar
+
+Senior DevOps
+DevOps Engineer
+Devops Architect
+
+Data Architect
+Database Developer
+
+Senior ETL Developer
+
+Electrical Engineers
+Electrical Engineer
+
+Engineer under FIDIC
+Industrial Controls
+Certification Engineer
+Development Engineer Mechanics
+Quality Laboratory Engineer
+Project Engineer for Aerospace
+Commissioning Engineer
+Hardware Engineer
+Assurance Engineer
+Electronic Controls
+
+Embedded Developer
+Embedded Software
+
+Full-Stack Software
+Full-Stack Engineer
+Senior Full-Stack
+
+Fire Protection Engineer
+
+Go Developer
+Go Engineer
+Golang Developer
+Golang Engineer
+Golang Software Engineer
+Golang System Software Engineer
+Juju Software Engineer
+
+Linux Engineer
+Linux Kernel Engineer
+
+Mendix Developer
+
+Mulesoft Developer
+
+Machine Learning Engineer
+
+Microsoft Dynamics
+
+Management Specialist
+
+PHP Developer
+PHP Engineer
+Symfony
+Magento
+Laravel
+
+Power Platform Engineer
+
+Relationship Management Developer
+
+SysOps Engineer
+
+Security Architect
+
+Scientist
+
+Satellite Control Systems Engineer
+
+GPU Systems Architect
+
+Vmware Engineer
+
+Test Automation Engineer
+QA
+Tester
+TestOps Engineer
+
+Unreal Engine
 
 Electronics Engineer
 Electrical Systems Specialist
@@ -84,21 +185,22 @@ Private Equity Specialist
 Electronic Engineer
 Banking Associate
 Safety Specialist
-PHP Developer
-PHP Engineer
+
 Physics Expert
 Healthcare Specialist
 WordPress
-Go Developer
-Go Engineer
-Golang Developer
-Golang Engineer
-Juju Software Engineer
+
 
 Mobile App Developer
 Mobile Game Developer
 
+Support Engineer
+
 Researcher
+
+Reliability Engineer
+
+Test Automation Architect
 
 Language Expert
 Content Writer
@@ -107,7 +209,6 @@ Next.js Developer
 Test Engineer
 Unity Software Engineer
 Researcher
-Senior Full-Stack
-Machine Learning Engineer
-Linux Kernel Engineer
+
 ServiceNow
+Roaming Business Expert
