@@ -1,0 +1,192 @@
+[
+  {
+    "job_id": "4441200300",
+    "title": "Math Specialist (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4441200300/",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4438406219",
+    "title": "AI Forward Deployed Engineer - EMEA (Remote)",
+    "company": "NST - Nova Source Technologies",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4438406219/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Forward Deployed Engineer",
+    "preview_blocked_terms": [
+      "Forward Deployed Engineer"
+    ]
+  },
+  {
+    "job_id": "4441200089",
+    "title": "Senior PHP Technical Interviewer",
+    "company": "Intetics",
+    "location": "Ukraine (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4441200089/",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4431275920",
+    "title": "Lead/Tech Lead Java Engineer",
+    "company": "Patrianna",
+    "location": "Ukraine (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4431275920/",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4418825766",
+    "title": "Senior C++ Software Engineer (Package Builder)",
+    "company": "SoftServe",
+    "location": "Ukraine (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4418825766/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: C++",
+    "preview_blocked_terms": [
+      "C++"
+    ]
+  },
+  {
+    "job_id": "4410518669",
+    "title": "Senior Node.js/AWS Developer",
+    "company": "Foundever",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4410518669/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Node.js",
+    "preview_blocked_terms": [
+      "Node.js"
+    ]
+  },
+  {
+    "job_id": "4438094539",
+    "title": "AI Automation Engineer",
+    "company": "TalentsToday",
+    "location": "Ukraine (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4438094539/",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4422478083",
+    "title": "Senior Game Developer (UI, Animations & Polish) - Paper.io2",
+    "company": "Voodoo",
+    "location": "Kyiv, Kyiv City, Ukraine (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4422478083/",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4440910382",
+    "title": "C# Developer (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440910382/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: C#",
+    "preview_blocked_terms": [
+      "C#"
+    ]
+  },
+  {
+    "job_id": "4440906723",
+    "title": "iOS Application Developer (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440906723/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: iOS",
+    "preview_blocked_terms": [
+      "iOS"
+    ]
+  },
+  {
+    "job_id": "4440902880",
+    "title": "UI/UX Designer - AI Products (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440902880/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Designer",
+    "preview_blocked_terms": [
+      "Designer"
+    ]
+  },
+  {
+    "job_id": "4440906722",
+    "title": "Data Scientist - AI/ML (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440906722/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Scientist, Data Scientist",
+    "preview_blocked_terms": [
+      "Scientist",
+      "Data Scientist"
+    ]
+  },
+  {
+    "job_id": "4440912300",
+    "title": "Senior Full-Stack Engineer - Frontend Focussed (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440912300/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Frontend, Full-Stack Engineer, Senior Full-Stack",
+    "preview_blocked_terms": [
+      "Frontend",
+      "Full-Stack Engineer",
+      "Senior Full-Stack"
+    ]
+  },
+  {
+    "job_id": "4440898922",
+    "title": "Backend Developer - C#/.NET (Remote)",
+    "company": "Hire Feed",
+    "location": "EMEA (Remote)",
+    "workplace": "remote",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440898922/",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: .NET, C#",
+    "preview_blocked_terms": [
+      ".NET",
+      "C#"
+    ]
+  }
+]

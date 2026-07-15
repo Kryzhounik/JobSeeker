@@ -1,0 +1,67 @@
+{
+  "source": "linkedin",
+  "added_at": "2026-07-15",
+  "source_url": "https://www.linkedin.com/jobs/view/4440962996/",
+  "title": "Computer Science Expert (Remote)",
+  "company": "Hire Feed",
+  "location": "EMEA (Remote)",
+  "remote_type": "remote",
+  "remote_scope": "worldwide",
+  "relocation": "NO",
+  "seniority": "senior",
+  "role": "other",
+  "salary": "$80-$90/hour",
+  "summary": "Contract PhD computer-science expert researching algorithms and scalable computational systems.",
+  "pros": "Worldwide remote; Java is an accepted language; strong algorithms and architecture content.",
+  "cons": "Requires a Computer Science PhD and research/HPC depth.",
+  "notes": "Expert seniority inferred from PhD and research remit.",
+  "languages": [],
+  "technologies": [
+    {
+      "name": "Computer Science PhD",
+      "requirement": "required",
+      "level": "master",
+      "level_rank": 5,
+      "raw_value": "PhD required"
+    },
+    {
+      "name": "Algorithms and complexity theory",
+      "requirement": "required",
+      "level": "master",
+      "level_rank": 5,
+      "raw_value": "expertise"
+    },
+    {
+      "name": "Python/C++/Java",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "proficiency with low-level optimization"
+    },
+    {
+      "name": "Distributed or high-performance computing",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "experience required"
+    },
+    {
+      "name": "Machine learning frameworks",
+      "requirement": "required",
+      "level": "regular",
+      "level_rank": 3,
+      "raw_value": "familiarity"
+    },
+    {
+      "name": "Scalable system design",
+      "requirement": "required",
+      "level": "advanced",
+      "level_rank": 4,
+      "raw_value": "design and implement scalable systems"
+    }
+  ],
+  "candidate_fit_percent": 34,
+  "candidate_fit_reason_code": "ok",
+  "candidate_fit_reason": "Required coverage: 2 of 6 items are directly or partially covered. Java and scalable/distributed system design match, but the Computer Science PhD, research-grade algorithms/complexity, HPC depth and ML framework experience remain missing; weighted required coverage is about 34%.",
+  "job_interest": 1000
+}

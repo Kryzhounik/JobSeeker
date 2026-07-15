@@ -1,0 +1,114 @@
+[
+  {
+    "company": "Hire Feed",
+    "job_id": "4440902880",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440902880/",
+    "title": "UI/UX Designer - AI Products (Remote)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Designer",
+    "preview_blocked_terms": [
+      "Designer"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440906722",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440906722/",
+    "title": "Data Scientist - AI/ML (Remote)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Scientist, Data Scientist",
+    "preview_blocked_terms": [
+      "Scientist",
+      "Data Scientist"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440912300",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440912300/",
+    "title": "Senior Full-Stack Engineer - Frontend Focussed (Remote)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Frontend, Full-Stack Engineer, Senior Full-Stack",
+    "preview_blocked_terms": [
+      "Frontend",
+      "Full-Stack Engineer",
+      "Senior Full-Stack"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440898922",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440898922/",
+    "title": "Backend Developer - C#/.NET (Remote)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: .NET, C#",
+    "preview_blocked_terms": [
+      ".NET",
+      "C#"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440906714",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440906714/",
+    "title": "Senior Backend Engineer (Python)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Python",
+    "preview_blocked_terms": [
+      "Python"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440902870",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440902870/",
+    "title": "Web Developer (Remote)",
+    "workplace": "remote",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4440910372",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4440910372/",
+    "title": "FrontEnd Web Developer (Remote)",
+    "workplace": "remote",
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Frontend",
+    "preview_blocked_terms": [
+      "Frontend"
+    ]
+  },
+  {
+    "company": "Hire Feed",
+    "job_id": "4441200300",
+    "location": "EMEA (Remote)",
+    "salary": "",
+    "source_url": "https://www.linkedin.com/jobs/view/4441200300/",
+    "title": "Math Specialist (Remote)",
+    "workplace": "remote",
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_blocked_terms": []
+  }
+]

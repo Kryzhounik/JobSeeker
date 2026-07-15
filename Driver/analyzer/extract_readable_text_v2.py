@@ -47,6 +47,42 @@ BLOCK_UNTIL_ABOUT_JOB = {
     "Meet the hiring team",
 }
 
+MOJIBAKE_MARKERS = (
+    "В·",
+    "вЂ",
+    "в‚",
+    "в†",
+    "вњ",
+    "вљ",
+    "рџ",
+    "Рџ",
+)
+
+
+def mojibake_score(text: str) -> int:
+    return sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
+
+
+def repair_mojibake(line: str) -> str:
+    """Repair UTF-8 text accidentally decoded as a legacy Windows encoding."""
+    original_score = mojibake_score(line)
+    if original_score == 0:
+        return line
+
+    best = line
+    best_score = original_score
+    for encoding in ("cp1251", "cp1252", "latin-1"):
+        try:
+            candidate = line.encode(encoding).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+        candidate_score = mojibake_score(candidate)
+        if candidate_score < best_score:
+            best = candidate
+            best_score = candidate_score
+
+    return best
+
 
 def should_drop_line(line: str) -> bool:
     if line in CHROME_LINES:
@@ -63,7 +99,8 @@ def normalize_text(text: str) -> str:
     skip_until_about_job = False
 
     for raw_line in text.splitlines():
-        line = re.sub(r"\s+", " ", raw_line).strip()
+        line = repair_mojibake(raw_line)
+        line = re.sub(r"\s+", " ", line).strip()
         if not line:
             continue
 
