@@ -110,8 +110,9 @@ scope.
   candidate-fit or job-interest fields in the main workflow.
 - Candidate-fit scoring reads analyzed JSON and writes scored JSON under
   `../Data/scored/<source>/` with the same file name.
-- Scored JSON may use `candidate_fit_reason_code = "undefined"` for old or
-  not-yet-categorized records. Do not infer a specific reason from that value.
+- New scored JSON must contain `candidate_fit_reason_code` and must not use
+  `undefined`. `undefined` is only a database compatibility value for records
+  that already existed before reason codes were introduced.
 - `scoring/job_interest/calculate.py --input <scored-json-or-dir>` adds
   `job_interest` to scored JSON before save. Its DB recalculation mode is
   maintenance, not the main pipeline.
@@ -120,6 +121,11 @@ scope.
 - `db/save.py` input is `../Data/scored/<source>/`, not
   `../Data/analyzed/<source>/`.
 - Database JSON mapping must go through `db/job_mapper.py`.
+- Existing rows in SQLite are already processed. Normal collection must use
+  `source_job_id` / `source_url` deduplication to avoid reopening and
+  re-analyzing already processed vacancies.
+- Re-evaluating an existing vacancy is a separate calibration/debug action, not
+  part of the normal batch workflow.
 
 ## GUI Rule
 

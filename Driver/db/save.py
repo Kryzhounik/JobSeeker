@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 
 from common.paths import DATA_ROOT
 from db.job_mapper import apply_schema
+from db.job_mapper import CANDIDATE_FIT_REASON_CODES
 from db.job_mapper import existing_source_urls
 from db.job_mapper import save_job_json
 
@@ -71,6 +72,34 @@ def reject_fast_filter_only_candidate_fit(record: dict[str, Any]) -> None:
         )
 
 
+def require_candidate_fit_reason_code(record: dict[str, Any]) -> str:
+    value = record.get("candidate_fit_reason_code")
+    if value is None or value == "":
+        raise ValueError(
+            "candidate_fit_reason_code is missing; run "
+            "scoring/candidate_fit/evaluate.md before save"
+        )
+
+    code = str(value).strip()
+    if code == "undefined":
+        raise ValueError(
+            "candidate_fit_reason_code='undefined' is only for legacy DB rows; "
+            "new scored JSON must use a real reason code"
+        )
+    if code not in CANDIDATE_FIT_REASON_CODES:
+        raise ValueError(f"Unsupported candidate_fit_reason_code: {code!r}")
+    return code
+
+
+def require_candidate_fit_reason(record: dict[str, Any]) -> str:
+    value = record.get("candidate_fit_reason")
+    if value is None:
+        raise ValueError(
+            "candidate_fit_reason is missing; run scoring/candidate_fit before save"
+        )
+    return str(value)
+
+
 def require_job_interest(record: dict[str, Any]) -> int:
     value = record.get("job_interest")
     if value is None or value == "":
@@ -83,6 +112,8 @@ def require_job_interest(record: dict[str, Any]) -> int:
 
 def validate_scored_record(record: dict[str, Any]) -> None:
     record["candidate_fit_percent"] = require_candidate_fit(record)
+    record["candidate_fit_reason_code"] = require_candidate_fit_reason_code(record)
+    record["candidate_fit_reason"] = require_candidate_fit_reason(record)
     reject_fast_filter_only_candidate_fit(record)
     record["job_interest"] = require_job_interest(record)
 
@@ -174,7 +205,9 @@ def main() -> None:
     )
     for status, value in results:
         print(f"{status}: {value}")
-    print(f"processed {len(results)} analyzed records")
+    print(f"processed {len(results)} scored records")
+    if any(status == "error" for status, _ in results):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

@@ -149,6 +149,7 @@ TIMEZONE_MARKERS = (
 class FilterResult:
     passed: bool
     candidate_fit_percent: int
+    reason_code: str
     reason: str
 
 
@@ -441,10 +442,11 @@ def evaluate_required_programming_languages(
         return FilterResult(
             False,
             0,
+            "tech",
             f"required programming language missing: {label} rank {required_rank}",
         )
 
-    return FilterResult(True, 100, "programming language filter passed")
+    return FilterResult(True, 100, "ok", "programming language filter passed")
 
 
 def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResult:
@@ -452,8 +454,8 @@ def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResul
     for term in blocked_terms:
         normalized_term = term.strip().lower()
         if normalized_term and normalized_term in normalized_title:
-            return FilterResult(False, 0, f"title blocked by term: {term}")
-    return FilterResult(True, 100, "title filter passed")
+            return FilterResult(False, 0, "tech", f"title blocked by term: {term}")
+    return FilterResult(True, 100, "ok", "title filter passed")
 
 
 def evaluate_required_languages(
@@ -474,16 +476,26 @@ def evaluate_required_languages(
         key = language.lower()
 
         if key == "english" and required_rank > english_limit:
-            return FilterResult(False, 0, f"English above B2 required: {level}")
+            return FilterResult(False, 0, "lang", f"English above B2 required: {level}")
 
         own_rank = resume.get(key)
         if own_rank is None:
-            return FilterResult(False, 0, f"Required language not in resume: {language}")
+            return FilterResult(
+                False,
+                0,
+                "lang",
+                f"Required language not in resume: {language}",
+            )
 
         if required_rank and own_rank < required_rank:
-            return FilterResult(False, 0, f"{language} required {level}, resume lower")
+            return FilterResult(
+                False,
+                0,
+                "lang",
+                f"{language} required {level}, resume lower",
+            )
 
-    return FilterResult(True, 100, "language filter passed")
+    return FilterResult(True, 100, "ok", "language filter passed")
 
 
 def evaluate_remote(
@@ -494,26 +506,31 @@ def evaluate_remote(
     remote_mode: str,
 ) -> FilterResult:
     if remote_mode == "off":
-        return FilterResult(True, 100, "remote filter disabled")
+        return FilterResult(True, 100, "ok", "remote filter disabled")
 
     if normalized(remote_type) != "remote":
-        return FilterResult(False, 0, f"remote filter failed: {remote_type or 'empty'}")
+        return FilterResult(
+            False,
+            0,
+            "loc",
+            f"remote filter failed: {remote_type or 'empty'}",
+        )
 
     scope = str(remote_scope or "").strip()
     if remote_mode == "on":
-        return FilterResult(True, 100, f"remote filter passed: {scope or 'remote'}")
+        return FilterResult(True, 100, "ok", f"remote filter passed: {scope or 'remote'}")
 
     if normalized(scope) in NO_VALUES:
-        return FilterResult(False, 0, "remote filter failed: remote scope is empty")
+        return FilterResult(False, 0, "loc", "remote filter failed: remote scope is empty")
 
     if is_timezone_scope(scope):
-        return FilterResult(True, 100, f"remote timezone scope accepted: {scope}")
+        return FilterResult(True, 100, "ok", f"remote timezone scope accepted: {scope}")
 
     allowed = csv_values(setting(resume_config, "remote", "allowed_scopes"))
     if matches_remote_scope(scope, allowed):
-        return FilterResult(True, 100, f"remote filter passed: {scope}")
+        return FilterResult(True, 100, "ok", f"remote filter passed: {scope}")
 
-    return FilterResult(False, 0, f"remote filter failed: {scope}")
+    return FilterResult(False, 0, "loc", f"remote filter failed: {scope}")
 
 
 def evaluate_relocation(
@@ -523,20 +540,20 @@ def evaluate_relocation(
     relocation_mode: str,
 ) -> FilterResult:
     if relocation_mode == "off":
-        return FilterResult(True, 100, "relocation filter disabled")
+        return FilterResult(True, 100, "ok", "relocation filter disabled")
 
     destination = str(relocation or "").strip()
     if normalized(destination) in NO_VALUES:
-        return FilterResult(False, 0, "relocation filter failed: NO")
+        return FilterResult(False, 0, "loc", "relocation filter failed: NO")
 
     if relocation_mode == "on":
-        return FilterResult(True, 100, f"relocation filter passed: {destination}")
+        return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
     allowed = csv_values(setting(resume_config, "relocation", "allowed_destinations"))
     if matches_allowed(destination, allowed):
-        return FilterResult(True, 100, f"relocation filter passed: {destination}")
+        return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
-    return FilterResult(False, 0, f"relocation filter failed: {destination}")
+    return FilterResult(False, 0, "loc", f"relocation filter failed: {destination}")
 
 
 def evaluate_remote_or_relocation(
@@ -564,15 +581,16 @@ def evaluate_remote_or_relocation(
         checks.append(evaluate_relocation(relocation, config, resume_config, relocation_mode))
 
     if not checks:
-        return FilterResult(True, 100, "remote/relocation filters disabled")
+        return FilterResult(True, 100, "ok", "remote/relocation filters disabled")
 
     mode = setting(config, "filters", "remote_relocation_mode", "any").lower()
     if mode == "all":
         if all(result.passed for result in checks):
-            return FilterResult(True, 100, "remote/relocation filters passed")
+            return FilterResult(True, 100, "ok", "remote/relocation filters passed")
         return FilterResult(
             False,
             0,
+            "loc",
             "; ".join(result.reason for result in checks if not result.passed),
         )
 
@@ -580,7 +598,7 @@ def evaluate_remote_or_relocation(
         if result.passed:
             return result
 
-    return FilterResult(False, 0, "; ".join(result.reason for result in checks))
+    return FilterResult(False, 0, "loc", "; ".join(result.reason for result in checks))
 
 
 def evaluate_job(
@@ -629,7 +647,7 @@ def evaluate_job(
     if not logistics_result.passed:
         return logistics_result
 
-    return FilterResult(True, 100, "job filter passed")
+    return FilterResult(True, 100, "ok", "job filter passed")
 
 
 def filter_job_json(

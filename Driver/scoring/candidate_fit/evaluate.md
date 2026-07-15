@@ -29,9 +29,8 @@ Before agent evaluation:
   `filter.py::filter_job_json(job_json)`.
 - If the fast filter returns `candidate_fit_percent = 0`, stop the agent-stage
   evaluation, write `candidate_fit_percent = 0` and
+  `candidate_fit_reason_code = <filter reason code>` and
   `candidate_fit_reason = <filter reason>` into the scored JSON file.
-  `candidate_fit_reason_code` may stay `undefined` until filter.py starts
-  returning reason codes.
 - Do not spend agent analysis on vacancies already rejected by simple hard
   rules, such as language level mismatch, unavailable remote/relocation
   conditions, or other configured fast-filter checks.
@@ -124,7 +123,8 @@ Candidate-fit score meaning:
 
 Candidate-fit reason codes:
 - `undefined`: temporary/default value for old records or records not yet
-  categorized by reason code.
+  categorized by reason code. New candidate-fit runs must not write
+  `undefined`.
 - `ok`: no hard reject; score is positive or the stage intentionally keeps the
   vacancy.
 - `lang`: hard reject by human-language requirements.
@@ -142,4 +142,6 @@ Workflow requirement:
 - The semantic candidate-fit agent stage is already part of the required
   workflow. If it has not been performed for a fast-filter-passed job, stop
   instead of saving the job.
+- New scored JSON must always contain `candidate_fit_reason_code`.
+- New scored JSON must not use `candidate_fit_reason_code = "undefined"`.
 - Keep every new filter step explainable and independently runnable.
