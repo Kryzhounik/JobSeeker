@@ -53,7 +53,7 @@ All three commands must enter the same pipeline at `raw HTML`.
 read LinkedIn collector settings
 -> open LinkedIn search in the logged-in browser
 -> inspect search result cards
--> apply the preview filter to each visible card
+-> apply the preview filter to each card
 -> save accepted vacancy detail panes as raw HTML
 -> continue the main pipeline for the explicit run scope
 ```

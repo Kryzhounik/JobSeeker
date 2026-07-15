@@ -16,6 +16,9 @@ For browser mechanics, follow `collector/browser.md`. In particular, LinkedIn
 collection currently uses the Chrome extension browser and saves the
 right-side details pane from the search UI.
 
+For left-panel card materialization and page-count verification, follow
+`collector/linkedin_scroll_results.md`.
+
 ## Workflow
 
 1. Run `python collector/linkedin_search_urls.py`.
@@ -31,9 +34,9 @@ right-side details pane from the search UI.
 6. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.
-7. On each LinkedIn search page, collect the complete result page, not only the
-   initially visible cards. Scroll the left search-results panel until no new
-   cards appear, then extract previews from all cards found on that page.
+7. On each LinkedIn search page, materialize and verify the complete result
+   page with `collector/linkedin_scroll_results.md`, then extract
+   previews from that verified card set.
 8. After the current result page is exhausted, move to the next page with
    `start += 25` (or the next-page control if LinkedIn changes the URL shape).
    Do not use a fixed list like `0/25/50/75`; continue until exhausted or
@@ -132,16 +135,16 @@ delay window.
 
 ## Search Page Exhaustion
 
-A search page is processed only after the left LinkedIn results panel has been
-scrolled until it stops loading new cards. The initial visible cards are not
-enough.
+A search page is processed only after its left-panel cards have been
+materialized and verified by `collector/linkedin_scroll_results.md`.
 
 For every page, record:
 
 - search label;
 - `start` value;
 - page URL;
-- number of cards seen after scrolling the results panel;
+- number of expected and materialized cards reported by the scrolling
+  instruction;
 - number of new unique `job_id` values;
 - visible end-of-results text, if any;
 - next-page button state, if visible.
@@ -152,7 +155,7 @@ The current location is exhausted only when at least one of these is true:
 - there are no result cards after the page finishes loading;
 - LinkedIn exposes a Next button and it is missing or disabled;
 - two consecutive `start` pages produce no new unique `job_id` values after
-  the results panel has been fully scrolled.
+  the results panel has been fully materialized and verified.
 
 Do not treat a single weird page, timeout, empty DOM read, or unknown LinkedIn
 response as exhaustion. In that case retry once, log what happened, and only
