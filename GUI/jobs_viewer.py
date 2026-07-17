@@ -231,7 +231,7 @@ class JobsViewer(tk.Tk):
             parent,
             columns=columns,
             show="headings",
-            selectmode="browse",
+            selectmode="extended",
         )
         self.jobs_tree.grid(row=0, column=0, sticky="nsew")
 
@@ -462,11 +462,17 @@ class JobsViewer(tk.Tk):
         except sqlite3.Error:
             return tuple(values)
 
+        db_values = []
         for row in rows:
             status = clean(row[0])
-            if status and status not in values:
-                values.append(status)
-        return tuple(values)
+            if status and status not in db_values:
+                db_values.append(status)
+        if not db_values:
+            return tuple(values)
+        for status in values:
+            if status not in db_values:
+                db_values.append(status)
+        return tuple(db_values)
 
     def connect_writable(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
@@ -591,11 +597,12 @@ class JobsViewer(tk.Tk):
             )
 
     def _on_job_selected(self, _event: tk.Event[tk.Misc]) -> None:
-        selected = self.jobs_tree.selection()
-        if not selected:
+        item = self._detail_item_from_selection()
+        if not item:
+            self._clear_detail()
             return
 
-        row = self.job_rows.get(selected[0])
+        row = self.job_rows.get(item)
         if not row:
             return
 
@@ -788,31 +795,39 @@ class JobsViewer(tk.Tk):
             webbrowser.open_new_tab(self.current_source_url)
 
     def _set_current_status(self, status: str) -> None:
-        if not self.current_source_url:
+        items = self._selected_job_items()
+        source_urls = [
+            self.job_rows[item]["source_url"]
+            for item in items
+            if self.job_rows.get(item, {}).get("source_url")
+        ]
+        if not source_urls and self.current_source_url:
+            source_urls = [self.current_source_url]
+
+        if not source_urls:
             return
 
         try:
             with self.connect_writable() as connection:
+                placeholders = ", ".join("?" for _source_url in source_urls)
                 result = connection.execute(
-                    """
+                    f"""
                     UPDATE jobs
                     SET status = ?,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE source_url = ?
+                    WHERE source_url IN ({placeholders})
                     """,
-                    (status, self.current_source_url),
+                    [status, *source_urls],
                 )
-                if result.rowcount != 1:
-                    raise KeyError(f"Job not found: {self.current_source_url}")
+                if result.rowcount == 0:
+                    raise KeyError("Selected jobs were not found.")
         except Exception as error:
             messagebox.showerror("Status update failed", str(error))
             self.status_var.set("Status update failed")
             return
 
-        self.current_status = status
-        self._set_text_widget(self.detail_fields["status"], status)
-        self._update_selected_job_status(status)
-        self.status_var.set(f"Status -> {status}")
+        self._update_selected_jobs_status(status, items, source_urls)
+        self.status_var.set(f"Status -> {status} ({len(source_urls)})")
 
     def _save_scores_from_detail(self, _event: tk.Event[tk.Misc] | None = None) -> str:
         if not self.current_source_url:
@@ -874,27 +889,54 @@ class JobsViewer(tk.Tk):
         self._set_text_widget(self.detail_fields["fit"], self.current_fit)
         self._set_text_widget(self.detail_fields["interest"], self.current_interest)
 
-    def _update_selected_job_status(self, status: str) -> None:
-        selected = self.jobs_tree.selection()
-        if not selected:
-            return
+    def _update_selected_jobs_status(
+        self,
+        status: str,
+        items: list[str],
+        source_urls: list[str],
+    ) -> None:
+        source_url_set = set(source_urls)
+        if not items:
+            items = [
+                item
+                for item, row in self.job_rows.items()
+                if row.get("source_url") in source_url_set
+            ]
 
-        item = selected[0]
         if not self._status_visible(status):
-            self.jobs_tree.delete(item)
-            self.job_rows.pop(item, None)
+            for item in items:
+                self.jobs_tree.delete(item)
+                self.job_rows.pop(item, None)
             self._clear_detail()
             return
 
-        if item in self.job_rows:
-            self.job_rows[item]["status"] = status
-
         columns = [name for name, _label, _width, _anchor in JOB_COLUMNS]
         status_index = columns.index("status")
-        values = list(self.jobs_tree.item(item, "values"))
-        if len(values) > status_index:
-            values[status_index] = status
-            self.jobs_tree.item(item, values=values)
+        for item in items:
+            if item in self.job_rows:
+                self.job_rows[item]["status"] = status
+
+            values = list(self.jobs_tree.item(item, "values"))
+            if len(values) > status_index:
+                values[status_index] = status
+                self.jobs_tree.item(item, values=values)
+
+        if self.current_source_url in source_url_set:
+            self.current_status = status
+            self._set_text_widget(self.detail_fields["status"], status)
+
+    def _selected_job_items(self) -> list[str]:
+        return [item for item in self.jobs_tree.selection() if item in self.job_rows]
+
+    def _detail_item_from_selection(self) -> str:
+        selected = self._selected_job_items()
+        if not selected:
+            return ""
+
+        focused = self.jobs_tree.focus()
+        if focused in selected:
+            return focused
+        return selected[0]
 
     def _update_selected_job_scores(self, score: int, fit: int, interest: int) -> None:
         selected = self.jobs_tree.selection()
