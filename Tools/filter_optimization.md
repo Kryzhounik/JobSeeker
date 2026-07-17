@@ -71,7 +71,8 @@ Do not optimize from these groups by default:
 
 ## Current MVP Output
 
-Return titles grouped by reason code:
+Return exact downloaded vacancy titles grouped by reason code. Do not collapse
+them into broad keywords, technologies, domains, or shortened summaries.
 
 ```text
 role_mismatch
@@ -85,6 +86,7 @@ tech
 ```
 
 The goal is to let the user decide which block words are safe to add.
+At this stage the output is the evidence list, not the final blocklist.
 
 ## Future Output
 
@@ -103,6 +105,19 @@ possible false positives
 Prefer precise terms over broad ones. For example, prefer a senior/specific
 non-target role title over a generic word that can appear inside a valid Java
 backend vacancy.
+
+Proposal terms must be safe from the preview title alone. Prefer exact vacancy
+title phrases, role names, or title-visible non-target domains. Do not propose
+bare technology names just because the downstream reason mentions a missing
+technology. For example, do not propose `Golang` from `Staff Software Engineer,
+Golang`: a valid vacancy title could be `Java Developer (Golang is a plus)`,
+and the preview filter would reject it incorrectly.
+
+Do not propose broad domain words such as `Big Data`, `AI`, `Cloud`, or
+`Platform` by themselves. A valid target vacancy title can contain those words
+as context, for example `Java Developer (Big Data project)`. If a shortened
+proposal is needed, it must still be a role-level phrase that would not reject
+a valid Java/backend vacancy.
 
 If the user explicitly approves a proposal, update the collector blocklist in:
 
