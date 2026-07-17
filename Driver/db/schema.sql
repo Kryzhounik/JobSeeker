@@ -22,8 +22,9 @@ CREATE TABLE IF NOT EXISTS job_statuses (
 INSERT OR IGNORE INTO job_statuses (code, sort_order) VALUES
     ('New', 10),
     ('Checked', 20),
-    ('Approved', 30),
-    ('Closed', 40);
+    ('Postponed', 30),
+    ('Applied', 40),
+    ('Closed', 50);
 
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -40,7 +40,7 @@ JOB_COLUMNS = (
     "primary_language_id",
 )
 
-DEFAULT_JOB_STATUSES = ("New", "Checked", "Approved", "Closed")
+DEFAULT_JOB_STATUSES = ("New", "Checked", "Postponed", "Applied", "Closed")
 CANDIDATE_FIT_REASON_CODES = (
     "undefined",
     "ok",
@@ -194,6 +194,8 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
         )
     ensure_job_statuses(connection)
     connection.execute("UPDATE jobs SET status = 'Closed' WHERE status = 'Close'")
+    connection.execute("UPDATE jobs SET status = 'Applied' WHERE status = 'Approved'")
+    connection.execute("DELETE FROM job_statuses WHERE code = 'Approved'")
     invalid_statuses = [
         row[0]
         for row in connection.execute(

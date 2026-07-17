@@ -66,7 +66,7 @@ TECH_COLUMNS = (
 SCORE_EDIT_FIELDS = {"fit", "interest"}
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
-DEFAULT_STATUS_VALUES = ("New", "Checked", "Approved", "Closed")
+DEFAULT_STATUS_VALUES = ("New", "Checked", "Postponed", "Applied", "Closed")
 READONLY_FIELD_COLORS = {
     "background": "#f4f4f0",
     "foreground": "#303030",
