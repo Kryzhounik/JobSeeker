@@ -28,3 +28,6 @@ __pycache__/
 # Local GUI build artifacts
 GUI/*.exe
 GUI/~*
+
+# Local temporary artifacts
+tmp/

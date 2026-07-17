@@ -44,6 +44,16 @@ Semantic candidate-fit agent stage:
 - Return the final `candidate_fit_percent` from 0 to 100.
 - Write `candidate_fit_percent`, `candidate_fit_reason_code`, and
   `candidate_fit_reason` into the scored JSON file.
+- Calculate `candidate_fit_percent` first. Assign
+  `candidate_fit_reason_code` only after the numeric score is final.
+- A reason code classifies the result; it must never change, override, or reset
+  the calculated `candidate_fit_percent`.
+- If the final calculated score is positive, use
+  `candidate_fit_reason_code = "ok"`.
+- Only if the final calculated score is 0, classify why it is 0. For example,
+  use `role_mismatch` for a non-software role such as nurse or firefighter,
+  and `skill_mismatch` for a relevant technical role whose required skill
+  coverage calculated to 0.
 - This is semantic matching, not a fast script filter.
 - Use the vacancy's required and nice-to-have technologies together with the
   candidate profile from `config/resume.ini`.
@@ -114,7 +124,8 @@ Output requirement:
 - Explain important substitutions, gaps, and uncertainty.
 
 Candidate-fit score meaning:
-- 0: rejected by hard filter or clear mismatch.
+- 0: the calculated required coverage is zero, or a hard filter rejected the
+  vacancy before semantic scoring.
 - 25: major gaps; possible only with serious retraining.
 - 50: partial fit; candidate has adjacent experience but important gaps remain.
 - 75: good fit; most required technologies are covered directly or by close
@@ -132,11 +143,14 @@ Candidate-fit reason codes:
   similar availability condition.
 - `tech`: hard reject by technical stack, including programming languages,
   frameworks, platforms, databases, cloud, or tooling.
-- `role_mismatch`: agent-stage hard reject because the vacancy is not a
-  software/backend/engineering role relevant to the candidate at all.
-- `skill_mismatch`: agent-stage hard reject because the vacancy is a technical
-  or software-adjacent role, but the core required skill set is outside the
-  candidate profile.
+- `role_mismatch`: classification of an agent-stage score that already
+  calculated to 0 because the vacancy is not a software/backend/engineering
+  role relevant to the candidate at all.
+- `skill_mismatch`: classification of an agent-stage score that already
+  calculated to 0 because the vacancy is a technical or software-adjacent role,
+  but its required skill coverage is zero.
+- Never use `role_mismatch` or `skill_mismatch` to turn a positive calculated
+  score into 0.
 
 Workflow requirement:
 - The semantic candidate-fit agent stage is already part of the required
