@@ -449,15 +449,6 @@ def evaluate_required_programming_languages(
     return FilterResult(True, 100, "ok", "programming language filter passed")
 
 
-def evaluate_title(title: str, blocked_terms: Iterable[str] = ()) -> FilterResult:
-    normalized_title = title.strip().lower()
-    for term in blocked_terms:
-        normalized_term = term.strip().lower()
-        if normalized_term and normalized_term in normalized_title:
-            return FilterResult(False, 0, "tech", f"title blocked by term: {term}")
-    return FilterResult(True, 100, "ok", "title filter passed")
-
-
 def evaluate_required_languages(
     required_languages: Iterable[Any],
     resume_languages: dict[str, int] | None = None,
@@ -614,12 +605,6 @@ def evaluate_job(
 ) -> FilterResult:
     config = load_filter_config(filter_path)
     resume_config = load_resume_config(resume_path)
-
-    if enabled(config, "filters", "title", False):
-        blocked_terms = csv_values(setting(config, "title", "blocked_terms"))
-        title_result = evaluate_title(title, blocked_terms)
-        if not title_result.passed:
-            return title_result
 
     if enabled(config, "filters", "languages", True):
         language_result = evaluate_required_languages(
