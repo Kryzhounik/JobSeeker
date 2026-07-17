@@ -40,7 +40,7 @@ JOB_COLUMNS = (
     "primary_language_id",
 )
 
-JOB_STATUSES = ("New", "Checked", "Approved", "Closed")
+DEFAULT_JOB_STATUSES = ("New", "Checked", "Approved", "Closed")
 CANDIDATE_FIT_REASON_CODES = (
     "undefined",
     "ok",
@@ -60,13 +60,7 @@ def clean(value: Any, default: str = "") -> str:
 
 
 def job_status(value: Any) -> str:
-    status = clean(value, "New")
-    if status not in JOB_STATUSES:
-        raise ValueError(
-            "Unsupported job status: "
-            f"{status!r}. Expected one of: {', '.join(JOB_STATUSES)}"
-        )
-    return status
+    return clean(value, "New")
 
 
 def candidate_fit_reason_code(value: Any) -> str:
@@ -115,6 +109,7 @@ def requirement_type(value: str | None) -> str:
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
+    connection.execute("PRAGMA foreign_keys = ON")
     schema_sql = schema_path.read_text(encoding="utf-8")
     connection.executescript(
         """
@@ -197,14 +192,16 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN status TEXT NOT NULL DEFAULT 'New'"
         )
+    ensure_job_statuses(connection)
     connection.execute("UPDATE jobs SET status = 'Closed' WHERE status = 'Close'")
     invalid_statuses = [
         row[0]
         for row in connection.execute(
             """
-            SELECT DISTINCT status
-            FROM jobs
-            WHERE status NOT IN ('New', 'Checked', 'Approved', 'Closed')
+            SELECT DISTINCT j.status
+            FROM jobs j
+            LEFT JOIN job_statuses s ON s.code = j.status
+            WHERE s.code IS NULL
             """
         ).fetchall()
     ]
@@ -237,7 +234,7 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
             + ", ".join(repr(code) for code in invalid_reason_codes)
         )
     if (
-        not jobs_status_check_present(connection)
+        not jobs_status_fk_present(connection)
         or not jobs_candidate_fit_reason_code_check_present(connection)
     ):
         rebuild_jobs_with_current_schema(connection, schema_sql)
@@ -262,7 +259,25 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
     )
 
 
-def jobs_status_check_present(connection: sqlite3.Connection) -> bool:
+def ensure_job_statuses(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS job_statuses (
+            code TEXT PRIMARY KEY,
+            sort_order INTEGER NOT NULL DEFAULT 0
+        )
+        """
+    )
+    connection.executemany(
+        """
+        INSERT OR IGNORE INTO job_statuses (code, sort_order)
+        VALUES (?, ?)
+        """,
+        [(status, (index + 1) * 10) for index, status in enumerate(DEFAULT_JOB_STATUSES)],
+    )
+
+
+def jobs_status_fk_present(connection: sqlite3.Connection) -> bool:
     row = connection.execute(
         """
         SELECT sql
@@ -271,10 +286,7 @@ def jobs_status_check_present(connection: sqlite3.Connection) -> bool:
         """
     ).fetchone()
     ddl = row[0] if row else ""
-    return (
-        "status TEXT NOT NULL DEFAULT 'New' CHECK" in ddl
-        and "'Closed'" in ddl
-    )
+    return "status TEXT NOT NULL DEFAULT 'New' REFERENCES job_statuses(code)" in ddl
 
 
 def jobs_candidate_fit_reason_code_check_present(

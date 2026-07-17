@@ -15,10 +15,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_mapper import apply_schema
 from db.job_mapper import CANDIDATE_FIT_REASON_CODES
 from db.job_mapper import existing_source_urls
 from db.job_mapper import save_job_json
+from db.migrate import migrate_database
 
 
 def json_paths(input_path: Path) -> list[Path]:
@@ -149,8 +149,10 @@ def save_records(
 ) -> list[tuple[str, str]]:
     results: list[tuple[str, str]] = []
 
+    migrate_database(db_path=db_path, schema_path=schema_path)
+
     with sqlite3.connect(db_path) as connection:
-        apply_schema(connection, schema_path)
+        connection.execute("PRAGMA foreign_keys = ON")
         done = existing_source_urls(connection)
 
         if input_value == "-":

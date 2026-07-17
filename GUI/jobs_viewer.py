@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import sys
 import tkinter as tk
 import webbrowser
 from pathlib import Path
@@ -11,6 +12,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
+DRIVER_ROOT = ROOT / "Driver"
+if str(DRIVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(DRIVER_ROOT))
+
+from db.migrate import migrate_database
 
 
 JOB_COLUMNS = (
@@ -60,7 +66,7 @@ TECH_COLUMNS = (
 SCORE_EDIT_FIELDS = {"fit", "interest"}
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
-STATUS_VALUES = ("New", "Checked", "Approved", "Closed")
+DEFAULT_STATUS_VALUES = ("New", "Checked", "Approved", "Closed")
 READONLY_FIELD_COLORS = {
     "background": "#f4f4f0",
     "foreground": "#303030",
@@ -86,6 +92,10 @@ LEVEL_SORT_VALUES = {
 
 def db_uri() -> str:
     return f"{DB_PATH.as_uri()}?mode=ro"
+
+
+def ensure_database_schema() -> None:
+    migrate_database(db_path=DB_PATH)
 
 
 def clean(value: Any) -> str:
@@ -301,7 +311,7 @@ class JobsViewer(tk.Tk):
             sticky="w",
             padx=(0, 8),
         )
-        for column_index, status in enumerate(STATUS_VALUES, start=1):
+        for column_index, status in enumerate(self.status_values, start=1):
             button = ttk.Button(
                 status_frame,
                 text=status,
@@ -428,24 +438,25 @@ class JobsViewer(tk.Tk):
     def connect(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
             raise FileNotFoundError(f"Database not found: {DB_PATH}")
+        ensure_database_schema()
         connection = sqlite3.connect(db_uri(), uri=True)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA query_only = ON")
         return connection
 
     def _available_status_values(self) -> tuple[str, ...]:
-        values = list(STATUS_VALUES)
+        values = list(DEFAULT_STATUS_VALUES)
         if not DB_PATH.exists():
             return tuple(values)
 
         try:
+            ensure_database_schema()
             with sqlite3.connect(db_uri(), uri=True) as connection:
                 rows = connection.execute(
                     """
-                    SELECT DISTINCT status
-                    FROM jobs
-                    WHERE status <> ''
-                    ORDER BY status
+                    SELECT code
+                    FROM job_statuses
+                    ORDER BY sort_order, code COLLATE NOCASE
                     """
                 ).fetchall()
         except sqlite3.Error:
@@ -460,6 +471,7 @@ class JobsViewer(tk.Tk):
     def connect_writable(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
             raise FileNotFoundError(f"Database not found: {DB_PATH}")
+        ensure_database_schema()
         connection = sqlite3.connect(DB_PATH)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")

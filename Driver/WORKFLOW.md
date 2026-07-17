@@ -97,6 +97,10 @@ scope.
 
 ## Stage Rules
 
+- Before any command reads or writes SQLite, run `db/migrate.py` or use a
+  script that calls it internally. The database must be at the latest schema
+  version before collector deduplication, scoring maintenance, saving, GUI
+  mutation, or manual SQL work.
 - Do not skip stages.
 - Do not duplicate a stage's internals in `WORKFLOW.md`.
 - Before running a stage, use that stage's own file as the source of truth.

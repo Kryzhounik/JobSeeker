@@ -19,8 +19,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from db.job_mapper import apply_schema
 from common.paths import DATA_ROOT
+from db.migrate import migrate_database
 from scoring.candidate_fit.filter import location_contains
 from scoring.candidate_fit.filter import location_tokens
 
@@ -260,10 +260,11 @@ def update_job_interest(
     config_path: Path,
 ) -> list[tuple[int, int, int, str, str]]:
     config = load_config(config_path)
+    migrate_database(db_path=db_path, schema_path=schema_path)
 
     with sqlite3.connect(db_path) as connection:
         connection.row_factory = sqlite3.Row
-        apply_schema(connection, schema_path)
+        connection.execute("PRAGMA foreign_keys = ON")
         rows = connection.execute(
             """
             SELECT

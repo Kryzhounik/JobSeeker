@@ -14,14 +14,23 @@ CREATE TABLE IF NOT EXISTS technologies (
     name TEXT NOT NULL COLLATE NOCASE UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS job_statuses (
+    code TEXT PRIMARY KEY,
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+INSERT OR IGNORE INTO job_statuses (code, sort_order) VALUES
+    ('New', 10),
+    ('Checked', 20),
+    ('Approved', 30),
+    ('Closed', 40);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL DEFAULT 'justjoin',
     source_job_id TEXT NOT NULL DEFAULT '',
     source_url TEXT NOT NULL UNIQUE,
-    status TEXT NOT NULL DEFAULT 'New' CHECK (
-        status IN ('New', 'Checked', 'Approved', 'Closed')
-    ),
+    status TEXT NOT NULL DEFAULT 'New' REFERENCES job_statuses(code),
     title TEXT NOT NULL,
     company TEXT NOT NULL DEFAULT '',
     location TEXT NOT NULL DEFAULT '',
