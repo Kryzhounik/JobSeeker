@@ -17,6 +17,7 @@ Ferryt
 Angular Developer
 
 Android Developer
+Android BSP Developer
 
 Analytics Engineer
 
@@ -26,6 +27,10 @@ Artificial Intelligence Engineer
 AI Engineer
 AI Trainer
 AI/ML Engineer
+AI Construction Operations Specialist
+AI Automation Engineer
+Transformation Lead
+EMember of Technical Staff
 
 Azure Technical Architect
 
@@ -33,6 +38,8 @@ Avionics Systems Architect
 Aerospace Simulation Engineer
 
 Access Management Engineer
+
+Atlassian Platform Specialist
 
 Business Development
 
@@ -51,17 +58,26 @@ DevOps Engineer
 Devops Architect
 
 Data Architect
+Data Analyst
 Cloud Data Engineer
 Staff Data Engineer
 Senior Big Data Engineer
 Digital Commerce Data Domain Lead
 Hadoop / Big Data Developer
+Data Engineering Lead
+Data Extraction Specialist
+Lead Big Data Engineer
+Lead Data Quality Engineer
+Lead Data Software Engineer
+Lead Data Integration Engineer
 
 DBT Data Engineer
 Database Developer
 Database CloudOps
 
 Deputy Team Leader
+
+D365 Developer
 
 Senior ETL Developer
 
@@ -88,6 +104,8 @@ Flight Engineer
 plumbing engineer
 Senior Project Engineer
 Project Engineer (Water)
+Telecommunications Engineer
+Multimedia Engineer
 
 
 Electronic Controls
@@ -95,6 +113,7 @@ Electronic Controls
 Embedded Developer
 Embedded Software
 Embedded Systems/Firmware
+Embedded Engineer
 
 Full-Stack Developer
 Full-Stack Software
@@ -114,14 +133,19 @@ Golang Software Engineer
 Golang System Software Engineer
 Juju Software Engineer
 
+Google Ads Team Lead
+
+Interviewer
+
 Linux Engineer
 Linux Kernel Engineer
+Linux devices software engineer
+
+Math Specialist
 
 Mendix Developer
 
 Mulesoft Developer
-
-Machine Learning Engineer
 
 Microsoft Dynamics
 
@@ -131,6 +155,11 @@ macOS platform
 
 MLOps Engineer
 LLM Engineer
+Machine Learning Engineer
+Computer Vision Engineer
+Senior Machine Learning
+
+Manufacturing Specialist
 
 PHP Developer
 PHP Engineer
@@ -141,11 +170,18 @@ Laravel
 Power Automate
 Power Platform
 
+Professor
+
 Relationship Management Developer
+
+Recruiter
+
+R Package Developer
 
 SysOps Engineer
 
 Security Architect
+Security Validation Engineer
 
 Scientist
 
@@ -153,17 +189,21 @@ Satellite Control Systems Engineer
 
 GPU Systems Architect
 
+Statistical Programmer
+
 Presales Expert
 
 Vmware Engineer
 
 Test Automation Engineer
 QA
+Quality Assurance Automation
 Tester
 TestOps Engineer
 Pentester
 
 Unreal Engine
+Umbraco
 
 Electronics Engineer
 Electrical Systems Specialist
@@ -262,3 +302,4 @@ Researcher
 ServiceNow
 Roaming Business Expert
 Switching Devices
+Senior Operational Intelligence Developer

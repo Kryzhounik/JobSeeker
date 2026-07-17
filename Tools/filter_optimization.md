@@ -50,7 +50,8 @@ title
 candidate_fit_reason_code
 ```
 
-The first MVP output is only a grouped title list printed back to the user.
+The first MVP output is only a grouped evidence title list printed back to the
+user.
 Do not edit collector filters automatically.
 
 Process groups in this order:
@@ -71,8 +72,9 @@ Do not optimize from these groups by default:
 
 ## Current MVP Output
 
-Return exact downloaded vacancy titles grouped by reason code. Do not collapse
-them into broad keywords, technologies, domains, or shortened summaries.
+Return exact downloaded vacancy titles grouped by reason code as evidence. Do
+not call every title a blocklist candidate. Do not collapse titles into broad
+keywords, technologies, domains, or shortened summaries.
 
 ```text
 role_mismatch
@@ -87,6 +89,10 @@ tech
 
 The goal is to let the user decide which block words are safe to add.
 At this stage the output is the evidence list, not the final blocklist.
+
+When converting evidence into proposals, use only preview-visible phrases that
+are safe block terms by themselves. If a title or phrase can plausibly describe
+a valid Java/backend vacancy, keep it as evidence only.
 
 ## Future Output
 
