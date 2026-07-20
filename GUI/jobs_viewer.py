@@ -190,6 +190,7 @@ class JobsViewer(tk.Tk):
         )
         id_entry = ttk.Entry(filters, textvariable=self.id_search_var, width=16)
         id_entry.grid(row=0, column=search_column + 1, sticky="w")
+        self._bind_editable_entry(id_entry)
         id_entry.bind("<Return>", self._refresh_from_event)
         ttk.Button(filters, text="Search", command=self.refresh_jobs).grid(
             row=0,
@@ -1101,6 +1102,23 @@ class JobsViewer(tk.Tk):
         widget.bind("<FocusOut>", self._save_scores_from_detail)
         widget.bind("<Button-3>", self._show_copy_menu)
 
+    def _bind_editable_entry(self, widget: tk.Widget) -> None:
+        widget.bind("<Control-a>", self._select_entry_text)
+        widget.bind("<Control-A>", self._select_entry_text)
+        widget.bind("<Control-c>", self._copy_widget_event)
+        widget.bind("<Control-C>", self._copy_widget_event)
+        widget.bind("<Control-x>", self._cut_entry_event)
+        widget.bind("<Control-X>", self._cut_entry_event)
+        widget.bind("<Control-v>", self._paste_entry_event)
+        widget.bind("<Control-V>", self._paste_entry_event)
+        widget.bind("<Shift-Insert>", self._paste_entry_event)
+        widget.bind("<Control-Insert>", self._copy_widget_event)
+        widget.bind("<Control-KeyPress>", self._entry_shortcut_event)
+        widget.bind("<<Copy>>", self._copy_widget_event)
+        widget.bind("<<Cut>>", self._cut_entry_event)
+        widget.bind("<<Paste>>", self._paste_entry_event)
+        widget.bind("<Button-3>", self._show_entry_menu)
+
     def _copy_tree_selection(self, event: tk.Event[tk.Misc]) -> str:
         return self._copy_widget_selection(event.widget)
 
@@ -1116,6 +1134,19 @@ class JobsViewer(tk.Tk):
             return self._select_entry_text(event)
         if key in {"c", "insert"} or keycode in {45, 67}:
             return self._copy_widget_selection(event.widget)
+        return None
+
+    def _entry_shortcut_event(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if key == "a" or keycode == 65:
+            return self._select_entry_text(event)
+        if key in {"c", "insert"} or keycode in {45, 67}:
+            return self._copy_widget_selection(event.widget)
+        if key == "x" or keycode == 88:
+            return self._cut_entry_event(event)
+        if key == "v" or keycode == 86:
+            return self._paste_entry_event(event)
         return None
 
     def _copy_widget_selection(self, widget: tk.Misc) -> str:
@@ -1161,12 +1192,80 @@ class JobsViewer(tk.Tk):
         except tk.TclError:
             return clean(widget.get())
 
+    def _paste_entry_event(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        if not hasattr(widget, "insert") or not hasattr(widget, "delete"):
+            return "break"
+        try:
+            text = self.clipboard_get()
+        except tk.TclError:
+            return "break"
+        try:
+            first = widget.index(tk.SEL_FIRST)
+            last = widget.index(tk.SEL_LAST)
+            widget.delete(first, last)
+        except tk.TclError:
+            pass
+        widget.insert(tk.INSERT, text)
+        return "break"
+
+    def _cut_entry_event(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        if not hasattr(widget, "delete"):
+            return "break"
+        text = self._entry_selection(widget)
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.update_idletasks()
+            try:
+                first = widget.index(tk.SEL_FIRST)
+                last = widget.index(tk.SEL_LAST)
+                widget.delete(first, last)
+            except tk.TclError:
+                pass
+        return "break"
+
     def _select_entry_text(self, event: tk.Event[tk.Misc]) -> str:
         widget = event.widget
         if hasattr(widget, "selection_range") and hasattr(widget, "icursor"):
             widget.selection_range(0, tk.END)
             widget.icursor(tk.END)
         return "break"
+
+    def _show_entry_menu(self, event: tk.Event[tk.Misc]) -> str:
+        widget = event.widget
+        menu = tk.Menu(self, tearoff=False)
+        menu.add_command(
+            label="Cut",
+            command=lambda widget=widget: self._cut_entry_event(
+                self._widget_event(widget)
+            ),
+        )
+        menu.add_command(
+            label="Copy",
+            command=lambda widget=widget: self._copy_widget_selection(widget),
+        )
+        menu.add_command(
+            label="Paste",
+            command=lambda widget=widget: self._paste_entry_event(
+                self._widget_event(widget)
+            ),
+        )
+        menu.add_command(
+            label="Select all",
+            command=lambda widget=widget: self._select_all_widget_text(widget),
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def _widget_event(self, widget: tk.Misc) -> tk.Event[tk.Misc]:
+        event = tk.Event()
+        event.widget = widget
+        return event
 
     def _select_text(self, event: tk.Event[tk.Misc]) -> str:
         widget = event.widget

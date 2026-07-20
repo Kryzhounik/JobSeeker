@@ -332,12 +332,12 @@ def text_matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
     return False
 
 
-def matches_remote_scope(scope: object, allowed_values: Iterable[str]) -> bool:
+def check_location_allowance(possible: object, allowed_values: Iterable[str]) -> bool:
     allowed = list(allowed_values)
-    if text_matches_allowed(scope, allowed):
+    if text_matches_allowed(possible, allowed):
         return True
 
-    scope_tokens = location_tokens(scope)
+    possible_tokens = location_tokens(possible)
     allowed_tokens = [
         token
         for allowed_value in allowed
@@ -345,8 +345,8 @@ def matches_remote_scope(scope: object, allowed_values: Iterable[str]) -> bool:
     ]
 
     return any(
-        location_contains(scope_token, allowed_token)
-        for scope_token in scope_tokens
+        location_contains(possible_token, allowed_token)
+        for possible_token in possible_tokens
         for allowed_token in allowed_tokens
     )
 
@@ -354,26 +354,6 @@ def matches_remote_scope(scope: object, allowed_values: Iterable[str]) -> bool:
 def is_timezone_scope(value: object) -> bool:
     text = normalized(value)
     return any(marker in text for marker in TIMEZONE_MARKERS)
-
-
-def matches_allowed(value: object, allowed_values: Iterable[str]) -> bool:
-    allowed = list(allowed_values)
-    if text_matches_allowed(value, allowed):
-        return True
-
-    value_tokens = location_tokens(value)
-    allowed_tokens = [
-        token
-        for allowed_value in allowed
-        for token in location_tokens(allowed_value)
-    ]
-
-    return any(
-        location_contains(value_token, allowed_token)
-        or location_contains(allowed_token, value_token)
-        for value_token in value_tokens
-        for allowed_token in allowed_tokens
-    )
 
 
 def canonical_programming_language(value: object) -> str:
@@ -517,8 +497,8 @@ def evaluate_remote(
     if is_timezone_scope(scope):
         return FilterResult(True, 100, "ok", f"remote timezone scope accepted: {scope}")
 
-    allowed = csv_values(setting(resume_config, "remote", "allowed_scopes"))
-    if matches_remote_scope(scope, allowed):
+    allowed = csv_values(setting(resume_config, "locations", "allowed"))
+    if check_location_allowance(scope, allowed):
         return FilterResult(True, 100, "ok", f"remote filter passed: {scope}")
 
     return FilterResult(False, 0, "loc", f"remote filter failed: {scope}")
@@ -541,13 +521,14 @@ def evaluate_relocation(
         return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
     allowed = csv_values(setting(resume_config, "relocation", "allowed_destinations"))
-    if matches_allowed(destination, allowed):
+    if check_location_allowance(destination, allowed):
         return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
     return FilterResult(False, 0, "loc", f"relocation filter failed: {destination}")
 
 
-def evaluate_remote_or_relocation(
+def evaluate_location_filters(
+    location: str,
     remote_type: str,
     remote_scope: str,
     relocation: str,
@@ -555,6 +536,17 @@ def evaluate_remote_or_relocation(
     resume_config: configparser.ConfigParser,
 ) -> FilterResult:
     checks: list[FilterResult] = []
+    work_type = normalized(remote_type)
+    if work_type in {"hybrid", "office"}:
+        allowed = csv_values(setting(resume_config, "locations", "allowed"))
+        if check_location_allowance(location, allowed):
+            return FilterResult(
+                True,
+                100,
+                "ok",
+                f"{work_type} location filter passed: {location}",
+            )
+
     remote_mode = filter_mode(config, "filters", "remote", "off")
     relocation_mode = filter_mode(config, "filters", "relocation", "off")
 
@@ -572,7 +564,7 @@ def evaluate_remote_or_relocation(
         checks.append(evaluate_relocation(relocation, config, resume_config, relocation_mode))
 
     if not checks:
-        return FilterResult(True, 100, "ok", "remote/relocation filters disabled")
+        return FilterResult(True, 100, "ok", "location filters disabled")
 
     mode = setting(config, "filters", "remote_relocation_mode", "any").lower()
     if mode == "all":
@@ -597,6 +589,7 @@ def evaluate_job(
     title: str = "",
     required_languages: Iterable[Any] = (),
     technologies: Iterable[Any] = (),
+    location: str = "",
     remote_type: str = "",
     remote_scope: str = "",
     relocation: str = "",
@@ -622,7 +615,8 @@ def evaluate_job(
         if not programming_language_result.passed:
             return programming_language_result
 
-    logistics_result = evaluate_remote_or_relocation(
+    logistics_result = evaluate_location_filters(
+        location,
         remote_type,
         remote_scope,
         relocation,
@@ -646,6 +640,7 @@ def filter_job_json(
         title=str(record.get("title") or ""),
         required_languages=record.get("languages", []),
         technologies=record.get("technologies", []),
+        location=str(record.get("location") or ""),
         remote_type=str(record.get("remote_type") or ""),
         remote_scope=str(record.get("remote_scope") or ""),
         relocation=str(record.get("relocation") or ""),
