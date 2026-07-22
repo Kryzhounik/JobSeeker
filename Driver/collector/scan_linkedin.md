@@ -30,7 +30,8 @@ For left-panel card materialization and page-count verification, follow
 4. Process printed non-seed search URLs strictly in config order.
 5. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
-   or a blocking error appears.
+   or a critical blocker defined in `collector/browser.md` appears. A slow or
+   temporarily unresponsive browser/plugin is not a critical blocker.
 6. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.

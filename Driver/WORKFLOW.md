@@ -65,6 +65,16 @@ If source, run scope, or target stage is ambiguous, stop and ask before running.
 Do not guess source, pick an arbitrary file, or choose a later pipeline stage by
 yourself.
 
+## Interruption Policy
+
+- A temporary slowdown, timeout, failed browser command, or unresponsive plugin
+  is not a reason to stop the run.
+- Report the problem to the user immediately, keep retrying/resuming the same
+  work, and include the incident in the final summary even if it recovered.
+- Stop on Codex's initiative only when work is genuinely impossible to
+  continue, user action is required, or continuing risks the account, data, or
+  project state.
+
 Current MVP scopes:
 
 - `from-url linkedin <url>`: process only that URL's saved raw file.

@@ -112,3 +112,24 @@ enough that normal collection should fit in smaller technical runs.
 If a technical run approaches the limit, persist progress and continue from the
 same search location/page/card. Do not change business behavior because a tool
 call was split.
+
+## Transient Browser Problems
+
+Slow Chrome responses, extension timeouts, a temporarily unresponsive plugin,
+or an individual failed browser command are non-critical problems. They do not
+end the collection run.
+
+When one occurs:
+
+1. Report it to the user immediately without waiting for the run to finish.
+2. Preserve the current location, page, card, and counters.
+3. Retry or reconnect periodically and continue from the same point when the
+   browser responds again. Do not silently turn a slowdown into a stopped run.
+4. Include the problem, retries, and outcome in the final run summary even if
+   the browser recovered.
+
+Stop on Codex's initiative only when browser control remains completely
+unavailable, LinkedIn requires user action such as a CAPTCHA/checkpoint, or
+continuing could corrupt data, lose progress, or risk the account. Mere
+slowness is never a stopping condition; the user decides whether a slow but
+working run should be cancelled.
