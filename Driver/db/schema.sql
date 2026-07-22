@@ -54,6 +54,13 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     UNIQUE(source, source_job_id)
 );
 
+CREATE TABLE IF NOT EXISTS experimental_analyzer_fits (
+    source_job_ref INTEGER PRIMARY KEY REFERENCES source_jobs(id) ON DELETE CASCADE,
+    analyzer_fit_percent INTEGER NOT NULL CHECK (
+        analyzer_fit_percent >= 0 AND analyzer_fit_percent <= 100
+    )
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),
@@ -106,8 +113,6 @@ CREATE TABLE IF NOT EXISTS jobs (
     ),
     candidate_fit_reason TEXT NOT NULL DEFAULT '',
     summary TEXT NOT NULL DEFAULT '',
-    pros TEXT NOT NULL DEFAULT '',
-    cons TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     added_at TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -131,7 +136,13 @@ CREATE TABLE IF NOT EXISTS job_technologies (
     job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     technology_id INTEGER NOT NULL REFERENCES technologies(id) ON DELETE CASCADE,
     requirement_type TEXT NOT NULL CHECK (
-        requirement_type IN ('required', 'nice_to_have')
+        requirement_type IN (
+            'core',
+            'required',
+            'important',
+            'desired',
+            'nice_to_have'
+        )
     ),
     level TEXT NOT NULL CHECK (
         level IN ('nice to have', 'junior', 'regular', 'advanced', 'master')
@@ -193,6 +204,7 @@ CREATE VIEW job_list AS
 SELECT
     CAST(CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER) AS TEXT) AS score,
     CAST(j.candidate_fit_percent AS TEXT) AS fit,
+    coalesce(CAST(eaf.analyzer_fit_percent AS TEXT), '') AS analyzer_fit,
     CAST(j.job_interest AS TEXT) AS interest,
     coalesce(j.remote_scope, '') AS remote_scope,
     coalesce(j.status, 'New') AS status,
@@ -227,7 +239,10 @@ SELECT
                 t.name
                 || ' ('
                 || CASE jt.requirement_type
+                    WHEN 'core' THEN 'core'
                     WHEN 'required' THEN 'req'
+                    WHEN 'important' THEN 'imp'
+                    WHEN 'desired' THEN 'des'
                     WHEN 'nice_to_have' THEN 'opt'
                     ELSE jt.requirement_type
                 END
@@ -271,8 +286,11 @@ SELECT
             WHERE jt.job_id = j.id
             ORDER BY
                 CASE jt.requirement_type
-                    WHEN 'required' THEN 1
-                    WHEN 'nice_to_have' THEN 2
+                    WHEN 'core' THEN 1
+                    WHEN 'required' THEN 2
+                    WHEN 'important' THEN 3
+                    WHEN 'desired' THEN 4
+                    WHEN 'nice_to_have' THEN 5
                     ELSE 9
                 END,
                 jt.level_rank DESC,
@@ -288,6 +306,7 @@ SELECT
     coalesce(j.added_at, '') AS added_at,
     coalesce(j.summary, '') AS summary
 FROM jobs j
+LEFT JOIN experimental_analyzer_fits eaf ON eaf.source_job_ref = j.source_job_ref
 ORDER BY
     CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER) DESC,
     j.job_interest DESC,
@@ -300,8 +319,11 @@ WITH ordered AS (
             PARTITION BY j.id
             ORDER BY
                 CASE jt.requirement_type
-                    WHEN 'required' THEN 1
-                    WHEN 'nice_to_have' THEN 2
+                    WHEN 'core' THEN 1
+                    WHEN 'required' THEN 2
+                    WHEN 'important' THEN 3
+                    WHEN 'desired' THEN 4
+                    WHEN 'nice_to_have' THEN 5
                     ELSE 9
                 END,
                 jt.level_rank DESC,
@@ -319,6 +341,7 @@ WITH ordered AS (
             AS score_sort,
         j.job_interest AS interest_sort,
         j.candidate_fit_percent AS fit_sort,
+        eaf.analyzer_fit_percent AS analyzer_fit_sort,
         j.seniority,
         j.role,
         (
@@ -345,7 +368,10 @@ WITH ordered AS (
         j.salary,
         t.name AS technology,
         CASE jt.requirement_type
+            WHEN 'core' THEN 'core'
             WHEN 'required' THEN 'req'
+            WHEN 'important' THEN 'imp'
+            WHEN 'desired' THEN 'des'
             WHEN 'nice_to_have' THEN 'opt'
             ELSE jt.requirement_type
         END AS req,
@@ -381,12 +407,14 @@ WITH ordered AS (
         j.added_at
     FROM job_technologies jt
     JOIN jobs j ON j.id = jt.job_id
+    LEFT JOIN experimental_analyzer_fits eaf ON eaf.source_job_ref = j.source_job_ref
     JOIN technologies t ON t.id = jt.technology_id
     LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )
 SELECT
     CASE WHEN row_in_job = 1 THEN CAST(score_sort AS TEXT) ELSE '' END AS score,
     CASE WHEN row_in_job = 1 THEN CAST(fit_sort AS TEXT) ELSE '' END AS fit,
+    CASE WHEN row_in_job = 1 THEN coalesce(CAST(analyzer_fit_sort AS TEXT), '') ELSE '' END AS analyzer_fit,
     CASE WHEN row_in_job = 1 THEN CAST(interest_sort AS TEXT) ELSE '' END AS interest,
     CASE WHEN row_in_job = 1 THEN coalesce(remote_scope, '') ELSE '' END AS remote_scope,
     CASE WHEN row_in_job = 1 THEN coalesce(status, 'New') ELSE '' END AS status,

@@ -1,5 +1,5 @@
 Purpose: Codex analysis prompt for one readable vacancy. It extracts structured
-job facts into JSON. It must not write candidate-fit or job-interest scores.
+job facts into JSON and independently records an experimental analyzer fit.
 
 Task: Codex analyzes one job vacancy from a saved readable text file.
 
@@ -9,9 +9,18 @@ Public analyzer call:
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
+- The analyzed JSON contains vacancy facts only. Never put the experimental
+  analyzer fit, official candidate fit, or job interest into it.
 - After the analyzed JSON is written successfully, record the completed stage:
   `python db/job_registry.py ANALYZED --source <source> --job-id <json-file-stem>`.
   If analysis fails, leave the registry at `CLEANED`.
+- While the complete readable vacancy is still in context, read
+  `scoring/candidate_fit/config/resume.ini` and independently estimate how well
+  the candidate fits the vacancy from 0 to 100. This is an experimental
+  analyzer-owned score, not the official candidate-fit result. Store it only
+  with:
+  `python db/experimental_analyzer_fit.py --source <source> --url <source_url> --fit <0-100>`.
+  Do not expose this score to the later candidate-fit evaluator.
 - Then pass that analyzed JSON file to `scoring/candidate_fit/evaluate.md`;
   candidate-fit writes a scored JSON file under `../Data/scored/<source>/`
   with the same file name.
@@ -55,8 +64,6 @@ Job fields:
 - role: backend, frontend, fullstack, devops, data, ml_ai, qa, product, other.
 - salary: salary range/currency if available, otherwise empty string.
 - summary: one short sentence about the vacancy.
-- pros: short reasons why it may fit.
-- cons: short reasons why it may not fit.
 - notes: anything uncertain or worth checking.
 
 Languages:
@@ -70,12 +77,20 @@ Languages:
 Technology requirements:
 - Store technologies separately.
 - Use this JSON shape for each technology:
-  `{"name": "Java", "requirement": "required", "level": "advanced", "level_rank": 4, "raw_value": "..."}`
+  `{"name": "Java", "requirement": "core", "level": "advanced", "level_rank": 4, "raw_value": "..."}`
 - `level` must be the normalized label matching `level_rank`, not raw wording.
   Put raw wording such as "3+ years" or "hands-on experience" into `raw_value`.
 - requirement:
-  - required: the vacancy says or strongly implies the technology is required.
-  - nice_to_have: the vacancy says nice to have, will be a plus, optional, bonus.
+  - 1, core: role-defining technology or domain. Missing it fundamentally changes
+    the role. A junior-level core technology is still core. For example, C++ is
+    core for a Junior C++ Developer vacancy.
+  - 2, required: explicit must-have that is not itself the defining core of the
+    role.
+  - 3, important: strongly emphasized and materially important for doing the job,
+    but not a strict or role-defining gate.
+  - 4, desired: preferred and useful, but the vacancy remains realistic without
+    it.
+  - 5, nice_to_have: explicitly optional, bonus, plus, or nice to have.
 - level_rank:
   - 1: nice to have / optional / will be a plus.
   - 2: junior, basic, beginner, or required/listed/mentioned without depth.
@@ -117,5 +132,5 @@ Default behavior:
 - Do not invent company facts, salary, or benefits that are not visible.
 - Use unknown for unclear factual fields.
 - Keep text concise and single-line where possible.
-- Do not assign candidate fit or job interest here; they are calculated later by
-  `scoring/candidate_fit` and `scoring/job_interest`.
+- Do not assign official candidate fit or job interest here. The analyzer's
+  experimental fit is stored separately and must never enter analyzed JSON.

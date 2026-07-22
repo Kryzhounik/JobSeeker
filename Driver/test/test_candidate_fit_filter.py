@@ -63,6 +63,5 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
-
 if __name__ == "__main__":
     unittest.main()

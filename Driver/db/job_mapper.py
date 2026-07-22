@@ -33,8 +33,6 @@ JOB_COLUMNS = (
     "role",
     "salary",
     "summary",
-    "pros",
-    "cons",
     "notes",
     "added_at",
     "primary_language_id",
@@ -49,6 +47,13 @@ CANDIDATE_FIT_REASON_CODES = (
     "tech",
     "role_mismatch",
     "skill_mismatch",
+)
+TECHNOLOGY_REQUIREMENT_TYPES = (
+    "core",
+    "required",
+    "important",
+    "desired",
+    "nice_to_have",
 )
 
 
@@ -94,11 +99,9 @@ def normalize_level(value: str | None) -> str:
 
 def requirement_type(value: str | None) -> str:
     normalized = clean(value, "required").lower()
-    if normalized == "nice_to_have":
-        return "nice_to_have"
-    if normalized == "required":
-        return "required"
-    raise ValueError(f"Unsupported technology requirement: {value}")
+    if normalized not in TECHNOLOGY_REQUIREMENT_TYPES:
+        raise ValueError(f"Unsupported technology requirement: {value}")
+    return normalized
 
 
 def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
@@ -371,12 +374,10 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             role,
             salary,
             summary,
-            pros,
-            cons,
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
             source_job_ref = excluded.source_job_ref,
             title = excluded.title,
@@ -393,8 +394,6 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             role = excluded.role,
             salary = excluded.salary,
             summary = excluded.summary,
-            pros = excluded.pros,
-            cons = excluded.cons,
             notes = excluded.notes,
             updated_at = CURRENT_TIMESTAMP
         """,
@@ -416,8 +415,6 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             required_text(record, "role"),
             salary,
             clean(record["summary"]),
-            clean(record["pros"]),
-            clean(record["cons"]),
             clean(record["notes"]),
             clean(record["added_at"]),
         ),
@@ -559,8 +556,6 @@ def load_job_json(
             job["candidate_fit_reason_code"]
         ),
         "candidate_fit_reason": clean(job["candidate_fit_reason"]),
-        "pros": clean(job["pros"]),
-        "cons": clean(job["cons"]),
         "notes": clean(job["notes"]),
         "languages": load_languages(connection, db_id, primary_language_id),
         "technologies": load_technologies(connection, db_id),
@@ -626,8 +621,11 @@ def load_technologies(
         WHERE jt.job_id = ?
         ORDER BY
             CASE jt.requirement_type
-                WHEN 'required' THEN 1
-                WHEN 'nice_to_have' THEN 2
+                WHEN 'core' THEN 1
+                WHEN 'required' THEN 2
+                WHEN 'important' THEN 3
+                WHEN 'desired' THEN 4
+                WHEN 'nice_to_have' THEN 5
                 ELSE 9
             END,
             jt.level_rank DESC,

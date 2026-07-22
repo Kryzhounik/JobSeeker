@@ -49,7 +49,7 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
   - raw: vacancy downloaded but not analyzed.
   - tech_checked: technology requirements extracted and checked.
   - logistics_checked: remote scope, relocation, language, and location checked.
-  - fully_analyzed: summary/pros/cons completed.
+  - fully_analyzed: factual summary and notes completed.
 - Add filtering fields:
   - `analysis_stage`
   - `reject_reason`

@@ -26,8 +26,6 @@
         "role",
         "salary",
         "summary",
-        "pros",
-        "cons",
         "notes",
         "languages",
         "technologies"
@@ -95,12 +93,6 @@
         "summary": {
           "type": "string"
         },
-        "pros": {
-          "type": "string"
-        },
-        "cons": {
-          "type": "string"
-        },
         "notes": {
           "type": "string"
         },
@@ -142,7 +134,13 @@
               },
               "requirement": {
                 "type": "string",
-                "enum": ["required", "nice_to_have"]
+                "enum": [
+                  "core",
+                  "required",
+                  "important",
+                  "desired",
+                  "nice_to_have"
+                ]
               },
               "level": {
                 "type": "string",

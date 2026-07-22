@@ -380,6 +380,8 @@ def technology_requirement_type(row: Any) -> str:
     value = normalized(row_value(row, "requirement", "requirement_type"))
     if value in {"nice_to_have", "nice to have", "optional", "opt"}:
         return "nice_to_have"
+    if value in {"core", "required", "important", "desired"}:
+        return value
     return "required"
 
 

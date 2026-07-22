@@ -21,6 +21,12 @@ Input/output contract:
 Runtime switches live in `scoring/candidate_fit/config/filter.ini`.
 Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
 
+Evaluation isolation:
+- Do not read `experimental_analyzer_fits`, query existing scores from SQLite,
+  inspect an existing scored JSON, or receive the analyzer's experimental fit.
+- The vacancy input is the analyzed JSON only. Run this stage as a separate
+  blind agent without inherited analyzer output beyond that JSON.
+
 Current stage: fast deterministic filtering plus mandatory agent
 candidate-fit scoring for all jobs that pass the fast filter.
 
@@ -55,25 +61,29 @@ Semantic candidate-fit agent stage:
   and `skill_mismatch` for a relevant technical role whose required skill
   coverage calculated to 0.
 - This is semantic matching, not a fast script filter.
-- Use the vacancy's required and nice-to-have technologies together with the
+- Use every vacancy technology together with its requirement importance and the
   candidate profile from `config/resume.ini`.
-- Required technologies have much higher weight than nice-to-have technologies.
+- Requirement importance is ordered as follows:
+  - 1, core: role-defining. Missing it cannot be compensated by generic adjacent
+    skills, even when the requested proficiency level is junior.
+  - 2, required: explicit must-have with strong influence on fit.
+  - 3, important: materially important, but not a role-defining or strict gate.
+  - 4, desired: preferred and useful, with limited influence.
+  - 5, nice_to_have: optional bonus with the least influence.
 - Nice-to-have gaps should not push a strong required-stack match below 70 by
   themselves.
-- Base the score on coverage of the vacancy's required requirements. Enumerate
-  every required technology, skill, and responsibility represented in the JSON,
-  estimate how well the candidate covers each one, and keep uncovered
-  requirements in the denominator. Do not silently ignore requirements that do
-  not match the candidate profile.
+- Base the score primarily on core and required requirements. Consider
+  important, desired, and nice-to-have items according to their declared
+  importance. Do not silently ignore missing core or required items.
 - Use approximate per-requirement coverage:
   - 1.0: direct strong match at the required level.
   - 0.75: direct match with a small level/context gap.
   - 0.5: meaningful partial match, but important depth or context is missing.
   - 0.25-0.35: weak adjacent match only.
   - 0.0: not covered.
-- The base score should roughly follow the weighted average of required
-  requirement coverage, converted to 0-100. Core-stack and high-rank
-  requirements should weigh more than peripheral required mentions.
+- The base score should roughly follow the weighted average of requirement
+  coverage, converted to 0-100. Core requirements must dominate peripheral or
+  optional matches.
 - If only 2 of 8 required items are directly covered, the score is around 25
   before small adjustments. If 5 of 10 required items are only half-covered, the
   score is also around 25. Weak adjacent matches should not be counted as
@@ -88,15 +98,15 @@ Semantic candidate-fit agent stage:
   vacancy separately requires several technologies, each one must be counted.
 
 Mandatory scoring procedure:
-- Before choosing `candidate_fit_percent`, build a required-coverage table.
-- The table must include every required technology, skill, and responsibility
-  from the JSON. Do not merge away missing requirements.
+- Before choosing `candidate_fit_percent`, build a coverage table.
+- The table must include every core and required technology, skill, and
+  responsibility from the JSON. Do not merge away missing requirements.
 - Each row must have:
   - requirement
   - requirement weight: core / normal / peripheral
   - candidate evidence
   - coverage: 1.0, 0.75, 0.5, 0.25-0.35, or 0.0
-- Missing required items must stay in the denominator as 0.0.
+- Missing core and required items must stay in the denominator as 0.0.
 - Compute the base score as weighted average coverage * 100.
 - Nice-to-have items may add at most 5 points total and never compensate for
   missing core required items.
@@ -128,8 +138,8 @@ Candidate-fit score meaning:
   vacancy before semantic scoring.
 - 25: major gaps; possible only with serious retraining.
 - 50: partial fit; candidate has adjacent experience but important gaps remain.
-- 75: good fit; most required technologies are covered directly or by close
-  equivalents.
+- 75: good fit; most core and required technologies are covered directly or by
+  close equivalents.
 - 90-100: very strong fit; core stack and responsibility level match well.
 
 Candidate-fit reason codes:

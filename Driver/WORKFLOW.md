@@ -22,7 +22,7 @@ collector
 -> analyzer/extract_readable_text_v2.py
 -> readable text
 -> analyzer/analyze_job.md
--> analyzed JSON
+-> analyzed JSON plus isolated experimental analyzer fit in SQLite
 -> scoring/candidate_fit/evaluate.md
 -> scored JSON with candidate_fit_percent/candidate_fit_reason_code/candidate_fit_reason
 -> scoring/job_interest/calculate.py --input <scored-json-or-dir>
@@ -91,7 +91,7 @@ pipeline for each file:
 for each raw HTML file in the explicit scope:
     raw HTML
     -> readable text
-    -> analyzed JSON
+    -> analyzed JSON plus isolated experimental analyzer fit
     -> scored JSON with candidate fit
     -> scored JSON with job interest
     -> SQLite save
@@ -122,6 +122,13 @@ scope.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `scoring/candidate_fit/evaluate.md`.
+- The analyzer also records an experimental fit in
+  `experimental_analyzer_fits`. This value is comparison-only: it is absent
+  from analyzed/scored JSON and never participates in official scoring.
+- Candidate-fit evaluation must be blind to the analyzer experiment. Run it as
+  a separate agent that receives only `scoring/candidate_fit/evaluate.md`, the
+  analyzed JSON, and `scoring/candidate_fit/config/resume.ini`. Do not pass
+  analyzer context, query the experimental table, or read an existing score.
 - `../Data/analyzed/<source>/` contains analysis facts only. It must not contain
   candidate-fit or job-interest fields in the main workflow.
 - Candidate-fit scoring reads analyzed JSON and writes scored JSON under
