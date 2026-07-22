@@ -35,6 +35,14 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Next
 
+- Investigate dedup for near-identical LinkedIn jobs:
+  - compare raw/card/analyzed data for 4441196528, 4441182950,
+    4441197535, and 4441183936;
+  - decide which fields can identify the same underlying vacancy safely.
+- Investigate recruiter/aggregator dedup by Apply destination:
+  - check Hired, micro1, Hire Feed, Quik Hire Staffing, and Crossing Hurdles;
+  - compare where LinkedIn Apply redirects and whether they point to the same
+    external vacancy/applicant system.
 - Add `Mistaken` to the allowed job statuses for vacancies where analysis or
   collection produced a wrong result.
 - Add staged analysis:

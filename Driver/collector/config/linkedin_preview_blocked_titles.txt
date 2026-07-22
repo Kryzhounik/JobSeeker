@@ -13,6 +13,8 @@ iOS
 Frontend
 Javascript
 Ferryt
+Cocos2d-x
+UAV Engineer
 
 Angular Developer
 
@@ -303,3 +305,34 @@ ServiceNow
 Roaming Business Expert
 Switching Devices
 Senior Operational Intelligence Developer
+
+Category Buyer
+Travel Specialist
+Operations Specialist
+Support Lead
+Electrician
+Executive Assistant
+Fundraising Specialist
+Head of Accounting
+Head of Arts
+Head of Marketing
+Head of Purchasing
+Maintenance Technician
+Media Buyer
+Protection Coordinator
+Scriptwriter
+Game Concept Artist
+Resources Generalist
+SEO Specialist
+Acquisition Specialist
+Graphics Engineer
+Quality Engineer
+FinOps Engineer
+D365 Commerce Developer
+Embedded Systems Engineer
+Go Software Engineer
+Machine Learning Specialist
+Build Engineer
+Revit API Developer
+Front End Engineer
+NodeJS Software Engineer
