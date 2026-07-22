@@ -105,7 +105,7 @@ def clean(value: Any) -> str:
 
 
 def calculate_score(fit: int, interest: int) -> int:
-    return (interest * fit + 50) // 100
+    return (interest * fit * fit + 5000) // 10000
 
 
 class JobsViewer(tk.Tk):
@@ -643,7 +643,7 @@ class JobsViewer(tk.Tk):
                     j.salary,
                     j.job_interest AS interest,
                     j.candidate_fit_percent AS fit,
-                    CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER)
+                    CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER)
                         AS score,
                     j.source_url,
                     j.summary,
