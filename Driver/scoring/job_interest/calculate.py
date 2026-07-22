@@ -20,6 +20,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
+from db.job_registry import mark_url_status
 from db.migrate import migrate_database
 from scoring.candidate_fit.filter import location_contains
 from scoring.candidate_fit.filter import location_tokens
@@ -227,29 +228,44 @@ def json_paths(input_path: Path) -> list[Path]:
 def score_json_files(
     input_path: Path,
     config_path: Path,
+    db_path: Path,
     output_dir: Path | None = None,
 ) -> list[tuple[Path, int, str]]:
     config = load_config(config_path)
     results: list[tuple[Path, int, str]] = []
+    migrate_database(db_path)
 
-    for path in json_paths(input_path):
-        record = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(record, dict):
-            raise ValueError(f"{path} does not contain a JSON object")
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        for path in json_paths(input_path):
+            record = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(record, dict):
+                raise ValueError(f"{path} does not contain a JSON object")
 
-        score_job_json(record, config)
-        output_path = path
-        if output_dir is not None:
-            output_dir.mkdir(parents=True, exist_ok=True)
-            output_path = output_dir / path.name
+            score_job_json(record, config)
+            output_path = path
+            if output_dir is not None:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_path = output_dir / path.name
 
-        output_path.write_text(
-            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
-        results.append(
-            (output_path, int(record["job_interest"]), str(record.get("title") or ""))
-        )
+            output_path.write_text(
+                json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            mark_url_status(
+                connection,
+                str(record.get("source") or ""),
+                str(record.get("source_url") or ""),
+                "SCORED",
+            )
+            connection.commit()
+            results.append(
+                (
+                    output_path,
+                    int(record["job_interest"]),
+                    str(record.get("title") or ""),
+                )
+            )
 
     return results
 
@@ -351,6 +367,7 @@ def main() -> None:
         results = score_json_files(
             input_path=Path(args.input),
             config_path=Path(args.config),
+            db_path=Path(args.db),
             output_dir=Path(args.output_dir) if args.output_dir else None,
         )
         for path, score, title in results:

@@ -50,6 +50,8 @@ For left-panel card materialization and page-count verification, follow
    title, company, location, workplace, salary when visible, and canonical URL.
 11. Run the preview object through:
    `python collector/linkedin_preview_filter.py --input <preview_json>`.
+   This checks title block words first, then `(linkedin, job_id)` in
+   `source_jobs`. A registered ID is skipped before the vacancy is opened.
 12. For every card with `preview_decision = "open"`, process it until it has
     exactly one collection outcome logged with
     `collector/logging/linkedin_logger.py collection`.
@@ -57,7 +59,10 @@ For left-panel card materialization and page-count verification, follow
     card by `job_id` or canonical `/jobs/view/<job_id>/` href, not by title
     text. Then wait for the right-side job details pane.
 13. Keep skipped preview cards in the report for debugging false rejects.
-14. Stop at `limit` from `collector/config/linkedin.properties`.
+14. Stop at `limit` from `collector/config/linkedin.properties`. Increment the
+    limit counter only after a new raw page is successfully saved. Blocked
+    previews, registry duplicates, `already_raw`, and failures do not consume
+    the limit.
 15. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
     The normal LinkedIn path is search UI card -> details pane -> raw save.
     If the accepted card cannot be found/clicked in the current search UI
@@ -82,6 +87,8 @@ For left-panel card materialization and page-count verification, follow
     content from the job page instead.
 20. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
+   The saver records processing status `RAW` only after valid raw content is
+   present on disk.
 
 ## Collection Outcomes
 

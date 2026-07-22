@@ -9,6 +9,9 @@ Public analyzer call:
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
+- After the analyzed JSON is written successfully, record the completed stage:
+  `python db/job_registry.py ANALYZED --source <source> --job-id <json-file-stem>`.
+  If analysis fails, leave the registry at `CLEANED`.
 - Then pass that analyzed JSON file to `scoring/candidate_fit/evaluate.md`;
   candidate-fit writes a scored JSON file under `../Data/scored/<source>/`
   with the same file name.

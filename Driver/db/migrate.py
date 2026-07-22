@@ -14,6 +14,8 @@ if str(ROOT) not in sys.path:
 
 from common.paths import DATA_ROOT
 from db.job_mapper import apply_schema
+from db.job_registry import SOURCE_CODES
+from db.job_registry import mark_status
 
 
 MIGRATIONS_DIR = ROOT / "db" / "migrations"
@@ -63,9 +65,6 @@ def migration_already_effective(
     connection: sqlite3.Connection,
     version: str,
 ) -> bool:
-    if version != "001_job_statuses_table":
-        return False
-
     row = connection.execute(
         """
         SELECT sql
@@ -74,7 +73,38 @@ def migration_already_effective(
         """
     ).fetchone()
     ddl = row[0] if row else ""
-    return "REFERENCES job_statuses(code)" in ddl
+    if version == "001_job_statuses_table":
+        return "REFERENCES job_statuses(code)" in ddl
+    if version == "003_source_job_registry":
+        return (
+            "source_job_ref" in ddl
+            and table_exists(connection, "source_jobs")
+        )
+    return False
+
+
+def backfill_processing_registry(
+    connection: sqlite3.Connection,
+    data_root: Path,
+) -> int:
+    stage_dirs = (
+        ("RAW", data_root / "raw", "pages", "*.html"),
+        ("CLEANED", data_root / "readable_v2", "pages", "*.txt"),
+        ("ANALYZED", data_root / "analyzed", "", "*.json"),
+        ("SCORED", data_root / "scored", "", "*.json"),
+    )
+    before = int(connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0])
+    for status, root, suffix, pattern in stage_dirs:
+        for source in SOURCE_CODES:
+            directory = root / source
+            if suffix:
+                directory /= suffix
+            if not directory.exists():
+                continue
+            for path in directory.glob(pattern):
+                mark_status(connection, source, path.stem, status)
+    after = int(connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0])
+    return after - before
 
 
 def apply_migration(connection: sqlite3.Connection, path: Path) -> str:
@@ -105,9 +135,12 @@ def migrate_database(
 
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
+        schema_changed = False
+        registry_migrated = False
         if not table_exists(connection, "jobs"):
             apply_schema(connection, schema_path)
             connection.commit()
+            schema_changed = True
 
         ensure_migration_table(connection)
         done = applied_versions(connection)
@@ -117,10 +150,18 @@ def migrate_database(
             if version in done:
                 messages.append(f"skip {version}")
                 continue
-            messages.append(apply_migration(connection, path))
+            message = apply_migration(connection, path)
+            messages.append(message)
+            schema_changed = True
+            if version == "003_source_job_registry":
+                registry_migrated = True
             connection.commit()
 
-        apply_schema(connection, schema_path)
+        if schema_changed:
+            apply_schema(connection, schema_path)
+        if registry_migrated:
+            count = backfill_processing_registry(connection, db_path.parent)
+            messages.append(f"backfilled source_jobs +{count}")
         connection.commit()
 
     return messages

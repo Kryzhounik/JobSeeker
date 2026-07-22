@@ -558,10 +558,11 @@ class JobsViewer(tk.Tk):
                 EXISTS (
                     SELECT 1
                     FROM jobs j
+                    JOIN source_jobs sj ON sj.id = j.source_job_ref
                     WHERE j.source_url = jl.source_url
                         AND (
                             CAST(j.id AS TEXT) = ?
-                            OR j.source_job_id = ?
+                            OR sj.source_job_id = ?
                             OR j.source_url LIKE ?
                         )
                 )
@@ -628,27 +629,28 @@ class JobsViewer(tk.Tk):
             row = connection.execute(
                 """
                 SELECT
-                    id,
-                    source_job_id,
-                    title,
-                    company,
-                    location,
-                    remote_type,
-                    remote_scope,
-                    status,
-                    relocation,
-                    seniority,
-                    role,
-                    salary,
-                    job_interest AS interest,
-                    candidate_fit_percent AS fit,
-                    CAST(ROUND(job_interest * candidate_fit_percent / 100.0) AS INTEGER)
+                    j.id,
+                    sj.source_job_id,
+                    j.title,
+                    j.company,
+                    j.location,
+                    j.remote_type,
+                    j.remote_scope,
+                    j.status,
+                    j.relocation,
+                    j.seniority,
+                    j.role,
+                    j.salary,
+                    j.job_interest AS interest,
+                    j.candidate_fit_percent AS fit,
+                    CAST(ROUND(j.job_interest * j.candidate_fit_percent / 100.0) AS INTEGER)
                         AS score,
-                    source_url,
-                    summary,
-                    added_at
-                FROM jobs
-                WHERE source_url = ?
+                    j.source_url,
+                    j.summary,
+                    j.added_at
+                FROM jobs j
+                JOIN source_jobs sj ON sj.id = j.source_job_ref
+                WHERE j.source_url = ?
                 """,
                 (source_url,),
             ).fetchone()

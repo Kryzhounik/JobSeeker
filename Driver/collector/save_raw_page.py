@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sqlite3
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -15,6 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
+from db.job_registry import mark_url_status
+from db.migrate import migrate_database
 
 
 HEADERS = {
@@ -76,6 +79,7 @@ def save_content(
     out_dir: Path,
     ext: str,
     force: bool,
+    db_path: Path | None = None,
 ) -> Path:
     validate_content(source, content)
 
@@ -84,9 +88,16 @@ def save_content(
     path = pages_dir / raw_name(url, ext)
     if path.exists() and not force:
         print(f"skip existing {path}")
-        return path
-    path.write_text(content, encoding="utf-8")
-    print(f"saved {source} {url} -> {path}")
+    else:
+        path.write_text(content, encoding="utf-8")
+        print(f"saved {source} {url} -> {path}")
+
+    database = db_path or DATA_ROOT / "jobs.sqlite"
+    migrate_database(database)
+    with sqlite3.connect(database) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        mark_url_status(connection, source, url, "RAW")
+        connection.commit()
     return path
 
 
@@ -99,6 +110,7 @@ def main() -> None:
     parser.add_argument("--stdin", action="store_true")
     parser.add_argument("--ext", default="html")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir) if args.out_dir else DATA_ROOT / "raw" / args.source
@@ -121,6 +133,7 @@ def main() -> None:
         out_dir=out_dir,
         ext=args.ext,
         force=args.force,
+        db_path=Path(args.db),
     )
 
 

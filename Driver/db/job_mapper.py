@@ -7,16 +7,16 @@ agent-specific code.
 
 from __future__ import annotations
 
-import re
 import sqlite3
 from pathlib import Path
 from typing import Any
+
+from db.job_registry import mark_url_status
 
 
 JOB_COLUMNS = (
     "id",
     "source",
-    "source_job_id",
     "source_url",
     "status",
     "title",
@@ -72,13 +72,6 @@ def candidate_fit_reason_code(value: Any) -> str:
             f"{', '.join(CANDIDATE_FIT_REASON_CODES)}"
         )
     return code
-
-
-def source_job_id(source: str, source_url: str) -> str:
-    if source == "linkedin":
-        match = re.search(r"/jobs/view/(\d+)", source_url)
-        return match.group(1) if match else ""
-    return ""
 
 
 def required_text(record: dict[str, Any], name: str) -> str:
@@ -184,10 +177,6 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN candidate_fit_reason TEXT NOT NULL DEFAULT ''"
         )
-    if "source_job_id" not in columns:
-        connection.execute(
-            "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
-        )
     if "status" not in columns:
         connection.execute(
             "ALTER TABLE jobs ADD COLUMN status TEXT NOT NULL DEFAULT 'New'"
@@ -240,25 +229,6 @@ def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> N
         or not jobs_candidate_fit_reason_code_check_present(connection)
     ):
         rebuild_jobs_with_current_schema(connection, schema_sql)
-    connection.execute(
-        """
-        UPDATE jobs
-        SET source_job_id = substr(
-            source_url,
-            instr(source_url, '/jobs/view/') + length('/jobs/view/'),
-            instr(
-                substr(
-                    source_url,
-                    instr(source_url, '/jobs/view/') + length('/jobs/view/')
-                ),
-                '/'
-            ) - 1
-        )
-        WHERE source = 'linkedin'
-            AND source_job_id = ''
-            AND instr(source_url, '/jobs/view/') > 0
-        """
-    )
 
 
 def ensure_job_statuses(connection: sqlite3.Connection) -> None:
@@ -376,6 +346,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
     source = required_text(record, "source")
     source_url = required_text(record, "source_url")
     title = required_text(record, "title")
+    source_job_ref = mark_url_status(connection, source, source_url, "SAVED")
     salary = clean(record["salary"])
     if salary.lower() == "unknown":
         raise ValueError("salary must be empty when unavailable, not 'unknown'")
@@ -383,8 +354,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
     connection.execute(
         """
         INSERT INTO jobs (
-            source,
-            source_job_id,
+            source_job_ref,
             source_url,
             status,
             title,
@@ -406,9 +376,9 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_url) DO UPDATE SET
-            source_job_id = excluded.source_job_id,
+            source_job_ref = excluded.source_job_ref,
             title = excluded.title,
             company = excluded.company,
             location = excluded.location,
@@ -429,8 +399,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             updated_at = CURRENT_TIMESTAMP
         """,
         (
-            source,
-            source_job_id(source, source_url),
+            source_job_ref,
             source_url,
             job_status(record.get("status")),
             title,
@@ -552,16 +521,20 @@ def load_job_json(
     if job_id is None and not source_url:
         raise ValueError("Pass job_id or source_url.")
 
-    where = "id = ?"
+    where = "j.id = ?"
     value: Any = job_id
     if source_url:
-        where = "source_url = ?"
+        where = "j.source_url = ?"
         value = source_url
 
     row = connection.execute(
         f"""
-        SELECT {", ".join(JOB_COLUMNS)}
-        FROM jobs
+        SELECT
+            j.id,
+            sj.source,
+            {", ".join(f"j.{column}" for column in JOB_COLUMNS[2:])}
+        FROM jobs j
+        JOIN source_jobs sj ON sj.id = j.source_job_ref
         WHERE {where}
         """,
         (value,),

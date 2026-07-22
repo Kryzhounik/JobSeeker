@@ -11,6 +11,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 COMMON_ROOT = ROOT / "common"
 if str(COMMON_ROOT) not in sys.path:
     sys.path.insert(0, str(COMMON_ROOT))
@@ -19,10 +21,13 @@ if str(LOGGING_ROOT) not in sys.path:
     sys.path.insert(0, str(LOGGING_ROOT))
 
 from linkedin_logger import record_preview_filter
+from db.job_registry import is_registered
+from db.migrate import migrate_database
 
 
 DEFAULT_CONFIG = ROOT / "collector" / "config" / "linkedin_preview_filter.ini"
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
+MIGRATED_DATABASES: set[Path] = set()
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> configparser.ConfigParser:
@@ -80,49 +85,6 @@ def source_job_id(preview: dict[str, Any]) -> str:
     return match.group(1) if match else ""
 
 
-def ensure_dedup_schema(connection: sqlite3.Connection) -> None:
-    jobs_exists = connection.execute(
-        """
-        SELECT 1
-        FROM sqlite_master
-        WHERE type = 'table' AND name = 'jobs'
-        """
-    ).fetchone()
-    if not jobs_exists:
-        return
-
-    columns = {
-        row[1]
-        for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
-    }
-    if "source_job_id" not in columns:
-        connection.execute(
-            "ALTER TABLE jobs ADD COLUMN source_job_id TEXT NOT NULL DEFAULT ''"
-        )
-    connection.execute(
-        "CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id)"
-    )
-    connection.execute(
-        """
-        UPDATE jobs
-        SET source_job_id = substr(
-            source_url,
-            instr(source_url, '/jobs/view/') + length('/jobs/view/'),
-            instr(
-                substr(
-                    source_url,
-                    instr(source_url, '/jobs/view/') + length('/jobs/view/')
-                ),
-                '/'
-            ) - 1
-        )
-        WHERE source = 'linkedin'
-            AND source_job_id = ''
-            AND instr(source_url, '/jobs/view/') > 0
-        """
-    )
-
-
 def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) -> bool:
     if not db_path.exists():
         return False
@@ -131,20 +93,13 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
     if not job_id:
         return False
 
-    with sqlite3.connect(db_path) as connection:
-        ensure_dedup_schema(connection)
-        row = connection.execute(
-            """
-            SELECT 1
-            FROM jobs
-            WHERE source = 'linkedin'
-                AND source_job_id = ?
-            LIMIT 1
-            """,
-            (job_id,),
-        ).fetchone()
-        return row is not None
-    return False
+    resolved_db = db_path.resolve()
+    if resolved_db not in MIGRATED_DATABASES:
+        migrate_database(resolved_db)
+        MIGRATED_DATABASES.add(resolved_db)
+    with sqlite3.connect(resolved_db) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        return is_registered(connection, "linkedin", job_id)
 
 
 def decide_preview(

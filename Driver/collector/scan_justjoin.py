@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sqlite3
 import sys
 import time
 from pathlib import Path
@@ -30,6 +31,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
+from db.job_registry import is_registered
+from db.job_registry import source_job_id
+from db.migrate import migrate_database
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -115,7 +119,28 @@ def apply_limit(urls: list[str], limit: int) -> list[str]:
     return urls[:limit]
 
 
-def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool) -> None:
+def unregistered_urls(urls: list[str], db_path: Path) -> list[str]:
+    migrate_database(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        return [
+            url
+            for url in urls
+            if not is_registered(
+                connection,
+                "justjoin",
+                source_job_id("justjoin", url),
+            )
+        ]
+
+
+def save_pages(
+    urls: list[str],
+    out_dir: Path,
+    delay_seconds: float,
+    force: bool,
+    db_path: Path,
+) -> None:
     for index, url in enumerate(urls, start=1):
         if index > 1 and delay_seconds > 0:
             print(f"sleep {delay_seconds:g}s")
@@ -130,6 +155,7 @@ def save_pages(urls: list[str], out_dir: Path, delay_seconds: float, force: bool
             out_dir=out_dir,
             ext="html",
             force=force,
+            db_path=db_path,
         )
 
 
@@ -146,6 +172,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--delay-seconds", type=float)
     parser.add_argument("--download", action="store_true", help="Download raw vacancy pages.")
     parser.add_argument("--out-dir", default=str(DATA_ROOT / "raw" / "justjoin"))
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--force", action="store_true", help="Re-download existing raw pages.")
     return parser.parse_args()
 
@@ -158,7 +185,10 @@ def main() -> None:
     else:
         config = config_from_search_url(args.search_url) if args.search_url else load_config(Path(args.config))
         limit = args.limit if args.limit is not None else int(config.get("limit", 0))
-        urls = apply_limit(find_job_urls_from_api(config), limit)
+        urls = find_job_urls_from_api(config)
+        if not args.force:
+            urls = unregistered_urls(urls, Path(args.db))
+        urls = apply_limit(urls, limit)
 
     print(f"found {len(urls)} job urls")
     for url in urls:
@@ -173,6 +203,7 @@ def main() -> None:
             Path(args.out_dir),
             delay_seconds if delay_seconds is not None else 30,
             args.force,
+            Path(args.db),
         )
 
 

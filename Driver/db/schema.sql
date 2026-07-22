@@ -26,10 +26,37 @@ INSERT OR IGNORE INTO job_statuses (code, sort_order) VALUES
     ('Applied', 40),
     ('Closed', 50);
 
+CREATE TABLE IF NOT EXISTS job_sources (
+    code TEXT PRIMARY KEY
+);
+
+INSERT OR IGNORE INTO job_sources (code) VALUES
+    ('justjoin'),
+    ('linkedin');
+
+CREATE TABLE IF NOT EXISTS processing_statuses (
+    code TEXT PRIMARY KEY,
+    sort_order INTEGER NOT NULL UNIQUE
+);
+
+INSERT OR IGNORE INTO processing_statuses (code, sort_order) VALUES
+    ('RAW', 10),
+    ('CLEANED', 20),
+    ('ANALYZED', 30),
+    ('SCORED', 40),
+    ('SAVED', 50);
+
+CREATE TABLE IF NOT EXISTS source_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL REFERENCES job_sources(code),
+    source_job_id TEXT NOT NULL,
+    processing_status TEXT NOT NULL REFERENCES processing_statuses(code),
+    UNIQUE(source, source_job_id)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT NOT NULL DEFAULT 'justjoin',
-    source_job_id TEXT NOT NULL DEFAULT '',
+    source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),
     source_url TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'New' REFERENCES job_statuses(code),
     title TEXT NOT NULL,
@@ -132,7 +159,8 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_events (
 
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_source_job_id ON jobs(source, source_job_id);
+CREATE INDEX IF NOT EXISTS idx_source_jobs_processing_status
+    ON source_jobs(processing_status);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit_reason_code

@@ -102,6 +102,8 @@ scope.
   version before collector deduplication, scoring maintenance, saving, GUI
   mutation, or manual SQL work.
 - Do not skip stages.
+- Each stage records its own successful completion. A failed stage leaves the
+  vacancy at its previous successfully completed stage.
 - Do not duplicate a stage's internals in `WORKFLOW.md`.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
@@ -125,9 +127,8 @@ scope.
 - `db/save.py` input is `../Data/scored/<source>/`, not
   `../Data/analyzed/<source>/`.
 - Database JSON mapping must go through `db/job_mapper.py`.
-- Existing rows in SQLite are already processed. Normal collection must use
-  `source_job_id` / `source_url` deduplication to avoid reopening and
-  re-analyzing already processed vacancies.
+- Normal collection must skip already known source vacancies before reopening
+  or re-analyzing them. Source-specific collector rules define how.
 - Re-evaluating an existing vacancy is a separate calibration/debug action, not
   part of the normal batch workflow.
 

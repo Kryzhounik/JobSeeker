@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import sqlite3
 from pathlib import Path
 
 from extract_readable_text_v1 import ROOT
@@ -10,6 +11,9 @@ from extract_readable_text_v1 import TextExtractor
 from extract_readable_text_v1 import input_paths
 from extract_readable_text_v1 import output_path
 from extract_readable_text_v1 import source_url
+from db.job_registry import mark_status
+from db.job_registry import source_job_id
+from db.migrate import migrate_database
 
 
 TAIL_MARKERS = (
@@ -142,28 +146,42 @@ def readable_text(source: str, raw_path: Path) -> str:
     return "\n".join(metadata) + "\n\n" + text
 
 
-def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit: int) -> None:
+def convert(
+    source: str,
+    input_path: Path,
+    output_dir: Path,
+    force: bool,
+    limit: int,
+    db_path: Path,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     paths = input_paths(input_path)
     if limit > 0:
         paths = paths[:limit]
 
-    for raw_path in paths:
-        out_path = output_path(raw_path, output_dir)
-        if out_path.exists() and not force:
-            print(f"skip existing {out_path}")
-            continue
+    migrate_database(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        for raw_path in paths:
+            out_path = output_path(raw_path, output_dir)
+            if out_path.exists() and not force:
+                print(f"skip existing {out_path}")
+            else:
+                html_chars = raw_path.stat().st_size
+                text = readable_text(source, raw_path)
+                out_path.write_text(text, encoding="utf-8")
+                text_chars = len(text)
+                approx_tokens = max(1, text_chars // 4)
+                print(
+                    f"saved {out_path} "
+                    f"html_chars={html_chars} text_chars={text_chars} "
+                    f"approx_tokens={approx_tokens}"
+                )
 
-        html_chars = raw_path.stat().st_size
-        text = readable_text(source, raw_path)
-        out_path.write_text(text, encoding="utf-8")
-        text_chars = len(text)
-        approx_tokens = max(1, text_chars // 4)
-        print(
-            f"saved {out_path} "
-            f"html_chars={html_chars} text_chars={text_chars} "
-            f"approx_tokens={approx_tokens}"
-        )
+            url = source_url(source, raw_path)
+            job_id = source_job_id(source, url) if url else raw_path.stem
+            mark_status(connection, source, job_id, "CLEANED")
+            connection.commit()
 
 
 def main() -> None:
@@ -173,6 +191,7 @@ def main() -> None:
     parser.add_argument("--out-dir")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     args = parser.parse_args()
 
     input_path = (
@@ -185,7 +204,14 @@ def main() -> None:
         if args.out_dir
         else DATA_ROOT / "readable_v2" / args.source / "pages"
     )
-    convert(args.source, input_path, output_dir, args.force, args.limit)
+    convert(
+        args.source,
+        input_path,
+        output_dir,
+        args.force,
+        args.limit,
+        Path(args.db),
+    )
 
 
 if __name__ == "__main__":
