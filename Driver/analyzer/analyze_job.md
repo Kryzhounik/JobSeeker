@@ -32,10 +32,10 @@ Public analyzer call:
   side, converted to readable text, then analyzed through this same call.
 
 Do not implement this analysis as Python string matching or regex extraction.
-Collector scripts only save raw pages. `analyzer/extract_readable_text_v2.py`
-removes HTML/page noise but does not extract job fields. Codex/this prompt
-produces structured analysis JSON. Candidate-fit and job-interest scoring happen
-after this analysis and before `db/save.py`. Keep this
+The source collector/adapter produces the saved readable vacancy text before
+this prompt runs. Codex/this prompt produces structured analysis JSON.
+Candidate-fit and job-interest scoring happen after this analysis and before
+`db/save.py`. Keep this
 analysis layer out of Python string heuristics unless we explicitly decide
 otherwise later.
 

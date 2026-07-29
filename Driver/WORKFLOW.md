@@ -17,10 +17,8 @@ otherwise.
 ## Main Pipeline
 
 ```text
-collector
--> raw HTML
--> analyzer/extract_readable_text_v2.py
--> readable text
+collector/source adapter
+-> readable vacancy text (raw HTML remains persisted)
 -> analyzer/analyze_job.md
 -> analyzed JSON plus isolated experimental analyzer fit in SQLite
 -> scoring/candidate_fit/evaluate.md
@@ -39,7 +37,8 @@ from-url <source> <url>
 reprocess-raw <source>
 ```
 
-All three commands must enter the same pipeline at `raw HTML`.
+All three commands must pass raw HTML through the source adapter before
+analysis.
 
 - `batch`: find vacancies from source settings, save raw HTML, then continue.
 - `from-url`: save that URL as raw HTML first, then continue.
@@ -89,8 +88,7 @@ pipeline for each file:
 
 ```text
 for each raw HTML file in the explicit scope:
-    raw HTML
-    -> readable text
+    source adapter prepares readable vacancy text
     -> analyzed JSON plus isolated experimental analyzer fit
     -> scored JSON with candidate fit
     -> scored JSON with job interest
@@ -164,7 +162,8 @@ GUI viewing/debugging.
 Manual URL debug uses the same raw pipeline:
 
 ```text
-URL -> raw HTML -> readable text -> analyzed JSON -> scoring -> save
+URL -> source adapter persists raw HTML and prepares readable text
+    -> analyzed JSON -> scoring -> save
 ```
 
 Do not bypass raw/readable/analyzed/scoring stages just because the URL was

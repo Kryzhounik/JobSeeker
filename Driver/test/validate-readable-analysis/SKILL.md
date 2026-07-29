@@ -1,6 +1,6 @@
 ---
 name: validate-readable-analysis
-description: Validate that readable text extraction preserves job analysis output by comparing JSON produced from raw HTML and cleaned TXT for the same vacancies. Use before or after changing analyzer/extract_readable_text_v*.py, or when checking whether HTML cleaning loses job fields.
+description: Validate that LinkedIn readable text extraction preserves job analysis output by comparing JSON produced from raw HTML and cleaned TXT for the same vacancies. Use before or after changing collector/extract_linkedin_readable_text_v*.py, or when checking whether HTML cleaning loses job fields.
 ---
 
 # Validate Readable Analysis
@@ -77,7 +77,7 @@ Report shape:
 ```json
 {
   "source": "linkedin",
-  "cleaner": "extract_readable_text_v2.py",
+  "cleaner": "collector/extract_linkedin_readable_text_v2.py",
   "sample": "first 10 raw/readable pairs sorted by file name",
   "checked_fields": ["title", "company", "technologies"],
   "result": {

@@ -160,7 +160,9 @@ def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract readable text from raw job HTML.")
+    parser = argparse.ArgumentParser(
+        description="Extract readable text from raw LinkedIn job HTML."
+    )
     parser.add_argument("--source", required=True)
     parser.add_argument("--input")
     parser.add_argument("--out-dir")

@@ -6,11 +6,11 @@ import sys
 import unittest
 
 
-ANALYZER_DIR = Path(__file__).resolve().parents[1] / "analyzer"
-sys.path.insert(0, str(ANALYZER_DIR))
+COLLECTOR_DIR = Path(__file__).resolve().parents[1] / "collector"
+sys.path.insert(0, str(COLLECTOR_DIR))
 SPEC = importlib.util.spec_from_file_location(
-    "extract_readable_text_v2",
-    ANALYZER_DIR / "extract_readable_text_v2.py",
+    "extract_linkedin_readable_text_v2",
+    COLLECTOR_DIR / "extract_linkedin_readable_text_v2.py",
 )
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None

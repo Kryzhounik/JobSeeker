@@ -5,12 +5,12 @@ import re
 import sqlite3
 from pathlib import Path
 
-from extract_readable_text_v1 import ROOT
-from extract_readable_text_v1 import DATA_ROOT
-from extract_readable_text_v1 import TextExtractor
-from extract_readable_text_v1 import input_paths
-from extract_readable_text_v1 import output_path
-from extract_readable_text_v1 import source_url
+from extract_linkedin_readable_text_v1 import ROOT
+from extract_linkedin_readable_text_v1 import DATA_ROOT
+from extract_linkedin_readable_text_v1 import TextExtractor
+from extract_linkedin_readable_text_v1 import input_paths
+from extract_linkedin_readable_text_v1 import output_path
+from extract_linkedin_readable_text_v1 import source_url
 from db.job_registry import mark_status
 from db.job_registry import source_job_id
 from db.migrate import migrate_database
@@ -185,7 +185,9 @@ def convert(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Extract readable text v2 from raw job HTML.")
+    parser = argparse.ArgumentParser(
+        description="Extract readable text v2 from raw LinkedIn job HTML."
+    )
     parser.add_argument("--source", required=True)
     parser.add_argument("--input")
     parser.add_argument("--out-dir")

@@ -90,6 +90,11 @@ For left-panel card materialization and page-count verification, follow
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
    The saver records processing status `RAW` only after valid raw content is
    present on disk.
+21. Convert that saved raw file into analyzer-ready readable text with:
+   `python collector/extract_linkedin_readable_text_v2.py --source linkedin --input ../Data/raw/linkedin/pages/<job_id>.html`.
+   The cleaner writes `../Data/readable_v2/linkedin/pages/<job_id>.txt` and
+   records processing status `CLEANED`. If cleaning fails, leave the vacancy at
+   `RAW` and report the failure; do not analyze that vacancy.
 
 ## Collection Outcomes
 
@@ -206,11 +211,8 @@ the user asks for calibration. Preview filtering is allowed because it only
 uses visible search-card text and deterministic rules from
 `collector/config/linkedin_preview_filter.ini`.
 
-After Codex produces candidate-fit-scored JSON under `../Data/scored/linkedin`,
-add job interest with:
-`python scoring/job_interest/calculate.py --input ../Data/scored/linkedin`.
-Then save fully scored JSON with:
-`python db/save.py --input ../Data/scored/linkedin --source linkedin`.
+Return the explicit set of saved raw/readable vacancies to the caller. The
+collector does not run analysis, scoring, or database save stages itself.
 
 If LinkedIn shows CAPTCHA, checkpoint, suspicious-login, or account-warning UI,
 stop and report it.

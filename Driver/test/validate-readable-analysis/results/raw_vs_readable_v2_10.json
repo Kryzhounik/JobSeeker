@@ -1402,6 +1402,6 @@
       "readable_file": "data/readable_v2/linkedin/pages/4417061676.txt"
     }
   ],
-  "cleaner": "analyzer/extract_readable_text_v2.py",
+  "cleaner": "collector/extract_linkedin_readable_text_v2.py",
   "raw_baseline": "raw_json from the existing raw HTML semantic analysis report"
 }
