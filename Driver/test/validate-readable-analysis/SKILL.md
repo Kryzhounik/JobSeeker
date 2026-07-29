@@ -12,8 +12,8 @@ Do not validate this by checking text prefixes, tails, or line counts only. The
 required test is semantic:
 
 ```text
-same vacancy raw HTML -> analyze_job.md -> raw_json
-same vacancy readable TXT -> analyze_job.md -> readable_json
+same vacancy raw HTML -> job_facts/extract.md -> raw_json
+same vacancy readable TXT -> job_facts/extract.md -> readable_json
 compare raw_json vs readable_json
 ```
 
@@ -21,7 +21,7 @@ compare raw_json vs readable_json
 
 - Raw HTML files: `../Data/raw/<source>/pages/*.html`
 - Readable text files: `../Data/readable_v*/<source>/pages/*.txt`
-- Analysis rules: `analyzer/analyze_job.md`
+- Job-facts rules: `analyzer/job_facts/extract.md`
 
 Use the same vacancy id/stem for both files.
 
@@ -32,10 +32,10 @@ file name.
 
 ```text
 raw_html = ../Data/raw/<source>/pages/<id>.html
-raw_json = analyze(raw_html, analyzer/analyze_job.md)
+raw_json = analyze(raw_html, analyzer/job_facts/extract.md)
 
 txt = extract(raw_html)
-txt_json = analyze(txt, analyzer/analyze_job.md)
+txt_json = analyze(txt, analyzer/job_facts/extract.md)
 
 assert raw_json == txt_json for collected fields
 ```

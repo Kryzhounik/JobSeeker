@@ -55,7 +55,7 @@ def require_candidate_fit(record: dict[str, Any]) -> int:
     value = record.get("candidate_fit_percent")
     if value is None or value == "":
         raise ValueError(
-            "candidate_fit_percent is missing; run scoring/candidate_fit before save"
+            "candidate_fit_percent is missing; run analyzer/candidate_fit before save"
         )
     return int(value)
 
@@ -68,7 +68,7 @@ def reject_fast_filter_only_candidate_fit(record: dict[str, Any]) -> None:
     if reason == "job filter passed":
         raise ValueError(
             "candidate_fit_percent contains only fast-filter pass result; "
-            "run scoring/candidate_fit/evaluate.md semantic candidate-fit step before save"
+            "run analyzer/candidate_fit/evaluate.md semantic candidate-fit step before save"
         )
 
 
@@ -77,7 +77,7 @@ def require_candidate_fit_reason_code(record: dict[str, Any]) -> str:
     if value is None or value == "":
         raise ValueError(
             "candidate_fit_reason_code is missing; run "
-            "scoring/candidate_fit/evaluate.md before save"
+            "analyzer/candidate_fit/evaluate.md before save"
         )
 
     code = str(value).strip()
@@ -95,7 +95,7 @@ def require_candidate_fit_reason(record: dict[str, Any]) -> str:
     value = record.get("candidate_fit_reason")
     if value is None:
         raise ValueError(
-            "candidate_fit_reason is missing; run scoring/candidate_fit before save"
+            "candidate_fit_reason is missing; run analyzer/candidate_fit before save"
         )
     return str(value)
 
@@ -104,7 +104,7 @@ def require_job_interest(record: dict[str, Any]) -> int:
     value = record.get("job_interest")
     if value is None or value == "":
         raise ValueError(
-            "job_interest is missing; run scoring/job_interest/calculate.py "
+            "job_interest is missing; run analyzer/job_interest/calculate.py "
             "--input <scored-json-or-dir> before save"
         )
     return int(value)

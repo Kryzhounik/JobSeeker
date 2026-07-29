@@ -19,7 +19,7 @@ Driver/collector/config/linkedin_preview_blocked_titles.txt
 Do not confuse it with:
 
 ```text
-Driver/scoring/candidate_fit/filter.py
+Driver/analyzer/candidate_fit/filter.py
 ```
 
 `candidate_fit_percent` and `candidate_fit_reason_code` are downstream signals

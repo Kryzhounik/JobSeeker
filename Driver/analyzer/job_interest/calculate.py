@@ -22,8 +22,8 @@ if str(ROOT) not in sys.path:
 from common.paths import DATA_ROOT
 from db.job_registry import mark_url_status
 from db.migrate import migrate_database
-from scoring.candidate_fit.filter import location_contains
-from scoring.candidate_fit.filter import location_tokens
+from analyzer.location import location_contains
+from analyzer.location import location_tokens
 
 
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
@@ -359,7 +359,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--config",
-        default=str(root / "scoring" / "job_interest" / "config" / "interest.ini"),
+        default=str(root / "analyzer" / "job_interest" / "config" / "interest.ini"),
     )
     args = parser.parse_args()
 

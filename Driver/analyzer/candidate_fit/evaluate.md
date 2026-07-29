@@ -4,9 +4,9 @@ the candidate fits the vacancy; vacancy attractiveness lives elsewhere.
 Task: calculate candidate-fit/filter result.
 
 The candidate-fit process calculates how well the vacancy fits the candidate.
-It reads the analyzed JSON from `analyzer/analyze_job.md` and writes a scored
-JSON file with `candidate_fit_percent`, `candidate_fit_reason_code`, and
-`candidate_fit_reason`.
+It reads an analyzed JSON produced by `analyzer/job_facts/extract.md` and
+writes a scored JSON file with `candidate_fit_percent`,
+`candidate_fit_reason_code`, and `candidate_fit_reason`.
 
 Input/output contract:
 - Input: one analyzed JSON file from `../Data/analyzed/<source>/`.
@@ -18,8 +18,8 @@ Input/output contract:
 - Do not put scoring fields into `../Data/analyzed/<source>/` in the main
   workflow.
 
-Runtime switches live in `scoring/candidate_fit/config/filter.ini`.
-Candidate facts live in `scoring/candidate_fit/config/resume.ini`.
+Runtime switches live in `analyzer/candidate_fit/config/filter.ini`.
+Candidate facts live in `analyzer/config/resume.ini`.
 
 Evaluation isolation:
 - Do not read `experimental_analyzer_fits`, query existing scores from SQLite,
@@ -62,7 +62,7 @@ Semantic candidate-fit agent stage:
   coverage calculated to 0.
 - This is semantic matching, not a fast script filter.
 - Use every vacancy technology together with its requirement importance and the
-  candidate profile from `config/resume.ini`.
+  candidate profile from `analyzer/config/resume.ini`.
 - Requirement importance is ordered as follows:
   - 1, core: role-defining. Missing it cannot be compensated by generic adjacent
     skills, even when the requested proficiency level is junior.

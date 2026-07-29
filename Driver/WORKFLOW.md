@@ -2,7 +2,7 @@
 
 Purpose: top-level run order only.
 
-This file does not define internals of collector, analyzer, scoring, or db.
+This file does not define internals of collector, analyzer, or db.
 Each stage owns its own rules in its own files.
 
 ## Roots
@@ -20,11 +20,10 @@ otherwise.
 collector/source adapter
 -> readable vacancy text (raw HTML remains persisted)
 -> analyzer/analyze_job.md
--> analyzed JSON plus isolated experimental analyzer fit in SQLite
--> scoring/candidate_fit/evaluate.md
--> scored JSON with candidate_fit_percent/candidate_fit_reason_code/candidate_fit_reason
--> scoring/job_interest/calculate.py --input <scored-json-or-dir>
--> scored JSON with job_interest
+   -> analyzer/job_facts/extract.md
+   -> analyzer/candidate_fit/evaluate.md
+   -> analyzer/job_interest/calculate.py
+-> fully scored JSON
 -> db/save.py
 -> SQLite
 ```
@@ -89,9 +88,10 @@ pipeline for each file:
 ```text
 for each raw HTML file in the explicit scope:
     source adapter prepares readable vacancy text
-    -> analyzed JSON plus isolated experimental analyzer fit
-    -> scored JSON with candidate fit
-    -> scored JSON with job interest
+    -> analyzer/analyze_job.md
+       -> job facts
+       -> candidate fit
+       -> job interest
     -> SQLite save
 ```
 
@@ -107,7 +107,7 @@ scope.
 
 - Before any command reads or writes SQLite, run `db/migrate.py` or use a
   script that calls it internally. The database must be at the latest schema
-  version before collector deduplication, scoring maintenance, saving, GUI
+  version before collector deduplication, analyzer scoring maintenance, saving, GUI
   mutation, or manual SQL work.
 - Do not skip stages.
 - Each stage records its own successful completion. A failed stage leaves the
@@ -116,16 +116,16 @@ scope.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
-- `scoring/candidate_fit/filter.py` is only the fast rejection gate. A passed
+- `analyzer/candidate_fit/filter.py` is only the fast rejection gate. A passed
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
-  `scoring/candidate_fit/evaluate.md`.
+  `analyzer/candidate_fit/evaluate.md`.
 - The analyzer also records an experimental fit in
   `experimental_analyzer_fits`. This value is comparison-only: it is absent
   from analyzed/scored JSON and never participates in official scoring.
 - Candidate-fit evaluation must be blind to the analyzer experiment. Run it as
-  a separate agent that receives only `scoring/candidate_fit/evaluate.md`, the
-  analyzed JSON, and `scoring/candidate_fit/config/resume.ini`. Do not pass
+  a separate agent that receives only `analyzer/candidate_fit/evaluate.md`, the
+  analyzed JSON, and `analyzer/config/resume.ini`. Do not pass
   analyzer context, query the experimental table, or read an existing score.
 - `../Data/analyzed/<source>/` contains analysis facts only. It must not contain
   candidate-fit or job-interest fields in the main workflow.
@@ -134,7 +134,7 @@ scope.
 - New scored JSON must contain `candidate_fit_reason_code` and must not use
   `undefined`. `undefined` is only a database compatibility value for records
   that already existed before reason codes were introduced.
-- `scoring/job_interest/calculate.py --input <scored-json-or-dir>` adds
+- `analyzer/job_interest/calculate.py --input <scored-json-or-dir>` adds
   `job_interest` to scored JSON before save. Its DB recalculation mode is
   maintenance, not the main pipeline.
 - `db/save.py` only saves fully scored JSON. It must not
@@ -163,8 +163,9 @@ Manual URL debug uses the same raw pipeline:
 
 ```text
 URL -> source adapter persists raw HTML and prepares readable text
-    -> analyzed JSON -> scoring -> save
+    -> analyzer (job facts -> candidate fit -> job interest)
+    -> save
 ```
 
-Do not bypass raw/readable/analyzed/scoring stages just because the URL was
+Do not bypass raw/readable/analyzer stages just because the URL was
 provided manually.

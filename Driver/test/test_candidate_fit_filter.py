@@ -9,7 +9,7 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from scoring.candidate_fit.filter import filter_job_json
+from analyzer.candidate_fit.filter import filter_job_json
 
 
 def base_job(**overrides):
