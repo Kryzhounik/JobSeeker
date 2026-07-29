@@ -15,6 +15,7 @@ Javascript
 Ferryt
 Cocos2d-x
 UAV Engineer
+AOSP Engineer
 
 Angular Developer
 
@@ -336,3 +337,24 @@ Build Engineer
 Revit API Developer
 Front End Engineer
 NodeJS Software Engineer
+
+Buyer
+CAD Engineer
+Contracting Lead
+Communications Specialist
+Logistics Specialist
+Maintenance Lead
+Hardware RF Engineer
+Creative Lead
+Robot Teleoperator
+3D Modeling Engineer
+Level Artist
+Post-Silicon Validation
+Dynamics CRM Developer
+Technical Writer
+Angular Engineer
+Unity3D Developer
+Front End Software Engineer
+Front-End Engineer
+Power BI Software Engineer
+UE Senior Programmer
