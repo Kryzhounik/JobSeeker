@@ -96,6 +96,10 @@ Semantic candidate-fit agent stage:
 - If a required item lists true alternatives in one field, for example
   `Python/Java/Go`, use the best matching alternative for that item. If the
   vacancy separately requires several technologies, each one must be counted.
+- If the analyzed JSON contains a slash-separated alternative item such as
+  `Python / Scala / SQL`, keep it as one coverage-table row and score the best
+  matching option. Do not split that single requirement into several missing
+  denominator rows.
 
 Mandatory scoring procedure:
 - Before choosing `candidate_fit_percent`, build a coverage table.

@@ -63,5 +63,62 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
+    def test_required_missing_programming_language_fails_tech(self) -> None:
+        result = filter_job_json(
+            base_job(
+                technologies=[
+                    {
+                        "name": "Go",
+                        "requirement": "required",
+                        "level": "advanced",
+                        "level_rank": 4,
+                        "raw_value": "Strong Go experience",
+                    }
+                ],
+                remote_type="remote",
+                remote_scope="worldwide",
+            )
+        )
+        self.assertFalse(result.passed)
+        self.assertEqual(result.reason_code, "tech")
+
+    def test_required_programming_language_alternatives_use_known_option(self) -> None:
+        result = filter_job_json(
+            base_job(
+                technologies=[
+                    {
+                        "name": "Python / Java / Go",
+                        "requirement": "required",
+                        "level": "regular",
+                        "level_rank": 3,
+                        "raw_value": "Experience with Python, Java, or Go",
+                    }
+                ],
+                remote_type="remote",
+                remote_scope="worldwide",
+            )
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
+    def test_required_mixed_alternative_item_does_not_hard_fail(self) -> None:
+        result = filter_job_json(
+            base_job(
+                technologies=[
+                    {
+                        "name": "Python / Scala / SQL",
+                        "requirement": "required",
+                        "level": "regular",
+                        "level_rank": 3,
+                        "raw_value": "Experience with SQL, Python, or Scala",
+                    }
+                ],
+                remote_type="remote",
+                remote_scope="worldwide",
+            )
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
 if __name__ == "__main__":
     unittest.main()

@@ -89,6 +89,17 @@ Technology requirements:
 - If a technology is only mentioned in text, infer the level from wording.
 - If wording is too vague but the technology is required, use level_rank 2.
 - If wording is too vague and the technology is optional, use level_rank 1.
+- If one requirement lists true alternatives where any one option satisfies the
+  requirement, keep it as one technology item instead of splitting it into
+  several required rows. Use a slash-separated name such as
+  `Python / Scala / SQL`, keep the original sentence in `raw_value`, and let
+  candidate-fit evaluation choose the best matching alternative. Split into
+  separate rows only when the vacancy requires each item independently.
+- Do not expand example tool lists into many required rows when the real
+  requirement is a capability. For example, `CI/CD pipelines using AWS
+  CodePipeline, CodeBuild, and CodeDeploy` should usually be one required
+  `AWS CI/CD pipelines` item, unless the vacancy clearly requires each service
+  independently.
 
 Remote scope rules:
 - For hybrid or office vacancies, leave remote_scope empty unless the vacancy

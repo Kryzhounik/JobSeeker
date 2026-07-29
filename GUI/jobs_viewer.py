@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import sys
 import tkinter as tk
@@ -12,6 +13,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
+SETTINGS_PATH = Path(__file__).with_name("jobs_viewer_settings.json")
 DRIVER_ROOT = ROOT / "Driver"
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
@@ -125,10 +127,14 @@ class JobsViewer(tk.Tk):
         self.detail_fields: dict[str, tk.Text] = {}
         self.status_buttons: list[ttk.Button] = []
         self.status_values = self._available_status_values()
+        self.settings = self._load_settings()
         self.status_filter_vars = {
-            status: tk.BooleanVar(value=True) for status in self.status_values
+            status: tk.BooleanVar(value=self._saved_status_filter_value(status))
+            for status in self.status_values
         }
-        self.show_zero_var = tk.BooleanVar(value=False)
+        self.show_zero_var = tk.BooleanVar(
+            value=bool(self.settings.get("show_zero", False))
+        )
         self.id_search_var = tk.StringVar(value="")
         self.job_sort_column: str | None = None
         self.job_sort_descending = False
@@ -173,14 +179,14 @@ class JobsViewer(tk.Tk):
                 filters,
                 text=status,
                 variable=self.status_filter_vars[status],
-                command=self.refresh_jobs,
+                command=self._filter_changed,
             ).grid(row=0, column=column_index, sticky="w", padx=(0, 4))
 
         ttk.Checkbutton(
             filters,
             text="Show zero",
             variable=self.show_zero_var,
-            command=self.refresh_jobs,
+            command=self._filter_changed,
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
 
         search_column = len(self.status_values) + 2
@@ -476,6 +482,41 @@ class JobsViewer(tk.Tk):
             if status not in db_values:
                 db_values.append(status)
         return tuple(db_values)
+
+    def _load_settings(self) -> dict[str, Any]:
+        try:
+            data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        if isinstance(data, dict):
+            return data
+        return {}
+
+    def _saved_status_filter_value(self, status: str) -> bool:
+        status_filters = self.settings.get("status_filters")
+        if isinstance(status_filters, dict) and status in status_filters:
+            return bool(status_filters[status])
+        return True
+
+    def _filter_changed(self) -> None:
+        self._save_settings()
+        self.refresh_jobs()
+
+    def _save_settings(self) -> None:
+        data = {
+            "status_filters": {
+                status: bool(variable.get())
+                for status, variable in self.status_filter_vars.items()
+            },
+            "show_zero": bool(self.show_zero_var.get()),
+        }
+        try:
+            SETTINGS_PATH.write_text(
+                json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        except OSError as error:
+            self.status_var.set(f"Settings save failed: {error}")
 
     def connect_writable(self) -> sqlite3.Connection:
         if not DB_PATH.exists():

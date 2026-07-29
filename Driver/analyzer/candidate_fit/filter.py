@@ -223,6 +223,14 @@ def split_match_values(value: object) -> list[str]:
     ]
 
 
+def split_alternative_values(value: object) -> list[str]:
+    return [
+        item.strip()
+        for item in re.split(r"[/|]+|\bor\b", normalized(value))
+        if item.strip()
+    ]
+
+
 def is_timezone_scope(value: object) -> bool:
     text = normalized(value)
     return any(marker in text for marker in TIMEZONE_MARKERS)
@@ -246,6 +254,15 @@ def programming_language_options(value: object) -> list[str]:
     if language and language not in result:
         result.append(language)
     return result
+
+
+def is_mixed_alternative_item(value: object) -> bool:
+    parts = split_alternative_values(value)
+    if len(parts) < 2:
+        return False
+
+    language_count = sum(1 for part in parts if canonical_programming_language(part))
+    return 0 < language_count < len(parts)
 
 
 def technology_requirement_type(row: Any) -> str:
@@ -285,6 +302,9 @@ def evaluate_required_programming_languages(
             continue
 
         name = row_value(row, "name", "technology")
+        if is_mixed_alternative_item(name):
+            continue
+
         options = programming_language_options(name)
         if not options:
             continue
