@@ -17,7 +17,8 @@ Run these operations in this exact order:
      not enter analyzed or scored JSON.
 
 2. Candidate fit
-   - Execute `analyzer/candidate_fit/evaluate.md` on the analyzed JSON.
+   - Run:
+     `codex exec --ephemeral --sandbox workspace-write --add-dir ../Data "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
    - Use a new blind agent that receives only:
      - `analyzer/candidate_fit/evaluate.md`;
      - the analyzed JSON;
