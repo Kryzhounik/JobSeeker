@@ -61,6 +61,17 @@ def table_exists(connection: sqlite3.Connection, table: str) -> bool:
     )
 
 
+def column_exists(
+    connection: sqlite3.Connection,
+    table: str,
+    column: str,
+) -> bool:
+    return any(
+        row[1] == column
+        for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    )
+
+
 def migration_already_effective(
     connection: sqlite3.Connection,
     version: str,
@@ -79,6 +90,12 @@ def migration_already_effective(
         return (
             "source_job_ref" in ddl
             and table_exists(connection, "source_jobs")
+        )
+    if version == "008_codex_reasoning_effort":
+        return column_exists(
+            connection,
+            "codex_invocations",
+            "reasoning_effort",
         )
     return False
 

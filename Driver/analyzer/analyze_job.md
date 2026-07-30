@@ -11,14 +11,17 @@ Output:
 Run these operations in this exact order:
 
 1. Job facts
-   - Execute `analyzer/job_facts/extract.md` on the readable vacancy.
+   - Run:
+     `python codex_proxy/run.py --run-id <run-id> --operation job_facts --target <readable-text> -- "Execute analyzer/job_facts/extract.md for <readable-text> with source <source> and source URL <source-url>. Process only that file and do not run candidate fit, job interest, or DB save."`
    - It writes factual JSON to `../Data/analyzed/<source>/`.
    - It may record its isolated experimental fit in SQLite, but that value must
      not enter analyzed or scored JSON.
+   - The proxy returns the normal final Codex message and exit code. It does
+     not implement job-facts logic; it only stores CLI usage metrics.
 
 2. Candidate fit
    - Run:
-     `python codex_proxy/run.py --run-id <run-id> --operation candidate_fit --target <analyzed-json> --model gpt-5.6-sol -- --ephemeral --sandbox workspace-write --add-dir ../Data "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
+     `python codex_proxy/run.py --run-id <run-id> --operation candidate_fit --target <analyzed-json> -- "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
    - Use a new blind agent that receives only:
      - `analyzer/candidate_fit/evaluate.md`;
      - the analyzed JSON;

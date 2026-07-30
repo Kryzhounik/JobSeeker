@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from configparser import ConfigParser
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -21,14 +22,7 @@ from common.paths import DATA_ROOT
 from db.migrate import migrate_database
 
 
-MODEL_RATES = {
-    "gpt-5.6-sol": (125.0, 12.5, 750.0),
-    "gpt-5.6-terra": (62.5, 6.25, 375.0),
-    "gpt-5.6-luna": (25.0, 2.5, 150.0),
-    "gpt-5.5": (125.0, 12.5, 750.0),
-    "gpt-5.4": (62.5, 6.25, 375.0),
-    "gpt-5.4-mini": (18.75, 1.875, 113.0),
-}
+CONFIG_PATH = Path(__file__).with_name("config.ini")
 USAGE_KEYS = (
     "input_tokens",
     "cached_input_tokens",
@@ -41,8 +35,48 @@ def now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
 
 
+def load_proxy_config() -> tuple[str, str, tuple[float, float, float], list[str]]:
+    config = ConfigParser()
+    if not config.read(CONFIG_PATH, encoding="utf-8"):
+        raise SystemExit(f"Missing Codex proxy config: {CONFIG_PATH}")
+
+    model = config.get("proxy", "model")
+    reasoning_effort = config.get("proxy", "reasoning_effort").strip()
+    if not reasoning_effort:
+        raise SystemExit("Missing Codex proxy reasoning_effort.")
+    section = f"model:{model}"
+    if not config.has_section(section):
+        raise SystemExit(f"Missing rate config for model: {model}")
+
+    rates = (
+        config.getfloat(section, "input_credit_rate"),
+        config.getfloat(section, "cached_input_credit_rate"),
+        config.getfloat(section, "output_credit_rate"),
+    )
+    if rates[0] <= 0 or rates[1] < 0 or rates[2] < 0:
+        raise SystemExit(f"Invalid rate config for model: {model}")
+
+    codex_args: list[str] = []
+    if config.getboolean("proxy", "ephemeral", fallback=True):
+        codex_args.append("--ephemeral")
+    codex_args.extend((
+        "--config",
+        f"model_reasoning_effort={json.dumps(reasoning_effort)}",
+    ))
+    sandbox = config.get("proxy", "sandbox", fallback="").strip()
+    if sandbox:
+        codex_args.extend(("--sandbox", sandbox))
+    for path in config.get("proxy", "add_dirs", fallback="").split(","):
+        if path := path.strip():
+            codex_args.extend(("--add-dir", path))
+    return model, reasoning_effort, rates, codex_args
+
+
 def save_metrics(
     args: argparse.Namespace,
+    model: str,
+    reasoning_effort: str,
+    rates: tuple[float, float, float],
     command: list[str],
     started_at: str,
     finished_at: str,
@@ -52,7 +86,7 @@ def save_metrics(
     usage: dict[str, int],
     errors: list[str],
 ) -> None:
-    input_rate, cached_rate, output_rate = MODEL_RATES[args.model]
+    input_rate, cached_rate, output_rate = rates
     uncached = usage["input_tokens"] - usage["cached_input_tokens"]
     weighted = (
         uncached
@@ -80,18 +114,20 @@ def save_metrics(
         connection.execute(
             """
             INSERT INTO codex_invocations (
-                run_id, operation, target, command, model, thread_id,
+                run_id, operation, target, command, model, reasoning_effort,
+                thread_id,
                 started_at, finished_at, duration_ms, exit_code, status,
                 input_tokens, cached_input_tokens, output_tokens,
                 reasoning_output_tokens, input_credit_rate,
                 cached_input_credit_rate, output_credit_rate,
                 weighted_tokens, estimated_credits, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                       ?, ?, ?)
             """,
             (
                 args.run_id, args.operation, args.target,
-                subprocess.list2cmdline(command), args.model, thread_id,
+                subprocess.list2cmdline(command), model, reasoning_effort,
+                thread_id,
                 started_at, finished_at, duration_ms, exit_code, status,
                 *(usage[key] for key in USAGE_KEYS),
                 input_rate, cached_rate, output_rate, weighted, credits,
@@ -137,10 +173,10 @@ def main() -> None:
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--operation", required=True)
     parser.add_argument("--target", default="")
-    parser.add_argument("--model", default="gpt-5.6-sol", choices=MODEL_RATES)
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("codex_args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
+    model, reasoning_effort, rates, configured_args = load_proxy_config()
     codex_args = args.codex_args[1:] if args.codex_args[:1] == ["--"] else args.codex_args
     if not codex_args:
         raise SystemExit("Pass Codex exec arguments after --.")
@@ -148,7 +184,10 @@ def main() -> None:
     executable = shutil.which("codex.cmd") or shutil.which("codex")
     if not executable:
         raise SystemExit("Codex CLI was not found on PATH.")
-    command = [executable, "exec", "--json", "--model", args.model, *codex_args]
+    command = [
+        executable, "exec", "--json", "--model", model,
+        *configured_args, *codex_args,
+    ]
     usage = dict.fromkeys(USAGE_KEYS, 0)
     started_at = now()
     started = time.monotonic()
@@ -190,7 +229,7 @@ def main() -> None:
     exit_code = process.wait()
     finished_at = now()
     save_metrics(
-        args, command, started_at, finished_at,
+        args, model, reasoning_effort, rates, command, started_at, finished_at,
         round((time.monotonic() - started) * 1000),
         exit_code, thread_id, usage, errors,
     )

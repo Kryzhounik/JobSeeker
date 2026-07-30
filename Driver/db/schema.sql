@@ -196,6 +196,7 @@ CREATE TABLE IF NOT EXISTS codex_invocations (
     target TEXT NOT NULL DEFAULT '',
     command TEXT NOT NULL,
     model TEXT NOT NULL,
+    reasoning_effort TEXT NOT NULL DEFAULT 'unknown',
     thread_id TEXT NOT NULL DEFAULT '',
     started_at TEXT NOT NULL,
     finished_at TEXT NOT NULL,
