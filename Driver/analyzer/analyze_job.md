@@ -18,7 +18,7 @@ Run these operations in this exact order:
 
 2. Candidate fit
    - Run:
-     `codex exec --ephemeral --sandbox workspace-write --add-dir ../Data "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
+     `python codex_proxy/run.py --run-id <run-id> --operation candidate_fit --target <analyzed-json> --model gpt-5.6-sol -- --ephemeral --sandbox workspace-write --add-dir ../Data "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
    - Use a new blind agent that receives only:
      - `analyzer/candidate_fit/evaluate.md`;
      - the analyzed JSON;
@@ -26,6 +26,8 @@ Run these operations in this exact order:
    - Do not pass readable-text context, the job-facts agent's reasoning, an
      experimental fit, an existing scored JSON, or an existing database score.
    - This operation writes the scored JSON under `../Data/scored/<source>/`.
+   - The proxy returns the normal final Codex message and exit code. It does
+     not implement candidate-fit logic; it only stores CLI usage metrics.
 
 3. Job interest
    - Run:

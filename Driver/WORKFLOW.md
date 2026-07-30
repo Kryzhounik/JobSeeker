@@ -59,6 +59,10 @@ read LinkedIn collector settings
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.
 
+Every public command also creates one `run_id` before its first stage and passes
+that same value to every metered Codex CLI operation in the run. Use a readable
+unique value such as `20260730T120000Z-batch-linkedin`.
+
 If source, run scope, or target stage is ambiguous, stop and ask before running.
 Do not guess source, pick an arbitrary file, or choose a later pipeline stage by
 yourself.
