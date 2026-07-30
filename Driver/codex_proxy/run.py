@@ -1,15 +1,9 @@
-"""Transparent Codex CLI proxy with SQLite usage metrics."""
+"""Run one metered Codex operation through the selected backend."""
 
 from __future__ import annotations
 
 import argparse
-from configparser import ConfigParser
-from datetime import datetime, timezone
-import json
 from pathlib import Path
-import shutil
-import sqlite3
-import subprocess
 import sys
 import time
 
@@ -19,153 +13,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.migrate import migrate_database
-
-
-CONFIG_PATH = Path(__file__).with_name("config.ini")
-USAGE_KEYS = (
-    "input_tokens",
-    "cached_input_tokens",
-    "output_tokens",
-    "reasoning_output_tokens",
-)
-
-
-def now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="milliseconds")
-
-
-def load_proxy_config() -> tuple[str, str, tuple[float, float, float], list[str]]:
-    config = ConfigParser()
-    if not config.read(CONFIG_PATH, encoding="utf-8"):
-        raise SystemExit(f"Missing Codex proxy config: {CONFIG_PATH}")
-
-    model = config.get("proxy", "model")
-    reasoning_effort = config.get("proxy", "reasoning_effort").strip()
-    if not reasoning_effort:
-        raise SystemExit("Missing Codex proxy reasoning_effort.")
-    section = f"model:{model}"
-    if not config.has_section(section):
-        raise SystemExit(f"Missing rate config for model: {model}")
-
-    rates = (
-        config.getfloat(section, "input_credit_rate"),
-        config.getfloat(section, "cached_input_credit_rate"),
-        config.getfloat(section, "output_credit_rate"),
-    )
-    if rates[0] <= 0 or rates[1] < 0 or rates[2] < 0:
-        raise SystemExit(f"Invalid rate config for model: {model}")
-
-    codex_args: list[str] = []
-    if config.getboolean("proxy", "ephemeral", fallback=True):
-        codex_args.append("--ephemeral")
-    codex_args.extend((
-        "--config",
-        f"model_reasoning_effort={json.dumps(reasoning_effort)}",
-    ))
-    sandbox = config.get("proxy", "sandbox", fallback="").strip()
-    if sandbox:
-        codex_args.extend(("--sandbox", sandbox))
-    for path in config.get("proxy", "add_dirs", fallback="").split(","):
-        if path := path.strip():
-            codex_args.extend(("--add-dir", path))
-    return model, reasoning_effort, rates, codex_args
-
-
-def save_metrics(
-    args: argparse.Namespace,
-    model: str,
-    reasoning_effort: str,
-    rates: tuple[float, float, float],
-    command: list[str],
-    started_at: str,
-    finished_at: str,
-    duration_ms: int,
-    exit_code: int,
-    thread_id: str,
-    usage: dict[str, int],
-    errors: list[str],
-) -> None:
-    input_rate, cached_rate, output_rate = rates
-    uncached = usage["input_tokens"] - usage["cached_input_tokens"]
-    weighted = (
-        uncached
-        + usage["cached_input_tokens"] * cached_rate / input_rate
-        + usage["output_tokens"] * output_rate / input_rate
-    )
-    credits = (
-        uncached * input_rate
-        + usage["cached_input_tokens"] * cached_rate
-        + usage["output_tokens"] * output_rate
-    ) / 1_000_000
-    status = "success" if exit_code == 0 else "failed"
-    db_path = Path(args.db)
-    migrate_database(db_path)
-
-    with sqlite3.connect(db_path) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute(
-            """
-            INSERT OR IGNORE INTO codex_runs (run_id, started_at, finished_at)
-            VALUES (?, ?, ?)
-            """,
-            (args.run_id, started_at, finished_at),
-        )
-        connection.execute(
-            """
-            INSERT INTO codex_invocations (
-                run_id, operation, target, command, model, reasoning_effort,
-                thread_id,
-                started_at, finished_at, duration_ms, exit_code, status,
-                input_tokens, cached_input_tokens, output_tokens,
-                reasoning_output_tokens, input_credit_rate,
-                cached_input_credit_rate, output_credit_rate,
-                weighted_tokens, estimated_credits, error_message
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-                      ?, ?, ?)
-            """,
-            (
-                args.run_id, args.operation, args.target,
-                subprocess.list2cmdline(command), model, reasoning_effort,
-                thread_id,
-                started_at, finished_at, duration_ms, exit_code, status,
-                *(usage[key] for key in USAGE_KEYS),
-                input_rate, cached_rate, output_rate, weighted, credits,
-                "\n".join(errors),
-            ),
-        )
-        stats = connection.execute(
-            """
-            SELECT
-                count(*), sum(status = 'success'), sum(status = 'failed'),
-                sum(input_tokens), avg(input_tokens),
-                sum(cached_input_tokens), avg(cached_input_tokens),
-                sum(output_tokens), avg(output_tokens),
-                sum(reasoning_output_tokens), avg(reasoning_output_tokens),
-                sum(weighted_tokens), avg(weighted_tokens),
-                sum(estimated_credits), avg(estimated_credits)
-            FROM codex_invocations
-            WHERE run_id = ?
-            """,
-            (args.run_id,),
-        ).fetchone()
-        connection.execute(
-            """
-            UPDATE codex_runs SET
-                finished_at = ?,
-                invocation_count = ?, success_count = ?, failure_count = ?,
-                input_tokens_sum = ?, input_tokens_avg = ?,
-                cached_input_tokens_sum = ?, cached_input_tokens_avg = ?,
-                output_tokens_sum = ?, output_tokens_avg = ?,
-                reasoning_output_tokens_sum = ?,
-                reasoning_output_tokens_avg = ?,
-                weighted_tokens_sum = ?, weighted_tokens_avg = ?,
-                estimated_credits_sum = ?, estimated_credits_avg = ?
-            WHERE run_id = ?
-            """,
-            (finished_at, *stats, args.run_id),
-        )
-        connection.commit()
+from codex_proxy import codex_cli as codex_backend
+from codex_proxy import metrics
+from codex_proxy.settings import load
 
 
 def main() -> None:
@@ -176,66 +26,42 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("codex_args", nargs=argparse.REMAINDER)
     args = parser.parse_args()
-    model, reasoning_effort, rates, configured_args = load_proxy_config()
-    codex_args = args.codex_args[1:] if args.codex_args[:1] == ["--"] else args.codex_args
-    if not codex_args:
-        raise SystemExit("Pass Codex exec arguments after --.")
 
-    executable = shutil.which("codex.cmd") or shutil.which("codex")
-    if not executable:
-        raise SystemExit("Codex CLI was not found on PATH.")
-    command = [
-        executable, "exec", "--json", "--model", model,
-        *configured_args, *codex_args,
-    ]
-    usage = dict.fromkeys(USAGE_KEYS, 0)
-    started_at = now()
+    prompt_parts = (
+        args.codex_args[1:]
+        if args.codex_args[:1] == ["--"]
+        else args.codex_args
+    )
+    if not prompt_parts:
+        raise SystemExit("Pass the Codex prompt after --.")
+
+    settings = load()
+    started_at = metrics.now()
     started = time.monotonic()
-    thread_id = ""
-    final_message = ""
-    errors: list[str] = []
-
-    process = subprocess.Popen(
-        command,
+    result = codex_backend.call(
+        config=settings.config,
+        prompt=" ".join(prompt_parts),
+        model=settings.model,
+        reasoning_effort=settings.reasoning_effort,
         cwd=ROOT,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=None,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
     )
-    assert process.stdout is not None
-    for line in process.stdout:
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            errors.append(line.strip())
-            continue
-
-        event_type = event.get("type")
-        if event_type == "thread.started":
-            thread_id = str(event.get("thread_id") or "")
-        elif event_type == "turn.completed":
-            values = event.get("usage") or {}
-            usage = {key: int(values.get(key) or 0) for key in USAGE_KEYS}
-        elif event_type == "item.completed":
-            item = event.get("item") or {}
-            if item.get("type") == "agent_message":
-                final_message = str(item.get("text") or "")
-        elif event_type in {"turn.failed", "error"}:
-            errors.append(json.dumps(event, ensure_ascii=False))
-
-    exit_code = process.wait()
-    finished_at = now()
-    save_metrics(
-        args, model, reasoning_effort, rates, command, started_at, finished_at,
-        round((time.monotonic() - started) * 1000),
-        exit_code, thread_id, usage, errors,
+    finished_at = metrics.now()
+    metrics.save(
+        db_path=Path(args.db),
+        run_id=args.run_id,
+        operation=args.operation,
+        target=args.target,
+        model=settings.model,
+        reasoning_effort=settings.reasoning_effort,
+        rates=settings.rates,
+        started_at=started_at,
+        finished_at=finished_at,
+        duration_ms=round((time.monotonic() - started) * 1000),
+        result=result,
     )
-    if final_message:
-        print(final_message)
-    raise SystemExit(exit_code)
+    if result.final_message:
+        print(result.final_message)
+    raise SystemExit(result.exit_code)
 
 
 if __name__ == "__main__":

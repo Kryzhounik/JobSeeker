@@ -10,6 +10,8 @@ Each stage owns its own rules in its own files.
 Run driver commands from this `Driver` folder unless a command says
 otherwise.
 
+- Install runtime dependencies with
+  `python -m pip install -r requirements.txt`.
 - Project root: parent folder of `Driver`.
 - Data root: `../Data`.
 - GUI root: `../GUI`.
@@ -19,7 +21,7 @@ otherwise.
 ```text
 collector/source adapter
 -> readable vacancy text (raw HTML remains persisted)
--> analyzer/analyze_job.md
+-> analyzer/analyze_job.md (executed by the current Desktop agent)
    -> analyzer/job_facts/extract.md
    -> analyzer/candidate_fit/evaluate.md
    -> analyzer/job_interest/calculate.py
@@ -92,7 +94,7 @@ pipeline for each file:
 ```text
 for each raw HTML file in the explicit scope:
     source adapter prepares readable vacancy text
-    -> analyzer/analyze_job.md
+    -> analyzer/analyze_job.md (executed by the current Desktop agent)
        -> job facts
        -> candidate fit
        -> job interest
@@ -120,6 +122,12 @@ scope.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
+- The current Desktop agent executes `analyzer/analyze_job.md` as the
+  top-level analysis orchestrator. Do not run this orchestrator through
+  `codex_proxy/run.py`.
+- Inside that orchestrator, agent operations use `codex_proxy/run.py`.
+  The proxy owns their Codex transport boundary and does not contain analyzer
+  logic.
 - `analyzer/candidate_fit/filter.py` is only the fast rejection gate. A passed
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in

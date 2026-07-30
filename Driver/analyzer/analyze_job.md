@@ -17,7 +17,7 @@ Run these operations in this exact order:
    - It may record its isolated experimental fit in SQLite, but that value must
      not enter analyzed or scored JSON.
    - The proxy returns the normal final Codex message and exit code. It does
-     not implement job-facts logic; it only stores CLI usage metrics.
+     not implement job-facts logic; it only stores Codex usage metrics.
 
 2. Candidate fit
    - Run:
@@ -30,7 +30,7 @@ Run these operations in this exact order:
      experimental fit, an existing scored JSON, or an existing database score.
    - This operation writes the scored JSON under `../Data/scored/<source>/`.
    - The proxy returns the normal final Codex message and exit code. It does
-     not implement candidate-fit logic; it only stores CLI usage metrics.
+     not implement candidate-fit logic; it only stores Codex usage metrics.
 
 3. Job interest
    - Run:
