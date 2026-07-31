@@ -17,13 +17,6 @@ class Settings(NamedTuple):
     rates: tuple[float, float, float]
 
 
-class OperationSettings(NamedTuple):
-    instruction: Path
-    output_schema: Path
-    contexts: tuple[Path, ...]
-    merge_input: bool
-
-
 def load() -> Settings:
     config = ConfigParser()
     if not config.read(CONFIG_PATH, encoding="utf-8"):
@@ -45,29 +38,3 @@ def load() -> Settings:
     if rates[0] <= 0 or rates[1] < 0 or rates[2] < 0:
         raise RuntimeError(f"Invalid rate config for model: {model}")
     return Settings(config, model, reasoning_effort, rates)
-
-
-def load_operation(config: ConfigParser, name: str) -> OperationSettings:
-    section = f"operation:{name}"
-    if not config.has_section(section):
-        raise RuntimeError(f"Unknown Codex operation: {name}")
-
-    root = CONFIG_PATH.parent.parent
-
-    def project_path(key: str) -> Path:
-        value = config.get(section, key).strip()
-        if not value:
-            raise RuntimeError(f"Missing {section}.{key}")
-        return (root / value).resolve()
-
-    contexts = tuple(
-        (root / value.strip()).resolve()
-        for value in config.get(section, "contexts", fallback="").split(",")
-        if value.strip()
-    )
-    return OperationSettings(
-        instruction=project_path("instruction"),
-        output_schema=project_path("output_schema"),
-        contexts=contexts,
-        merge_input=config.getboolean(section, "merge_input", fallback=False),
-    )

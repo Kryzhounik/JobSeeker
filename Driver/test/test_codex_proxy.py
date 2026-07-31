@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from contextlib import closing
 from pathlib import Path
 import sqlite3
@@ -14,9 +13,9 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from codex_proxy.backend import Result
+from codex_proxy.metrics_proxy import cli_prompt
 from codex_proxy.metrics import save
 from codex_proxy.output_schema import codex_schema
-from codex_proxy.run import write_result
 
 
 class CodexProxyTest(unittest.TestCase):
@@ -28,30 +27,21 @@ class CodexProxyTest(unittest.TestCase):
         self.assertNotIn("allOf", schema)
         self.assertNotIn("not", schema["properties"]["salary"])
 
-    def test_candidate_fit_result_is_merged_into_facts(self) -> None:
+    def test_cli_prompt_materializes_only_explicit_operation_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            input_path = root / "analyzed.json"
-            output_path = root / "scored.json"
-            input_path.write_text(
-                json.dumps({"title": "Backend Engineer", "company": "Example"}),
-                encoding="utf-8",
-            )
+            instruction = root / "instruction.md"
+            input_path = root / "input.json"
+            context = root / "context.ini"
+            instruction.write_text("FIT RULES", encoding="utf-8")
+            input_path.write_text('{"title":"Backend"}', encoding="utf-8")
+            context.write_text("CANDIDATE PROFILE", encoding="utf-8")
 
-            write_result(
-                json.dumps({
-                    "candidate_fit_percent": 75,
-                    "candidate_fit_reason_code": "ok",
-                    "candidate_fit_reason": "good required-stack coverage",
-                }),
-                input_path,
-                output_path,
-                merge_input=True,
-            )
+            prompt = cli_prompt(instruction, input_path, (context,))
 
-            result = json.loads(output_path.read_text(encoding="utf-8"))
-            self.assertEqual(result["title"], "Backend Engineer")
-            self.assertEqual(result["candidate_fit_percent"], 75)
+            self.assertIn("FIT RULES", prompt)
+            self.assertIn('{"title":"Backend"}', prompt)
+            self.assertIn("CANDIDATE PROFILE", prompt)
 
     def test_metrics_are_aggregated_by_operation_inside_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

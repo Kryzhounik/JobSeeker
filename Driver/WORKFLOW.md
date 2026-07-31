@@ -121,11 +121,14 @@ scope.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
 - The current Desktop agent executes `analyzer/analyze_job.md` as the
-  top-level analysis orchestrator. Its isolated semantic operations run
-  through `codex_proxy/run.py`.
-- Inside that orchestrator, agent operations use `codex_proxy/run.py`.
-  The proxy owns their Codex transport boundary and does not contain analyzer
-  logic.
+  top-level analysis orchestrator.
+- Every agent operation inside that orchestrator must use
+  `agent_execution.md`. Its `Execution mode` is the single switch between
+  direct Desktop execution and the metered Codex CLI proxy.
+- `codex_proxy/metrics_proxy.py` is a CLI transport only. It may package the
+  explicitly supplied operation files and record metrics, but it must not
+  choose operations, process their business results, or persist analyzed or
+  scored JSON.
 - `analyzer/candidate_fit/filter.py` is only the fast rejection gate. A passed
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
