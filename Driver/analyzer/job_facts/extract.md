@@ -92,6 +92,13 @@ Technology requirements:
   - Generic workflow, collaboration, delivery, or tooling mentions are usually
     supporting requirements unless the vacancy explicitly makes ownership or
     deep expertise in that area a must-have.
+  - Do not turn broad personality traits, generic engineering virtues, or
+    process slogans into separate technology rows. They are not stack
+    requirements. If the vacancy makes them materially relevant, keep them in
+    `notes` or combine them into one supporting low-importance capability.
+  - Do not create many separate rows from a list of generic practices. Multiple
+    supporting practices must not outnumber or obscure the role-defining stack
+    and explicit must-have requirements.
 - level_rank:
   - 1: nice to have / optional / will be a plus.
   - 2: junior, basic, beginner, or required/listed/mentioned without depth.

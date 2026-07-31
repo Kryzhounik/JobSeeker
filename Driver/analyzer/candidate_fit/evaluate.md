@@ -75,6 +75,15 @@ Semantic candidate-fit agent stage:
 - Base the score primarily on core and required requirements. Consider
   important, desired, and nice-to-have items according to their declared
   importance. Do not silently ignore missing core or required items.
+- Compute the core/required coverage first and treat it as the primary base.
+  Important, desired, nice-to-have, generic process, and soft-skill rows are
+  secondary evidence. They may refine a score after the core/required base is
+  clear, but they must not dilute missing role-defining technologies by adding
+  many easy positive rows.
+- If role-defining technologies are missing, keep those missing core rows
+  dominant in the calculation. Do not let a long list of generic practices,
+  personal traits, or ordinary workflow skills make the vacancy look like a
+  moderate fit.
 - Use approximate per-requirement coverage:
   - 1.0: direct strong match at the required level.
   - 0.75: direct match with a small level/context gap.
@@ -116,7 +125,9 @@ Mandatory scoring procedure:
   - candidate evidence
   - coverage: 1.0, 0.75, 0.5, 0.25-0.35, or 0.0
 - Missing core and required items must stay in the denominator as 0.0.
-- Compute the base score as weighted average coverage * 100.
+- Compute the primary base score from core and required rows first. Then account
+  for important/desired/nice-to-have rows as secondary adjustments or evidence,
+  not as a large parallel denominator that can wash out missing core rows.
 - Nice-to-have items may add at most 5 points total and never compensate for
   missing core required items.
 - The final score may not exceed the base score by more than 5 points unless
