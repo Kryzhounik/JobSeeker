@@ -78,6 +78,20 @@ Technology requirements:
   - 4, desired: preferred and useful, but the vacancy remains realistic without
     it.
   - 5, nice_to_have: explicitly optional, bonus, plus, or nice to have.
+- Do not mark every visible technology as `core` or `required`.
+  - Use `core` only for the role-defining stack, platform, domain, or capability:
+    the thing the vacancy is fundamentally about.
+  - Use `required` for explicit must-have requirements that are not themselves
+    the defining core of the role.
+  - Use `important` for supporting skills, tools, platforms, or practices that
+    materially affect daily work but are not stated or implied as strict gates.
+  - Decide importance from the requirement's role in this vacancy, not from the
+    technology name. A technology is not automatically core/required just
+    because it is named; it is core/required only when the job would stop being
+    the same job, or the candidate would be rejected, without it.
+  - Generic workflow, collaboration, delivery, or tooling mentions are usually
+    supporting requirements unless the vacancy explicitly makes ownership or
+    deep expertise in that area a must-have.
 - level_rank:
   - 1: nice to have / optional / will be a plus.
   - 2: junior, basic, beginner, or required/listed/mentioned without depth.
@@ -95,6 +109,13 @@ Technology requirements:
   `Python / Scala / SQL`, keep the original sentence in `raw_value`, and let
   candidate-fit evaluation choose the best matching alternative. Split into
   separate rows only when the vacancy requires each item independently.
+- Use `/` only for true OR alternatives. Do not use slash for AND requirements,
+  bundled skill groups, capability names, examples, or concepts that must be
+  covered together.
+- Split AND requirements into separate technology rows when each part is a
+  distinct skill or technology that should stay in the candidate-fit
+  denominator. Use one capability row only when the text describes one
+  indivisible capability rather than independently required parts.
 - Do not expand example tool lists into many required rows when the real
   requirement is a capability. For example, `CI/CD pipelines using AWS
   CodePipeline, CodeBuild, and CodeDeploy` should usually be one required

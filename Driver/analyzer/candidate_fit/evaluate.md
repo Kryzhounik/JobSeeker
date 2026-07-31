@@ -100,6 +100,11 @@ Semantic candidate-fit agent stage:
   `Python / Scala / SQL`, keep it as one coverage-table row and score the best
   matching option. Do not split that single requirement into several missing
   denominator rows.
+- Treat `/` as OR only when `raw_value` clearly says one option is enough, for
+  example `or`, `one of`, `any of`, or `such as` in an alternatives context. If
+  a slash-separated name represents an AND skill group or independently
+  required parts, do not use best-option coverage; treat this as analyzer
+  extraction ambiguity and keep the missing parts in the denominator.
 
 Mandatory scoring procedure:
 - Before choosing `candidate_fit_percent`, build a coverage table.
