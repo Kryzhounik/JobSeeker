@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import sqlite3
 import sys
 from pathlib import Path
@@ -150,7 +151,7 @@ def migrate_database(
     db_path.parent.mkdir(parents=True, exist_ok=True)
     messages: list[str] = []
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         schema_changed = False
         registry_migrated = False

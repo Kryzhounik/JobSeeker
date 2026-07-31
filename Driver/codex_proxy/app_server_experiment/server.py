@@ -1,4 +1,4 @@
-"""Lifecycle commands for Seeker's shared Codex App Server."""
+"""Lifecycle commands for the archived shared Codex App Server experiment."""
 
 from __future__ import annotations
 

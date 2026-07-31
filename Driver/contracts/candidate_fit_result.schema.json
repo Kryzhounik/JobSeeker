@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/candidate_fit_result.schema.json",
+  "title": "Candidate-fit agent result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "candidate_fit_percent",
+    "candidate_fit_reason_code",
+    "candidate_fit_reason"
+  ],
+  "properties": {
+    "candidate_fit_percent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "candidate_fit_reason_code": {
+      "type": "string",
+      "enum": ["ok", "role_mismatch", "skill_mismatch"]
+    },
+    "candidate_fit_reason": {
+      "type": "string"
+    }
+  }
+}

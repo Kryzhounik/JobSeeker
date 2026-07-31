@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 import sqlite3
@@ -55,7 +56,7 @@ def save(
     status = "success" if result.exit_code == 0 else "failed"
 
     migrate_database(db_path)
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute(
             """
@@ -130,5 +131,34 @@ def save(
             WHERE run_id = ?
             """,
             (finished_at, *stats, run_id),
+        )
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO codex_run_operations (
+                run_id, operation, started_at, finished_at,
+                invocation_count, success_count, failure_count,
+                duration_ms_sum, duration_ms_avg,
+                input_tokens_sum, input_tokens_avg,
+                cached_input_tokens_sum, cached_input_tokens_avg,
+                output_tokens_sum, output_tokens_avg,
+                reasoning_output_tokens_sum, reasoning_output_tokens_avg,
+                weighted_tokens_sum, weighted_tokens_avg,
+                estimated_credits_sum, estimated_credits_avg
+            )
+            SELECT
+                run_id, operation, min(started_at), max(finished_at),
+                count(*), sum(status = 'success'), sum(status = 'failed'),
+                sum(duration_ms), avg(duration_ms),
+                sum(input_tokens), avg(input_tokens),
+                sum(cached_input_tokens), avg(cached_input_tokens),
+                sum(output_tokens), avg(output_tokens),
+                sum(reasoning_output_tokens), avg(reasoning_output_tokens),
+                sum(weighted_tokens), avg(weighted_tokens),
+                sum(estimated_credits), avg(estimated_credits)
+            FROM codex_invocations
+            WHERE run_id = ? AND operation = ?
+            GROUP BY run_id, operation
+            """,
+            (run_id, operation),
         )
         connection.commit()

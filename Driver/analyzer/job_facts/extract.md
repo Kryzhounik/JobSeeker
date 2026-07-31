@@ -1,5 +1,4 @@
-Purpose: extract structured vacancy facts from one readable vacancy and
-independently record the analyzer's experimental fit.
+Purpose: extract structured vacancy facts from one readable vacancy.
 
 Task: perform only the job-facts operation for one saved readable vacancy.
 
@@ -8,19 +7,12 @@ Job-facts call:
   available.
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
-- Produce one analyzed JSON file under `../Data/analyzed/<source>/`.
-- The analyzed JSON contains vacancy facts only. Never put the experimental
-  analyzer fit, official candidate fit, or job interest into it.
-- After the analyzed JSON is written successfully, record the completed stage:
-  `python db/job_registry.py ANALYZED --source <source> --job-id <json-file-stem>`.
-  If analysis fails, leave the registry at `CLEANED`.
-- While the complete readable vacancy is still in context, read
-  `analyzer/config/resume.ini` and independently estimate how well
-  the candidate fits the vacancy from 0 to 100. This is an experimental
-  analyzer-owned score, not the official candidate-fit result. Store it only
-  with:
-  `python db/experimental_analyzer_fit.py --source <source> --url <source_url> --fit <0-100>`.
-  Do not expose this score to the later candidate-fit evaluator.
+- Return one analyzed JSON object matching
+  `contracts/job_analysis.schema.json`.
+- The analyzed JSON contains vacancy facts only. Never put candidate fit or
+  job interest into it.
+- Do not write files or update the database. The analyzer orchestrator owns
+  output persistence and lifecycle updates after this operation succeeds.
 - Direct URLs from the user must first be saved as raw HTML by the collection
   side, converted to readable text, then analyzed through this same call.
 
@@ -158,5 +150,4 @@ Default behavior:
 - Do not invent company facts, salary, or benefits that are not visible.
 - Use unknown for unclear factual fields.
 - Keep text concise and single-line where possible.
-- Do not assign official candidate fit or job interest here. The analyzer's
-  experimental fit is stored separately and must never enter analyzed JSON.
+- Do not assign candidate fit or job interest here.

@@ -24,7 +24,6 @@ from db.migrate import migrate_database
 JOB_COLUMNS = (
     ("score", "Score", 56, "center"),
     ("fit", "Fit", 48, "center"),
-    ("analyzer_fit", "A-Fit", 56, "center"),
     ("interest", "Interest", 72, "center"),
     ("status", "Status", 72, "center"),
     ("remote_scope", "Remote", 92, "w"),
@@ -46,7 +45,6 @@ DETAIL_FIELDS = (
     ("source_job_id", "Source ID"),
     ("score", "Score"),
     ("fit", "Fit"),
-    ("analyzer_fit", "Analyzer fit"),
     ("interest", "Interest"),
     ("status", "Status"),
     ("role", "Role"),
@@ -68,7 +66,7 @@ TECH_COLUMNS = (
 )
 
 SCORE_EDIT_FIELDS = {"fit", "interest"}
-JOB_NUMERIC_COLUMNS = {"score", "fit", "analyzer_fit", "interest"}
+JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
 DEFAULT_STATUS_VALUES = ("New", "Checked", "Postponed", "Applied", "Closed")
 READONLY_FIELD_COLORS = {
@@ -621,7 +619,6 @@ class JobsViewer(tk.Tk):
                     SELECT
                         score,
                         fit,
-                        analyzer_fit,
                         interest,
                         status,
                         remote_scope,
@@ -687,7 +684,6 @@ class JobsViewer(tk.Tk):
                     j.salary,
                     j.job_interest AS interest,
                     j.candidate_fit_percent AS fit,
-                    eaf.analyzer_fit_percent AS analyzer_fit,
                     CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER)
                         AS score,
                     j.source_url,
@@ -695,8 +691,6 @@ class JobsViewer(tk.Tk):
                     j.added_at
                 FROM jobs j
                 JOIN source_jobs sj ON sj.id = j.source_job_ref
-                LEFT JOIN experimental_analyzer_fits eaf
-                    ON eaf.source_job_ref = j.source_job_ref
                 WHERE j.source_url = ?
                 """,
                 (source_url,),

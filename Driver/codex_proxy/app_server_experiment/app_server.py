@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from codex_proxy.backend import Result
-from codex_proxy.json_rpc import JsonRpcConnection
+from codex_proxy.app_server_experiment.json_rpc import JsonRpcConnection
 
 
 USAGE_FIELDS = {

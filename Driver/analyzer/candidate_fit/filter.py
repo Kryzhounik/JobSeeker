@@ -6,8 +6,10 @@ rules from config/resume. Deeper resume matching belongs in evaluate.md/Codex.
 
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 import configparser
+import json
 from pathlib import Path
 import re
 import sys
@@ -543,6 +545,41 @@ def filter_job_json(
     )
 
 
+def filter_json_file(input_path: Path, output_path: Path) -> FilterResult:
+    record = json.loads(input_path.read_text(encoding="utf-8"))
+    if not isinstance(record, dict):
+        raise ValueError(f"{input_path} does not contain a JSON object")
+
+    result = filter_job_json(record)
+    if not result.passed:
+        record.update(
+            candidate_fit_percent=result.candidate_fit_percent,
+            candidate_fit_reason_code=result.reason_code,
+            candidate_fit_reason=result.reason,
+        )
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(
+            json.dumps(record, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run the fast candidate-fit filter.")
+    parser.add_argument("--input", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+
+    result = filter_json_file(Path(args.input), Path(args.output))
+    print(json.dumps({
+        "passed": result.passed,
+        "candidate_fit_percent": result.candidate_fit_percent,
+        "candidate_fit_reason_code": result.reason_code,
+        "candidate_fit_reason": result.reason,
+    }, ensure_ascii=False))
+
+
 def row_value(row: Any, *names: str) -> Any:
     for name in names:
         if isinstance(row, dict) and name in row:
@@ -555,3 +592,7 @@ def row_value(row: Any, *names: str) -> Any:
         if value is not None:
             return value
     return None
+
+
+if __name__ == "__main__":
+    main()

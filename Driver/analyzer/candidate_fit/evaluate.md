@@ -3,38 +3,38 @@ the candidate fits the vacancy; vacancy attractiveness lives elsewhere.
 
 Task: calculate candidate-fit/filter result.
 
-The candidate-fit process calculates how well the vacancy fits the candidate.
-It reads an analyzed JSON produced by `analyzer/job_facts/extract.md` and
-writes a scored JSON file with `candidate_fit_percent`,
-`candidate_fit_reason_code`, and `candidate_fit_reason`.
+The semantic candidate-fit operation calculates how well the vacancy fits the
+candidate after the deterministic filter has passed. It reads an analyzed JSON
+produced by `analyzer/job_facts/extract.md` and returns exactly
+`candidate_fit_percent`, `candidate_fit_reason_code`, and
+`candidate_fit_reason`.
 
 Input/output contract:
 - Input: one analyzed JSON file from `../Data/analyzed/<source>/`.
-- For a directory/run scope, process every JSON file in that explicit scope.
-- Output: write the scored JSON file to `../Data/scored/<source>/`.
-- Keep the same file name. For example:
-  `../Data/analyzed/linkedin/4439016192.json` becomes
-  `../Data/scored/linkedin/4439016192.json`.
-- Do not put scoring fields into `../Data/analyzed/<source>/` in the main
-  workflow.
+- Output: return one object matching
+  `contracts/candidate_fit_result.schema.json`.
+- Do not write files, run the deterministic filter, or update the database.
+  The analyzer orchestrator runs the filter before this operation and merges
+  this result into the scored JSON after this operation succeeds.
 
-Runtime switches live in `analyzer/candidate_fit/config/filter.ini`.
-Candidate facts live in `analyzer/config/resume.ini`.
+The deterministic caller reads runtime switches from
+`analyzer/candidate_fit/config/filter.ini`. Candidate facts for this semantic
+operation live in `analyzer/config/resume.ini`.
 
 Evaluation isolation:
-- Do not read `experimental_analyzer_fits`, query existing scores from SQLite,
-  inspect an existing scored JSON, or receive the analyzer's experimental fit.
+- Do not query existing scores from SQLite or inspect an existing scored JSON.
 - The vacancy input is the analyzed JSON only. Run this stage as a separate
   blind agent without inherited analyzer output beyond that JSON.
 
 Current stage: fast deterministic filtering plus mandatory agent
 candidate-fit scoring for all jobs that pass the fast filter.
 
-Before agent evaluation:
-- Always run the fast deterministic filter first with
-  `filter.py::filter_job_json(job_json)`.
-- If the fast filter returns `candidate_fit_percent = 0`, stop the agent-stage
-  evaluation, write `candidate_fit_percent = 0` and
+Before agent evaluation, the analyzer orchestrator must:
+- Run the fast deterministic filter first with
+  `filter.py::filter_job_json(job_json)`. The isolated semantic operation is
+  invoked only after that filter passes.
+- If the fast filter returns `candidate_fit_percent = 0`, do not invoke this
+  semantic operation; write `candidate_fit_percent = 0` and
   `candidate_fit_reason_code = <filter reason code>` and
   `candidate_fit_reason = <filter reason>` into the scored JSON file.
 - Do not spend agent analysis on vacancies already rejected by simple hard
@@ -48,8 +48,8 @@ Before agent evaluation:
 
 Semantic candidate-fit agent stage:
 - Return the final `candidate_fit_percent` from 0 to 100.
-- Write `candidate_fit_percent`, `candidate_fit_reason_code`, and
-  `candidate_fit_reason` into the scored JSON file.
+- Return `candidate_fit_percent`, `candidate_fit_reason_code`, and
+  `candidate_fit_reason`; the caller writes them into scored JSON.
 - Calculate `candidate_fit_percent` first. Assign
   `candidate_fit_reason_code` only after the numeric score is final.
 - A reason code classifies the result; it must never change, override, or reset

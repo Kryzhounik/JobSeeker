@@ -12,25 +12,28 @@ Run these operations in this exact order:
 
 1. Job facts
    - Run:
-     `python codex_proxy/run.py --run-id <run-id> --operation job_facts --target <readable-text> -- "Execute analyzer/job_facts/extract.md for <readable-text> with source <source> and source URL <source-url>. Process only that file and do not run candidate fit, job interest, or DB save."`
-   - It writes factual JSON to `../Data/analyzed/<source>/`.
-   - It may record its isolated experimental fit in SQLite, but that value must
-     not enter analyzed or scored JSON.
-   - The proxy returns the normal final Codex message and exit code. It does
-     not implement job-facts logic; it only stores Codex usage metrics.
+     `python codex_proxy/run.py --run-id <run-id> --operation job_facts --input <readable-text> --output <analyzed-json>`.
+   - The proxy passes only `analyzer/job_facts/extract.md` and the readable
+     input to an isolated CLI agent, validates structured output, writes the
+     factual JSON, and stores Codex usage metrics.
+   - After success, run:
+     `python db/job_registry.py ANALYZED --source <source> --job-id <job-id>`.
 
 2. Candidate fit
-   - Run:
-     `python codex_proxy/run.py --run-id <run-id> --operation candidate_fit --target <analyzed-json> -- "Execute analyzer/candidate_fit/evaluate.md for <analyzed-json>. Process only that file and do not run job interest or DB save."`
-   - Use a new blind agent that receives only:
+   - First run the deterministic gate:
+     `python analyzer/candidate_fit/filter.py --input <analyzed-json> --output <scored-json>`.
+   - If it returns `passed=false`, use the scored JSON it wrote and do not run
+     semantic candidate fit.
+   - If it returns `passed=true`, run:
+     `python codex_proxy/run.py --run-id <run-id> --operation candidate_fit --input <analyzed-json> --output <scored-json>`.
+   - The proxy uses a new blind CLI agent that receives only:
      - `analyzer/candidate_fit/evaluate.md`;
      - the analyzed JSON;
      - `analyzer/config/resume.ini`.
    - Do not pass readable-text context, the job-facts agent's reasoning, an
-     experimental fit, an existing scored JSON, or an existing database score.
-   - This operation writes the scored JSON under `../Data/scored/<source>/`.
-   - The proxy returns the normal final Codex message and exit code. It does
-     not implement candidate-fit logic; it only stores Codex usage metrics.
+     existing scored JSON, or an existing database score.
+   - The proxy merges the structured three-field result into a copy of the
+     analyzed JSON and writes the scored JSON.
 
 3. Job interest
    - Run:

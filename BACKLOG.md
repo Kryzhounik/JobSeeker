@@ -66,6 +66,10 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Later
 
+- Revisit the archived Codex App Server transport experiment in
+  `Driver/codex_proxy/app_server_experiment/` if CLI process overhead becomes
+  a blocking problem. Before enabling it, prove nested orchestration and a
+  complete pipeline run while keeping backend selection behind the proxy.
 - Only add deterministic extraction later if it clearly removes cost without
   creating a growing pile of fragile wording rules.
 - Add more sources after the JustJoinIT flow is comfortable.

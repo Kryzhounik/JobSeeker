@@ -10,6 +10,7 @@ import shutil
 import subprocess
 
 from codex_proxy.backend import Result
+from codex_proxy.output_schema import codex_schema_file
 
 
 USAGE_KEYS = (
@@ -31,12 +32,15 @@ def call(
     model: str,
     reasoning_effort: str,
     cwd: Path,
+    output_schema: Path,
 ) -> Result:
     executable = shutil.which("codex.cmd") or shutil.which("codex")
     if not executable:
         raise RuntimeError("Codex CLI was not found on PATH.")
 
     configured_args: list[str] = []
+    if config.getboolean("proxy", "ignore_user_config", fallback=True):
+        configured_args.append("--ignore-user-config")
     if config.getboolean("proxy", "ephemeral", fallback=True):
         configured_args.append("--ephemeral")
     configured_args.extend((
@@ -56,33 +60,36 @@ def call(
         if path := path.strip():
             configured_args.extend(("--add-dir", path))
 
-    command = [
-        executable,
-        "exec",
-        "--json",
-        "--model",
-        model,
-        *configured_args,
-        prompt,
-    ]
     usage = dict.fromkeys(USAGE_KEYS, 0)
     thread_id = ""
     final_message = ""
     errors: list[str] = []
 
-    process = subprocess.Popen(
-        command,
-        cwd=cwd,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=None,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        creationflags=hidden_process_flags(),
-    )
-    assert process.stdout is not None
-    for line in process.stdout:
+    with codex_schema_file(output_schema) as schema_path:
+        command = [
+            executable,
+            "exec",
+            "--json",
+            "--model",
+            model,
+            *configured_args,
+            "--output-schema",
+            str(schema_path),
+            "-",
+        ]
+        process = subprocess.run(
+            command,
+            cwd=cwd,
+            input=prompt,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            creationflags=hidden_process_flags(),
+            check=False,
+        )
+
+    for line in process.stdout.splitlines():
         try:
             event = json.loads(line)
         except json.JSONDecodeError:
@@ -101,10 +108,12 @@ def call(
                 final_message = str(item.get("text") or "")
         elif event_type in {"turn.failed", "error"}:
             errors.append(json.dumps(event, ensure_ascii=False))
+    if process.stderr.strip():
+        errors.append(process.stderr.strip())
 
     return Result(
         command,
-        process.wait(),
+        process.returncode,
         thread_id,
         final_message,
         usage,

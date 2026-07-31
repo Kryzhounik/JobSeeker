@@ -10,8 +10,6 @@ Each stage owns its own rules in its own files.
 Run driver commands from this `Driver` folder unless a command says
 otherwise.
 
-- Install runtime dependencies with
-  `python -m pip install -r requirements.txt`.
 - Project root: parent folder of `Driver`.
 - Data root: `../Data`.
 - GUI root: `../GUI`.
@@ -123,8 +121,8 @@ scope.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
 - The current Desktop agent executes `analyzer/analyze_job.md` as the
-  top-level analysis orchestrator. Do not run this orchestrator through
-  `codex_proxy/run.py`.
+  top-level analysis orchestrator. Its isolated semantic operations run
+  through `codex_proxy/run.py`.
 - Inside that orchestrator, agent operations use `codex_proxy/run.py`.
   The proxy owns their Codex transport boundary and does not contain analyzer
   logic.
@@ -132,13 +130,10 @@ scope.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `analyzer/candidate_fit/evaluate.md`.
-- The analyzer also records an experimental fit in
-  `experimental_analyzer_fits`. This value is comparison-only: it is absent
-  from analyzed/scored JSON and never participates in official scoring.
-- Candidate-fit evaluation must be blind to the analyzer experiment. Run it as
+- Candidate-fit evaluation must be isolated. Run it as
   a separate agent that receives only `analyzer/candidate_fit/evaluate.md`, the
   analyzed JSON, and `analyzer/config/resume.ini`. Do not pass
-  analyzer context, query the experimental table, or read an existing score.
+  analyzer context or read an existing score.
 - `../Data/analyzed/<source>/` contains analysis facts only. It must not contain
   candidate-fit or job-interest fields in the main workflow.
 - Candidate-fit scoring reads analyzed JSON and writes scored JSON under
