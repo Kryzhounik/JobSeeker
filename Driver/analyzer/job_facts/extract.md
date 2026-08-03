@@ -122,20 +122,27 @@ Technology requirements:
   independently.
 
 Remote scope rules:
-- For hybrid or office vacancies, leave remote_scope empty unless the vacancy
-  also explicitly allows fully remote work from some geography.
-- Use worldwide when the vacancy says work anywhere, any location worldwide,
-  work from any country, globally remote.
-- If remote is limited to a region, write the region itself, for example EU,
-  Europe, EMEA, APAC, US time zones. Keep EU and Europe separate.
-- If remote is limited to a country, write the country itself, for example
-  Poland, Germany, United States.
-- If the vacancy is remote but does not explicitly say worldwide/global/work
-  anywhere, infer the remote scope from the vacancy location when possible.
-  Example: a remote vacancy located in Warsaw, Poland becomes Poland.
-- Use unknown when remote/hybrid/office is known, but allowed geography is
-  unclear after checking both the remote wording and the listed location, or
-  when this analysis has not been done yet.
+- Determine `remote_scope` from the full vacancy text. The LinkedIn header and
+  listed location are useful evidence, but they are not authoritative by
+  themselves.
+- `remote_scope` means the geography from which a fully remote worker may be
+  located.
+- For hybrid or office vacancies, leave `remote_scope` empty unless the vacancy
+  explicitly allows fully remote work.
+- If exact remote geography is explicitly stated as worldwide, global, any
+  country, work anywhere, or equivalent wording, use `worldwide`.
+- If exact remote geography is explicitly limited to a named region, timezone
+  range, or country, preserve that scope exactly. Examples: EMEA, Europe, EU,
+  APAC, US time zones, Poland, Germany. Do not expand regions into countries
+  and do not treat EU, Europe, and EMEA as interchangeable.
+- If the header says remote and the full text gives no better evidence about
+  allowed remote geography, infer `remote_scope` from the listed location when
+  possible.
+- Do not infer `remote_scope` from the header/listed location when the full
+  vacancy text gives credible evidence that allowed remote geography may differ
+  from that location but does not define the exact scope.
+- If remote work is allowed but the exact allowed geography cannot be determined
+  from the full text, use `unknown` and explain the ambiguity in `notes`.
 
 Relocation rules:
 - Use NO when relocation is not offered or not mentioned.
