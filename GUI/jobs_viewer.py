@@ -11,6 +11,7 @@ import tkinter as tk
 import urllib.error
 import urllib.request
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 from tkinter import messagebox
 from tkinter import ttk
@@ -20,6 +21,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
 SETTINGS_PATH = Path(__file__).with_name("jobs_viewer_settings.json")
+AVAILABILITY_LOG_PATH = Path(__file__).with_name("linkedin_availability_check.log")
 DRIVER_ROOT = ROOT / "Driver"
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
@@ -141,6 +143,7 @@ class JobsViewer(tk.Tk):
         self.availability_button: ttk.Button | None = None
         self.availability_check_running = False
         self.availability_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
+        self.availability_log_lock = threading.Lock()
         self.status_values = self._available_status_values()
         self.settings = self._load_settings()
         self.status_filter_vars = {
@@ -879,6 +882,10 @@ class JobsViewer(tk.Tk):
 
         closed_status = self._closed_status_value()
         if not closed_status:
+            self._append_availability_log(
+                "start_failed",
+                error="Closed status is not available in job_statuses.",
+            )
             messagebox.showerror(
                 "LinkedIn check failed",
                 "Closed status is not available in job_statuses.",
@@ -888,14 +895,22 @@ class JobsViewer(tk.Tk):
         try:
             candidates = self._load_linkedin_availability_candidates()
         except Exception as error:
+            self._append_availability_log("start_failed", error=str(error))
             messagebox.showerror("LinkedIn check failed", str(error))
             self.status_var.set("LinkedIn check failed")
             return
 
         if not candidates:
+            self._append_availability_log("no_candidates")
             self.status_var.set("No New LinkedIn jobs with score > 0")
             return
 
+        self._append_availability_log(
+            "start",
+            total=len(candidates),
+            closed_status=closed_status,
+            delay_seconds=LINKEDIN_CHECK_DELAY_SECONDS,
+        )
         self.availability_check_running = True
         self.availability_queue = queue.SimpleQueue()
         if self.availability_button is not None:
@@ -944,6 +959,21 @@ class JobsViewer(tk.Tk):
             ).fetchall()
         return [{key: clean(row[key]) for key in row.keys()} for row in rows]
 
+    def _append_availability_log(self, event: str, **fields: Any) -> None:
+        record = {
+            "ts": datetime.now().isoformat(timespec="seconds"),
+            "event": event,
+            **fields,
+        }
+        try:
+            with self.availability_log_lock:
+                with AVAILABILITY_LOG_PATH.open("a", encoding="utf-8") as log_file:
+                    log_file.write(
+                        json.dumps(record, ensure_ascii=False, sort_keys=True) + "\n"
+                    )
+        except OSError:
+            pass
+
     def _linkedin_availability_worker(
         self,
         candidates: list[dict[str, str]],
@@ -963,6 +993,14 @@ class JobsViewer(tk.Tk):
                 if not job_id:
                     processed += 1
                     skipped += 1
+                    self._append_availability_log(
+                        "skip",
+                        reason="no_linkedin_id",
+                        source_url=source_url,
+                        title=candidate.get("title", ""),
+                        company=candidate.get("company", ""),
+                        score=candidate.get("score", ""),
+                    )
                     self.availability_queue.put(
                         ("progress", processed, total, closed_count, skipped, "")
                     )
@@ -972,6 +1010,16 @@ class JobsViewer(tk.Tk):
                     time.sleep(LINKEDIN_CHECK_DELAY_SECONDS)
 
                 requests_sent += 1
+                self._append_availability_log(
+                    "request",
+                    processed=processed,
+                    total=total,
+                    job_id=job_id,
+                    source_url=source_url,
+                    title=candidate.get("title", ""),
+                    company=candidate.get("company", ""),
+                    score=candidate.get("score", ""),
+                )
                 self.availability_queue.put(
                     (
                         "progress",
@@ -984,11 +1032,38 @@ class JobsViewer(tk.Tk):
                 )
                 state, message = self._fetch_linkedin_availability(job_id)
                 processed += 1
+                self._append_availability_log(
+                    "response",
+                    processed=processed,
+                    total=total,
+                    job_id=job_id,
+                    source_url=source_url,
+                    result=state,
+                    message=message,
+                )
 
                 if state == "closed":
-                    closed_count += self._mark_jobs_closed([source_url], closed_status)
+                    updated_count = self._mark_jobs_closed(
+                        [source_url],
+                        closed_status,
+                    )
+                    closed_count += updated_count
+                    self._append_availability_log(
+                        "closed",
+                        job_id=job_id,
+                        source_url=source_url,
+                        updated=updated_count,
+                    )
                 elif state != "available":
                     error_message = f"{job_id}: {message}"
+                    self._append_availability_log(
+                        "stop_error",
+                        processed=processed,
+                        total=total,
+                        job_id=job_id,
+                        source_url=source_url,
+                        error=message,
+                    )
                     break
 
                 self.availability_queue.put(
@@ -996,7 +1071,16 @@ class JobsViewer(tk.Tk):
                 )
         except Exception as error:
             error_message = str(error)
+            self._append_availability_log("worker_exception", error=error_message)
 
+        self._append_availability_log(
+            "done",
+            processed=processed,
+            total=total,
+            closed=closed_count,
+            skipped=skipped,
+            error=error_message,
+        )
         self.availability_queue.put(
             ("done", processed, total, closed_count, skipped, error_message)
         )
@@ -1136,6 +1220,14 @@ class JobsViewer(tk.Tk):
         )
         if error_message:
             self.status_var.set(f"{summary}; stopped")
+            self._append_availability_log(
+                "popup_error",
+                processed=processed,
+                total=total,
+                closed=closed_count,
+                skipped=skipped,
+                error=error_message,
+            )
             messagebox.showerror("LinkedIn check stopped", error_message)
             return
 
