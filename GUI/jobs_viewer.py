@@ -36,6 +36,8 @@ JOB_COLUMNS = (
     ("primary_language", "Language", 140, "w"),
     ("salary", "Salary", 150, "w"),
     ("added_at", "Added", 110, "w"),
+    ("candidate_fit_reason_code", "Reason code", 130, "w"),
+    ("candidate_fit_reason", "Reason", 360, "w"),
 )
 
 DETAIL_FIELDS = (
@@ -617,22 +619,27 @@ class JobsViewer(tk.Tk):
                 connection.execute(
                     f"""
                     SELECT
-                        score,
-                        fit,
-                        interest,
-                        status,
-                        remote_scope,
-                        relocation,
-                        location,
-                        company,
-                        title,
-                        role,
-                        seniority,
-                        primary_language,
-                        salary,
-                        added_at,
-                        source_url
+                        jl.score,
+                        jl.fit,
+                        jl.interest,
+                        jl.status,
+                        jl.remote_scope,
+                        jl.relocation,
+                        jl.location,
+                        jl.company,
+                        jl.title,
+                        jl.role,
+                        jl.seniority,
+                        jl.primary_language,
+                        jl.salary,
+                        jl.added_at,
+                        jl.source_url,
+                        coalesce(j.candidate_fit_reason_code, '')
+                            AS candidate_fit_reason_code,
+                        coalesce(j.candidate_fit_reason, '')
+                            AS candidate_fit_reason
                     FROM job_list jl
+                    JOIN jobs j ON j.source_url = jl.source_url
                     {where_sql}
                     """,
                     parameters,
