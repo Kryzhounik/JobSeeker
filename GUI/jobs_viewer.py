@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import json
+import queue
+import re
 import sqlite3
 import sys
+import threading
+import time
 import tkinter as tk
+import urllib.error
+import urllib.request
 import webbrowser
 from pathlib import Path
 from tkinter import messagebox
@@ -71,6 +77,12 @@ SCORE_EDIT_FIELDS = {"fit", "interest"}
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
 DEFAULT_STATUS_VALUES = ("New", "Checked", "Postponed", "Applied", "Closed")
+LINKEDIN_CHECK_DELAY_SECONDS = 5
+LINKEDIN_CHECK_TIMEOUT_SECONDS = 20
+LINKEDIN_CLOSED_MARKER = "no longer accepting applications"
+LINKEDIN_JOB_ID_PATTERN = re.compile(
+    r"(?:/jobs/view/|/jobPosting/|currentJobId=)(\d+)"
+)
 READONLY_FIELD_COLORS = {
     "background": "#f4f4f0",
     "foreground": "#303030",
@@ -126,6 +138,9 @@ class JobsViewer(tk.Tk):
         self.current_interest = ""
         self.detail_fields: dict[str, tk.Text] = {}
         self.status_buttons: list[ttk.Button] = []
+        self.availability_button: ttk.Button | None = None
+        self.availability_check_running = False
+        self.availability_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.status_values = self._available_status_values()
         self.settings = self._load_settings()
         self.status_filter_vars = {
@@ -160,13 +175,20 @@ class JobsViewer(tk.Tk):
 
         toolbar = ttk.Frame(self, padding=(10, 8))
         toolbar.grid(row=0, column=0, sticky="ew")
-        toolbar.columnconfigure(1, weight=1)
+        toolbar.columnconfigure(2, weight=1)
 
         refresh_button = ttk.Button(toolbar, text="Refresh", command=self.refresh_jobs)
         refresh_button.grid(row=0, column=0, sticky="w")
 
+        self.availability_button = ttk.Button(
+            toolbar,
+            text="Check LinkedIn",
+            command=self._start_linkedin_availability_check,
+        )
+        self.availability_button.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
         filters = ttk.Frame(toolbar)
-        filters.grid(row=0, column=1, sticky="w", padx=(8, 8))
+        filters.grid(row=0, column=2, sticky="w", padx=(8, 8))
 
         ttk.Label(filters, text="Status", style="Muted.TLabel").grid(
             row=0,
@@ -216,7 +238,7 @@ class JobsViewer(tk.Tk):
         self.status_var = tk.StringVar(value="")
         ttk.Label(toolbar, textvariable=self.status_var, style="Muted.TLabel").grid(
             row=0,
-            column=2,
+            column=3,
             sticky="e",
         )
 
@@ -850,6 +872,274 @@ class JobsViewer(tk.Tk):
     def _open_current_link(self, _event: tk.Event[tk.Misc] | None = None) -> None:
         if self.current_source_url:
             webbrowser.open_new_tab(self.current_source_url)
+
+    def _start_linkedin_availability_check(self) -> None:
+        if self.availability_check_running:
+            return
+
+        closed_status = self._closed_status_value()
+        if not closed_status:
+            messagebox.showerror(
+                "LinkedIn check failed",
+                "Closed status is not available in job_statuses.",
+            )
+            return
+
+        try:
+            candidates = self._load_linkedin_availability_candidates()
+        except Exception as error:
+            messagebox.showerror("LinkedIn check failed", str(error))
+            self.status_var.set("LinkedIn check failed")
+            return
+
+        if not candidates:
+            self.status_var.set("No New LinkedIn jobs with score > 0")
+            return
+
+        self.availability_check_running = True
+        self.availability_queue = queue.SimpleQueue()
+        if self.availability_button is not None:
+            self.availability_button.configure(state=tk.DISABLED)
+        self.status_var.set(f"LinkedIn check 0/{len(candidates)}")
+
+        thread = threading.Thread(
+            target=self._linkedin_availability_worker,
+            args=(candidates, closed_status),
+            daemon=True,
+        )
+        thread.start()
+        self.after(200, self._poll_linkedin_availability_queue)
+
+    def _closed_status_value(self) -> str:
+        for status in self.status_values:
+            if status.lower() == "closed":
+                return status
+        return ""
+
+    def _load_linkedin_availability_candidates(self) -> list[dict[str, str]]:
+        score_sql = """
+            CAST(ROUND(
+                j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
+                / 10000.0
+            ) AS INTEGER)
+        """
+        with self.connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT
+                    j.source_url,
+                    j.title,
+                    j.company,
+                    {score_sql} AS score
+                FROM jobs j
+                WHERE j.status = ?
+                    AND {score_sql} > 0
+                    AND j.source_url LIKE ?
+                ORDER BY
+                    score DESC,
+                    j.added_at DESC,
+                    j.id DESC
+                """,
+                ("New", "%linkedin.com/%"),
+            ).fetchall()
+        return [{key: clean(row[key]) for key in row.keys()} for row in rows]
+
+    def _linkedin_availability_worker(
+        self,
+        candidates: list[dict[str, str]],
+        closed_status: str,
+    ) -> None:
+        total = len(candidates)
+        processed = 0
+        requests_sent = 0
+        closed_count = 0
+        skipped = 0
+        error_message = ""
+
+        try:
+            for candidate in candidates:
+                source_url = candidate.get("source_url", "")
+                job_id = self._linkedin_job_id(source_url)
+                if not job_id:
+                    processed += 1
+                    skipped += 1
+                    self.availability_queue.put(
+                        ("progress", processed, total, closed_count, skipped, "")
+                    )
+                    continue
+
+                if requests_sent > 0:
+                    time.sleep(LINKEDIN_CHECK_DELAY_SECONDS)
+
+                requests_sent += 1
+                self.availability_queue.put(
+                    (
+                        "progress",
+                        processed,
+                        total,
+                        closed_count,
+                        skipped,
+                        f"checking {job_id}",
+                    )
+                )
+                state, message = self._fetch_linkedin_availability(job_id)
+                processed += 1
+
+                if state == "closed":
+                    closed_count += self._mark_jobs_closed([source_url], closed_status)
+                elif state != "available":
+                    error_message = f"{job_id}: {message}"
+                    break
+
+                self.availability_queue.put(
+                    ("progress", processed, total, closed_count, skipped, "")
+                )
+        except Exception as error:
+            error_message = str(error)
+
+        self.availability_queue.put(
+            ("done", processed, total, closed_count, skipped, error_message)
+        )
+
+    def _linkedin_job_id(self, source_url: str) -> str:
+        match = LINKEDIN_JOB_ID_PATTERN.search(source_url)
+        if match:
+            return match.group(1)
+        return ""
+
+    def _fetch_linkedin_availability(self, job_id: str) -> tuple[str, str]:
+        endpoint = f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
+        request = urllib.request.Request(
+            endpoint,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/126.0 Safari/537.36"
+                ),
+                "Accept": "text/html,application/xhtml+xml",
+            },
+        )
+
+        try:
+            with urllib.request.urlopen(
+                request,
+                timeout=LINKEDIN_CHECK_TIMEOUT_SECONDS,
+            ) as response:
+                status_code = response.getcode()
+                content_type = response.headers.get("Content-Type", "")
+                body = response.read(1_000_000)
+        except urllib.error.HTTPError as error:
+            if error.code == 429:
+                return "error", "LinkedIn returned 429; stopped to avoid rate limit."
+            return "error", f"LinkedIn returned HTTP {error.code}."
+        except urllib.error.URLError as error:
+            return "error", f"Network error: {error.reason}"
+        except TimeoutError:
+            return "error", "Request timed out."
+
+        if status_code == 429:
+            return "error", "LinkedIn returned 429; stopped to avoid rate limit."
+        if status_code != 200:
+            return "error", f"LinkedIn returned HTTP {status_code}."
+        if content_type and "html" not in content_type.lower():
+            return "error", f"Unexpected content type: {content_type}"
+
+        html = body.decode("utf-8", errors="replace")
+        html_lower = html.lower()
+        if LINKEDIN_CLOSED_MARKER in html_lower:
+            return "closed", ""
+        if len(html) < 1000:
+            return "error", "Unexpected short HTML."
+        if "linkedin" not in html_lower or "job" not in html_lower:
+            return "error", "Unexpected HTML from LinkedIn."
+        return "available", ""
+
+    def _mark_jobs_closed(self, source_urls: list[str], closed_status: str) -> int:
+        if not source_urls:
+            return 0
+
+        with self.connect_writable() as connection:
+            placeholders = ", ".join("?" for _source_url in source_urls)
+            result = connection.execute(
+                f"""
+                UPDATE jobs
+                SET status = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE status = ?
+                    AND source_url IN ({placeholders})
+                """,
+                [closed_status, "New", *source_urls],
+            )
+            return result.rowcount
+
+    def _poll_linkedin_availability_queue(self) -> None:
+        while True:
+            try:
+                message = self.availability_queue.get_nowait()
+            except queue.Empty:
+                break
+
+            kind = message[0]
+            if kind == "progress":
+                _kind, processed, total, closed_count, skipped, detail = message
+                self._show_linkedin_availability_progress(
+                    processed,
+                    total,
+                    closed_count,
+                    skipped,
+                    detail,
+                )
+            elif kind == "done":
+                _kind, processed, total, closed_count, skipped, error_message = message
+                self._finish_linkedin_availability_check(
+                    processed,
+                    total,
+                    closed_count,
+                    skipped,
+                    error_message,
+                )
+
+        if self.availability_check_running:
+            self.after(200, self._poll_linkedin_availability_queue)
+
+    def _show_linkedin_availability_progress(
+        self,
+        processed: int,
+        total: int,
+        closed_count: int,
+        skipped: int,
+        detail: str,
+    ) -> None:
+        suffix = f" - {detail}" if detail else ""
+        self.status_var.set(
+            f"LinkedIn check {processed}/{total}; "
+            f"closed {closed_count}; skipped {skipped}{suffix}"
+        )
+
+    def _finish_linkedin_availability_check(
+        self,
+        processed: int,
+        total: int,
+        closed_count: int,
+        skipped: int,
+        error_message: str,
+    ) -> None:
+        self.availability_check_running = False
+        if self.availability_button is not None:
+            self.availability_button.configure(state=tk.NORMAL)
+
+        self.refresh_jobs()
+        summary = (
+            f"LinkedIn check {processed}/{total}; "
+            f"closed {closed_count}; skipped {skipped}"
+        )
+        if error_message:
+            self.status_var.set(f"{summary}; stopped")
+            messagebox.showerror("LinkedIn check stopped", error_message)
+            return
+
+        self.status_var.set(summary)
 
     def _set_current_status(self, status: str) -> None:
         items = self._selected_job_items()
