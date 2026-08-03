@@ -63,6 +63,15 @@ Semantic candidate-fit agent stage:
 - This is semantic matching, not a fast script filter.
 - Use every vacancy technology together with its requirement importance and the
   candidate profile from `analyzer/config/resume.ini`.
+- Assess actual requirement coverage from the candidate's full body of
+  confirmed experience, including competencies that are a necessary or
+  sufficiently reliable consequence of that experience. The absence of a
+  literal mention does not by itself mean that the competency is absent. For an
+  inferred competency, credit only the level, depth, and context that genuinely
+  follow from the confirmed experience, then compare them with the exact
+  requirement. The fact that a competency can be inferred does not
+  automatically imply either partial or full coverage; coverage depends on the
+  remaining gap. Do not infer competency from general adjacency alone.
 - Requirement importance is ordered as follows:
   - 1, core: role-defining. Missing it cannot be compensated by generic adjacent
     skills, even when the requested proficiency level is junior.
