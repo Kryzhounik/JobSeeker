@@ -24,14 +24,15 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 - Run `Driver/analyzer/candidate_fit/evaluate.md` before `Driver/db/save.py`;
   it updates the same analyzed JSON with `candidate_fit_percent` and
   `candidate_fit_reason`.
-- Use `Driver/analyzer/job_interest/config/interest.ini` for job-interest score rules.
+- Use `Driver/analyzer/job_interest/config/interest.ini` for technology-interest
+  score rules.
 - Run `python Driver/analyzer/job_interest/calculate.py --input <json-or-dir>`
   before `Driver/db/save.py`; the save script requires `job_interest` to
   already exist in JSON.
 - Use `Driver/db/save.py` only to save fully scored JSON into
   SQLite.
-- Use `Driver/analyzer/config/resume.ini` for candidate languages and
-  available remote/relocation locations.
+- Use `Driver/analyzer/config/resume.ini` for candidate languages and the
+  single scored maps of available remote/relocation locations.
 
 ## Next
 

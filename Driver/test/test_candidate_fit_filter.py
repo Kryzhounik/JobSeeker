@@ -58,6 +58,13 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
+    def test_unknown_remote_scope_does_not_hard_reject(self) -> None:
+        result = filter_job_json(
+            base_job(remote_type="remote", remote_scope="unknown", location="Lithuania")
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
     def test_worldwide_candidate_location_does_not_allow_any_onsite_location(self) -> None:
         result = filter_job_json(base_job(location="New York, United States"))
         self.assertFalse(result.passed)

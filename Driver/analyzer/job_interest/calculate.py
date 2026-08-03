@@ -33,10 +33,14 @@ def project_root() -> Path:
     return ROOT
 
 
-def load_config(path: Path) -> configparser.ConfigParser:
+def default_resume_path() -> Path:
+    return project_root() / "analyzer" / "config" / "resume.ini"
+
+
+def load_config(path: Path, resume_path: Path | None = None) -> configparser.ConfigParser:
     config = configparser.ConfigParser()
     config.optionxform = str
-    config.read(path, encoding="utf-8")
+    config.read([path, resume_path or default_resume_path()], encoding="utf-8")
     return config
 
 
@@ -117,27 +121,51 @@ def covered_location_score(
     return best
 
 
+def minimum_location_score(
+    config: configparser.ConfigParser,
+    section: str,
+    *,
+    skip_keys: set[str] | None = None,
+) -> int:
+    skip = {key.lower() for key in (skip_keys or set())}
+    scores: list[int] = []
+    if not config.has_section(section):
+        return 0
+
+    for key, raw_score in config.items(section):
+        if key.lower() in skip:
+            continue
+        try:
+            scores.append(int(raw_score))
+        except ValueError:
+            continue
+    return min(scores) if scores else 0
+
+
 def remote_score(config: configparser.ConfigParser, remote_type: str, remote_scope: str) -> int:
     if normalized(remote_type) != "remote":
         return 0
 
     scope = clean(remote_scope)
+    if normalized(scope) == "unknown":
+        return minimum_location_score(config, "locations", skip_keys={"worldwide"}) // 2
+
     if normalized(scope) in NO_VALUES:
         return 0
 
     if "worldwide" in location_tokens(scope):
-        return int_value(config, "remote", "worldwide", 1000)
+        return int_value(config, "locations", "worldwide", 1000)
 
     covered_score = covered_location_score(
         config,
-        "remote",
+        "locations",
         scope,
         skip_keys={"worldwide"},
     )
     if covered_score:
         return covered_score
 
-    return best_match_score(config, "remote", scope, skip_keys={"worldwide"})
+    return best_match_score(config, "locations", scope, skip_keys={"worldwide"})
 
 
 def relocation_score(config: configparser.ConfigParser, relocation: str) -> int:
@@ -146,7 +174,9 @@ def relocation_score(config: configparser.ConfigParser, relocation: str) -> int:
         return 0
 
     base = int_value(config, "relocation", "base", 100)
-    matched = best_match_score(config, "relocation", destination, skip_keys={"base"})
+    matched = covered_location_score(config, "relocation", destination, skip_keys={"base"})
+    if not matched:
+        return 0
     return base + matched
 
 

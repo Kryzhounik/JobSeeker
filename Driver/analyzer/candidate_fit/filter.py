@@ -206,6 +206,18 @@ def csv_values(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def scored_locations(
+    config: configparser.ConfigParser,
+    section: str,
+    *,
+    skip_keys: set[str] | None = None,
+) -> list[str]:
+    if not config.has_section(section):
+        return []
+    skipped = {key.lower() for key in (skip_keys or set())}
+    return [key for key, _ in config.items(section) if key.lower() not in skipped]
+
+
 def int_value(value: object, default: int = 0) -> int:
     try:
         return int(value or default)
@@ -387,13 +399,16 @@ def evaluate_remote(
     if remote_mode == "on":
         return FilterResult(True, 100, "ok", f"remote filter passed: {scope or 'remote'}")
 
+    if normalized(scope) == "unknown":
+        return FilterResult(True, 100, "ok", "remote scope is unknown; hard reject skipped")
+
     if normalized(scope) in NO_VALUES:
         return FilterResult(False, 0, "loc", "remote filter failed: remote scope is empty")
 
     if is_timezone_scope(scope):
         return FilterResult(True, 100, "ok", f"remote timezone scope accepted: {scope}")
 
-    allowed = csv_values(setting(resume_config, "locations", "allowed"))
+    allowed = scored_locations(resume_config, "locations")
     if check_location_allowance(scope, allowed):
         return FilterResult(True, 100, "ok", f"remote filter passed: {scope}")
 
@@ -416,7 +431,7 @@ def evaluate_relocation(
     if relocation_mode == "on":
         return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
-    allowed = csv_values(setting(resume_config, "relocation", "allowed_destinations"))
+    allowed = scored_locations(resume_config, "relocation", skip_keys={"base"})
     if check_location_allowance(destination, allowed):
         return FilterResult(True, 100, "ok", f"relocation filter passed: {destination}")
 
@@ -434,7 +449,7 @@ def evaluate_location_filters(
     checks: list[FilterResult] = []
     work_type = normalized(remote_type)
     if work_type in {"hybrid", "office"}:
-        allowed = csv_values(setting(resume_config, "locations", "allowed"))
+        allowed = scored_locations(resume_config, "locations")
         if check_location_allowance(location, allowed):
             return FilterResult(
                 True,
