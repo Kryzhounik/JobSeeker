@@ -60,9 +60,10 @@ Technology requirements:
 - `level` must be the normalized label matching `level_rank`, not raw wording.
   Put raw wording such as "3+ years" or "hands-on experience" into `raw_value`.
 - requirement:
-  - 1, core: role-defining technology or domain. Missing it fundamentally changes
-    the role. A junior-level core technology is still core. For example, C++ is
-    core for a Junior C++ Developer vacancy.
+  - 1, core: role-defining technical track or primary implementation stack.
+    Missing it fundamentally changes the technical work of the role. A
+    junior-level core technology is still core. For example, C++ is core for a
+    Junior C++ Developer vacancy.
   - 2, required: explicit must-have that is not itself the defining core of the
     role.
   - 3, important: strongly emphasized and materially important for doing the job,
@@ -71,8 +72,8 @@ Technology requirements:
     it.
   - 5, nice_to_have: explicitly optional, bonus, plus, or nice to have.
 - Do not mark every visible technology as `core` or `required`.
-  - Use `core` only for the role-defining stack, platform, domain, or capability:
-    the thing the vacancy is fundamentally about.
+  - Use `core` only for the primary technical track or implementation stack:
+    the technologies that define how the role's central work is performed.
   - Use `required` for explicit must-have requirements that are not themselves
     the defining core of the role.
   - Use `important` for supporting skills, tools, platforms, or practices that
@@ -81,6 +82,35 @@ Technology requirements:
     technology name. A technology is not automatically core/required just
     because it is named; it is core/required only when the job would stop being
     the same job, or the candidate would be rejected, without it.
+  - Determine `core` from the technical work the person will actually perform,
+    separately from how flexible the employer is about prior experience. A
+    technology that defines the actual implementation stack remains `core` even
+    when prior experience with it is preferred rather than mandatory, analogous
+    experience is accepted, or the candidate may learn it. Represent that
+    flexibility through the required level and notes, not by automatically
+    lowering the technology to `desired`.
+  - Keep the `core` set minimal. Include the primary technical track and the
+    technologies that define how its central work is implemented. Do not make
+    every component of a named stack `core`: supporting infrastructure,
+    platforms, services, and tools remain `important` or lower unless the role
+    is centered on them. Do not add a generic umbrella `core` row that merely
+    restates the role or duplicates more specific core technologies.
+  - For an engineering role with a named primary implementation stack, do not
+    classify architectural qualities, scale or performance characteristics,
+    responsibilities, or general engineering capabilities as `core`. Mark them
+    `required` when they are explicit must-haves and `important` or lower
+    otherwise, even when they materially affect the work. A technical
+    specialization may be `core` only when that specialization is itself the
+    primary track of the role, rather than a characteristic of work performed
+    in a more specific named stack.
+  - Distinguish a technical track from the business or industry context of the
+    product. For an engineering role, do not classify its business domain as
+    `core`, including when the domain appears in the title or shapes the product
+    being built. Mark previous experience in that domain as `required` only when
+    the vacancy explicitly makes it a must-have. Without an explicit gate, use
+    at most `important`; use `desired` or `nice_to_have` when it is presented as
+    preferred or optional. The title, industry context, and frequency of domain
+    mentions must not raise it to `core` or `required` by themselves.
   - Generic workflow, collaboration, delivery, or tooling mentions are usually
     supporting requirements unless the vacancy explicitly makes ownership or
     deep expertise in that area a must-have.
