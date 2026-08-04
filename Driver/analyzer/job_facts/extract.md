@@ -125,6 +125,10 @@ Remote scope rules:
 - Determine `remote_scope` from the full vacancy text. The LinkedIn header and
   listed location are useful evidence, but they are not authoritative by
   themselves.
+- Determine `remote_type` from whether physical presence is mandatory, not from
+  the header label. If office attendance is entirely optional, use `remote`;
+  use `hybrid` only when office presence is required or regularly expected.
+  When the header conflicts with the full vacancy text, prefer the full text.
 - `remote_scope` means the geography from which a fully remote worker may be
   located.
 - For hybrid or office vacancies, leave `remote_scope` empty unless the vacancy
