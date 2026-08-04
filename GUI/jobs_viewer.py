@@ -154,8 +154,8 @@ class JobsViewer(tk.Tk):
             value=bool(self.settings.get("show_zero", False))
         )
         self.id_search_var = tk.StringVar(value="")
-        self.job_sort_column: str | None = None
-        self.job_sort_descending = False
+        self.job_sort_column = self._saved_job_sort_column()
+        self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_sort_column: str | None = None
         self.tech_sort_descending = False
 
@@ -523,6 +523,20 @@ class JobsViewer(tk.Tk):
             return bool(status_filters[status])
         return True
 
+    def _saved_job_sort_column(self) -> str | None:
+        job_sort = self.settings.get("job_sort")
+        column = job_sort.get("column") if isinstance(job_sort, dict) else None
+        valid_columns = {name for name, _label, _width, _anchor in JOB_COLUMNS}
+        if isinstance(column, str) and column in valid_columns:
+            return column
+        return None
+
+    def _saved_job_sort_descending(self) -> bool:
+        job_sort = self.settings.get("job_sort")
+        if isinstance(job_sort, dict):
+            return bool(job_sort.get("descending", False))
+        return False
+
     def _filter_changed(self) -> None:
         self._save_settings()
         self.refresh_jobs()
@@ -534,6 +548,10 @@ class JobsViewer(tk.Tk):
                 for status, variable in self.status_filter_vars.items()
             },
             "show_zero": bool(self.show_zero_var.get()),
+            "job_sort": {
+                "column": self.job_sort_column,
+                "descending": bool(self.job_sort_descending),
+            },
         }
         try:
             SETTINGS_PATH.write_text(
@@ -573,8 +591,13 @@ class JobsViewer(tk.Tk):
             self.job_rows[item_id] = {key: clean(row[key]) for key in row.keys()}
 
         self.status_var.set(f"{len(rows)} jobs")
-        self.job_sort_column = None
-        self.job_sort_descending = False
+        if self.job_sort_column:
+            self._apply_tree_sort(
+                self.jobs_tree,
+                JOB_NUMERIC_COLUMNS,
+                self.job_sort_column,
+                self.job_sort_descending,
+            )
         self._update_tree_headings(
             self.jobs_tree,
             JOB_COLUMNS,
@@ -1436,6 +1459,7 @@ class JobsViewer(tk.Tk):
             self.job_sort_column,
             self.job_sort_descending,
         )
+        self._save_settings()
         self._update_tree_headings(
             self.jobs_tree,
             JOB_COLUMNS,
@@ -1470,7 +1494,21 @@ class JobsViewer(tk.Tk):
         current_column: str | None,
         current_descending: bool,
     ) -> tuple[str, bool]:
-        descending = not current_descending if current_column == column else column in numeric_columns
+        descending = (
+            not current_descending
+            if current_column == column
+            else column in numeric_columns
+        )
+        self._apply_tree_sort(tree, numeric_columns, column, descending)
+        return column, descending
+
+    def _apply_tree_sort(
+        self,
+        tree: ttk.Treeview,
+        numeric_columns: set[str],
+        column: str,
+        descending: bool,
+    ) -> None:
         items = list(tree.get_children(""))
 
         def sort_key(item: str) -> Any:
@@ -1488,7 +1526,6 @@ class JobsViewer(tk.Tk):
         for index, item in enumerate(items):
             tree.move(item, "", index)
         self._retag_tree(tree)
-        return column, descending
 
     def _update_tree_headings(
         self,

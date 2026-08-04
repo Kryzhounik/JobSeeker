@@ -300,7 +300,7 @@ def programming_language_level(
     return technology_levels.get(language, 0)
 
 
-def evaluate_required_programming_languages(
+def evaluate_core_programming_languages(
     technologies: Iterable[Any],
     technology_levels: dict[str, int] | None = None,
     resume_path: Path | None = None,
@@ -308,7 +308,7 @@ def evaluate_required_programming_languages(
     levels = technology_levels if technology_levels is not None else load_technology_levels(resume_path)
 
     for row in technologies:
-        if technology_requirement_type(row) != "required":
+        if technology_requirement_type(row) != "core":
             continue
 
         required_rank = int_value(row_value(row, "level_rank"), 0)
@@ -331,7 +331,7 @@ def evaluate_required_programming_languages(
             False,
             0,
             "tech",
-            f"required programming language missing: {label} rank {required_rank}",
+            f"core programming language missing: {label} rank {required_rank}",
         )
 
     return FilterResult(True, 100, "ok", "programming language filter passed")
@@ -519,7 +519,7 @@ def evaluate_job(
             return language_result
 
     if enabled(config, "filters", "programming_languages", True):
-        programming_language_result = evaluate_required_programming_languages(
+        programming_language_result = evaluate_core_programming_languages(
             technologies,
             technology_levels=load_technology_levels(resume_path),
         )

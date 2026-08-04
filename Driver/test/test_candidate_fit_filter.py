@@ -70,7 +70,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
-    def test_required_missing_programming_language_fails_tech(self) -> None:
+    def test_required_missing_programming_language_does_not_hard_fail(self) -> None:
         result = filter_job_json(
             base_job(
                 technologies=[
@@ -86,16 +86,55 @@ class CandidateFitFilterTest(unittest.TestCase):
                 remote_scope="worldwide",
             )
         )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
+    def test_core_missing_programming_language_fails_tech(self) -> None:
+        result = filter_job_json(
+            base_job(
+                technologies=[
+                    {
+                        "name": "C++",
+                        "requirement": "core",
+                        "level": "regular",
+                        "level_rank": 3,
+                        "raw_value": "2+ years of C++ experience",
+                    }
+                ],
+                remote_type="remote",
+                remote_scope="worldwide",
+            )
+        )
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "tech")
+        self.assertIn("core programming language missing", result.reason)
 
-    def test_required_programming_language_alternatives_use_known_option(self) -> None:
+    def test_basic_core_programming_language_does_not_hard_fail(self) -> None:
+        result = filter_job_json(
+            base_job(
+                technologies=[
+                    {
+                        "name": "Python",
+                        "requirement": "core",
+                        "level": "junior",
+                        "level_rank": 2,
+                        "raw_value": "Familiarity with Python; analogous experience accepted",
+                    }
+                ],
+                remote_type="remote",
+                remote_scope="worldwide",
+            )
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
+    def test_core_programming_language_alternatives_use_known_option(self) -> None:
         result = filter_job_json(
             base_job(
                 technologies=[
                     {
                         "name": "Python / Java / Go",
-                        "requirement": "required",
+                        "requirement": "core",
                         "level": "regular",
                         "level_rank": 3,
                         "raw_value": "Experience with Python, Java, or Go",
@@ -108,13 +147,13 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
-    def test_required_mixed_alternative_item_does_not_hard_fail(self) -> None:
+    def test_core_mixed_alternative_item_does_not_hard_fail(self) -> None:
         result = filter_job_json(
             base_job(
                 technologies=[
                     {
                         "name": "Python / Scala / SQL",
-                        "requirement": "required",
+                        "requirement": "core",
                         "level": "regular",
                         "level_rank": 3,
                         "raw_value": "Experience with SQL, Python, or Scala",
