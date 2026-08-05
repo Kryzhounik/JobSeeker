@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 COMMON_ROOT = ROOT / "common"
@@ -25,7 +25,7 @@ from db.job_registry import is_registered
 from db.migrate import migrate_database
 
 
-DEFAULT_CONFIG = ROOT / "collector" / "config" / "linkedin_preview_filter.ini"
+DEFAULT_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
 MIGRATED_DATABASES: set[Path] = set()
 

@@ -1,4 +1,4 @@
-# One blocked title term per line. Case-insensitive.
+# One LinkedIn preview title block term per line. Case-insensitive.
 # Use short terms only when they are safe as whole words.
 .NET
 C++

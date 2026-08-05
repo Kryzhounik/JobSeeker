@@ -6,9 +6,9 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "Driver"))
 
-from collector.linkedin_preview_filter import blocked_terms
-from collector.linkedin_preview_filter import load_config
-from collector.linkedin_preview_filter import matches_term
+from collector.filtering.linkedin_preview_filter import blocked_terms
+from collector.filtering.linkedin_preview_filter import load_config
+from collector.filtering.linkedin_preview_filter import matches_term
 
 
 DB_PATH = ROOT / "Data" / "jobs.sqlite"

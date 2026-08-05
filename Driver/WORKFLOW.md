@@ -53,6 +53,7 @@ read LinkedIn collector settings
 -> inspect search result cards
 -> apply the preview filter to each card
 -> save accepted vacancy detail panes as raw HTML
+-> prepare readable text and apply the content filter
 -> continue the main pipeline for the explicit run scope
 ```
 
@@ -82,9 +83,9 @@ Current MVP scopes:
 - `from-url linkedin <url>`: process only that URL's saved raw file.
 - `reprocess-raw linkedin`: process every raw HTML file currently present in
   `../Data/raw/linkedin/pages/`.
-- `batch linkedin`: process the raw files saved by that batch run. If the batch
-  starts from a clean workspace, this is the same as all raw files in
-  `../Data/raw/linkedin/pages/`.
+- `batch linkedin`: process the readable files accepted by both collector
+  filters in that batch. Content-filtered raw/readable files stay available for
+  calibration but are not part of the analyzer scope.
 
 For any multi-file scope, iterate all files in that scope and run the main
 pipeline for each file:

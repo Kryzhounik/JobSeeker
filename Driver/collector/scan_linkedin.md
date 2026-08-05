@@ -50,7 +50,7 @@ For left-panel card materialization and page-count verification, follow
 10. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
 11. Run the preview object through:
-   `python collector/linkedin_preview_filter.py --input <preview_json>`.
+   `python collector/filtering/linkedin_preview_filter.py --input <preview_json>`.
    This checks title block words first, then `(linkedin, job_id)` in
    `source_jobs`. A registered ID is skipped before the vacancy is opened.
 12. For every card with `preview_decision = "open"`, process it until it has
@@ -95,6 +95,15 @@ For left-panel card materialization and page-count verification, follow
    The cleaner writes `../Data/readable_v2/linkedin/pages/<job_id>.txt` and
    records processing status `CLEANED`. If cleaning fails, leave the vacancy at
    `RAW` and report the failure; do not analyze that vacancy.
+22. Run the readable text through:
+   `python collector/filtering/linkedin_content_filter.py --input ../Data/readable_v2/linkedin/pages/<job_id>.txt --title <title>`.
+   Title pass words from `collector/filtering/linkedin_content_filter.ini` are
+   checked first; a matching title bypasses all readable-content rules.
+   If `content_decision = "skip"`, log `content_filtered` with the returned
+   rule/reason, do not add the vacancy to the run scope or limit counter, and do
+   not invoke the analyzer. Keep its raw/readable files for calibration. If
+   `content_decision = "analyze"`, log `raw_saved`, increment the limit counter,
+   and hand the readable file to the analyzer scope.
 
 ## Collection Outcomes
 
@@ -103,6 +112,7 @@ outcome in SQLite:
 
 ```text
 raw_saved
+content_filtered
 already_raw
 not_processed_due_to_limit
 incomplete_raw
@@ -209,7 +219,7 @@ Do not use Python `urllib`, `requests`, hidden APIs, or copied cookies for
 LinkedIn collection. Do not run full vacancy analysis while collecting unless
 the user asks for calibration. Preview filtering is allowed because it only
 uses visible search-card text and deterministic rules from
-`collector/config/linkedin_preview_filter.ini`.
+`collector/filtering/linkedin_preview_filter.ini`.
 
 Return the explicit set of saved raw/readable vacancies to the caller. The
 collector does not run analysis, scoring, or database save stages itself.

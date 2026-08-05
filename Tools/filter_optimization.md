@@ -11,9 +11,9 @@ change collector, analyzer, scoring, or database data by itself.
 The filter being optimized here is the collector preview filter:
 
 ```text
-Driver/collector/linkedin_preview_filter.py
-Driver/collector/config/linkedin_preview_filter.ini
-Driver/collector/config/linkedin_preview_blocked_titles.txt
+Driver/collector/filtering/linkedin_preview_filter.py
+Driver/collector/filtering/linkedin_preview_filter.ini
+Driver/collector/filtering/linkedin_preview_blocked_titles.txt
 ```
 
 Do not confuse it with:
@@ -139,7 +139,7 @@ a valid Java/backend vacancy.
 If the user explicitly approves a proposal, update the collector blocklist in:
 
 ```text
-Driver/collector/config/linkedin_preview_blocked_titles.txt
+Driver/collector/filtering/linkedin_preview_blocked_titles.txt
 ```
 
 ## Manual Database Pass
