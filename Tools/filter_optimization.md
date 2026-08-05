@@ -34,41 +34,52 @@ Use the current SQLite database:
 Data/jobs.sqlite
 ```
 
-For now, analyze vacancies with:
+For the current optimization pass, analyze every vacancy with:
 
 ```text
-candidate_fit_percent = 0
+0 <= candidate_fit_percent <= 15
 ```
 
-Later this threshold may change. For example, `candidate_fit_percent < 20`
-may be treated almost the same as zero.
+Do not silently narrow this range to zero-only records or to selected reason
+codes.
 
 For every selected vacancy, inspect:
 
 ```text
-title
+exact collector preview title
 candidate_fit_reason_code
+candidate_fit_percent
 ```
+
+Resolve the title from the latest matching `linkedin_collection_events.title`
+when available, then from the saved raw page heading, and only then from the
+database job title. Proposals must be supported by the full title that was
+actually visible to the collector.
 
 The first MVP output is only a grouped evidence title list printed back to the
 user.
 Do not edit collector filters automatically.
 
-Process groups in this order:
+Inspect all reason-code groups. A reason code is context for explaining a row,
+not a reason to exclude it from title analysis: the first downstream failure
+can hide an obviously irrelevant role.
 
 - `role_mismatch`: best candidates for new title block words, because these
   are clearly not suitable roles.
 - `skill_mismatch`: possible candidates for title block words or fast tech
   rejects.
 - `tech`: possible candidates for fast tech rejects, but inspect carefully.
-
-Do not optimize from these groups by default:
-
 - `lang`: this only says the human-language requirement failed.
 - `loc`: this only says location, remote scope, relocation, permit, or similar
   availability failed.
-- `undefined`: old or not-yet-classified records; inspect only if explicitly
-  requested.
+- `undefined`: old or not-yet-classified records that still require title
+  inspection.
+- `ok`: low-fit records that still require title inspection.
+
+Collector title matching is order-sensitive. For every promising block phrase,
+check word-order variants present in the evidence. For example,
+`Administrator IT` does not block `IT Administrator`; each observed form needs
+its own matching term unless the filter implementation explicitly handles both.
 
 ## Current MVP Output
 

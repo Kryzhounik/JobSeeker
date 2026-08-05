@@ -364,3 +364,53 @@ Nuclear Engineer
 FPGA Developer
 Senior ML Engineer
 Solana Engineer
+
+Administrator
+Network Engineer
+Controls Engineer
+Service Engineer
+PLC Engineer
+Copilot Studio Developer
+COBOL Developer
+Cobol software engineer
+ABAP Developer
+ABAP Tech Lead
+Pega Developer
+OneTrust Developer
+GOSU - Backend Developer
+Dynamics 365 F&SCM Developer
+Data Modeller
+Front-End Developer
+FPGA Engineer
+
+Process Engineer
+Chief Engineer
+Aerodynamics Engineer
+Air Conditioning Engineer
+Materials Engineer
+Welding Engineer
+Stress Engineer
+Stress Analysis
+Acoustic Modelling
+Simulation Engineer
+Civil Engineer
+Pipeline Engineer
+CG Generalist
+Actor/Actress
+UI/2D Artist
+Language Specialist
+Clinician
+Legal Counsel
+Creative Producer
+Head of HR
+HR Business Partner
+Cabin Crew
+Team Lead of Affiliates
+Google Ads Specialist
+Talent Development Lead
+Technical Advisor
+Workday Configuration Specialist
+Technical Documentation Specialist
+Data Labeling Specialist
+Risk Strategy Expert
+Risk Operations
