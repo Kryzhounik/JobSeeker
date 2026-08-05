@@ -40,3 +40,15 @@ Each line is one JSON object. Useful events are `start`, `request`, `response`,
 `closed`, `stop_error`, `popup_error`, and `done`. If LinkedIn returns `429`, a
 network error, or unexpected HTML, the run stops, shows a popup, and writes the
 error to this log. The log is ignored by git.
+
+## Refilter
+
+The `Refilter` button runs:
+
+`python Tools/filter_database.py`
+
+The utility reads the current collector title block terms, checks every
+`jobs.title`, deletes matching `jobs` rows and their `source_jobs` rows, then
+prints `removed total: <n>`. The GUI runs it in the background, refreshes the
+table when it finishes, and shows `Refilter removed <n> jobs` in the status
+line.

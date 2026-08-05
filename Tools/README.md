@@ -9,3 +9,5 @@ state outside the normal `Driver/WORKFLOW.md` pipeline.
   Drive.
 - `filter_optimization.md`: inspect rejected vacancies and propose safer early
   filters.
+- `filter_database.py`: delete every saved job rejected by the current preview
+  title filter.

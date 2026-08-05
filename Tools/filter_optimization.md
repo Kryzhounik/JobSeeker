@@ -142,5 +142,17 @@ If the user explicitly approves a proposal, update the collector blocklist in:
 Driver/collector/config/linkedin_preview_blocked_titles.txt
 ```
 
+## Manual Database Pass
+
+After updating the blocklist, run every saved job title through the same title
+matcher used by the collector and delete rejected jobs:
+
+```powershell
+python Tools/filter_database.py
+```
+
+The utility reads `jobs.title`, applies the current block terms, deletes matching
+`jobs` rows with their cascaded data, and removes their dedup `source_jobs` rows.
+
 This instruction file may be updated when the optimization process itself needs
 clarification so that future agents understand the same workflow.
