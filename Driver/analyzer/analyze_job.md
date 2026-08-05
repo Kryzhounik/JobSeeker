@@ -1,8 +1,7 @@
-Purpose: orchestrate all analysis operations for one readable vacancy.
+Purpose: orchestrate all analysis operations for one stored readable vacancy.
 
 Input:
-- One saved readable vacancy text file.
-- Source and source URL when available.
+- Source and source-job ID whose readable text exists in SQLite.
 
 Output:
 - One fully scored JSON file under `../Data/scored/<source>/`.
@@ -10,11 +9,15 @@ Output:
 
 Run these operations in this exact order:
 
+Load the operation input with:
+`python db/readable_text.py --source <source> --job-id <job-id>`.
+Keep that text in memory; do not recreate a readable TXT file.
+
 1. Job facts
    - Invoke the operation through `agent_execution.md` with:
      - operation: `job_facts`;
      - instruction: `analyzer/job_facts/extract.md`;
-     - input: `<readable-text>`;
+     - input: `<readable-text loaded from SQLite>`;
      - contexts: none;
      - output schema: `contracts/job_analysis.schema.json`;
      - run ID and target from the current analysis run.

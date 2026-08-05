@@ -17,6 +17,7 @@ from common.paths import DATA_ROOT
 from db.job_mapper import apply_schema
 from db.job_registry import SOURCE_CODES
 from db.job_registry import mark_status
+from db.readable_text import save_readable_text
 
 
 MIGRATIONS_DIR = ROOT / "db" / "migrations"
@@ -125,6 +126,30 @@ def backfill_processing_registry(
     return after - before
 
 
+def backfill_legacy_readable_texts(
+    connection: sqlite3.Connection,
+    data_root: Path,
+) -> int:
+    before = int(
+        connection.execute("SELECT count(*) FROM source_job_texts").fetchone()[0]
+    )
+    for source in SOURCE_CODES:
+        directory = data_root / "readable_v2" / source / "pages"
+        if not directory.exists():
+            continue
+        for path in sorted(directory.glob("*.txt")):
+            save_readable_text(
+                connection,
+                source,
+                path.stem,
+                path.read_text(encoding="utf-8"),
+            )
+    after = int(
+        connection.execute("SELECT count(*) FROM source_job_texts").fetchone()[0]
+    )
+    return after - before
+
+
 def apply_migration(connection: sqlite3.Connection, path: Path) -> str:
     version = path.stem
     if migration_already_effective(connection, version):
@@ -173,6 +198,9 @@ def migrate_database(
             schema_changed = True
             if version == "003_source_job_registry":
                 registry_migrated = True
+            if version == "011_source_job_readable_text":
+                count = backfill_legacy_readable_texts(connection, db_path.parent)
+                messages.append(f"backfilled source_job_texts +{count}")
             connection.commit()
 
         if schema_changed:

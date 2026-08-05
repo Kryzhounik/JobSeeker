@@ -1,11 +1,11 @@
 ---
 name: validate-readable-analysis
-description: Validate that LinkedIn readable text extraction preserves job analysis output by comparing JSON produced from raw HTML and cleaned TXT for the same vacancies. Use before or after changing collector/extract_linkedin_readable_text_v*.py, or when checking whether HTML cleaning loses job fields.
+description: Validate that LinkedIn readable text extraction preserves job analysis output by comparing JSON produced from raw HTML and the SQLite readable text for the same vacancies. Use before or after changing collector/extract_linkedin_readable_text_v*.py, or when checking whether HTML cleaning loses job fields.
 ---
 
 # Validate Readable Analysis
 
-Goal: prove that `raw HTML -> readable TXT` does not change the structured job
+Goal: prove that `raw HTML -> SQLite readable text` does not change the structured job
 analysis we care about.
 
 Do not validate this by checking text prefixes, tails, or line counts only. The
@@ -13,17 +13,17 @@ required test is semantic:
 
 ```text
 same vacancy raw HTML -> job_facts/extract.md -> raw_json
-same vacancy readable TXT -> job_facts/extract.md -> readable_json
+same vacancy SQLite text -> job_facts/extract.md -> readable_json
 compare raw_json vs readable_json
 ```
 
 ## Inputs
 
 - Raw HTML files: `../Data/raw/<source>/pages/*.html`
-- Readable text files: `../Data/readable_v*/<source>/pages/*.txt`
+- Readable text rows: SQLite `source_job_texts`
 - Job-facts rules: `analyzer/job_facts/extract.md`
 
-Use the same vacancy id/stem for both files.
+Use the same source-job ID for the raw file and database row.
 
 Default sample when the user does not specify one: first 10 raw files sorted by
 file name.
@@ -34,10 +34,10 @@ file name.
 raw_html = ../Data/raw/<source>/pages/<id>.html
 raw_json = analyze(raw_html, analyzer/job_facts/extract.md)
 
-txt = extract(raw_html)
-txt_json = analyze(txt, analyzer/job_facts/extract.md)
+readable_text = extract_and_store(raw_html)
+readable_json = analyze(readable_text, analyzer/job_facts/extract.md)
 
-assert raw_json == txt_json for collected fields
+assert raw_json == readable_json for collected fields
 ```
 
 ## Comparison Fields
@@ -78,7 +78,7 @@ Report shape:
 {
   "source": "linkedin",
   "cleaner": "collector/extract_linkedin_readable_text_v2.py",
-  "sample": "first 10 raw/readable pairs sorted by file name",
+  "sample": "first 10 raw/database pairs sorted by job id",
   "checked_fields": ["title", "company", "technologies"],
   "result": {
     "jobs_checked": 10,

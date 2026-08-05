@@ -6,7 +6,7 @@ description: Browser-based LinkedIn collector for JobSeeker. Use this when colle
 # Scan LinkedIn
 
 Purpose: LinkedIn collection skill. It collects raw pages through the logged-in
-browser and must hand saved raw/readable pages to the common workflow.
+browser and must hand saved source-job IDs to the common workflow.
 
 Use this as the LinkedIn counterpart of `collector/scan_justjoin.py`.
 LinkedIn collection is browser-driven because direct Python HTTP requests get
@@ -92,18 +92,19 @@ For left-panel card materialization and page-count verification, follow
    present on disk.
 21. Convert that saved raw file into analyzer-ready readable text with:
    `python collector/extract_linkedin_readable_text_v2.py --source linkedin --input ../Data/raw/linkedin/pages/<job_id>.html`.
-   The cleaner writes `../Data/readable_v2/linkedin/pages/<job_id>.txt` and
-   records processing status `CLEANED`. If cleaning fails, leave the vacancy at
-   `RAW` and report the failure; do not analyze that vacancy.
-22. Run the readable text through:
-   `python collector/filtering/linkedin_content_filter.py --input ../Data/readable_v2/linkedin/pages/<job_id>.txt --title <title>`.
+   The cleaner writes the text to SQLite `source_job_texts` and records
+   processing status `CLEANED`. If cleaning fails, leave the vacancy at `RAW`
+   and report the failure; do not analyze that vacancy.
+22. Run the stored readable text through:
+   `python collector/filtering/linkedin_content_filter.py --source linkedin --job-id <job_id> --title <title>`.
    Title pass words from `collector/filtering/linkedin_content_filter.ini` are
    checked first; a matching title bypasses all readable-content rules.
    If `content_decision = "skip"`, log `content_filtered` with the returned
    rule/reason, do not add the vacancy to the run scope or limit counter, and do
-   not invoke the analyzer. Keep its raw/readable files for calibration. If
+   not invoke the analyzer. Keep its raw HTML and stored readable text for
+   calibration. If
    `content_decision = "analyze"`, log `raw_saved`, increment the limit counter,
-   and hand the readable file to the analyzer scope.
+   and hand the source/job ID to the analyzer scope.
 
 ## Collection Outcomes
 
@@ -221,7 +222,7 @@ the user asks for calibration. Preview filtering is allowed because it only
 uses visible search-card text and deterministic rules from
 `collector/filtering/linkedin_preview_filter.ini`.
 
-Return the explicit set of saved raw/readable vacancies to the caller. The
+Return the explicit set of saved source/job IDs to the caller. The
 collector does not run analysis, scoring, or database save stages itself.
 
 If LinkedIn shows CAPTCHA, checkpoint, suspicious-login, or account-warning UI,

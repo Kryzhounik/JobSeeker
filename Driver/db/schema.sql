@@ -54,6 +54,11 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     UNIQUE(source, source_job_id)
 );
 
+CREATE TABLE IF NOT EXISTS source_job_texts (
+    source_job_ref INTEGER PRIMARY KEY REFERENCES source_jobs(id) ON DELETE CASCADE,
+    readable_text TEXT NOT NULL CHECK (length(trim(readable_text)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),

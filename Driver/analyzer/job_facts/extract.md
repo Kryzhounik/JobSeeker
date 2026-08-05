@@ -1,9 +1,9 @@
 Purpose: extract structured vacancy facts from one readable vacancy.
 
-Task: perform only the job-facts operation for one saved readable vacancy.
+Task: perform only the job-facts operation for one stored readable vacancy.
 
 Job-facts call:
-- Input: one saved readable vacancy text file, plus source/source_url when
+- Input: one readable vacancy text loaded from SQLite, plus source/source_url when
   available.
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
@@ -14,10 +14,10 @@ Job-facts call:
 - Do not write files or update the database. The analyzer orchestrator owns
   output persistence and lifecycle updates after this operation succeeds.
 - Direct URLs from the user must first be saved as raw HTML by the collection
-  side, converted to readable text, then analyzed through this same call.
+  side, converted to readable text in SQLite, then analyzed through this same call.
 
 Do not implement this analysis as Python string matching or regex extraction.
-The source collector/adapter produces the saved readable vacancy text before
+The source collector/adapter stores the readable vacancy text before
 this prompt runs. Codex/this prompt produces structured analysis JSON. Keep
 this facts layer out of Python string heuristics unless we explicitly decide
 otherwise later.

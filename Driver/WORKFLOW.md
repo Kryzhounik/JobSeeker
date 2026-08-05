@@ -18,7 +18,7 @@ otherwise.
 
 ```text
 collector/source adapter
--> readable vacancy text (raw HTML remains persisted)
+-> readable vacancy text in SQLite (raw HTML remains persisted)
 -> analyzer/analyze_job.md (executed by the current Desktop agent)
    -> analyzer/job_facts/extract.md
    -> analyzer/candidate_fit/evaluate.md
@@ -83,16 +83,16 @@ Current MVP scopes:
 - `from-url linkedin <url>`: process only that URL's saved raw file.
 - `reprocess-raw linkedin`: process every raw HTML file currently present in
   `../Data/raw/linkedin/pages/`.
-- `batch linkedin`: process the readable files accepted by both collector
-  filters in that batch. Content-filtered raw/readable files stay available for
-  calibration but are not part of the analyzer scope.
+- `batch linkedin`: process the source-job IDs accepted by both collector
+  filters in that batch. Content-filtered raw HTML and stored readable text stay
+  available for calibration but are not part of the analyzer scope.
 
 For any multi-file scope, iterate all files in that scope and run the main
 pipeline for each file:
 
 ```text
 for each raw HTML file in the explicit scope:
-    source adapter prepares readable vacancy text
+    source adapter stores readable vacancy text in SQLite
     -> analyzer/analyze_job.md (executed by the current Desktop agent)
        -> job facts
        -> candidate fit
@@ -100,7 +100,7 @@ for each raw HTML file in the explicit scope:
     -> SQLite save
 ```
 
-Do not pick one arbitrary raw/readable/analyzed file from a batch unless the
+Do not pick one arbitrary raw file, readable DB row, or analyzed file from a batch unless the
 user explicitly asks for a single-id debug run.
 
 If collection is split by the Codex five-minute tool-call limit, a temporary
@@ -173,7 +173,7 @@ GUI viewing/debugging.
 Manual URL debug uses the same raw pipeline:
 
 ```text
-URL -> source adapter persists raw HTML and prepares readable text
+URL -> source adapter persists raw HTML and stores readable text in SQLite
     -> analyzer (job facts -> candidate fit -> job interest)
     -> save
 ```

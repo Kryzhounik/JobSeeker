@@ -3,7 +3,8 @@
 Top-level layout:
 
 - `GUI`: human viewer for inspecting the SQLite database.
-- `Data`: local raw/readable/analyzed data and `jobs.sqlite`.
+- `Data`: local raw/analyzed files and `jobs.sqlite`; analyzer-ready readable
+  text is stored inside SQLite.
 - `Driver`: collector, analyzer, scoring, DB mapper, and workflow contract.
 - `Tools`: project support instructions outside the main vacancy workflow.
 

@@ -6,9 +6,19 @@ import argparse
 import configparser
 import json
 import re
+import sqlite3
 import sys
 from pathlib import Path
 from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from common.paths import DATA_ROOT
+from db.migrate import migrate_database
+from db.readable_text import load_readable_text
 
 
 DEFAULT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
@@ -140,14 +150,20 @@ def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-    parser = argparse.ArgumentParser(description="Filter a readable LinkedIn vacancy.")
-    parser.add_argument("--input", "-i", required=True, help="Readable text file.")
+    parser = argparse.ArgumentParser(description="Filter a stored LinkedIn vacancy text.")
+    parser.add_argument("--source", required=True)
+    parser.add_argument("--job-id", required=True)
     parser.add_argument("--title", default="", help="Preview title used for pass words.")
     parser.add_argument("--output", "-o", default="-", help="Result JSON or stdout.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
+    parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     args = parser.parse_args()
 
-    text = Path(args.input).read_text(encoding="utf-8")
+    db_path = Path(args.db)
+    migrate_database(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        text = load_readable_text(connection, args.source, args.job_id)
     write_result(decide_content(text, Path(args.config), title=args.title), args.output)
 
 
