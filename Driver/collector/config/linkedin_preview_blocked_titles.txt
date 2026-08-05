@@ -8,6 +8,7 @@ Rust
 Salesforce
 SAP
 SAPUI5
+COBOL
 Designer
 iOS
 Frontend
