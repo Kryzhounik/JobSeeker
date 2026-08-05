@@ -165,6 +165,7 @@ class JobsViewer(tk.Tk):
 
         self._configure_style()
         self._build_ui()
+        self._bind_global_copy_shortcuts()
         self.refresh_jobs()
 
     def _configure_style(self) -> None:
@@ -1723,11 +1724,53 @@ class JobsViewer(tk.Tk):
         widget.bind("<<Paste>>", self._paste_entry_event)
         widget.bind("<Button-3>", self._show_entry_menu)
 
+    def _bind_global_copy_shortcuts(self) -> None:
+        self.bind_all("<Control-c>", self._global_copy_event, add="+")
+        self.bind_all("<Control-C>", self._global_copy_event, add="+")
+        self.bind_all("<Control-Insert>", self._global_copy_event, add="+")
+        self.bind_all("<Control-KeyPress>", self._global_copy_shortcut_event, add="+")
+        self.bind_all("<<Copy>>", self._global_copy_event, add="+")
+        self.bind_all("<Button-3>", self._show_global_copy_menu, add="+")
+
     def _copy_tree_selection(self, event: tk.Event[tk.Misc]) -> str:
         return self._copy_widget_selection(event.widget)
 
     def _copy_widget_event(self, event: tk.Event[tk.Misc]) -> str:
         return self._copy_widget_selection(event.widget)
+
+    def _global_copy_event(self, event: tk.Event[tk.Misc]) -> str | None:
+        widget = event.widget
+        if self._copy_widget_text(widget):
+            return "break"
+
+        focused = self.focus_get()
+        if focused is not None and focused is not widget:
+            if self._copy_widget_text(focused):
+                return "break"
+        return None
+
+    def _global_copy_shortcut_event(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if key in {"c", "insert"} or keycode in {45, 67}:
+            return self._global_copy_event(event)
+        return None
+
+    def _show_global_copy_menu(self, event: tk.Event[tk.Misc]) -> str | None:
+        if self._copyable_widget_text(event.widget) == "":
+            return None
+
+        widget = event.widget
+        menu = tk.Menu(self, tearoff=False)
+        menu.add_command(
+            label="Copy",
+            command=lambda widget=widget: self._copy_widget_text(widget),
+        )
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
 
     def _copy_shortcut_event(self, event: tk.Event[tk.Misc]) -> str | None:
         key = event.keysym.lower()
@@ -1754,21 +1797,50 @@ class JobsViewer(tk.Tk):
         return None
 
     def _copy_widget_selection(self, widget: tk.Misc) -> str:
-        if hasattr(widget, "selection") and hasattr(widget, "set"):
-            text = self._tree_selection_text(widget)
-        elif isinstance(widget, tk.Text):
-            text = self._text_selection(widget)
-        elif hasattr(widget, "selection_get") and hasattr(widget, "get"):
-            text = self._entry_selection(widget)
-        else:
-            return "break"
-
-        if text:
-            self.clipboard_clear()
-            self.clipboard_append(text)
-            self.update_idletasks()
-            self.status_var.set("Copied")
+        self._copy_widget_text(widget)
         return "break"
+
+    def _copy_widget_text(self, widget: tk.Misc) -> bool:
+        text = self._copyable_widget_text(widget)
+        if not text:
+            return False
+
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        self.update_idletasks()
+        self.status_var.set("Copied")
+        return True
+
+    def _copyable_widget_text(self, widget: tk.Misc) -> str:
+        if hasattr(widget, "selection") and hasattr(widget, "set"):
+            return self._tree_selection_text(widget)
+        elif isinstance(widget, tk.Text):
+            return self._text_selection(widget)
+        elif hasattr(widget, "selection_get") and hasattr(widget, "get"):
+            return self._entry_selection(widget)
+
+        return self._widget_config_text(widget)
+
+    def _widget_config_text(self, widget: tk.Misc) -> str:
+        for option in ("text", "label"):
+            try:
+                value = widget.cget(option)
+            except tk.TclError:
+                continue
+            text = clean(value)
+            if text:
+                return text
+
+        try:
+            variable_name = clean(widget.cget("textvariable"))
+        except tk.TclError:
+            variable_name = ""
+        if variable_name:
+            try:
+                return clean(self.getvar(variable_name))
+            except tk.TclError:
+                return ""
+        return ""
 
     def _tree_selection_text(self, tree: tk.Misc) -> str:
         selected = tree.selection()
