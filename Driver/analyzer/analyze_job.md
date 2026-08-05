@@ -41,9 +41,12 @@ Run these operations in this exact order:
      instruction, input, and context files.
    - Do not pass readable-text context, the job-facts agent's reasoning, an
      existing scored JSON, or an existing database score.
-   - Validate the returned three-field object, merge it into a copy of the
-     analyzed JSON, and write `<scored-json>`. This analyzer owns that merge and
-     persistence in both Desktop and CLI execution modes.
+   - Validate the returned three-field object, then pass its UTF-8 JSON bytes
+     through standard input to:
+     `python analyzer/candidate_fit/merge_result.py --input <analyzed-json> --output <scored-json>`.
+   - Do not read or rewrite the analyzed JSON through PowerShell or console
+     text. `merge_result.py` owns the UTF-8-safe merge and scored persistence in
+     both Desktop and CLI execution modes.
 
 3. Job interest
    - Run:
