@@ -11,7 +11,7 @@ change collector, analyzer, scoring, or database data by itself.
 The filter being optimized here is the collector preview filter:
 
 ```text
-Driver/collector/filtering/linkedin_preview_filter.py
+Driver/collector/filtering/linkedin_filter.py
 Driver/collector/filtering/linkedin_preview_filter.ini
 Driver/collector/filtering/linkedin_preview_blocked_titles.txt
 ```
@@ -144,15 +144,18 @@ Driver/collector/filtering/linkedin_preview_blocked_titles.txt
 
 ## Manual Database Pass
 
-After updating the blocklist, run every saved job title through the same title
-matcher used by the collector and delete rejected jobs:
+After updating filter configuration, run every saved vacancy through the same
+top-level filter used by the GUI and review the rejected jobs:
 
 ```powershell
 python Tools/filter_database.py
 ```
 
-The utility reads `jobs.title`, applies the current block terms, deletes matching
-`jobs` rows with their cascaded data, and removes their dedup `source_jobs` rows.
+The utility reads `jobs.title` and stored `source_job_texts.readable_text`, then
+calls `VacancyFilter.filter(Vacancy)`. It prints a JSON list with each rejected
+job's ID, title, and reason and does not change the database. Deletion is a
+separate database-layer operation used by the GUI after immediate execution or
+explicit confirmation.
 
 This instruction file may be updated when the optimization process itself needs
 clarification so that future agents understand the same workflow.

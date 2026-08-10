@@ -1,0 +1,384 @@
+from __future__ import annotations
+
+import argparse
+import configparser
+from dataclasses import dataclass
+import json
+from pathlib import Path
+import re
+import sqlite3
+import sys
+from typing import Any
+
+
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+LOGGING_ROOT = ROOT / "collector" / "logging"
+if str(LOGGING_ROOT) not in sys.path:
+    sys.path.insert(0, str(LOGGING_ROOT))
+
+from db.job_registry import is_registered
+from db.migrate import migrate_database
+from db.readable_text import load_readable_text
+from linkedin_logger import record_preview_filter
+
+
+DEFAULT_PREVIEW_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
+DEFAULT_CONTENT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
+DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
+MIGRATED_DATABASES: set[Path] = set()
+
+
+@dataclass(frozen=True)
+class Vacancy:
+    title: str
+    text: str | None = None
+
+
+@dataclass(frozen=True)
+class FilterResult:
+    rejected: bool
+    reason: str
+    rule: str = ""
+    match: str = ""
+    terms: tuple[str, ...] = ()
+    technologies: tuple[str, ...] = ()
+    signals: tuple[str, ...] = ()
+
+
+def load_config(path: Path) -> configparser.ConfigParser:
+    config = configparser.ConfigParser(interpolation=None)
+    config.read(path, encoding="utf-8")
+    return config
+
+
+def enabled(config: configparser.ConfigParser) -> bool:
+    return config.get("filters", "enabled", fallback="on").strip().lower() not in {
+        "off",
+        "false",
+        "no",
+        "0",
+    }
+
+
+def configured_values(config: configparser.ConfigParser, section: str) -> list[str]:
+    value = config.get(section, "values", fallback="")
+    return [line.strip() for line in value.splitlines() if line.strip()]
+
+
+def configured_names(config: configparser.ConfigParser, section: str) -> list[str]:
+    value = config.get(section, "values", fallback="")
+    return [name.strip() for name in re.split(r"[,\n]+", value) if name.strip()]
+
+
+def configured_patterns(
+    config: configparser.ConfigParser,
+    section: str,
+) -> list[re.Pattern[str]]:
+    return [
+        re.compile(pattern, re.IGNORECASE)
+        for pattern in configured_values(config, section)
+    ]
+
+
+def blocked_terms(
+    config: configparser.ConfigParser,
+    config_path: Path = DEFAULT_PREVIEW_CONFIG,
+) -> list[str]:
+    terms = [
+        item.strip()
+        for item in config.get("title", "blocked_terms", fallback="").split(",")
+        if item.strip()
+    ]
+    terms_file = config.get("title", "blocked_terms_file", fallback="").strip()
+    if not terms_file:
+        return terms
+
+    path = Path(terms_file)
+    if not path.is_absolute():
+        path = config_path.parent / path
+    if path.exists():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            term = line.strip()
+            if term and not term.startswith("#"):
+                terms.append(term)
+    return terms
+
+
+def matches_term(text: str, term: str) -> bool:
+    haystack = text.lower()
+    needle = term.lower().strip()
+    if not needle:
+        return False
+    if any(not char.isalnum() for char in needle):
+        return needle in haystack
+    return re.search(
+        rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])",
+        haystack,
+    ) is not None
+
+
+def technology_pattern(name: str) -> re.Pattern[str]:
+    return re.compile(
+        rf"(?<![\w+#.]){re.escape(name)}(?![\w+#.])",
+        re.IGNORECASE,
+    )
+
+
+def content_units(text: str) -> list[str]:
+    lines = [line.strip() for line in text.splitlines()]
+    units = [line for line in lines if line]
+    units.extend(
+        f"{line} {lines[index + 1]}"
+        for index, line in enumerate(lines[:-1])
+        if line and lines[index + 1]
+    )
+    return units
+
+
+class VacancyFilter:
+    def __init__(
+        self,
+        preview_config_path: Path = DEFAULT_PREVIEW_CONFIG,
+        content_config_path: Path = DEFAULT_CONTENT_CONFIG,
+    ) -> None:
+        self.preview_config_path = preview_config_path
+        self.content_config_path = content_config_path
+        self.preview_config = load_config(preview_config_path)
+        self.content_config = load_config(content_config_path)
+
+    def filter(self, vacancy: Vacancy) -> FilterResult:
+        result = self.filter_title(vacancy.title)
+        if result.rejected or vacancy.text is None:
+            return result
+        return self.filter_text(vacancy.title, vacancy.text)
+
+    def filter_title(self, title: str) -> FilterResult:
+        config = self.preview_config
+        if not enabled(config):
+            return FilterResult(False, "preview filter disabled")
+
+        matches = [
+            term
+            for term in blocked_terms(config, self.preview_config_path)
+            if matches_term(title, term)
+        ]
+        if matches:
+            return FilterResult(
+                True,
+                "title blocked: " + ", ".join(matches),
+                rule="title_blocked",
+                match=title,
+                terms=tuple(matches),
+            )
+        return FilterResult(False, "no title skip signals")
+
+    def filter_text(self, title: str, text: str) -> FilterResult:
+        config = self.content_config
+        pass_words = [
+            name
+            for name in configured_names(config, "pass_words")
+            if technology_pattern(name).search(title)
+        ]
+        if pass_words:
+            return FilterResult(
+                False,
+                "title pass word: " + ", ".join(pass_words),
+                rule="title_pass_word",
+                match=title,
+            )
+        if not enabled(config):
+            return FilterResult(False, "content filter disabled")
+
+        technologies = [
+            (name, technology_pattern(name))
+            for name in configured_names(config, "blocked_technologies")
+        ]
+        hard_signals = configured_patterns(config, "hard_requirement_signals")
+        optional_signals = configured_patterns(config, "optional_signals")
+        alternative_signals = configured_patterns(config, "alternative_signals")
+
+        for unit in content_units(text):
+            matched_technologies = [
+                name for name, pattern in technologies if pattern.search(unit)
+            ]
+            matched_signals = [
+                pattern.pattern for pattern in hard_signals if pattern.search(unit)
+            ]
+            if not matched_technologies or not matched_signals:
+                continue
+            if any(pattern.search(unit) for pattern in optional_signals):
+                continue
+            if any(pattern.search(unit) for pattern in alternative_signals):
+                continue
+            return FilterResult(
+                True,
+                "hard requirement for blocked technology: "
+                + ", ".join(matched_technologies),
+                rule="hard_blocked_technology",
+                match=unit,
+                technologies=tuple(matched_technologies),
+                signals=tuple(matched_signals),
+            )
+        return FilterResult(False, "no content skip signals")
+
+
+DEFAULT_FILTER = VacancyFilter()
+
+
+def filter_vacancy(vacancy: Vacancy) -> FilterResult:
+    return DEFAULT_FILTER.filter(vacancy)
+
+
+def source_job_id(preview: dict[str, Any]) -> str:
+    value = str(preview.get("job_id") or "").strip()
+    if value:
+        return value
+    source_url = str(preview.get("source_url") or "").strip()
+    match = re.search(r"/jobs/view/(\d+)", source_url)
+    return match.group(1) if match else ""
+
+
+def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) -> bool:
+    if not db_path.exists():
+        return False
+    job_id = source_job_id(preview)
+    if not job_id:
+        return False
+
+    resolved_db = db_path.resolve()
+    if resolved_db not in MIGRATED_DATABASES:
+        migrate_database(resolved_db)
+        MIGRATED_DATABASES.add(resolved_db)
+    with sqlite3.connect(resolved_db) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        return is_registered(connection, "linkedin", job_id)
+
+
+def decide_preview(
+    preview: dict[str, Any],
+    config_path: Path = DEFAULT_PREVIEW_CONFIG,
+) -> dict[str, Any]:
+    config = load_config(config_path)
+    if not enabled(config):
+        return {
+            "preview_decision": "open",
+            "preview_reason": "preview filter disabled",
+            "preview_blocked_terms": [],
+        }
+
+    result = VacancyFilter(preview_config_path=config_path).filter_title(
+        str(preview.get("title") or "").strip()
+    )
+    if result.rejected:
+        return {
+            "preview_decision": "skip",
+            "preview_reason": result.reason,
+            "preview_blocked_terms": list(result.terms),
+        }
+    if is_duplicate_preview(preview):
+        return {
+            "preview_decision": "skip",
+            "preview_reason": "duplicate source_job_id",
+            "preview_blocked_terms": [],
+        }
+
+    when_unsure = config.get("decision", "when_unsure", fallback="open").strip().lower()
+    return {
+        "preview_decision": "open" if when_unsure != "skip" else "skip",
+        "preview_reason": "no preview skip signals",
+        "preview_blocked_terms": [],
+    }
+
+
+def decide_content(
+    text: str,
+    config_path: Path = DEFAULT_CONTENT_CONFIG,
+    *,
+    title: str = "",
+) -> dict[str, Any]:
+    result = VacancyFilter(content_config_path=config_path).filter_text(title, text)
+    response: dict[str, Any] = {
+        "content_decision": "skip" if result.rejected else "analyze",
+        "content_reason": result.reason,
+        "content_rule": result.rule,
+        "content_match": result.match,
+    }
+    if result.technologies:
+        response["content_technologies"] = list(result.technologies)
+    if result.signals:
+        response["content_signals"] = list(result.signals)
+    return response
+
+
+def apply_preview_decision(payload: Any, config_path: Path) -> Any:
+    if isinstance(payload, list):
+        return [apply_preview_decision(item, config_path) for item in payload]
+    if not isinstance(payload, dict):
+        raise ValueError("Preview payload must be a JSON object or list.")
+
+    preview = payload.get("preview")
+    if not isinstance(preview, dict):
+        preview = payload
+    return record_preview_filter(
+        {**payload, **decide_preview(preview, config_path)}
+    )
+
+
+def write_result(result: Any, output_path: str) -> None:
+    text = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
+    if output_path == "-":
+        print(text, end="")
+    else:
+        Path(output_path).write_text(text, encoding="utf-8")
+
+
+def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    parser = argparse.ArgumentParser(description="Filter a LinkedIn vacancy.")
+    subparsers = parser.add_subparsers(dest="stage", required=True)
+
+    preview = subparsers.add_parser("preview")
+    preview.add_argument("--input", "-i", default="-")
+    preview.add_argument("--output", "-o", default="-")
+    preview.add_argument("--title", default="")
+    preview.add_argument("--config", default=str(DEFAULT_PREVIEW_CONFIG))
+
+    content = subparsers.add_parser("content")
+    content.add_argument("--source", required=True)
+    content.add_argument("--job-id", required=True)
+    content.add_argument("--title", default="")
+    content.add_argument("--output", "-o", default="-")
+    content.add_argument("--config", default=str(DEFAULT_CONTENT_CONFIG))
+    content.add_argument("--db", default=str(DEFAULT_DB))
+    args = parser.parse_args()
+
+    if args.stage == "preview":
+        if args.title:
+            payload: Any = {"title": args.title}
+        elif args.input == "-":
+            payload = json.load(sys.stdin)
+        else:
+            payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        write_result(
+            apply_preview_decision(payload, Path(args.config)),
+            args.output,
+        )
+        return
+
+    db_path = Path(args.db)
+    migrate_database(db_path)
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        text = load_readable_text(connection, args.source, args.job_id)
+    write_result(
+        decide_content(text, Path(args.config), title=args.title),
+        args.output,
+    )
+
+
+if __name__ == "__main__":
+    main()

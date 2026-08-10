@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from db.job_registry import mark_url_status
 
@@ -125,6 +125,32 @@ def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
         row[0]
         for row in connection.execute("SELECT source_url FROM jobs").fetchall()
     }
+
+
+def delete_jobs(
+    connection: sqlite3.Connection,
+    job_ids: Iterable[int],
+) -> list[int]:
+    """Delete jobs and their source registry rows in the current transaction."""
+    requested_ids = list(dict.fromkeys(int(job_id) for job_id in job_ids))
+    existing: list[tuple[int, int]] = []
+    for job_id in requested_ids:
+        row = connection.execute(
+            "SELECT id, source_job_ref FROM jobs WHERE id = ?",
+            (job_id,),
+        ).fetchone()
+        if row is not None:
+            existing.append((int(row[0]), int(row[1])))
+
+    connection.executemany(
+        "DELETE FROM jobs WHERE id = ?",
+        [(job_id,) for job_id, _source_job_ref in existing],
+    )
+    connection.executemany(
+        "DELETE FROM source_jobs WHERE id = ?",
+        [(source_job_ref,) for _job_id, source_job_ref in existing],
+    )
+    return [job_id for job_id, _source_job_ref in existing]
 
 
 def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> None:

@@ -42,7 +42,7 @@ Use the human-like search UI flow:
 ```text
 open search page
 read visible left-side search cards
-run filtering/linkedin_preview_filter.py on each card
+run filtering/linkedin_filter.py preview on each card
 skip rejected cards
 click an accepted card in the left search results by job_id/href
 wait for the right-side details pane

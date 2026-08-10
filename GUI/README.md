@@ -43,12 +43,17 @@ error to this log. The log is ignored by git.
 
 ## Refilter
 
-The `Refilter` button runs:
+The refilter workflow uses:
 
 `python Tools/filter_database.py`
 
-The utility reads the current collector title block terms, checks every
-`jobs.title`, deletes matching `jobs` rows and their `source_jobs` rows, then
-prints `removed total: <n>`. The GUI runs it in the background, refreshes the
-table when it finishes, and shows `Refilter removed <n> jobs` in the status
-line.
+The utility loads each `jobs.title` and its stored readable text, passes the
+result to the collector filter's top-level `filter(Vacancy)` method, and returns
+a JSON list containing each rejected job's ID, title, and filter reason. It
+never changes the database itself.
+
+The top `Refilter` button collects rejected jobs and immediately deletes them
+through the database layer. The bottom `Refilter detail` button only collects
+them and opens a confirmation window containing the title and reason. `Confirm`
+deletes that displayed set; `Cancel` or closing the window leaves the database
+unchanged.

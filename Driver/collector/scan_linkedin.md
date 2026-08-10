@@ -50,7 +50,7 @@ For left-panel card materialization and page-count verification, follow
 10. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
 11. Run the preview object through:
-   `python collector/filtering/linkedin_preview_filter.py --input <preview_json>`.
+   `python collector/filtering/linkedin_filter.py preview --input <preview_json>`.
    This checks title block words first, then `(linkedin, job_id)` in
    `source_jobs`. A registered ID is skipped before the vacancy is opened.
 12. For every card with `preview_decision = "open"`, process it until it has
@@ -96,7 +96,7 @@ For left-panel card materialization and page-count verification, follow
    processing status `CLEANED`. If cleaning fails, leave the vacancy at `RAW`
    and report the failure; do not analyze that vacancy.
 22. Run the stored readable text through:
-   `python collector/filtering/linkedin_content_filter.py --source linkedin --job-id <job_id> --title <title>`.
+   `python collector/filtering/linkedin_filter.py content --source linkedin --job-id <job_id> --title <title>`.
    Title pass words from `collector/filtering/linkedin_content_filter.ini` are
    checked first; a matching title bypasses all readable-content rules.
    If `content_decision = "skip"`, log `content_filtered` with the returned

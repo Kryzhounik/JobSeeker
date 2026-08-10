@@ -4,7 +4,6 @@ import json
 import queue
 import re
 import sqlite3
-import subprocess
 import sys
 import threading
 import time
@@ -23,11 +22,15 @@ ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
 SETTINGS_PATH = Path(__file__).with_name("jobs_viewer_settings.json")
 AVAILABILITY_LOG_PATH = Path(__file__).with_name("linkedin_availability_check.log")
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 DRIVER_ROOT = ROOT / "Driver"
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from db.job_mapper import delete_jobs
 from db.migrate import migrate_database
+from Tools.filter_database import collect_rejected_jobs
 
 
 JOB_COLUMNS = (
@@ -143,6 +146,7 @@ class JobsViewer(tk.Tk):
         self.status_buttons: list[ttk.Button] = []
         self.availability_button: ttk.Button | None = None
         self.refilter_button: ttk.Button | None = None
+        self.refilter_detail_button: ttk.Button | None = None
         self.availability_check_running = False
         self.availability_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.availability_log_lock = threading.Lock()
@@ -267,6 +271,15 @@ class JobsViewer(tk.Tk):
 
         self._build_jobs_table(jobs_frame)
         self._build_detail(detail_frame)
+
+        footer = ttk.Frame(self, padding=(10, 0, 10, 10))
+        footer.grid(row=2, column=0, sticky="ew")
+        self.refilter_detail_button = ttk.Button(
+            footer,
+            text="Refilter detail",
+            command=self._start_refilter_detail,
+        )
+        self.refilter_detail_button.grid(row=0, column=0, sticky="w")
 
     def _build_jobs_table(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -953,8 +966,7 @@ class JobsViewer(tk.Tk):
         self.availability_queue = queue.SimpleQueue()
         if self.availability_button is not None:
             self.availability_button.configure(state=tk.DISABLED)
-        if self.refilter_button is not None:
-            self.refilter_button.configure(state=tk.DISABLED)
+        self._set_refilter_buttons_state(False)
         self.status_var.set(f"LinkedIn check 0/{len(candidates)}")
 
         thread = threading.Thread(
@@ -966,67 +978,100 @@ class JobsViewer(tk.Tk):
         self.after(200, self._poll_linkedin_availability_queue)
 
     def _start_refilter_database(self) -> None:
+        self._start_refilter_collect(preview=False)
+
+    def _start_refilter_detail(self) -> None:
+        self._start_refilter_collect(preview=True)
+
+    def _start_refilter_collect(self, *, preview: bool) -> None:
         if self.refilter_running:
             return
         if self.availability_check_running:
             self.status_var.set("LinkedIn check is running")
             return
 
-        self.refilter_running = True
-        self.refilter_queue = queue.SimpleQueue()
-        if self.refilter_button is not None:
-            self.refilter_button.configure(state=tk.DISABLED)
-        if self.availability_button is not None:
-            self.availability_button.configure(state=tk.DISABLED)
-        self.status_var.set("Refilter running")
+        self._begin_refilter_activity(
+            "Refilter detail running" if preview else "Refilter running"
+        )
 
         thread = threading.Thread(
-            target=self._refilter_database_worker,
+            target=self._refilter_collect_worker,
+            args=(preview,),
             daemon=True,
         )
         thread.start()
         self.after(200, self._poll_refilter_queue)
 
-    def _refilter_database_worker(self) -> None:
-        script_path = ROOT / "Tools" / "filter_database.py"
+    def _begin_refilter_activity(self, status: str) -> None:
+        self.refilter_running = True
+        self.refilter_queue = queue.SimpleQueue()
+        self._set_refilter_buttons_state(False)
+        if self.availability_button is not None:
+            self.availability_button.configure(state=tk.DISABLED)
+        self.status_var.set(status)
+
+    def _set_refilter_buttons_state(self, enabled: bool) -> None:
+        state = tk.NORMAL if enabled else tk.DISABLED
+        for button in (self.refilter_button, self.refilter_detail_button):
+            if button is not None:
+                button.configure(state=state)
+
+    def _refilter_collect_worker(self, preview: bool) -> None:
         try:
-            result = subprocess.run(
-                [self._python_console_executable(), str(script_path)],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-            )
-            stdout = result.stdout.strip()
-            stderr = result.stderr.strip()
-            removed_total = self._parse_refilter_removed_total(stdout)
-            self.refilter_queue.put(
-                (
-                    "done",
-                    result.returncode,
-                    removed_total,
-                    stdout,
-                    stderr,
-                )
-            )
+            candidates = collect_rejected_jobs(DB_PATH)
+            if preview:
+                self.refilter_queue.put(("preview", candidates))
+                return
+
+            removed_total = self._delete_refilter_candidates(candidates)
+            self.refilter_queue.put(("deleted", removed_total))
         except Exception as error:
             self.refilter_queue.put(("error", str(error)))
 
-    def _python_console_executable(self) -> str:
-        executable = Path(sys.executable)
-        if executable.name.lower() == "pythonw.exe":
-            candidate = executable.with_name("python.exe")
-            if candidate.exists():
-                return str(candidate)
-        return sys.executable
+    def _delete_refilter_candidates(
+        self,
+        candidates: list[dict[str, Any]],
+    ) -> int:
+        connection = sqlite3.connect(DB_PATH)
+        try:
+            connection.execute("PRAGMA foreign_keys = ON")
+            deleted_ids = delete_jobs(
+                connection,
+                [int(candidate["id"]) for candidate in candidates],
+            )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+        return len(deleted_ids)
 
-    def _parse_refilter_removed_total(self, output: str) -> int | None:
-        for line in reversed(output.splitlines()):
-            match = re.search(r"removed total:\s*(\d+)", line)
-            if match:
-                return int(match.group(1))
-        return None
+    def _start_confirmed_refilter_delete(
+        self,
+        candidates: list[dict[str, Any]],
+    ) -> None:
+        if self.refilter_running:
+            return
+        if self.availability_check_running:
+            self.status_var.set("LinkedIn check is running")
+            return
+
+        self._begin_refilter_activity("Refilter deleting confirmed jobs")
+        thread = threading.Thread(
+            target=self._refilter_delete_worker,
+            args=(candidates,),
+            daemon=True,
+        )
+        thread.start()
+        self.after(200, self._poll_refilter_queue)
+
+    def _refilter_delete_worker(self, candidates: list[dict[str, Any]]) -> None:
+        try:
+            removed_total = self._delete_refilter_candidates(candidates)
+            self.refilter_queue.put(("deleted", removed_total))
+        except Exception as error:
+            self.refilter_queue.put(("error", str(error)))
 
     def _poll_refilter_queue(self) -> None:
         while True:
@@ -1036,45 +1081,123 @@ class JobsViewer(tk.Tk):
                 break
 
             kind = message[0]
-            if kind == "done":
-                _kind, returncode, removed_total, stdout, stderr = message
-                self._finish_refilter_database(
-                    returncode,
-                    removed_total,
-                    stdout,
-                    stderr,
+            if kind == "deleted":
+                _kind, removed_total = message
+                self._finish_refilter_activity()
+                self.refresh_jobs()
+                self.status_var.set(f"Refilter removed {removed_total} jobs")
+            elif kind == "preview":
+                _kind, candidates = message
+                self._finish_refilter_activity()
+                self.status_var.set(
+                    f"Refilter detail found {len(candidates)} jobs"
                 )
+                self._show_refilter_detail(candidates)
             elif kind == "error":
                 _kind, error_message = message
-                self._finish_refilter_database(1, None, "", error_message)
+                self._finish_refilter_activity()
+                messagebox.showerror("Refilter failed", error_message)
+                self.status_var.set("Refilter failed")
 
         if self.refilter_running:
             self.after(200, self._poll_refilter_queue)
 
-    def _finish_refilter_database(
-        self,
-        returncode: int,
-        removed_total: int | None,
-        stdout: str,
-        stderr: str,
-    ) -> None:
+    def _finish_refilter_activity(self) -> None:
         self.refilter_running = False
-        if self.refilter_button is not None:
-            self.refilter_button.configure(state=tk.NORMAL)
+        self._set_refilter_buttons_state(True)
         if self.availability_button is not None and not self.availability_check_running:
             self.availability_button.configure(state=tk.NORMAL)
 
-        self.refresh_jobs()
-        if returncode == 0:
-            total_text = str(removed_total) if removed_total is not None else "?"
-            self.status_var.set(f"Refilter removed {total_text} jobs")
-            return
+    def _show_refilter_detail(self, candidates: list[dict[str, Any]]) -> None:
+        dialog = tk.Toplevel(self)
+        dialog.title("Refilter detail")
+        dialog.geometry("900x500")
+        dialog.minsize(650, 300)
+        dialog.transient(self)
+        dialog.columnconfigure(0, weight=1)
+        dialog.rowconfigure(1, weight=1)
 
-        details = "\n".join(part for part in (stderr, stdout) if part).strip()
-        if not details:
-            details = f"filter_database.py exited with code {returncode}"
-        messagebox.showerror("Refilter failed", details)
-        self.status_var.set("Refilter failed")
+        ttk.Label(
+            dialog,
+            text=f"Rejected jobs: {len(candidates)}",
+            style="Title.TLabel",
+            padding=(10, 10, 10, 6),
+        ).grid(row=0, column=0, sticky="w")
+
+        table_frame = ttk.Frame(dialog, padding=(10, 0))
+        table_frame.grid(row=1, column=0, sticky="nsew")
+        table_frame.columnconfigure(0, weight=1)
+        table_frame.rowconfigure(0, weight=1)
+
+        tree = ttk.Treeview(
+            table_frame,
+            columns=("title", "reason"),
+            show="headings",
+            selectmode="extended",
+        )
+        tree.grid(row=0, column=0, sticky="nsew")
+        tree.heading("title", text="Title")
+        tree.heading("reason", text="Reason")
+        tree.column("title", width=360, minwidth=180, stretch=True)
+        tree.column("reason", width=500, minwidth=220, stretch=True)
+        tree.tag_configure("odd", background="#f7f9fb")
+
+        y_scroll = ttk.Scrollbar(
+            table_frame,
+            orient=tk.VERTICAL,
+            command=tree.yview,
+        )
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll = ttk.Scrollbar(
+            table_frame,
+            orient=tk.HORIZONTAL,
+            command=tree.xview,
+        )
+        x_scroll.grid(row=1, column=0, sticky="ew")
+        tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+
+        for index, candidate in enumerate(candidates):
+            tree.insert(
+                "",
+                tk.END,
+                iid=f"refilter-{candidate['id']}",
+                values=(candidate.get("title", ""), candidate.get("reason", "")),
+                tags=("odd",) if index % 2 else (),
+            )
+
+        tree.bind("<Control-c>", self._copy_tree_selection)
+        tree.bind("<Control-C>", self._copy_tree_selection)
+        tree.bind("<Control-Insert>", self._copy_tree_selection)
+        tree.bind("<<Copy>>", self._copy_tree_selection)
+        tree.bind("<Button-3>", self._show_copy_menu)
+
+        actions = ttk.Frame(dialog, padding=10)
+        actions.grid(row=2, column=0, sticky="ew")
+        actions.columnconfigure(0, weight=1)
+
+        def cancel() -> None:
+            dialog.destroy()
+            self.status_var.set("Refilter detail cancelled")
+
+        def confirm() -> None:
+            dialog.destroy()
+            self._start_confirmed_refilter_delete(candidates)
+
+        ttk.Button(actions, text="Cancel", command=cancel).grid(
+            row=0,
+            column=1,
+            sticky="e",
+            padx=(0, 6),
+        )
+        confirm_button = ttk.Button(actions, text="Confirm", command=confirm)
+        confirm_button.grid(row=0, column=2, sticky="e")
+        if not candidates:
+            confirm_button.configure(state=tk.DISABLED)
+
+        dialog.protocol("WM_DELETE_WINDOW", cancel)
+        dialog.grab_set()
+        dialog.lift()
+        tree.focus_set()
 
     def _closed_status_value(self) -> str:
         for status in self.status_values:
@@ -1363,8 +1486,8 @@ class JobsViewer(tk.Tk):
         self.availability_check_running = False
         if self.availability_button is not None:
             self.availability_button.configure(state=tk.NORMAL)
-        if self.refilter_button is not None and not self.refilter_running:
-            self.refilter_button.configure(state=tk.NORMAL)
+        if not self.refilter_running:
+            self._set_refilter_buttons_state(True)
 
         self.refresh_jobs()
         summary = (
