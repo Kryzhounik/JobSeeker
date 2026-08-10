@@ -1131,15 +1131,17 @@ class JobsViewer(tk.Tk):
 
         tree = ttk.Treeview(
             table_frame,
-            columns=("title", "original", "matched"),
+            columns=("title", "fit", "original", "matched"),
             show="headings",
             selectmode="extended",
         )
         tree.grid(row=0, column=0, sticky="nsew")
         tree.heading("title", text="Title")
+        tree.heading("fit", text="Fit")
         tree.heading("original", text="Original")
         tree.heading("matched", text="Match")
-        tree.column("title", width=320, minwidth=180, stretch=True)
+        tree.column("title", width=280, minwidth=180, stretch=True)
+        tree.column("fit", width=60, minwidth=50, anchor="center", stretch=False)
         tree.column("original", width=480, minwidth=240, stretch=True)
         tree.column("matched", width=160, minwidth=100, stretch=False)
         tree.tag_configure("odd", background="#f7f9fb")
@@ -1167,6 +1169,7 @@ class JobsViewer(tk.Tk):
                 iid=iid,
                 values=(
                     candidate.get("title", ""),
+                    candidate.get("fit", ""),
                     candidate.get("original", ""),
                     candidate.get("matched", ""),
                 ),

@@ -514,3 +514,54 @@ Dashboard Engineer
 Business Application Specialist
 Camunda Engineer
 Field Application Engineer
+
+Team Lead - Logistyka
+Inżynier Budowy
+Inżynierka Budowy
+Specjalista ds. rozwoju elektromobilności
+Specjalistka ds. rozwoju elektromobilności
+Specjalista /ka ds. Produktu
+Specjalista ds. Produktu
+Specjalistka ds. Produktu
+Specjalista ds. Ochrony Danych Osobowych
+Specjalistka ds. Ochrony Danych Osobowych
+Engineer - Bridges & Structures
+Embedded Systems Integration Engineer
+Mathematician
+Reasoning Specialist
+Senior Game Developer
+GPU Programming Software Engineer
+GPU Software Engineer
+Head of Engineering
+Mobile Application Developer
+Murex MxML
+Okta System Engineer
+Cloud Architect
+Oracle Integration Cloud Developer
+PHP-программист
+PHP-разработчик
+Android Engineer
+365 Infrastructure/Platform Engineer
+Power BI Developer
+Business Intelligence Developer
+Shopify Developer
+Engineer in Test
+Software Validation Engineer
+PSOC Auto Engineer
+System Architect - HV Inverter
+VMware Solutions Engineer
+Backup Engineer
+Developer FBD/ST
+Test Expert
+Test Lead
+Wireless Systems Architect
+Workflow Specialist
+Computer Science Expert
+Analytics Team Lead
+Data Science Expert
+Governance SME
+LLM Evaluator
+Service Operations Engineer
+Sevice TL
+Specialist Data Dictionary
+Workflow Operations Engineer

@@ -28,7 +28,12 @@ def collect_rejected_jobs(
     try:
         jobs = database.execute(
             """
-            SELECT job.id, job.title, job.source_url, text.readable_text
+            SELECT
+                job.id,
+                job.title,
+                job.candidate_fit_percent,
+                job.source_url,
+                text.readable_text
             FROM jobs AS job
             LEFT JOIN source_job_texts AS text
                 ON text.source_job_ref = job.source_job_ref
@@ -36,7 +41,7 @@ def collect_rejected_jobs(
             """
         ).fetchall()
 
-        for job_id, title, source_url, readable_text in jobs:
+        for job_id, title, fit, source_url, readable_text in jobs:
             result = vacancy_filter.filter(
                 Vacancy(
                     title=str(title),
@@ -50,6 +55,7 @@ def collect_rejected_jobs(
                 {
                     "id": int(job_id),
                     "title": str(title),
+                    "fit": int(fit or 0),
                     "source_url": str(source_url or ""),
                     "original": result.match or str(title),
                     "matched": ", ".join(result.terms or result.technologies),

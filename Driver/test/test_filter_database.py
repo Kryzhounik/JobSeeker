@@ -32,6 +32,7 @@ class FilterDatabaseTest(unittest.TestCase):
                         id INTEGER PRIMARY KEY,
                         source_job_ref INTEGER NOT NULL,
                         title TEXT NOT NULL,
+                        candidate_fit_percent INTEGER NOT NULL,
                         source_url TEXT NOT NULL
                     );
                     CREATE TABLE source_job_texts (
@@ -39,10 +40,16 @@ class FilterDatabaseTest(unittest.TestCase):
                         readable_text TEXT NOT NULL
                     );
                     INSERT INTO source_jobs (id) VALUES (10), (20), (30);
-                    INSERT INTO jobs (id, source_job_ref, title, source_url) VALUES
-                        (1, 10, 'Senior Java Developer', 'https://example/1'),
-                        (2, 20, 'Backend Engineer', 'https://example/2'),
-                        (3, 30, 'Senior Python Developer', 'https://example/3');
+                    INSERT INTO jobs (
+                        id,
+                        source_job_ref,
+                        title,
+                        candidate_fit_percent,
+                        source_url
+                    ) VALUES
+                        (1, 10, 'Senior Java Developer', 91, 'https://example/1'),
+                        (2, 20, 'Backend Engineer', 72, 'https://example/2'),
+                        (3, 30, 'Senior Python Developer', 43, 'https://example/3');
                     INSERT INTO source_job_texts (source_job_ref, readable_text)
                     VALUES
                         (10, 'Deep expertise in Camunda 8 is required'),
@@ -61,6 +68,7 @@ class FilterDatabaseTest(unittest.TestCase):
                     {
                         "id": 2,
                         "title": "Backend Engineer",
+                        "fit": 72,
                         "source_url": "https://example/2",
                         "original": "Deep expertise in Camunda 8 is required",
                         "matched": "Camunda",
@@ -70,6 +78,7 @@ class FilterDatabaseTest(unittest.TestCase):
                     {
                         "id": 3,
                         "title": "Senior Python Developer",
+                        "fit": 43,
                         "source_url": "https://example/3",
                         "original": "Senior Python Developer",
                         "matched": "Python",
