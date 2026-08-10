@@ -54,6 +54,7 @@ never changes the database itself.
 
 The top `Refilter` button collects rejected jobs and immediately deletes them
 through the database layer. The bottom `Refilter detail` button only collects
-them and opens a confirmation window containing the title and reason. `Confirm`
-deletes that displayed set; `Cancel` or closing the window leaves the database
-unchanged.
+them and opens a confirmation window with separate `Title`, `Original`, and
+`Match` columns. Clicking the `Title` column opens the vacancy `source_url`.
+`Confirm` deletes that displayed set; `Cancel` or closing the window leaves the
+database unchanged.

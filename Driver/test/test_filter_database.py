@@ -31,17 +31,18 @@ class FilterDatabaseTest(unittest.TestCase):
                     CREATE TABLE jobs (
                         id INTEGER PRIMARY KEY,
                         source_job_ref INTEGER NOT NULL,
-                        title TEXT NOT NULL
+                        title TEXT NOT NULL,
+                        source_url TEXT NOT NULL
                     );
                     CREATE TABLE source_job_texts (
                         source_job_ref INTEGER PRIMARY KEY,
                         readable_text TEXT NOT NULL
                     );
                     INSERT INTO source_jobs (id) VALUES (10), (20), (30);
-                    INSERT INTO jobs (id, source_job_ref, title) VALUES
-                        (1, 10, 'Senior Java Developer'),
-                        (2, 20, 'Backend Engineer'),
-                        (3, 30, 'Senior Python Developer');
+                    INSERT INTO jobs (id, source_job_ref, title, source_url) VALUES
+                        (1, 10, 'Senior Java Developer', 'https://example/1'),
+                        (2, 20, 'Backend Engineer', 'https://example/2'),
+                        (3, 30, 'Senior Python Developer', 'https://example/3');
                     INSERT INTO source_job_texts (source_job_ref, readable_text)
                     VALUES
                         (10, 'Deep expertise in Camunda 8 is required'),
@@ -60,11 +61,19 @@ class FilterDatabaseTest(unittest.TestCase):
                     {
                         "id": 2,
                         "title": "Backend Engineer",
+                        "source_url": "https://example/2",
+                        "original": "Deep expertise in Camunda 8 is required",
+                        "matched": "Camunda",
+                        "rule": "hard_blocked_technology",
                         "reason": "hard requirement for blocked technology: Camunda",
                     },
                     {
                         "id": 3,
                         "title": "Senior Python Developer",
+                        "source_url": "https://example/3",
+                        "original": "Senior Python Developer",
+                        "matched": "Python",
+                        "rule": "title_blocked",
                         "reason": "title blocked: Python",
                     },
                 ],

@@ -1131,15 +1131,17 @@ class JobsViewer(tk.Tk):
 
         tree = ttk.Treeview(
             table_frame,
-            columns=("title", "reason"),
+            columns=("title", "original", "matched"),
             show="headings",
             selectmode="extended",
         )
         tree.grid(row=0, column=0, sticky="nsew")
         tree.heading("title", text="Title")
-        tree.heading("reason", text="Reason")
-        tree.column("title", width=360, minwidth=180, stretch=True)
-        tree.column("reason", width=500, minwidth=220, stretch=True)
+        tree.heading("original", text="Original")
+        tree.heading("matched", text="Match")
+        tree.column("title", width=320, minwidth=180, stretch=True)
+        tree.column("original", width=480, minwidth=240, stretch=True)
+        tree.column("matched", width=160, minwidth=100, stretch=False)
         tree.tag_configure("odd", background="#f7f9fb")
 
         y_scroll = ttk.Scrollbar(
@@ -1156,20 +1158,51 @@ class JobsViewer(tk.Tk):
         x_scroll.grid(row=1, column=0, sticky="ew")
         tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
 
+        candidates_by_iid: dict[str, dict[str, Any]] = {}
         for index, candidate in enumerate(candidates):
+            iid = f"refilter-{candidate['id']}"
             tree.insert(
                 "",
                 tk.END,
-                iid=f"refilter-{candidate['id']}",
-                values=(candidate.get("title", ""), candidate.get("reason", "")),
+                iid=iid,
+                values=(
+                    candidate.get("title", ""),
+                    candidate.get("original", ""),
+                    candidate.get("matched", ""),
+                ),
                 tags=("odd",) if index % 2 else (),
             )
+            candidates_by_iid[iid] = candidate
+
+        def candidate_at(event: tk.Event[tk.Misc]) -> dict[str, Any] | None:
+            if tree.identify_region(event.x, event.y) != "cell":
+                return None
+            if tree.identify_column(event.x) != "#1":
+                return None
+            return candidates_by_iid.get(tree.identify_row(event.y))
+
+        def update_link_cursor(event: tk.Event[tk.Misc]) -> None:
+            candidate = candidate_at(event)
+            tree.configure(
+                cursor="hand2" if candidate and candidate.get("source_url") else ""
+            )
+
+        def open_candidate(event: tk.Event[tk.Misc]) -> str | None:
+            candidate = candidate_at(event)
+            source_url = str(candidate.get("source_url", "")) if candidate else ""
+            if not source_url:
+                return None
+            webbrowser.open_new_tab(source_url)
+            return "break"
 
         tree.bind("<Control-c>", self._copy_tree_selection)
         tree.bind("<Control-C>", self._copy_tree_selection)
         tree.bind("<Control-Insert>", self._copy_tree_selection)
         tree.bind("<<Copy>>", self._copy_tree_selection)
         tree.bind("<Button-3>", self._show_copy_menu)
+        tree.bind("<Motion>", update_link_cursor)
+        tree.bind("<Leave>", lambda _event: tree.configure(cursor=""))
+        tree.bind("<ButtonRelease-1>", open_candidate)
 
         actions = ttk.Frame(dialog, padding=10)
         actions.grid(row=2, column=0, sticky="ew")
