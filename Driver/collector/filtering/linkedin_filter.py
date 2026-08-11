@@ -20,6 +20,7 @@ if str(LOGGING_ROOT) not in sys.path:
     sys.path.insert(0, str(LOGGING_ROOT))
 
 from db.job_registry import is_registered
+from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 from db.readable_text import load_readable_text
 from linkedin_logger import record_preview_filter
@@ -46,6 +47,7 @@ class FilterResult:
     terms: tuple[str, ...] = ()
     technologies: tuple[str, ...] = ()
     signals: tuple[str, ...] = ()
+    keyword_patterns: tuple[tuple[str, str], ...] = ()
 
 
 def load_config(path: Path) -> configparser.ConfigParser:
@@ -255,6 +257,7 @@ class VacancyFilter:
                 match=unit,
                 technologies=tuple(matched_technologies),
                 signals=tuple(matched_signals),
+                keyword_patterns=tuple(dict.fromkeys(matches)),
             )
         return FilterResult(False, "no content skip signals")
 
@@ -334,6 +337,10 @@ def decide_content(
     title: str = "",
 ) -> dict[str, Any]:
     result = VacancyFilter(content_config_path=config_path).filter_text(title, text)
+    return content_response(result)
+
+
+def content_response(result: FilterResult) -> dict[str, Any]:
     response: dict[str, Any] = {
         "content_decision": "skip" if result.rejected else "analyze",
         "content_reason": result.reason,
@@ -409,10 +416,21 @@ def main() -> None:
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         text = load_readable_text(connection, args.source, args.job_id)
-    write_result(
-        decide_content(text, Path(args.config), title=args.title),
-        args.output,
-    )
+        filter_result = VacancyFilter(
+            content_config_path=Path(args.config)
+        ).filter_text(args.title, text)
+        if filter_result.rejected:
+            save_content_filter_rejection(
+                connection,
+                args.source,
+                args.job_id,
+                rule=filter_result.rule,
+                matched_text=filter_result.match,
+                keyword_patterns=filter_result.keyword_patterns,
+            )
+        result = content_response(filter_result)
+        connection.commit()
+    write_result(result, args.output)
 
 
 if __name__ == "__main__":

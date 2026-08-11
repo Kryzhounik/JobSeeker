@@ -337,15 +337,8 @@ class JobsViewer(tk.Tk):
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1)
 
-        self.detail_title_var = tk.StringVar(value="Select a job")
-        ttk.Label(header, textvariable=self.detail_title_var, style="Title.TLabel").grid(
-            row=0,
-            column=0,
-            sticky="w",
-        )
-
         link_frame = ttk.Frame(header)
-        link_frame.grid(row=1, column=0, sticky="ew", pady=(3, 0))
+        link_frame.grid(row=0, column=0, sticky="ew")
         link_frame.columnconfigure(0, weight=1)
 
         self.link_text = tk.Text(
@@ -368,7 +361,7 @@ class JobsViewer(tk.Tk):
         )
 
         status_frame = ttk.Frame(header)
-        status_frame.grid(row=2, column=0, sticky="ew", pady=(6, 0))
+        status_frame.grid(row=1, column=0, sticky="ew", pady=(6, 0))
         ttk.Label(status_frame, text="Set status", style="Muted.TLabel").grid(
             row=0,
             column=0,
@@ -391,10 +384,17 @@ class JobsViewer(tk.Tk):
         meta_frame = ttk.Frame(body, padding=(0, 0, 8, 0))
         tech_frame = ttk.Frame(body, padding=(8, 0, 0, 0))
         body.add(meta_frame, weight=1)
-        body.add(tech_frame, weight=2)
+        body.add(tech_frame, weight=3)
 
         self._build_meta(meta_frame)
         self._build_tech_and_summary(tech_frame)
+
+        def set_initial_split() -> None:
+            width = body.winfo_width()
+            if width > 1:
+                body.sashpos(0, max(360, int(width * 0.33)))
+
+        self.after(100, set_initial_split)
 
     def _build_meta(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(1, weight=1)
@@ -935,9 +935,6 @@ class JobsViewer(tk.Tk):
         self.current_status = detail.get("status", "")
         self.current_fit = detail.get("fit", "")
         self.current_interest = detail.get("interest", "")
-        title = detail.get("title") or "Untitled"
-        company = detail.get("company", "")
-        self.detail_title_var.set(f"{title} - {company}" if company else title)
         self._set_text_widget(self.link_text, self.current_source_url)
 
         for name, _label in DETAIL_FIELDS:
@@ -962,7 +959,6 @@ class JobsViewer(tk.Tk):
         self._set_summary(detail.get("summary", ""))
 
     def _clear_detail(self) -> None:
-        self.detail_title_var.set("Select a job")
         self._set_text_widget(self.link_text, "")
         self.current_status = ""
         self.current_fit = ""

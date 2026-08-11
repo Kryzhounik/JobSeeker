@@ -97,6 +97,8 @@ For left-panel card materialization and page-count verification, follow
    and report the failure; do not analyze that vacancy.
 22. Run the stored readable text through:
    `python collector/filtering/linkedin_filter.py content --source linkedin --job-id <job_id> --title <title>`.
+   When rejected, this command saves the exact matched text, matched keyword,
+   regex pattern, and rule to SQLite `content_filter_rejections`.
    Title pass words from `collector/filtering/linkedin_content_filter.ini` are
    checked first; a matching title bypasses all readable-content rules.
    If `content_decision = "skip"`, log `content_filtered` with the returned

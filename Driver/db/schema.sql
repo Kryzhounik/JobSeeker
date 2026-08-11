@@ -59,6 +59,16 @@ CREATE TABLE IF NOT EXISTS source_job_texts (
     readable_text TEXT NOT NULL CHECK (length(trim(readable_text)) > 0)
 );
 
+CREATE TABLE IF NOT EXISTS content_filter_rejections (
+    source_job_ref INTEGER NOT NULL REFERENCES source_jobs(id) ON DELETE CASCADE,
+    rule TEXT NOT NULL CHECK (length(trim(rule)) > 0),
+    matched_text TEXT NOT NULL CHECK (length(trim(matched_text)) > 0),
+    matched_keyword TEXT NOT NULL CHECK (length(trim(matched_keyword)) > 0),
+    matched_pattern TEXT NOT NULL CHECK (length(trim(matched_pattern)) > 0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (source_job_ref, matched_keyword, matched_pattern)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),
@@ -250,6 +260,10 @@ CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_source_jobs_processing_status
     ON source_jobs(processing_status);
+CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_keyword
+    ON content_filter_rejections(matched_keyword);
+CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_pattern
+    ON content_filter_rejections(matched_pattern);
 CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit_reason_code
