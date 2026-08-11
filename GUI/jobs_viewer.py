@@ -5,6 +5,7 @@ import queue
 import re
 import sqlite3
 import sys
+import textwrap
 import threading
 import time
 import tkinter as tk
@@ -1111,8 +1112,8 @@ class JobsViewer(tk.Tk):
     def _show_refilter_detail(self, candidates: list[dict[str, Any]]) -> None:
         dialog = tk.Toplevel(self)
         dialog.title("Refilter detail")
-        dialog.geometry("900x500")
-        dialog.minsize(650, 300)
+        dialog.geometry("1100x500")
+        dialog.minsize(800, 300)
         dialog.transient(self)
         dialog.columnconfigure(0, weight=1)
         dialog.rowconfigure(1, weight=1)
@@ -1129,83 +1130,177 @@ class JobsViewer(tk.Tk):
         table_frame.columnconfigure(0, weight=1)
         table_frame.rowconfigure(0, weight=1)
 
-        tree = ttk.Treeview(
+        canvas = tk.Canvas(
             table_frame,
-            columns=("title", "fit", "original", "matched"),
-            show="headings",
-            selectmode="extended",
+            borderwidth=0,
+            highlightthickness=0,
+            background="#ffffff",
         )
-        tree.grid(row=0, column=0, sticky="nsew")
-        tree.heading("title", text="Title")
-        tree.heading("fit", text="Fit")
-        tree.heading("original", text="Original")
-        tree.heading("matched", text="Match")
-        tree.column("title", width=280, minwidth=180, stretch=True)
-        tree.column("fit", width=60, minwidth=50, anchor="center", stretch=False)
-        tree.column("original", width=480, minwidth=240, stretch=True)
-        tree.column("matched", width=160, minwidth=100, stretch=False)
-        tree.tag_configure("odd", background="#f7f9fb")
+        canvas.grid(row=0, column=0, sticky="nsew")
 
         y_scroll = ttk.Scrollbar(
             table_frame,
             orient=tk.VERTICAL,
-            command=tree.yview,
+            command=canvas.yview,
         )
         y_scroll.grid(row=0, column=1, sticky="ns")
         x_scroll = ttk.Scrollbar(
             table_frame,
             orient=tk.HORIZONTAL,
-            command=tree.xview,
+            command=canvas.xview,
         )
         x_scroll.grid(row=1, column=0, sticky="ew")
-        tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        canvas.configure(
+            yscrollcommand=y_scroll.set,
+            xscrollcommand=x_scroll.set,
+        )
 
-        candidates_by_iid: dict[str, dict[str, Any]] = {}
-        for index, candidate in enumerate(candidates):
-            iid = f"refilter-{candidate['id']}"
-            tree.insert(
-                "",
-                tk.END,
-                iid=iid,
-                values=(
-                    candidate.get("title", ""),
-                    candidate.get("fit", ""),
-                    candidate.get("original", ""),
-                    candidate.get("matched", ""),
-                ),
-                tags=("odd",) if index % 2 else (),
-            )
-            candidates_by_iid[iid] = candidate
+        rows_frame = ttk.Frame(canvas)
+        rows_window = canvas.create_window((0, 0), window=rows_frame, anchor="nw")
 
-        def candidate_at(event: tk.Event[tk.Misc]) -> dict[str, Any] | None:
-            if tree.identify_region(event.x, event.y) != "cell":
-                return None
-            if tree.identify_column(event.x) != "#1":
-                return None
-            return candidates_by_iid.get(tree.identify_row(event.y))
+        def update_scroll_region(_event: tk.Event[tk.Misc]) -> None:
+            canvas.configure(scrollregion=canvas.bbox("all"))
 
-        def update_link_cursor(event: tk.Event[tk.Misc]) -> None:
-            candidate = candidate_at(event)
-            tree.configure(
-                cursor="hand2" if candidate and candidate.get("source_url") else ""
+        def fit_rows_to_canvas(event: tk.Event[tk.Misc]) -> None:
+            canvas.itemconfigure(
+                rows_window,
+                width=max(event.width, rows_frame.winfo_reqwidth()),
             )
 
-        def open_candidate(event: tk.Event[tk.Misc]) -> str | None:
-            candidate = candidate_at(event)
-            source_url = str(candidate.get("source_url", "")) if candidate else ""
-            if not source_url:
-                return None
-            webbrowser.open_new_tab(source_url)
-            return "break"
+        rows_frame.bind("<Configure>", update_scroll_region)
+        canvas.bind("<Configure>", fit_rows_to_canvas)
 
-        tree.bind("<Control-c>", self._copy_tree_selection)
-        tree.bind("<Control-C>", self._copy_tree_selection)
-        tree.bind("<Control-Insert>", self._copy_tree_selection)
-        tree.bind("<<Copy>>", self._copy_tree_selection)
-        tree.bind("<Button-3>", self._show_copy_menu)
-        tree.bind("<Motion>", update_link_cursor)
-        tree.bind("<Leave>", lambda _event: tree.configure(cursor=""))
-        tree.bind("<ButtonRelease-1>", open_candidate)
+        def one_line(value: Any) -> str:
+            return " ".join(clean(value).split())
+
+        def wrapped_line_count(value: str, width: int) -> int:
+            lines = textwrap.wrap(
+                value,
+                width=max(1, width - 2),
+                break_long_words=True,
+                break_on_hyphens=False,
+            )
+            return max(1, len(lines))
+
+        def bind_source_link(cell: tk.Text, source_url: str) -> None:
+            press_position: dict[str, int] = {}
+
+            def remember_press(event: tk.Event[tk.Misc]) -> None:
+                press_position["x"] = event.x
+                press_position["y"] = event.y
+
+            def open_without_drag(event: tk.Event[tk.Misc]) -> str | None:
+                if not source_url:
+                    return None
+                distance = abs(event.x - press_position.get("x", event.x)) + abs(
+                    event.y - press_position.get("y", event.y)
+                )
+                if distance > 4:
+                    return None
+                webbrowser.open_new_tab(source_url)
+                return "break"
+
+            cell.configure(cursor="hand2")
+            cell.bind("<ButtonPress-1>", remember_press, add="+")
+            cell.bind("<ButtonRelease-1>", open_without_drag, add="+")
+
+        columns = (
+            ("Title", 34, "left"),
+            ("Fit", 7, "center"),
+            ("Original", 74, "left"),
+            ("Match", 24, "left"),
+        )
+        headers: list[tk.Label] = []
+        for column_index, (label, width, justify) in enumerate(columns):
+            header = tk.Label(
+                rows_frame,
+                text=label,
+                width=width,
+                anchor="w" if justify == "left" else justify,
+                background="#e7e9e7",
+                foreground="#202020",
+                font=("Segoe UI", 9, "bold"),
+                borderwidth=1,
+                relief="solid",
+                padx=4,
+                pady=3,
+            )
+            header.grid(row=0, column=column_index, sticky="nsew")
+            headers.append(header)
+
+        row_cells: list[tk.Text] = []
+
+        def render_candidates(displayed: list[dict[str, Any]]) -> None:
+            for cell in row_cells:
+                cell.destroy()
+            row_cells.clear()
+
+            for index, candidate in enumerate(displayed):
+                background = "#f7f9fb" if index % 2 else "#ffffff"
+                values = tuple(
+                    one_line(value)
+                    for value in (
+                        candidate.get("title", ""),
+                        candidate.get("fit", ""),
+                        candidate.get("original", ""),
+                        candidate.get("matched", ""),
+                    )
+                )
+                row_height = max(
+                    wrapped_line_count(value, width)
+                    for (_label, width, _justify), value in zip(columns, values)
+                )
+                for column_index, ((_label, width, justify), value) in enumerate(
+                    zip(columns, values)
+                ):
+                    cell = tk.Text(
+                        rows_frame,
+                        width=width,
+                        height=row_height,
+                        wrap="word",
+                        borderwidth=0,
+                        relief="flat",
+                        background=background,
+                        foreground="#303030",
+                        font=("Segoe UI", 9),
+                        padx=4,
+                        pady=3,
+                    )
+                    cell.tag_configure("value", justify=justify)
+                    cell.insert("1.0", value, "value")
+                    cell.grid(
+                        row=index + 1,
+                        column=column_index,
+                        sticky="nsew",
+                        padx=1,
+                        pady=1,
+                    )
+                    self._bind_copyable_text(cell)
+                    if column_index == 0:
+                        cell.configure(foreground="#005a9c")
+                        bind_source_link(
+                            cell,
+                            clean(candidate.get("source_url", "")),
+                        )
+                    row_cells.append(cell)
+
+        fit_descending = False
+
+        def sort_by_fit(_event: tk.Event[tk.Misc] | None = None) -> None:
+            nonlocal fit_descending
+            fit_descending = not fit_descending
+            headers[1].configure(text="Fit v" if fit_descending else "Fit ^")
+            displayed = sorted(
+                candidates,
+                key=lambda candidate: int(candidate.get("fit") or 0),
+                reverse=fit_descending,
+            )
+            render_candidates(displayed)
+            dialog.after_idle(lambda: canvas.yview_moveto(0))
+
+        headers[1].configure(cursor="hand2")
+        headers[1].bind("<ButtonRelease-1>", sort_by_fit)
+        render_candidates(candidates)
 
         actions = ttk.Frame(dialog, padding=10)
         actions.grid(row=2, column=0, sticky="ew")
@@ -1233,7 +1328,7 @@ class JobsViewer(tk.Tk):
         dialog.protocol("WM_DELETE_WINDOW", cancel)
         dialog.grab_set()
         dialog.lift()
-        tree.focus_set()
+        dialog.after_idle(lambda: (canvas.xview_moveto(0), canvas.yview_moveto(0)))
 
     def _closed_status_value(self) -> str:
         for status in self.status_values:

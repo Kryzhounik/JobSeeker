@@ -34,9 +34,10 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C"])
 
-    def test_c_rule_does_not_match_cpp(self) -> None:
+    def test_cpp_matches_only_cpp_technology(self) -> None:
         result = decide_content("Advanced C++ programming skills with industry experience")
-        self.assertEqual(result["content_decision"], "analyze")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_camunda_in_non_strict_alternative_list_is_not_blocked(self) -> None:
         result = decide_content(
@@ -44,9 +45,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
-    def test_generic_required_signal_combines_with_technology(self) -> None:
+    def test_technology_explicitly_required_is_blocked(self) -> None:
         result = decide_content("Production experience with Camunda is required")
         self.assertEqual(result["content_decision"], "skip")
+
+    def test_generic_experience_with_technology_is_not_blocked(self) -> None:
+        result = decide_content("Experience with React")
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_blocked_technology_is_not_blocked(self) -> None:
         result = decide_content("Advanced C would be a plus")
@@ -54,6 +59,109 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
 
     def test_available_alternative_prevents_rejection(self) -> None:
         result = decide_content("5+ years of backend development in Java and/or C")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_java_in_same_requirement_prevents_rejection(self) -> None:
+        result = decide_content("Strong proficiency in C or Java is required")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_java_before_punctuation_prevents_rejection(self) -> None:
+        result = decide_content("Strong proficiency in C or Java.")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_java_in_adjacent_line_prevents_rejection(self) -> None:
+        result = decide_content(
+            "Advanced C programming skills are required\nJava backend experience"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_javascript_in_adjacent_line_does_not_count_as_java(self) -> None:
+        result = decide_content(
+            "Advanced C programming skills are required\nJavaScript experience"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+
+    def test_non_java_alternative_is_still_blocked(self) -> None:
+        result = decide_content("5+ years of Camunda or UiPath experience")
+        self.assertEqual(result["content_decision"], "skip")
+
+    def test_go_requirement_is_blocked(self) -> None:
+        result = decide_content("Strong proficiency in Go is required")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Go"])
+
+    def test_lowercase_go_as_ordinary_word_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Advanced Python Developer: our solutions go far beyond scripting"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_unrelated_required_word_does_not_bind_python(self) -> None:
+        result = decide_content(
+            "Required to be smart, but knowing Python could be not bad"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_unrelated_advanced_word_does_not_bind_python(self) -> None:
+        result = decide_content(
+            "Advanced communication skills. Some familiarity with Python."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_plain_proficiency_in_technology_is_blocked(self) -> None:
+        result = decide_content("Proficiency in Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+        self.assertEqual(
+            result["content_signals"],
+            [r"\bproficiency\s+in\s+{technology}"],
+        )
+
+    def test_strong_proficiency_uses_plain_proficiency_template(self) -> None:
+        result = decide_content("Strong proficiency in Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_signals"],
+            [r"\bproficiency\s+in\s+{technology}"],
+        )
+
+    def test_unrequired_applied_ai_languages_are_not_blocked(self) -> None:
+        result = decide_content(
+            "You will work mostly in TypeScript & Python. Experience isn’t "
+            "strictly required, but it is a big plus. Comfort with typed "
+            "languages and modern backend practices is a must."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_one_year_alone_is_not_a_hard_requirement(self) -> None:
+        result = decide_content("1+ years of work experience with JavaScript")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_two_years_is_a_hard_requirement(self) -> None:
+        result = decide_content("2+ years of work experience with JavaScript")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["JavaScript"])
+
+    def test_year_range_binds_listed_technologies(self) -> None:
+        result = decide_content(
+            "5–7 years of experience with React and JavaScript development"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["JavaScript", "React"],
+        )
+
+    def test_not_required_technology_is_not_blocked(self) -> None:
+        result = decide_content("Advanced C knowledge is not required")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_preferred_technology_is_not_blocked(self) -> None:
+        result = decide_content("5+ years of C preferred")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_optional_heading_in_adjacent_line_prevents_rejection(self) -> None:
+        result = decide_content("Nice to have:\nAdvanced C programming skills")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_requirement_split_across_adjacent_lines_is_blocked(self) -> None:

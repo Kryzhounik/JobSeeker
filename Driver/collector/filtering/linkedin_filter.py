@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import configparser
 from dataclasses import dataclass
+from functools import lru_cache
 import json
 from pathlib import Path
 import re
@@ -119,21 +120,49 @@ def matches_term(text: str, term: str) -> bool:
     ) is not None
 
 
+YEARS_EXPRESSION = (
+    r"(?:[2-9]|[1-9]\d+)"
+    r"(?:\+|\s*[-\u2013\u2014]\s*(?:[2-9]|[1-9]\d+))?"
+    r"\s+years?"
+)
+
+
+def technology_expression(name: str) -> str:
+    return rf"(?<![\w+#]){re.escape(name)}(?![\w+#])"
+
+
 def technology_pattern(name: str) -> re.Pattern[str]:
+    flags = 0 if name == "Go" else re.IGNORECASE
+    return re.compile(technology_expression(name), flags)
+
+
+@lru_cache(maxsize=None)
+def requirement_pattern(template: str, technology: str) -> re.Pattern[str]:
+    if "{technology}" not in template:
+        raise ValueError(
+            "Hard requirement template must contain {technology}: " + template
+        )
+    expression = technology_expression(technology)
+    if technology == "Go":
+        expression = f"(?-i:{expression})"
     return re.compile(
-        rf"(?<![\w+#.]){re.escape(name)}(?![\w+#.])",
+        template.replace("{technology}", expression).replace(
+            "{years}", YEARS_EXPRESSION
+        ),
         re.IGNORECASE,
     )
 
 
-def content_units(text: str) -> list[str]:
-    lines = [line.strip() for line in text.splitlines()]
-    units = [line for line in lines if line]
-    units.extend(
-        f"{line} {lines[index + 1]}"
-        for index, line in enumerate(lines[:-1])
-        if line and lines[index + 1]
-    )
+def content_units(text: str) -> list[tuple[str, str]]:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    units = []
+    for index, line in enumerate(lines):
+        context = " ".join(lines[max(0, index - 1) : index + 2])
+        units.append((line, context))
+    for index in range(len(lines) - 1):
+        unit = f"{lines[index]} {lines[index + 1]}"
+        context = " ".join(lines[max(0, index - 1) : index + 3])
+        units.append((unit, context))
     return units
 
 
@@ -176,10 +205,12 @@ class VacancyFilter:
 
     def filter_text(self, title: str, text: str) -> FilterResult:
         config = self.content_config
-        pass_words = [
-            name
+        pass_word_patterns = [
+            (name, technology_pattern(name))
             for name in configured_names(config, "pass_words")
-            if technology_pattern(name).search(title)
+        ]
+        pass_words = [
+            name for name, pattern in pass_word_patterns if pattern.search(title)
         ]
         if pass_words:
             return FilterResult(
@@ -195,22 +226,26 @@ class VacancyFilter:
             (name, technology_pattern(name))
             for name in configured_names(config, "blocked_technologies")
         ]
-        hard_signals = configured_patterns(config, "hard_requirement_signals")
+        hard_templates = configured_values(config, "hard_requirement_templates")
         optional_signals = configured_patterns(config, "optional_signals")
-        alternative_signals = configured_patterns(config, "alternative_signals")
 
-        for unit in content_units(text):
-            matched_technologies = [
+        for unit, context in content_units(text):
+            unit_technologies = [
                 name for name, pattern in technologies if pattern.search(unit)
             ]
-            matched_signals = [
-                pattern.pattern for pattern in hard_signals if pattern.search(unit)
+            matches = [
+                (name, template)
+                for name in unit_technologies
+                for template in hard_templates
+                if requirement_pattern(template, name).search(unit)
             ]
+            matched_technologies = list(dict.fromkeys(name for name, _ in matches))
+            matched_signals = list(dict.fromkeys(template for _, template in matches))
             if not matched_technologies or not matched_signals:
                 continue
-            if any(pattern.search(unit) for pattern in optional_signals):
+            if any(pattern.search(context) for _, pattern in pass_word_patterns):
                 continue
-            if any(pattern.search(unit) for pattern in alternative_signals):
+            if any(pattern.search(context) for pattern in optional_signals):
                 continue
             return FilterResult(
                 True,

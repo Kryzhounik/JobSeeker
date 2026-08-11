@@ -54,7 +54,9 @@ never changes the database itself.
 
 The top `Refilter` button collects rejected jobs and immediately deletes them
 through the database layer. The bottom `Refilter detail` button only collects
-them and opens a confirmation window with separate `Title`, `Original`, and
-`Match` columns. Clicking the `Title` column opens the vacancy `source_url`.
-`Confirm` deletes that displayed set; `Cancel` or closing the window leaves the
-database unchanged.
+them and opens a confirmation window with `Title`, `Fit`, `Original`, and
+`Match` columns. Its contents are read-only text, so any substring can be
+selected with the mouse and copied with `Ctrl+C`. Clicking a title without
+dragging opens the vacancy `source_url`; clicking the `Fit` header toggles
+ascending/descending sorting. `Confirm` deletes that displayed set; `Cancel` or
+closing the window leaves the database unchanged.

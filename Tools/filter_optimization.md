@@ -159,3 +159,38 @@ explicit confirmation.
 
 This instruction file may be updated when the optimization process itself needs
 clarification so that future agents understand the same workflow.
+
+## Content-Stage Research
+
+Use saved readable vacancy text to discover technologies for the second filter
+stage. Vacancies with `0 <= candidate_fit_percent <= 30` are discovery
+evidence. Before approving a technology, simulate it against every saved
+vacancy that passes the title filter and report every affected vacancy with
+`candidate_fit_percent >= 40`.
+
+This high-fit report is an audit aid, not a veto on the proposed technology.
+The fit score is currently an arithmetic aggregate and can overestimate a role
+that has one unsupported mandatory technology. A vacancy may still be safe to
+reject at fit 40, 50, or 60 when the saved text clearly requires that missing
+technology; show it to the user for review instead of silently excluding the
+technology from the proposal.
+
+The content filter is intentionally soft. A blocked technology rejects a
+vacancy only when it is bound to a complete hard-requirement template and
+neither of the following appears in the matching line or an adjacent non-empty
+line:
+
+- Java as a whole word
+- optional wording such as `nice to have`, `plus`, `not required`, or
+  `preferred`
+
+`JavaScript` must not count as `Java`. Java in the requirement line or an
+adjacent non-empty line keeps the vacancy. Generic alternatives such as `or`,
+`and/or`, `one of`, and `any of` do not keep it unless Java or explicit optional
+wording is also present. When the text is ambiguous, keep the vacancy.
+
+Every entry in `[hard_requirement_templates]` must contain `{technology}` so
+that the requirement and technology are matched as one structure. Never add
+standalone words such as `required`, `advanced`, `experience`, or `years` as
+hard signals. Use `{years}` inside a complete template for numeric requirements
+starting at two years.
