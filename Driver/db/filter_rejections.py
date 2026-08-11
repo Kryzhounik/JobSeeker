@@ -31,7 +31,7 @@ def save_content_filter_rejection(
         raise ValueError("Rejected content filter result is incomplete")
     connection.executemany(
         """
-        INSERT OR IGNORE INTO content_filter_rejections (
+        INSERT INTO content_filter_rejections (
             source_job_ref,
             rule,
             matched_text,

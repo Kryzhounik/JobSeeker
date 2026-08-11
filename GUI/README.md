@@ -24,6 +24,14 @@ windows are stored in `GUI/jobs_viewer_settings.json`. Resizing is saved after
 a short pause and restored the next time the corresponding window opens. The
 settings file is ignored by git.
 
+## Vacancy detail
+
+The right side starts in `Skills` mode with the technology table and summary.
+The `Text` button replaces that entire area with the stored cleaned vacancy text
+from `source_job_texts.readable_text`; the button then reads `Skills` and restores
+the original view. The full text is read-only and supports normal selection and
+`Ctrl+C`.
+
 ## LinkedIn availability check
 
 The `Check LinkedIn` button checks LinkedIn jobs with:

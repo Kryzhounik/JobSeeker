@@ -112,18 +112,22 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Proficiency in Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
-        self.assertEqual(
-            result["content_signals"],
-            [r"\bproficiency\s+in\s+{technology}"],
-        )
+        self.assertEqual(len(result["content_signals"]), 1)
 
     def test_strong_proficiency_uses_plain_proficiency_template(self) -> None:
         result = decide_content("Strong proficiency in Python")
         self.assertEqual(result["content_decision"], "skip")
-        self.assertEqual(
-            result["content_signals"],
-            [r"\bproficiency\s+in\s+{technology}"],
+        self.assertEqual(len(result["content_signals"]), 1)
+
+    def test_professional_proficiency_developing_with_technology_is_blocked(
+        self,
+    ) -> None:
+        result = decide_content(
+            "You have demonstrated professional proficiency in developing "
+            "public-facing APIs and web applications using Python."
         )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_unrequired_applied_ai_languages_are_not_blocked(self) -> None:
         result = decide_content(

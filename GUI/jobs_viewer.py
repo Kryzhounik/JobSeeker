@@ -168,6 +168,7 @@ class JobsViewer(tk.Tk):
         self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_sort_column: str | None = None
         self.tech_sort_descending = False
+        self.detail_view_mode = "skills"
 
         self._configure_style()
         self._build_ui()
@@ -378,6 +379,30 @@ class JobsViewer(tk.Tk):
             self.status_buttons.append(button)
         self._set_status_buttons_state(False)
 
+        self.detail_view_button = ttk.Button(
+            status_frame,
+            text="Text",
+            width=7,
+            command=self._toggle_detail_view,
+        )
+
+        def position_detail_view_button(
+            _event: tk.Event[tk.Misc] | None = None,
+        ) -> None:
+            last_status_button = self.status_buttons[-1]
+            controls_right = (
+                last_status_button.winfo_x()
+                + last_status_button.winfo_width()
+                + 18
+            )
+            self.detail_view_button.place(
+                x=max(controls_right, int(status_frame.winfo_width() * 0.33)),
+                y=0,
+            )
+
+        status_frame.bind("<Configure>", position_detail_view_button)
+        status_frame.after_idle(position_detail_view_button)
+
         body = ttk.PanedWindow(parent, orient=tk.HORIZONTAL)
         body.grid(row=1, column=0, sticky="nsew")
 
@@ -437,10 +462,15 @@ class JobsViewer(tk.Tk):
 
     def _build_tech_and_summary(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
-        parent.rowconfigure(0, weight=3)
-        parent.rowconfigure(2, weight=2)
+        parent.rowconfigure(0, weight=1)
 
-        tech_box = ttk.Frame(parent)
+        self.skills_view_frame = ttk.Frame(parent)
+        self.skills_view_frame.grid(row=0, column=0, sticky="nsew")
+        self.skills_view_frame.columnconfigure(0, weight=1)
+        self.skills_view_frame.rowconfigure(0, weight=3)
+        self.skills_view_frame.rowconfigure(2, weight=2)
+
+        tech_box = ttk.Frame(self.skills_view_frame)
         tech_box.grid(row=0, column=0, sticky="nsew")
         tech_box.columnconfigure(0, weight=1)
         tech_box.rowconfigure(0, weight=1)
@@ -477,7 +507,11 @@ class JobsViewer(tk.Tk):
         self.tech_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.tech_tree.bind("<Button-3>", self._show_copy_menu)
 
-        ttk.Label(parent, text="Summary", style="Muted.TLabel").grid(
+        ttk.Label(
+            self.skills_view_frame,
+            text="Summary",
+            style="Muted.TLabel",
+        ).grid(
             row=1,
             column=0,
             sticky="w",
@@ -485,7 +519,7 @@ class JobsViewer(tk.Tk):
         )
 
         self.summary_text = tk.Text(
-            parent,
+            self.skills_view_frame,
             height=8,
             wrap="word",
             borderwidth=1,
@@ -498,6 +532,43 @@ class JobsViewer(tk.Tk):
         self.summary_text.bind("<<Paste>>", self._break_event)
         self.summary_text.bind("<<Cut>>", self._break_event)
         self._bind_copyable_text(self.summary_text)
+
+        self.readable_text_frame = ttk.Frame(parent)
+        self.readable_text_frame.grid(row=0, column=0, sticky="nsew")
+        self.readable_text_frame.columnconfigure(0, weight=1)
+        self.readable_text_frame.rowconfigure(0, weight=1)
+
+        self.readable_text = tk.Text(
+            self.readable_text_frame,
+            wrap="word",
+            borderwidth=1,
+            relief="solid",
+            padx=8,
+            pady=6,
+        )
+        self.readable_text.grid(row=0, column=0, sticky="nsew")
+        readable_scroll = ttk.Scrollbar(
+            self.readable_text_frame,
+            orient=tk.VERTICAL,
+            command=self.readable_text.yview,
+        )
+        readable_scroll.grid(row=0, column=1, sticky="ns")
+        self.readable_text.configure(yscrollcommand=readable_scroll.set)
+        self._bind_copyable_text(self.readable_text)
+        self.readable_text_frame.grid_remove()
+
+    def _toggle_detail_view(self) -> None:
+        if self.detail_view_mode == "skills":
+            self.skills_view_frame.grid_remove()
+            self.readable_text_frame.grid()
+            self.detail_view_mode = "text"
+            self.detail_view_button.configure(text="Skills")
+            return
+
+        self.readable_text_frame.grid_remove()
+        self.skills_view_frame.grid()
+        self.detail_view_mode = "skills"
+        self.detail_view_button.configure(text="Text")
 
     def connect(self) -> sqlite3.Connection:
         if not DB_PATH.exists():
@@ -836,9 +907,12 @@ class JobsViewer(tk.Tk):
                         AS score,
                     j.source_url,
                     j.summary,
+                    coalesce(text.readable_text, '') AS readable_text,
                     j.added_at
                 FROM jobs j
                 JOIN source_jobs sj ON sj.id = j.source_job_ref
+                LEFT JOIN source_job_texts text
+                    ON text.source_job_ref = j.source_job_ref
                 WHERE j.source_url = ?
                 """,
                 (source_url,),
@@ -957,6 +1031,10 @@ class JobsViewer(tk.Tk):
         )
 
         self._set_summary(detail.get("summary", ""))
+        self._set_text_widget(
+            self.readable_text,
+            detail.get("readable_text", ""),
+        )
 
     def _clear_detail(self) -> None:
         self._set_text_widget(self.link_text, "")
@@ -977,6 +1055,7 @@ class JobsViewer(tk.Tk):
             self.tech_sort_descending,
         )
         self._set_summary("")
+        self._set_text_widget(self.readable_text, "")
 
     def _set_summary(self, value: str) -> None:
         self.summary_text.delete("1.0", tk.END)
