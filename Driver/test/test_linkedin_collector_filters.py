@@ -152,6 +152,16 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             ["JavaScript", "React"],
         )
 
+    def test_kotlin_is_not_a_blocked_technology(self) -> None:
+        result = decide_content(
+            "Commercial experience in Kotlin SW development (3+ years)"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_scala_is_not_a_blocked_technology(self) -> None:
+        result = decide_content("5+ years of experience with Scala")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_not_required_technology_is_not_blocked(self) -> None:
         result = decide_content("Advanced C knowledge is not required")
         self.assertEqual(result["content_decision"], "analyze")

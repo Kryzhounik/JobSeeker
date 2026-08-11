@@ -134,9 +134,11 @@ def calculate_score(fit: int, interest: int) -> int:
 class JobsViewer(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
+        self.settings = self._load_settings()
         self.title("Seeker Jobs")
-        self.geometry("1280x820")
+        self.geometry(self._saved_window_size("main", "1280x820", 980, 650))
         self.minsize(980, 650)
+        self._main_size_save_after_id: str | None = None
 
         self.job_rows: dict[str, dict[str, str]] = {}
         self.current_source_url = ""
@@ -154,7 +156,6 @@ class JobsViewer(tk.Tk):
         self.refilter_running = False
         self.refilter_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.status_values = self._available_status_values()
-        self.settings = self._load_settings()
         self.status_filter_vars = {
             status: tk.BooleanVar(value=self._saved_status_filter_value(status))
             for status in self.status_values
@@ -171,6 +172,9 @@ class JobsViewer(tk.Tk):
         self._configure_style()
         self._build_ui()
         self._bind_global_copy_shortcuts()
+        self.bind("<Configure>", self._schedule_main_window_size_save)
+        self.bind("<Destroy>", self._cancel_main_window_size_save, add="+")
+        self.protocol("WM_DELETE_WINDOW", self._close_app)
         self.refresh_jobs()
 
     def _configure_style(self) -> None:
@@ -543,6 +547,67 @@ class JobsViewer(tk.Tk):
             return data
         return {}
 
+    def _saved_window_size(
+        self,
+        name: str,
+        default: str,
+        minimum_width: int,
+        minimum_height: int,
+    ) -> str:
+        sizes = self.settings.get("window_sizes")
+        value = sizes.get(name) if isinstance(sizes, dict) else None
+        match = re.fullmatch(r"(\d+)x(\d+)", clean(value))
+        if match is None:
+            return default
+        width = max(minimum_width, int(match.group(1)))
+        height = max(minimum_height, int(match.group(2)))
+        return f"{width}x{height}"
+
+    def _remember_window_size(self, name: str, window: tk.Misc) -> None:
+        if clean(window.state()) != "normal":
+            return
+        width = int(window.winfo_width())
+        height = int(window.winfo_height())
+        if width <= 1 or height <= 1:
+            return
+
+        sizes = self.settings.get("window_sizes")
+        if not isinstance(sizes, dict):
+            sizes = {}
+            self.settings["window_sizes"] = sizes
+        value = f"{width}x{height}"
+        if sizes.get(name) == value:
+            return
+        sizes[name] = value
+        self._save_settings()
+
+    def _schedule_main_window_size_save(self, event: tk.Event[tk.Misc]) -> None:
+        if event.widget is not self or clean(self.state()) != "normal":
+            return
+        if self._main_size_save_after_id is not None:
+            self.after_cancel(self._main_size_save_after_id)
+        self._main_size_save_after_id = self.after(
+            300,
+            self._save_main_window_size,
+        )
+
+    def _save_main_window_size(self) -> None:
+        self._main_size_save_after_id = None
+        self._remember_window_size("main", self)
+
+    def _cancel_main_window_size_save(self, event: tk.Event[tk.Misc]) -> None:
+        if event.widget is not self or self._main_size_save_after_id is None:
+            return
+        self.after_cancel(self._main_size_save_after_id)
+        self._main_size_save_after_id = None
+
+    def _close_app(self) -> None:
+        if self._main_size_save_after_id is not None:
+            self.after_cancel(self._main_size_save_after_id)
+            self._main_size_save_after_id = None
+        self._remember_window_size("main", self)
+        self.destroy()
+
     def _saved_status_filter_value(self, status: str) -> bool:
         status_filters = self.settings.get("status_filters")
         if isinstance(status_filters, dict) and status in status_filters:
@@ -568,7 +633,8 @@ class JobsViewer(tk.Tk):
         self.refresh_jobs()
 
     def _save_settings(self) -> None:
-        data = {
+        data = dict(self.settings)
+        data.update({
             "status_filters": {
                 status: bool(variable.get())
                 for status, variable in self.status_filter_vars.items()
@@ -578,7 +644,8 @@ class JobsViewer(tk.Tk):
                 "column": self.job_sort_column,
                 "descending": bool(self.job_sort_descending),
             },
-        }
+        })
+        self.settings = data
         try:
             SETTINGS_PATH.write_text(
                 json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
@@ -1112,11 +1179,45 @@ class JobsViewer(tk.Tk):
     def _show_refilter_detail(self, candidates: list[dict[str, Any]]) -> None:
         dialog = tk.Toplevel(self)
         dialog.title("Refilter detail")
-        dialog.geometry("1100x500")
+        dialog.geometry(
+            self._saved_window_size("refilter_detail", "1100x500", 800, 300)
+        )
         dialog.minsize(800, 300)
         dialog.transient(self)
         dialog.columnconfigure(0, weight=1)
         dialog.rowconfigure(1, weight=1)
+
+        detail_size_save_after_id: str | None = None
+
+        def save_detail_size() -> None:
+            nonlocal detail_size_save_after_id
+            detail_size_save_after_id = None
+            self._remember_window_size("refilter_detail", dialog)
+
+        def schedule_detail_size_save(event: tk.Event[tk.Misc]) -> None:
+            nonlocal detail_size_save_after_id
+            if event.widget is not dialog or clean(dialog.state()) != "normal":
+                return
+            if detail_size_save_after_id is not None:
+                dialog.after_cancel(detail_size_save_after_id)
+            detail_size_save_after_id = dialog.after(300, save_detail_size)
+
+        def flush_detail_size() -> None:
+            nonlocal detail_size_save_after_id
+            if detail_size_save_after_id is not None:
+                dialog.after_cancel(detail_size_save_after_id)
+                detail_size_save_after_id = None
+            self._remember_window_size("refilter_detail", dialog)
+
+        def cancel_pending_detail_size_save(event: tk.Event[tk.Misc]) -> None:
+            nonlocal detail_size_save_after_id
+            if event.widget is not dialog or detail_size_save_after_id is None:
+                return
+            dialog.after_cancel(detail_size_save_after_id)
+            detail_size_save_after_id = None
+
+        dialog.bind("<Configure>", schedule_detail_size_save)
+        dialog.bind("<Destroy>", cancel_pending_detail_size_save, add="+")
 
         ttk.Label(
             dialog,
@@ -1167,8 +1268,30 @@ class JobsViewer(tk.Tk):
                 width=max(event.width, rows_frame.winfo_reqwidth()),
             )
 
+        def wheel_direction(event: tk.Event[tk.Misc]) -> int:
+            delta = int(getattr(event, "delta", 0) or 0)
+            if delta:
+                return -1 if delta > 0 else 1
+            return -1 if int(getattr(event, "num", 0) or 0) == 4 else 1
+
+        def scroll_rows(event: tk.Event[tk.Misc]) -> str:
+            canvas.yview_scroll(wheel_direction(event), "units")
+            return "break"
+
+        def scroll_columns(event: tk.Event[tk.Misc]) -> str:
+            canvas.xview_scroll(wheel_direction(event), "units")
+            return "break"
+
+        def bind_canvas_wheel(widget: tk.Misc) -> None:
+            widget.bind("<MouseWheel>", scroll_rows, add="+")
+            widget.bind("<Shift-MouseWheel>", scroll_columns, add="+")
+            widget.bind("<Button-4>", scroll_rows, add="+")
+            widget.bind("<Button-5>", scroll_rows, add="+")
+
         rows_frame.bind("<Configure>", update_scroll_region)
         canvas.bind("<Configure>", fit_rows_to_canvas)
+        bind_canvas_wheel(canvas)
+        bind_canvas_wheel(rows_frame)
 
         def one_line(value: Any) -> str:
             return " ".join(clean(value).split())
@@ -1205,7 +1328,8 @@ class JobsViewer(tk.Tk):
             cell.bind("<ButtonRelease-1>", open_without_drag, add="+")
 
         columns = (
-            ("Title", 34, "left"),
+            ("ID", 9, "center"),
+            ("Title", 30, "left"),
             ("Fit", 7, "center"),
             ("Original", 74, "left"),
             ("Match", 24, "left"),
@@ -1226,6 +1350,7 @@ class JobsViewer(tk.Tk):
                 pady=3,
             )
             header.grid(row=0, column=column_index, sticky="nsew")
+            bind_canvas_wheel(header)
             headers.append(header)
 
         row_cells: list[tk.Text] = []
@@ -1240,6 +1365,7 @@ class JobsViewer(tk.Tk):
                 values = tuple(
                     one_line(value)
                     for value in (
+                        candidate.get("id", ""),
                         candidate.get("title", ""),
                         candidate.get("fit", ""),
                         candidate.get("original", ""),
@@ -1276,7 +1402,8 @@ class JobsViewer(tk.Tk):
                         pady=1,
                     )
                     self._bind_copyable_text(cell)
-                    if column_index == 0:
+                    bind_canvas_wheel(cell)
+                    if column_index == 1:
                         cell.configure(foreground="#005a9c")
                         bind_source_link(
                             cell,
@@ -1289,7 +1416,7 @@ class JobsViewer(tk.Tk):
         def sort_by_fit(_event: tk.Event[tk.Misc] | None = None) -> None:
             nonlocal fit_descending
             fit_descending = not fit_descending
-            headers[1].configure(text="Fit v" if fit_descending else "Fit ^")
+            headers[2].configure(text="Fit v" if fit_descending else "Fit ^")
             displayed = sorted(
                 candidates,
                 key=lambda candidate: int(candidate.get("fit") or 0),
@@ -1298,8 +1425,8 @@ class JobsViewer(tk.Tk):
             render_candidates(displayed)
             dialog.after_idle(lambda: canvas.yview_moveto(0))
 
-        headers[1].configure(cursor="hand2")
-        headers[1].bind("<ButtonRelease-1>", sort_by_fit)
+        headers[2].configure(cursor="hand2")
+        headers[2].bind("<ButtonRelease-1>", sort_by_fit)
         render_candidates(candidates)
 
         actions = ttk.Frame(dialog, padding=10)
@@ -1307,10 +1434,12 @@ class JobsViewer(tk.Tk):
         actions.columnconfigure(0, weight=1)
 
         def cancel() -> None:
+            flush_detail_size()
             dialog.destroy()
             self.status_var.set("Refilter detail cancelled")
 
         def confirm() -> None:
+            flush_detail_size()
             dialog.destroy()
             self._start_confirmed_refilter_delete(candidates)
 

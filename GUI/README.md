@@ -17,6 +17,13 @@ instead:
 Only open the GUI when the user explicitly asks to view the interface or debug a
 GUI-specific problem.
 
+## Settings
+
+Filters, table sorting, and the last sizes of the main and `Refilter detail`
+windows are stored in `GUI/jobs_viewer_settings.json`. Resizing is saved after
+a short pause and restored the next time the corresponding window opens. The
+settings file is ignored by git.
+
 ## LinkedIn availability check
 
 The `Check LinkedIn` button checks LinkedIn jobs with:
@@ -54,9 +61,10 @@ never changes the database itself.
 
 The top `Refilter` button collects rejected jobs and immediately deletes them
 through the database layer. The bottom `Refilter detail` button only collects
-them and opens a confirmation window with `Title`, `Fit`, `Original`, and
+them and opens a confirmation window with `ID`, `Title`, `Fit`, `Original`, and
 `Match` columns. Its contents are read-only text, so any substring can be
 selected with the mouse and copied with `Ctrl+C`. Clicking a title without
 dragging opens the vacancy `source_url`; clicking the `Fit` header toggles
-ascending/descending sorting. `Confirm` deletes that displayed set; `Cancel` or
-closing the window leaves the database unchanged.
+ascending/descending sorting. The mouse wheel scrolls rows, and `Shift` plus the
+mouse wheel scrolls horizontally. `Confirm` deletes that displayed set;
+`Cancel` or closing the window leaves the database unchanged.
