@@ -27,6 +27,9 @@ settings file is ignored by git.
 ## Vacancy detail
 
 The right side starts in `Skills` mode with the technology table and summary.
+Every skills-table cell is real selectable text: drag across any substring and
+press `Ctrl+C` to copy only that selection. The table headers still sort the
+skills. All GUI text areas use the same reusable copyable text control.
 The `Text` button replaces that entire area with the stored cleaned vacancy text
 from `source_job_texts.readable_text`; the button then reads `Skills` and restores
 the original view. The full text is read-only and supports normal selection and

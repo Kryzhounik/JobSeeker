@@ -131,6 +131,281 @@ def calculate_score(fit: int, interest: int) -> int:
     return (interest * fit * fit + 5000) // 10000
 
 
+class CopyableText(tk.Text):
+    def __init__(
+        self,
+        parent: tk.Misc,
+        *,
+        readonly: bool = True,
+        copy_callback: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(parent, **kwargs)
+        self.readonly = readonly
+        self.copy_callback = copy_callback
+
+        self.bind("<Control-a>", self._select_all)
+        self.bind("<Control-A>", self._select_all)
+        self.bind("<Control-c>", self._copy_selection)
+        self.bind("<Control-C>", self._copy_selection)
+        self.bind("<Control-Insert>", self._copy_selection)
+        self.bind("<Control-KeyPress>", self._control_keypress)
+        self.bind("<<Copy>>", self._copy_selection)
+        self.bind("<Button-3>", self._show_context_menu)
+
+        if readonly:
+            self.bind("<<Cut>>", self._break_event)
+            self.bind("<<Paste>>", self._break_event)
+            self.bind("<KeyPress>", self._block_edit)
+
+    def set_value(self, value: Any) -> None:
+        self.delete("1.0", tk.END)
+        text = clean(value)
+        if text:
+            self.insert("1.0", text)
+        self.mark_set(tk.INSERT, "1.0")
+
+    def get_value(self) -> str:
+        return self.get("1.0", "end-1c")
+
+    def selected_text(self) -> str:
+        try:
+            return self.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except tk.TclError:
+            return ""
+
+    def _copy_selection(self, _event: tk.Event[tk.Misc] | None = None) -> str:
+        text = self.selected_text()
+        if text:
+            self.clipboard_clear()
+            self.clipboard_append(text)
+            self.update_idletasks()
+            if self.copy_callback is not None:
+                self.copy_callback()
+        return "break"
+
+    def _select_all(self, _event: tk.Event[tk.Misc] | None = None) -> str:
+        self.tag_add(tk.SEL, "1.0", "end-1c")
+        self.mark_set(tk.INSERT, "1.0")
+        self.see(tk.INSERT)
+        return "break"
+
+    def _control_keypress(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if key == "a" or keycode == 65:
+            return self._select_all()
+        if key in {"c", "insert"} or keycode in {45, 67}:
+            return self._copy_selection()
+        return None
+
+    def _show_context_menu(self, event: tk.Event[tk.Misc]) -> str:
+        menu = tk.Menu(self, tearoff=False)
+        if not self.readonly:
+            menu.add_command(label="Cut", command=lambda: self.event_generate("<<Cut>>"))
+        menu.add_command(label="Copy", command=self._copy_selection)
+        if not self.readonly:
+            menu.add_command(
+                label="Paste",
+                command=lambda: self.event_generate("<<Paste>>"),
+            )
+        menu.add_command(label="Select all", command=self._select_all)
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+        return "break"
+
+    def _block_edit(self, event: tk.Event[tk.Misc]) -> str | None:
+        key = event.keysym.lower()
+        if event.state & 0x4:
+            return None
+        if key in {
+            "left",
+            "right",
+            "up",
+            "down",
+            "home",
+            "end",
+            "prior",
+            "next",
+            "tab",
+            "shift_l",
+            "shift_r",
+            "control_l",
+            "control_r",
+        }:
+            return None
+        return "break"
+
+    def _break_event(self, _event: tk.Event[tk.Misc]) -> str:
+        return "break"
+
+
+class CopyableGrid(ttk.Frame):
+    def __init__(
+        self,
+        parent: tk.Misc,
+        columns: tuple[tuple[str, str, int, str], ...],
+        *,
+        sort_command: Any = None,
+        copy_callback: Any = None,
+    ) -> None:
+        super().__init__(parent)
+        self.columns = columns
+        self.sort_command = sort_command
+        self.copy_callback = copy_callback
+        self.headers: dict[str, tk.Label] = {}
+        self.cells: list[CopyableText] = []
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=1)
+
+        self.canvas = tk.Canvas(self, highlightthickness=0, borderwidth=0)
+        self.canvas.grid(row=0, column=0, sticky="nsew")
+        vertical_scroll = ttk.Scrollbar(
+            self,
+            orient=tk.VERTICAL,
+            command=self.canvas.yview,
+        )
+        vertical_scroll.grid(row=0, column=1, sticky="ns")
+        horizontal_scroll = ttk.Scrollbar(
+            self,
+            orient=tk.HORIZONTAL,
+            command=self.canvas.xview,
+        )
+        horizontal_scroll.grid(row=1, column=0, sticky="ew")
+        self.canvas.configure(
+            yscrollcommand=vertical_scroll.set,
+            xscrollcommand=horizontal_scroll.set,
+        )
+
+        self.rows_frame = tk.Frame(self.canvas, background="#ffffff")
+        self.canvas_window = self.canvas.create_window(
+            (0, 0),
+            window=self.rows_frame,
+            anchor="nw",
+        )
+        self.rows_frame.bind("<Configure>", self._update_scroll_region)
+        self.canvas.bind("<Configure>", self._fit_rows_to_canvas)
+
+        for column_index, (name, label, width, anchor) in enumerate(columns):
+            self.rows_frame.grid_columnconfigure(
+                column_index,
+                minsize=width,
+                weight=max(1, width),
+            )
+            header = tk.Label(
+                self.rows_frame,
+                text=label,
+                anchor=anchor,
+                background="#e7e9e7",
+                foreground="#202020",
+                font=("Segoe UI", 9, "bold"),
+                borderwidth=1,
+                relief="solid",
+                padx=4,
+                pady=3,
+                cursor="hand2" if sort_command is not None else "arrow",
+            )
+            header.grid(row=0, column=column_index, sticky="nsew")
+            if sort_command is not None:
+                header.bind(
+                    "<Button-1>",
+                    lambda _event, column=name: self.sort_command(column),
+                )
+            self._bind_canvas_wheel(header)
+            self.headers[name] = header
+
+    def set_rows(self, rows: list[dict[str, str]]) -> None:
+        for cell in self.cells:
+            cell.destroy()
+        self.cells.clear()
+
+        for row_index, row in enumerate(rows, start=1):
+            background = "#f7f9fb" if row_index % 2 == 0 else "#ffffff"
+            for column_index, (name, _label, width, anchor) in enumerate(self.columns):
+                cell = CopyableText(
+                    self.rows_frame,
+                    readonly=True,
+                    copy_callback=self.copy_callback,
+                    width=max(6, width // 8),
+                    height=1,
+                    wrap="none",
+                    borderwidth=0,
+                    relief="flat",
+                    background=background,
+                    foreground="#202020",
+                    font=("Segoe UI", 9),
+                    padx=4,
+                    pady=3,
+                    cursor="xterm",
+                )
+                cell.tag_configure("value", justify=self._text_justify(anchor))
+                cell.insert("1.0", clean(row.get(name, "")), "value")
+                cell.grid(
+                    row=row_index,
+                    column=column_index,
+                    sticky="nsew",
+                    padx=1,
+                    pady=1,
+                )
+                self._bind_canvas_wheel(cell)
+                self.cells.append(cell)
+
+        self.rows_frame.update_idletasks()
+        self._update_scroll_region()
+
+    def update_headings(
+        self,
+        sort_column: str | None,
+        descending: bool,
+    ) -> None:
+        marker = " v" if descending else " ^"
+        for name, label, _width, _anchor in self.columns:
+            text = f"{label}{marker}" if name == sort_column else label
+            self.headers[name].configure(text=text)
+
+    def _text_justify(self, anchor: str) -> str:
+        if anchor in {"center", "e", "right"}:
+            return "center" if anchor == "center" else "right"
+        return "left"
+
+    def _update_scroll_region(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _fit_rows_to_canvas(self, event: tk.Event[tk.Misc]) -> None:
+        requested_width = self.rows_frame.winfo_reqwidth()
+        self.canvas.itemconfigure(
+            self.canvas_window,
+            width=max(event.width, requested_width),
+        )
+
+    def _bind_canvas_wheel(self, widget: tk.Misc) -> None:
+        widget.bind("<MouseWheel>", self._scroll_vertical)
+        widget.bind("<Shift-MouseWheel>", self._scroll_horizontal)
+        widget.bind("<Button-4>", self._scroll_vertical)
+        widget.bind("<Button-5>", self._scroll_vertical)
+
+    def _scroll_vertical(self, event: tk.Event[tk.Misc]) -> str:
+        if getattr(event, "num", None) == 4:
+            direction = -1
+        elif getattr(event, "num", None) == 5:
+            direction = 1
+        else:
+            direction = -1 if event.delta > 0 else 1
+        self.canvas.yview_scroll(direction, "units")
+        return "break"
+
+    def _scroll_horizontal(self, event: tk.Event[tk.Misc]) -> str:
+        direction = -1 if event.delta > 0 else 1
+        self.canvas.xview_scroll(direction, "units")
+        return "break"
+
+
 class JobsViewer(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -145,7 +420,7 @@ class JobsViewer(tk.Tk):
         self.current_status = ""
         self.current_fit = ""
         self.current_interest = ""
-        self.detail_fields: dict[str, tk.Text] = {}
+        self.detail_fields: dict[str, CopyableText] = {}
         self.status_buttons: list[ttk.Button] = []
         self.availability_button: ttk.Button | None = None
         self.refilter_button: ttk.Button | None = None
@@ -168,6 +443,7 @@ class JobsViewer(tk.Tk):
         self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_sort_column: str | None = None
         self.tech_sort_descending = False
+        self.tech_rows: list[dict[str, str]] = []
         self.detail_view_mode = "skills"
 
         self._configure_style()
@@ -342,8 +618,10 @@ class JobsViewer(tk.Tk):
         link_frame.grid(row=0, column=0, sticky="ew")
         link_frame.columnconfigure(0, weight=1)
 
-        self.link_text = tk.Text(
+        self.link_text = CopyableText(
             link_frame,
+            readonly=True,
+            copy_callback=lambda: self.status_var.set("Copied"),
             height=1,
             wrap="none",
             borderwidth=1,
@@ -352,7 +630,6 @@ class JobsViewer(tk.Tk):
             pady=2,
         )
         self.link_text.grid(row=0, column=0, sticky="ew")
-        self._bind_copyable_text(self.link_text)
 
         ttk.Button(link_frame, text="Open", command=self._open_current_link).grid(
             row=0,
@@ -432,8 +709,10 @@ class JobsViewer(tk.Tk):
                 padx=(0, 10),
                 pady=3,
             )
-            field = tk.Text(
+            field = CopyableText(
                 parent,
+                readonly=name not in SCORE_EDIT_FIELDS,
+                copy_callback=lambda: self.status_var.set("Copied"),
                 height=1,
                 wrap="none",
                 borderwidth=1,
@@ -457,7 +736,6 @@ class JobsViewer(tk.Tk):
                 self._bind_score_field(field)
             else:
                 field.configure(**READONLY_FIELD_COLORS)
-                self._bind_copyable_text(field)
             self.detail_fields[name] = field
 
     def _build_tech_and_summary(self, parent: ttk.Frame) -> None:
@@ -475,37 +753,13 @@ class JobsViewer(tk.Tk):
         tech_box.columnconfigure(0, weight=1)
         tech_box.rowconfigure(0, weight=1)
 
-        columns = [name for name, _label, _width, _anchor in TECH_COLUMNS]
-        self.tech_tree = ttk.Treeview(
+        self.tech_table = CopyableGrid(
             tech_box,
-            columns=columns,
-            show="headings",
-            selectmode="browse",
+            TECH_COLUMNS,
+            sort_command=self._sort_tech_table,
+            copy_callback=lambda: self.status_var.set("Copied"),
         )
-        self.tech_tree.grid(row=0, column=0, sticky="nsew")
-
-        tech_scroll = ttk.Scrollbar(
-            tech_box,
-            orient=tk.VERTICAL,
-            command=self.tech_tree.yview,
-        )
-        tech_scroll.grid(row=0, column=1, sticky="ns")
-        self.tech_tree.configure(yscrollcommand=tech_scroll.set)
-
-        for name, label, width, anchor in TECH_COLUMNS:
-            self.tech_tree.heading(
-                name,
-                text=label,
-                command=lambda column=name: self._sort_tech_tree(column),
-            )
-            self.tech_tree.column(name, width=width, minwidth=52, anchor=anchor, stretch=True)
-
-        self.tech_tree.tag_configure("odd", background="#f7f9fb")
-        self.tech_tree.bind("<Control-c>", self._copy_tree_selection)
-        self.tech_tree.bind("<Control-C>", self._copy_tree_selection)
-        self.tech_tree.bind("<Control-Insert>", self._copy_tree_selection)
-        self.tech_tree.bind("<<Copy>>", self._copy_tree_selection)
-        self.tech_tree.bind("<Button-3>", self._show_copy_menu)
+        self.tech_table.grid(row=0, column=0, sticky="nsew")
 
         ttk.Label(
             self.skills_view_frame,
@@ -518,8 +772,10 @@ class JobsViewer(tk.Tk):
             pady=(8, 3),
         )
 
-        self.summary_text = tk.Text(
+        self.summary_text = CopyableText(
             self.skills_view_frame,
+            readonly=True,
+            copy_callback=lambda: self.status_var.set("Copied"),
             height=8,
             wrap="word",
             borderwidth=1,
@@ -528,18 +784,16 @@ class JobsViewer(tk.Tk):
             pady=6,
         )
         self.summary_text.grid(row=2, column=0, sticky="nsew")
-        self.summary_text.bind("<KeyPress>", self._block_readonly_text_edit)
-        self.summary_text.bind("<<Paste>>", self._break_event)
-        self.summary_text.bind("<<Cut>>", self._break_event)
-        self._bind_copyable_text(self.summary_text)
 
         self.readable_text_frame = ttk.Frame(parent)
         self.readable_text_frame.grid(row=0, column=0, sticky="nsew")
         self.readable_text_frame.columnconfigure(0, weight=1)
         self.readable_text_frame.rowconfigure(0, weight=1)
 
-        self.readable_text = tk.Text(
+        self.readable_text = CopyableText(
             self.readable_text_frame,
+            readonly=True,
+            copy_callback=lambda: self.status_var.set("Copied"),
             wrap="word",
             borderwidth=1,
             relief="solid",
@@ -554,7 +808,6 @@ class JobsViewer(tk.Tk):
         )
         readable_scroll.grid(row=0, column=1, sticky="ns")
         self.readable_text.configure(yscrollcommand=readable_scroll.set)
-        self._bind_copyable_text(self.readable_text)
         self.readable_text_frame.grid_remove()
 
     def _toggle_detail_view(self) -> None:
@@ -1015,17 +1268,17 @@ class JobsViewer(tk.Tk):
             self._set_text_widget(self.detail_fields[name], detail.get(name, ""))
         self._set_status_buttons_state(True)
 
-        self.tech_tree.delete(*self.tech_tree.get_children())
         self.tech_sort_column = None
         self.tech_sort_descending = False
-        for index, row in enumerate(technologies):
-            values = [clean(row[name]) for name, _label, _width, _anchor in TECH_COLUMNS]
-            tags = ("odd",) if index % 2 else ()
-            self.tech_tree.insert("", tk.END, values=values, tags=tags)
-        self._update_tree_headings(
-            self.tech_tree,
-            TECH_COLUMNS,
-            self._sort_tech_tree,
+        self.tech_rows = [
+            {
+                name: clean(row[name])
+                for name, _label, _width, _anchor in TECH_COLUMNS
+            }
+            for row in technologies
+        ]
+        self.tech_table.set_rows(self.tech_rows)
+        self.tech_table.update_headings(
             self.tech_sort_column,
             self.tech_sort_descending,
         )
@@ -1044,13 +1297,11 @@ class JobsViewer(tk.Tk):
         for field in self.detail_fields.values():
             self._set_text_widget(field, "")
         self._set_status_buttons_state(False)
-        self.tech_tree.delete(*self.tech_tree.get_children())
         self.tech_sort_column = None
         self.tech_sort_descending = False
-        self._update_tree_headings(
-            self.tech_tree,
-            TECH_COLUMNS,
-            self._sort_tech_tree,
+        self.tech_rows = []
+        self.tech_table.set_rows(self.tech_rows)
+        self.tech_table.update_headings(
             self.tech_sort_column,
             self.tech_sort_descending,
         )
@@ -1428,7 +1679,7 @@ class JobsViewer(tk.Tk):
             bind_canvas_wheel(header)
             headers.append(header)
 
-        row_cells: list[tk.Text] = []
+        row_cells: list[CopyableText] = []
 
         def render_candidates(displayed: list[dict[str, Any]]) -> None:
             for cell in row_cells:
@@ -1454,8 +1705,10 @@ class JobsViewer(tk.Tk):
                 for column_index, ((_label, width, justify), value) in enumerate(
                     zip(columns, values)
                 ):
-                    cell = tk.Text(
+                    cell = CopyableText(
                         rows_frame,
+                        readonly=True,
+                        copy_callback=lambda: self.status_var.set("Copied"),
                         width=width,
                         height=row_height,
                         wrap="word",
@@ -1476,7 +1729,6 @@ class JobsViewer(tk.Tk):
                         padx=1,
                         pady=1,
                     )
-                    self._bind_copyable_text(cell)
                     bind_canvas_wheel(cell)
                     if column_index == 1:
                         cell.configure(foreground="#005a9c")
@@ -2022,14 +2274,11 @@ class JobsViewer(tk.Tk):
         for button in self.status_buttons:
             button.configure(state=state)
 
-    def _set_text_widget(self, widget: tk.Text, value: str) -> None:
-        widget.delete("1.0", tk.END)
-        if value:
-            widget.insert("1.0", value)
-        widget.mark_set(tk.INSERT, "1.0")
+    def _set_text_widget(self, widget: CopyableText, value: str) -> None:
+        widget.set_value(value)
 
-    def _widget_text(self, widget: tk.Text) -> str:
-        return widget.get("1.0", "end-1c").strip()
+    def _widget_text(self, widget: CopyableText) -> str:
+        return widget.get_value().strip()
 
     def _status_visible(self, status: str) -> bool:
         variable = self.status_filter_vars.get(status)
@@ -2056,19 +2305,24 @@ class JobsViewer(tk.Tk):
             self.job_sort_descending,
         )
 
-    def _sort_tech_tree(self, column: str) -> None:
-        self.tech_sort_column, self.tech_sort_descending = self._sort_tree(
-            self.tech_tree,
-            TECH_COLUMNS,
-            TECH_NUMERIC_COLUMNS,
-            column,
-            self.tech_sort_column,
-            self.tech_sort_descending,
+    def _sort_tech_table(self, column: str) -> None:
+        descending = (
+            not self.tech_sort_descending
+            if self.tech_sort_column == column
+            else column in TECH_NUMERIC_COLUMNS
         )
-        self._update_tree_headings(
-            self.tech_tree,
-            TECH_COLUMNS,
-            self._sort_tech_tree,
+
+        def sort_key(row: dict[str, str]) -> Any:
+            value = clean(row.get(column, ""))
+            if column == "level":
+                return LEVEL_SORT_VALUES.get(value.casefold(), 0)
+            return value.casefold()
+
+        self.tech_rows.sort(key=sort_key, reverse=descending)
+        self.tech_sort_column = column
+        self.tech_sort_descending = descending
+        self.tech_table.set_rows(self.tech_rows)
+        self.tech_table.update_headings(
             self.tech_sort_column,
             self.tech_sort_descending,
         )
@@ -2136,34 +2390,11 @@ class JobsViewer(tk.Tk):
         for index, item in enumerate(tree.get_children("")):
             tree.item(item, tags=("odd",) if index % 2 else ())
 
-    def _bind_copyable_text(self, widget: tk.Text) -> None:
-        widget.bind("<Control-a>", self._select_text)
-        widget.bind("<Control-A>", self._select_text)
-        widget.bind("<Control-c>", self._copy_widget_event)
-        widget.bind("<Control-C>", self._copy_widget_event)
-        widget.bind("<Control-Insert>", self._copy_widget_event)
-        widget.bind("<Control-KeyPress>", self._copy_shortcut_event)
-        widget.bind("<<Copy>>", self._copy_widget_event)
-        widget.bind("<<Cut>>", self._break_event)
-        widget.bind("<<Paste>>", self._break_event)
-        widget.bind("<KeyPress>", self._block_readonly_text_edit)
-        widget.bind("<Button-3>", self._show_copy_menu)
-
-    def _bind_score_field(self, widget: tk.Text) -> None:
-        widget.bind("<Control-a>", self._select_text)
-        widget.bind("<Control-A>", self._select_text)
-        widget.bind("<Control-c>", self._copy_widget_event)
-        widget.bind("<Control-C>", self._copy_widget_event)
-        widget.bind("<Control-Insert>", self._copy_widget_event)
-        widget.bind("<Control-KeyPress>", self._copy_shortcut_event)
-        widget.bind("<<Copy>>", self._copy_widget_event)
-        widget.bind("<<Cut>>", self._break_event)
-        widget.bind("<<Paste>>", self._break_event)
+    def _bind_score_field(self, widget: CopyableText) -> None:
         widget.bind("<KeyPress>", self._score_field_keypress)
         widget.bind("<Return>", self._save_scores_from_detail)
         widget.bind("<KP_Enter>", self._save_scores_from_detail)
         widget.bind("<FocusOut>", self._save_scores_from_detail)
-        widget.bind("<Button-3>", self._show_copy_menu)
 
     def _bind_editable_entry(self, widget: tk.Widget) -> None:
         widget.bind("<Control-a>", self._select_entry_text)
