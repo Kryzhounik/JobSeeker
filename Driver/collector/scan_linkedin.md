@@ -28,74 +28,99 @@ For left-panel card materialization and page-count verification, follow
    even if the current page is already a LinkedIn search page. The seed page is
    a workaround, not the first collection page.
 4. Process printed non-seed search URLs strictly in config order.
-5. For each location, keep collecting pages until one of these happens:
+5. On the first collection page for a location, apply and verify the UI filters
+   from `collector/config/linkedin.properties` before reading cards:
+   - `experience`: `entry_level` -> `Entry-level`, `senior` -> `Senior`;
+   - `jobTypes`: `full_time` -> `Full-time`, `part_time` -> `Part-time`,
+     `contract` -> `Contract`;
+   - use `remoteBroadWorkplace` for a locationless search and `workplace` for
+     a country search. If all three country workplace modes are configured,
+     leave the workplace filter unrestricted;
+   - `datePosted` is carried by the generated URL;
+   - `sort=semantic` records the current LinkedIn behavior; there is no sort
+     control to apply.
+   Submit each opened filter menu with `Show results`, then verify the selected
+   filter labels in the visible toolbar. Do not assume URL query parameters
+   applied filters that are not visibly selected. Select menu options by their
+   exact `checkbox` role, not by bare text: job cards may contain the same
+   words. Select the quick `Remote` filter through the exact `radio` named
+   `Filter by Remote`.
+6. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
    or a critical blocker defined in `collector/browser.md` appears. A slow or
    temporarily unresponsive browser/plugin is not a critical blocker.
-6. Do not sample a few pages from every location. If the first location has
+7. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.
-7. On each LinkedIn search page, materialize and verify the complete result
+8. On each LinkedIn search page, materialize and verify the complete result
    page with `collector/linkedin_scroll_results.md`, then extract
    previews from that verified card set.
-8. After the current result page is exhausted, move to the next page with
-   `start += 25` (or the next-page control if LinkedIn changes the URL shape).
-   Do not use a fixed list like `0/25/50/75`; continue until exhausted or
-   until `limit` is reached.
-9. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
+9. After the current result page is exhausted, use
+   `data-testid="pagination-controls-next-button-visible"`. Do not select a
+   button by the name `Next`: the details pane may expose an unrelated carousel
+   button with that name. This preserves UI filters that are not encoded in the
+   URL. Verify that the selected filter labels remain visible after navigation.
+   Do not construct the next page by adding `start=25`; direct URL navigation
+   resets the new UI filter state.
+10. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
    minimum interval between browser navigation actions. Measure it from the
    previous search-page navigation start. If collecting, filtering, saving, or
    logging the current page already took longer than `delaySeconds`, open the
    next page immediately.
-10. For every collected search-result card, extract a small preview object:
+11. For every collected search-result card, extract a small preview object:
    title, company, location, workplace, salary when visible, and canonical URL.
-11. Run the preview object through:
+   In the LazyColumn layout, read `job_id` from the exact
+   `componentkey="job-card-component-ref-<job_id>"` prefix and construct the
+   canonical URL because unselected cards do not expose their own link.
+12. Run the preview object through:
    `python collector/filtering/linkedin_filter.py preview --input <preview_json>`.
    This checks title block words first, then `(linkedin, job_id)` in
    `source_jobs`. A registered ID is skipped before the vacancy is opened.
-12. For every card with `preview_decision = "open"`, process it until it has
+13. For every card with `preview_decision = "open"`, process it until it has
     exactly one collection outcome logged with
     `collector/logging/linkedin_logger.py collection`.
     First try the normal search UI path: find/click the left search-result
-    card by `job_id` or canonical `/jobs/view/<job_id>/` href, not by title
-    text. Then wait for the right-side job details pane.
-13. Keep skipped preview cards in the report for debugging false rejects.
-14. Stop at `limit` from `collector/config/linkedin.properties`. Increment the
+    card by `data-occludable-job-id`, matching canonical href, or exact
+    `componentkey="job-card-component-ref-<job_id>"`, not by title text. Then
+    verify that the selected details link contains the same `job_id` and wait
+    for the job details pane.
+14. Keep skipped preview cards in the report for debugging false rejects.
+15. Stop at `limit` from `collector/config/linkedin.properties`. Increment the
     limit counter only after a new raw page is successfully saved. Blocked
     previews, registry duplicates, `already_raw`, and failures do not consume
     the limit.
-15. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
+16. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
     The normal LinkedIn path is search UI card -> details pane -> raw save.
     If the accepted card cannot be found/clicked in the current search UI
     (`locator_count_0`, virtualized-card miss, or stale DOM), use the card's
     `source_url` as a fallback: open that exact LinkedIn job URL in the
     logged-in Chrome tab, wait for complete details, and save it through the
     same raw saver. This fallback is only for already accepted preview cards.
-16. Respect `delaySeconds` as the minimum interval between browser
+17. Respect `delaySeconds` as the minimum interval between browser
     navigation/click actions. Do not wait a full extra delay after saving a
     vacancy. If filtering, clicking, loading, saving, or logging the current
     vacancy already took longer than `delaySeconds`, continue immediately.
-17. Before saving raw HTML, wait until the vacancy details are loaded:
+18. Before saving raw HTML, wait until the vacancy details are loaded:
     no visible `progressbar` / `In progress` remains for the job details, the
     selected job id matches the clicked card, and at least one detail marker is
     visible: `About the job`, `Role Overview`, `Requirements`, or
     `Key Responsibilities`.
-18. If details do not load before the timeout, do not save the page as a normal
+19. If details do not load before the timeout, do not save the page as a normal
     raw vacancy. Log it as `incomplete_raw` and continue or report the blocking
     problem.
-19. Get the raw HTML from the right-side details pane, not from the whole
+20. Get the raw HTML from the right-side details pane, not from the whole
     search page. For `source_url` fallback pages, get the loaded job details
     content from the job page instead.
-20. Save it through the common saver:
+21. Save it through the common saver:
    `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
    The saver records processing status `RAW` only after valid raw content is
    present on disk.
-21. Convert that saved raw file into analyzer-ready readable text with:
+22. Convert that saved raw file into analyzer-ready readable text with:
    `python collector/extract_linkedin_readable_text_v2.py --source linkedin --input ../Data/raw/linkedin/pages/<job_id>.html`.
    The cleaner writes the text to SQLite `source_job_texts` and records
    processing status `CLEANED`. If cleaning fails, leave the vacancy at `RAW`
    and report the failure; do not analyze that vacancy.
-22. Run the stored readable text through:
+23. Run the stored readable text through:
    `python collector/filtering/linkedin_filter.py content --source linkedin --job-id <job_id> --title <title>`.
    When rejected, this command saves the exact matched text, matched keyword,
    regex pattern, and rule to SQLite `content_filter_rejections`.

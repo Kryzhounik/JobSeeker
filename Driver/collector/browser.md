@@ -41,10 +41,10 @@ Use the human-like search UI flow:
 
 ```text
 open search page
-read visible left-side search cards
+read visible search cards from the classic list or LazyColumn
 run filtering/linkedin_filter.py preview on each card
 skip rejected cards
-click an accepted card in the left search results by job_id/href
+click an accepted card by job_id/href/componentkey
 wait for the right-side details pane
 save the right-side details pane HTML
 continue through the search results

@@ -11,28 +11,31 @@ preview filtering or clicking any result card.
 
 ## Page Model
 
-LinkedIn normally creates the complete page as card containers before it
-renders every card's link and text. Treat these as different sets:
+LinkedIn currently exposes one of two search-card layouts:
 
-- Expected cards: ordered unique `job_id` values from
-  `[data-occludable-job-id]`.
-- Materialized cards: expected containers whose own
-  `a[href*="/jobs/view/"]` has appeared and contains the same `job_id`.
+- Classic: `[data-occludable-job-id="<job_id>"]` containers whose own
+  `a[href*="/jobs/view/"]` appears after materialization.
+- LazyColumn: `[data-testid="lazy-column"]` contains card buttons with
+  `componentkey="job-card-component-ref-<job_id>"`. Unselected cards do not
+  contain a `/jobs/view/` link.
 
-Never use the number of currently rendered job links as the expected page
-size. A normal 25-result page may initially expose only 7-14 links while all
-25 card containers are already present.
+Use exactly one layout on a page. Never use the number of global job links as
+the expected page size.
 
 ## Procedure
 
-1. Locate exactly one left results panel with
-   `.scaffold-layout__list > div`.
-2. Poll `[data-occludable-job-id]` every 500 ms for at most 10 seconds. Treat
-   the ordered unique ID set as stable only after the same non-empty sequence
-   appears in two consecutive reads.
-3. Record that stable ordered set as `expected_ids`.
-4. For each ID in `expected_ids`, select its exact container:
-   `[data-occludable-job-id="<job_id>"]`.
+1. Detect exactly one supported layout:
+   - classic panel: `.scaffold-layout__list > div` with
+     `[data-occludable-job-id]`;
+   - LazyColumn: exactly one `[data-testid="lazy-column"]` containing
+     `[role="button"][componentkey^="job-card-component-ref-"]`.
+2. Poll its card containers every 500 ms for at most 10 seconds. Extract the
+   ordered ID from `data-occludable-job-id` or from the exact LazyColumn
+   `componentkey` prefix. Treat the ordered unique ID set as stable only after
+   the same non-empty sequence appears in two consecutive reads.
+3. Record that stable ordered set as `expected_ids`. Reject duplicate, empty,
+   or malformed IDs.
+4. For each ID, select its exact container using the detected layout.
 5. Bring that container into view with the locator-scoped operation:
 
    ```js
@@ -45,10 +48,13 @@ size. A normal 25-result page may initially expose only 7-14 links while all
    });
    ```
 
-6. Wait up to 2 seconds for `a[href*="/jobs/view/"]` inside that same
-   container.
-7. Verify that the link's `/jobs/view/<job_id>/` value matches the container
-   ID. Only then add the ID to `materialized_ids` and extract its preview.
+6. For classic cards, wait up to 2 seconds for the card's matching
+   `/jobs/view/<job_id>/` link. For LazyColumn cards, verify that the exact
+   `componentkey` remains present and that title, company, and location preview
+   text has materialized. A link is not required before the card is selected.
+7. Only then add the ID to `materialized_ids` and extract its preview. Build
+   the canonical URL as `https://www.linkedin.com/jobs/view/<job_id>/` when an
+   unselected LazyColumn card has no link.
 8. Continue in `expected_ids` order until every expected container has been
    checked.
 9. Declare scrolling complete only when
@@ -91,8 +97,7 @@ Return the page as `partial`, not complete, when:
 - the results-panel selector resolves to anything other than one element;
 - the expected ID set does not stabilize;
 - a non-terminal page exposes fewer than 25 expected IDs;
-- a card does not materialize its own matching job link within the bounded
-  wait;
+- a card does not satisfy the materialization rule for its detected layout;
 - the final expected and materialized ID sets differ.
 
 Report the search label, page URL, `start`, expected count, materialized count,

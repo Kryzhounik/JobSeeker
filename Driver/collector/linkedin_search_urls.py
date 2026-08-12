@@ -7,30 +7,11 @@ from urllib.parse import urlencode
 
 
 ROOT = Path(__file__).resolve().parent
-SEARCH_URL = "https://www.linkedin.com/jobs/search/"
-
-EXPERIENCE = {
-    "associate": "3",
-    "mid_senior": "4",
-}
-WORKPLACE = {
-    "office": "1",
-    "remote": "2",
-    "hybrid": "3",
-}
-JOB_TYPES = {
-    "full_time": "F",
-    "part_time": "P",
-    "contract": "C",
-}
+SEARCH_URL = "https://www.linkedin.com/jobs/search-results/"
 DATE_POSTED = {
     "day": "r86400",
     "week": "r604800",
     "month": "r2592000",
-}
-SORT = {
-    "newest": "DD",
-    "relevant": "R",
 }
 LOCATIONLESS = {
     "accountremote",
@@ -64,14 +45,6 @@ def csv(value: str) -> list[str]:
     return [part.strip() for part in value.split(",") if part.strip()]
 
 
-def mapped(value: str, mapping: dict[str, str]) -> str:
-    result: list[str] = []
-    for item in csv(value):
-        key = item.lower().replace("-", "_").replace(" ", "_")
-        result.append(mapping.get(key, item))
-    return ",".join(result)
-
-
 def search_url(config: dict[str, str], raw_location: str) -> str:
     if config.get("searchUrl"):
         return config["searchUrl"]
@@ -89,19 +62,9 @@ def search_url(config: dict[str, str], raw_location: str) -> str:
         if geo_id.strip():
             params["geoId"] = geo_id.strip()
 
-    workplace = (
-        config.get("remoteBroadWorkplace", "remote")
-        if locationless
-        else config.get("workplace", "")
-    )
-    values = {
-        "f_E": mapped(config.get("experience", ""), EXPERIENCE),
-        "f_WT": mapped(workplace, WORKPLACE),
-        "f_JT": mapped(config.get("jobTypes", ""), JOB_TYPES),
-        "f_TPR": DATE_POSTED.get(config.get("datePosted", ""), ""),
-        "sortBy": SORT.get(config.get("sort", ""), config.get("sort", "")),
-    }
-    params.update({key: value for key, value in values.items() if value})
+    date_posted = DATE_POSTED.get(config.get("datePosted", ""), "")
+    if date_posted:
+        params["f_TPR"] = date_posted
     return SEARCH_URL + "?" + urlencode(params)
 
 
