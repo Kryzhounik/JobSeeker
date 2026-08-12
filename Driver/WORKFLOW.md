@@ -68,6 +68,21 @@ If source, run scope, or target stage is ambiguous, stop and ask before running.
 Do not guess source, pick an arbitrary file, or choose a later pipeline stage by
 yourself.
 
+## Command Execution Policy
+
+Never execute a repeated workflow step by generating a new long inline shell
+command for every item or batch. Before the second execution of the same
+command sequence:
+
+1. Put the deterministic sequence behind one stable project command or module.
+2. Pass changing values only as arguments or input files.
+3. Reuse the same short command prefix for every item and batch.
+4. Keep business decisions in the owning workflow/module; the command may only
+   automate the already-defined sequence.
+
+One approval for a stable command prefix is acceptable. Repeated approval
+dialogs caused by per-batch command construction are not.
+
 ## Interruption Policy
 
 - A temporary slowdown, timeout, failed browser command, or unresponsive plugin
