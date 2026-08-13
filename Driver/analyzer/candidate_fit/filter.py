@@ -448,7 +448,7 @@ def evaluate_location_filters(
 ) -> FilterResult:
     checks: list[FilterResult] = []
     work_type = normalized(remote_type)
-    if work_type in {"hybrid", "office"}:
+    if work_type in {"hybrid", "office", "unknown"}:
         allowed = scored_locations(resume_config, "locations")
         if check_location_allowance(location, allowed):
             return FilterResult(

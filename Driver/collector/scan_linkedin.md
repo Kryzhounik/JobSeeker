@@ -111,16 +111,18 @@ For left-panel card materialization and page-count verification, follow
 20. Get the raw HTML from the right-side details pane, not from the whole
     search page. For `source_url` fallback pages, get the loaded job details
     content from the job page instead.
-21. Save it through the common saver:
-   `python collector/save_raw_page.py --source linkedin --url <job_url> --content-file <html_file>`.
-   The saver records processing status `RAW` only after valid raw content is
-   present on disk.
-22. Convert that saved raw file into analyzer-ready readable text with:
-   `python collector/extract_linkedin_readable_text_v2.py --source linkedin --input ../Data/raw/linkedin/pages/<job_id>.html`.
-   The cleaner writes the text to SQLite `source_job_texts` and records
-   processing status `CLEANED`. If cleaning fails, leave the vacancy at `RAW`
-   and report the failure; do not analyze that vacancy.
-23. Run the stored readable text through:
+21. Store one or more verified pane results as a JSON list and run the stable
+   command:
+   `python collector/process_linkedin_panes.py --batch <browser-results.json> --scope <run-scope.json>`.
+   This command performs the already-defined deterministic sequence through
+   `save_raw_page.py`, `extract_linkedin_readable_text_v2.py`, the content
+   filter, and the collection logger. Do not recreate this sequence as an
+   inline shell command for each browser batch.
+22. The saver records processing status `RAW` only after valid raw content is
+   present on disk. The cleaner writes analyzer-ready text to SQLite
+   `source_job_texts` and records `CLEANED`. If cleaning fails, leave the
+   vacancy at `RAW`, report the failure, and do not analyze it.
+23. The content stage runs the equivalent of:
    `python collector/filtering/linkedin_filter.py content --source linkedin --job-id <job_id> --title <title>`.
    When rejected, this command saves the exact matched text, matched keyword,
    regex pattern, and rule to SQLite `content_filter_rejections`.

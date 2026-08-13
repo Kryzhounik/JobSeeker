@@ -32,6 +32,16 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
+    def test_unknown_work_type_at_allowed_location_passes(self) -> None:
+        result = filter_job_json(
+            base_job(
+                location="Greater Drohobych Area, Ukraine",
+                remote_type="unknown",
+            )
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
     def test_hybrid_disallowed_onsite_location_fails_location(self) -> None:
         result = filter_job_json(base_job(location="Warsaw, Poland"))
         self.assertFalse(result.passed)
