@@ -467,7 +467,6 @@ class JobsViewer(tk.Tk):
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
-        self.company_link_press: tuple[str, int, int] | None = None
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
         self.availability_check_running = False
@@ -711,18 +710,6 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.bind("<Control-Insert>", self._copy_tree_selection)
         self.jobs_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.jobs_tree.bind("<Button-3>", self._show_copy_menu)
-        self.jobs_tree.bind("<Motion>", self._update_company_link_cursor, add="+")
-        self.jobs_tree.bind("<Leave>", self._clear_company_link_cursor, add="+")
-        self.jobs_tree.bind(
-            "<ButtonPress-1>",
-            self._remember_company_link_press,
-            add="+",
-        )
-        self.jobs_tree.bind(
-            "<ButtonRelease-1>",
-            self._open_company_link_from_jobs,
-            add="+",
-        )
         self.jobs_tree.bind(
             "<Configure>",
             lambda _event: self._schedule_job_link_labels(),
@@ -1359,13 +1346,14 @@ class JobsViewer(tk.Tk):
                 background=background,
                 foreground=foreground,
                 font=("Segoe UI", 9, "underline"),
-                padx=4,
+                padx=0,
                 cursor="hand2",
             )
+            link_width = min(label.winfo_reqwidth(), max(1, width - 8))
             label.place(
-                x=x + 1,
+                x=x + 4,
                 y=y + 1,
-                width=width - 2,
+                width=link_width,
                 height=height - 2,
             )
             label.bind(
@@ -1457,60 +1445,6 @@ class JobsViewer(tk.Tk):
         self.reason_filter_entry.selection_clear()
         self.reason_filter_entry.icursor(tk.END)
         self.status_var.set(f"Reason: {', '.join(reasons)}")
-
-    def _company_link_at_event(
-        self,
-        event: tk.Event[tk.Misc],
-    ) -> tuple[str, int] | None:
-        if self.jobs_tree.identify_region(event.x, event.y) != "cell":
-            return None
-        company_index = next(
-            index
-            for index, (name, _label, _width, _anchor) in enumerate(JOB_COLUMNS, start=1)
-            if name == "company"
-        )
-        if self.jobs_tree.identify_column(event.x) != f"#{company_index}":
-            return None
-
-        item = self.jobs_tree.identify_row(event.y)
-        row = self.job_rows.get(item)
-        if not row or not row.get("company"):
-            return None
-        try:
-            company_id = int(row.get("company_id", ""))
-        except (TypeError, ValueError):
-            return None
-        return item, company_id
-
-    def _update_company_link_cursor(self, event: tk.Event[tk.Misc]) -> None:
-        cursor = "hand2" if self._company_link_at_event(event) is not None else ""
-        if clean(self.jobs_tree.cget("cursor")) != cursor:
-            self.jobs_tree.configure(cursor=cursor)
-
-    def _clear_company_link_cursor(
-        self,
-        _event: tk.Event[tk.Misc] | None = None,
-    ) -> None:
-        self.jobs_tree.configure(cursor="")
-        self.company_link_press = None
-
-    def _remember_company_link_press(self, event: tk.Event[tk.Misc]) -> None:
-        link = self._company_link_at_event(event)
-        self.company_link_press = (
-            (link[0], event.x, event.y)
-            if link is not None
-            else None
-        )
-
-    def _open_company_link_from_jobs(self, event: tk.Event[tk.Misc]) -> None:
-        link = self._company_link_at_event(event)
-        press = self.company_link_press
-        self.company_link_press = None
-        if link is None or press is None or link[0] != press[0]:
-            return
-        if abs(event.x - press[1]) + abs(event.y - press[2]) > 4:
-            return
-        self._open_companies_window(link[1])
 
     def _open_companies_window(self, company_id: int | None = None) -> None:
         window = self.companies_window
