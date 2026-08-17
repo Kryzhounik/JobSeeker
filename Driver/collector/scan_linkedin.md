@@ -74,8 +74,9 @@ For left-panel card materialization and page-count verification, follow
    canonical URL because unselected cards do not expose their own link.
 12. Run the preview object through:
    `python collector/filtering/linkedin_filter.py preview --input <preview_json>`.
-   This checks title block words first, then `(linkedin, job_id)` in
-   `source_jobs`. A registered ID is skipped before the vacancy is opened.
+   This checks title block words, the company blacklist, then
+   `(linkedin, job_id)` in `source_jobs`. Any match is skipped before the
+   vacancy is opened.
 13. For every card with `preview_decision = "open"`, process it until it has
     exactly one collection outcome logged with
     `collector/logging/linkedin_logger.py collection`.

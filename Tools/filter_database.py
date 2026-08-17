@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "Driver"))
 
 from collector.filtering.linkedin_filter import Vacancy
 from collector.filtering.linkedin_filter import VacancyFilter
+from db.migrate import migrate_database
 
 
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
@@ -22,7 +23,8 @@ def collect_rejected_jobs(
     db_path: Path = DB_PATH,
 ) -> list[dict[str, Any]]:
     rejected: list[dict[str, Any]] = []
-    vacancy_filter = VacancyFilter()
+    migrate_database(db_path)
+    vacancy_filter = VacancyFilter(db_path=db_path)
 
     database = sqlite3.connect(db_path)
     try:
@@ -33,19 +35,23 @@ def collect_rejected_jobs(
                 job.title,
                 job.candidate_fit_percent,
                 job.source_url,
+                coalesce(company.name, ''),
                 text.readable_text
             FROM jobs AS job
+            LEFT JOIN companies AS company
+                ON company.id = job.company_id
             LEFT JOIN source_job_texts AS text
                 ON text.source_job_ref = job.source_job_ref
             ORDER BY job.id
             """
         ).fetchall()
 
-        for job_id, title, fit, source_url, readable_text in jobs:
+        for job_id, title, fit, source_url, company, readable_text in jobs:
             result = vacancy_filter.filter(
                 Vacancy(
                     title=str(title),
                     text=None if readable_text is None else str(readable_text),
+                    company=str(company),
                 )
             )
             if not result.rejected:
@@ -74,7 +80,7 @@ def main() -> None:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser(
-        description="List saved jobs rejected by the current title filter."
+        description="List saved jobs rejected by the current vacancy filter."
     )
     parser.add_argument("--db", default=str(DB_PATH))
     args = parser.parse_args()

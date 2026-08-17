@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -14,6 +15,7 @@ for path in (ROOT, DRIVER_ROOT):
         sys.path.insert(0, str(path))
 
 from db.job_mapper import delete_jobs
+from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
 
 
@@ -21,35 +23,35 @@ class FilterDatabaseTest(unittest.TestCase):
     def test_collect_returns_rejected_jobs_without_deleting_them(self) -> None:
         with TemporaryDirectory() as temp_directory:
             db_path = Path(temp_directory) / "jobs.sqlite"
-            connection = sqlite3.connect(db_path)
-            try:
+            migrate_database(db_path)
+            with closing(sqlite3.connect(db_path)) as connection:
                 connection.executescript(
                     """
-                    CREATE TABLE source_jobs (
-                        id INTEGER PRIMARY KEY
-                    );
-                    CREATE TABLE jobs (
-                        id INTEGER PRIMARY KEY,
-                        source_job_ref INTEGER NOT NULL,
-                        title TEXT NOT NULL,
-                        candidate_fit_percent INTEGER NOT NULL,
-                        source_url TEXT NOT NULL
-                    );
-                    CREATE TABLE source_job_texts (
-                        source_job_ref INTEGER PRIMARY KEY,
-                        readable_text TEXT NOT NULL
-                    );
-                    INSERT INTO source_jobs (id) VALUES (10), (20), (30);
+                    INSERT INTO source_jobs (
+                        id,
+                        source,
+                        source_job_id,
+                        processing_status
+                    ) VALUES
+                        (10, 'linkedin', '10', 'SAVED'),
+                        (20, 'linkedin', '20', 'SAVED'),
+                        (30, 'linkedin', '30', 'SAVED'),
+                        (40, 'linkedin', '40', 'SAVED');
+                    INSERT INTO companies (id, name, blacklisted) VALUES
+                        (100, 'Ordinary Corp', 0),
+                        (200, 'Blocked Corp', 1);
                     INSERT INTO jobs (
                         id,
                         source_job_ref,
                         title,
                         candidate_fit_percent,
-                        source_url
+                        source_url,
+                        company_id
                     ) VALUES
-                        (1, 10, 'Senior Java Developer', 91, 'https://example/1'),
-                        (2, 20, 'Backend Engineer', 72, 'https://example/2'),
-                        (3, 30, 'Senior Python Developer', 43, 'https://example/3');
+                        (1, 10, 'Senior Java Developer', 91, 'https://example/1', 100),
+                        (2, 20, 'Backend Engineer', 72, 'https://example/2', 100),
+                        (3, 30, 'Senior Python Developer', 43, 'https://example/3', 100),
+                        (4, 40, 'Senior Java Backend Developer', 62, 'https://example/4', 200);
                     INSERT INTO source_job_texts (source_job_ref, readable_text)
                     VALUES
                         (10, 'Deep expertise in Camunda 8 is required'),
@@ -57,8 +59,6 @@ class FilterDatabaseTest(unittest.TestCase):
                     """
                 )
                 connection.commit()
-            finally:
-                connection.close()
 
             rejected = collect_rejected_jobs(db_path)
 
@@ -85,16 +85,23 @@ class FilterDatabaseTest(unittest.TestCase):
                         "rule": "title_blocked",
                         "reason": "title blocked: Python",
                     },
+                    {
+                        "id": 4,
+                        "title": "Senior Java Backend Developer",
+                        "fit": 62,
+                        "source_url": "https://example/4",
+                        "original": "Blocked Corp",
+                        "matched": "Blocked Corp",
+                        "rule": "company_blacklisted",
+                        "reason": "company blacklisted: Blocked Corp",
+                    },
                 ],
             )
-            connection = sqlite3.connect(db_path)
-            try:
+            with closing(sqlite3.connect(db_path)) as connection:
                 self.assertEqual(
                     connection.execute("SELECT count(*) FROM jobs").fetchone()[0],
-                    3,
+                    4,
                 )
-            finally:
-                connection.close()
 
     def test_delete_jobs_removes_job_source_and_cascaded_rows(self) -> None:
         connection = sqlite3.connect(":memory:")

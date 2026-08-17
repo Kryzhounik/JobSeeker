@@ -1145,7 +1145,7 @@ class JobsViewer(tk.Tk):
                     j.id,
                     sj.source_job_id,
                     j.title,
-                    j.company,
+                    coalesce(c.name, '') AS company,
                     j.location,
                     j.remote_type,
                     j.remote_scope,
@@ -1164,6 +1164,7 @@ class JobsViewer(tk.Tk):
                     j.added_at
                 FROM jobs j
                 JOIN source_jobs sj ON sj.id = j.source_job_ref
+                LEFT JOIN companies c ON c.id = j.company_id
                 LEFT JOIN source_job_texts text
                     ON text.source_job_ref = j.source_job_ref
                 WHERE j.source_url = ?
@@ -1805,9 +1806,10 @@ class JobsViewer(tk.Tk):
                 SELECT
                     j.source_url,
                     j.title,
-                    j.company,
+                    coalesce(c.name, '') AS company,
                     {score_sql} AS score
                 FROM jobs j
+                LEFT JOIN companies c ON c.id = j.company_id
                 WHERE j.status = ?
                     AND {score_sql} > 0
                     AND j.source_url LIKE ?

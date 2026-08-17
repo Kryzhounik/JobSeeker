@@ -11,6 +11,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
+from db.companies import get_or_create_company
 from db.job_registry import mark_url_status
 
 
@@ -379,6 +380,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
     salary = clean(record["salary"])
     if salary.lower() == "unknown":
         raise ValueError("salary must be empty when unavailable, not 'unknown'")
+    company_id = get_or_create_company(connection, record["company"])
 
     connection.execute(
         """
@@ -387,7 +389,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             source_url,
             status,
             title,
-            company,
+            company_id,
             location,
             remote_type,
             remote_scope,
@@ -407,7 +409,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
         ON CONFLICT(source_url) DO UPDATE SET
             source_job_ref = excluded.source_job_ref,
             title = excluded.title,
-            company = excluded.company,
+            company_id = excluded.company_id,
             location = excluded.location,
             remote_type = excluded.remote_type,
             remote_scope = excluded.remote_scope,
@@ -428,7 +430,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             source_url,
             job_status(record.get("status")),
             title,
-            clean(record["company"]),
+            company_id,
             clean(record["location"]),
             required_text(record, "remote_type"),
             clean(record["remote_scope"]),
@@ -555,9 +557,15 @@ def load_job_json(
         SELECT
             j.id,
             sj.source,
-            {", ".join(f"j.{column}" for column in JOB_COLUMNS[2:])}
+            {", ".join(
+                "coalesce(c.name, '') AS company"
+                if column == "company"
+                else f"j.{column}"
+                for column in JOB_COLUMNS[2:]
+            )}
         FROM jobs j
         JOIN source_jobs sj ON sj.id = j.source_job_ref
+        LEFT JOIN companies c ON c.id = j.company_id
         WHERE {where}
         """,
         (value,),

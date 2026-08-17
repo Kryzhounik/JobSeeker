@@ -99,6 +99,13 @@ def migration_already_effective(
             "codex_invocations",
             "reasoning_effort",
         )
+    if version == "006_technology_importance_and_analyzer_fit":
+        return column_exists(connection, "jobs", "company_id")
+    if version == "013_normalize_job_companies":
+        return (
+            column_exists(connection, "jobs", "company_id")
+            and table_exists(connection, "companies")
+        )
     return False
 
 

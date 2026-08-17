@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+from contextlib import closing
 from dataclasses import dataclass
 from functools import lru_cache
 import json
@@ -19,6 +20,7 @@ LOGGING_ROOT = ROOT / "collector" / "logging"
 if str(LOGGING_ROOT) not in sys.path:
     sys.path.insert(0, str(LOGGING_ROOT))
 
+from db.companies import is_company_blacklisted
 from db.job_registry import is_registered
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
@@ -36,6 +38,7 @@ MIGRATED_DATABASES: set[Path] = set()
 class Vacancy:
     title: str
     text: str | None = None
+    company: str = ""
 
 
 @dataclass(frozen=True)
@@ -173,17 +176,27 @@ class VacancyFilter:
         self,
         preview_config_path: Path = DEFAULT_PREVIEW_CONFIG,
         content_config_path: Path = DEFAULT_CONTENT_CONFIG,
+        db_path: Path = DEFAULT_DB,
     ) -> None:
         self.preview_config_path = preview_config_path
         self.content_config_path = content_config_path
+        self.db_path = db_path
         self.preview_config = load_config(preview_config_path)
         self.content_config = load_config(content_config_path)
 
     def filter(self, vacancy: Vacancy) -> FilterResult:
-        result = self.filter_title(vacancy.title)
+        result = self.filter_preview(vacancy.title, vacancy.company)
         if result.rejected or vacancy.text is None:
             return result
         return self.filter_text(vacancy.title, vacancy.text)
+
+    def filter_preview(self, title: str, company: str = "") -> FilterResult:
+        if not enabled(self.preview_config):
+            return FilterResult(False, "preview filter disabled")
+        result = self.filter_title(title)
+        if result.rejected:
+            return result
+        return self.filter_company(company)
 
     def filter_title(self, title: str) -> FilterResult:
         config = self.preview_config
@@ -204,6 +217,25 @@ class VacancyFilter:
                 terms=tuple(matches),
             )
         return FilterResult(False, "no title skip signals")
+
+    def filter_company(self, company: str) -> FilterResult:
+        name = company.strip()
+        if not name or not self.db_path.exists():
+            return FilterResult(False, "no company skip signals")
+
+        resolved_db = ensure_migrated_database(self.db_path)
+        with closing(sqlite3.connect(resolved_db)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            blacklisted = is_company_blacklisted(connection, name)
+        if blacklisted:
+            return FilterResult(
+                True,
+                f"company blacklisted: {name}",
+                rule="company_blacklisted",
+                match=name,
+                terms=(name,),
+            )
+        return FilterResult(False, "no company skip signals")
 
     def filter_text(self, title: str, text: str) -> FilterResult:
         config = self.content_config
@@ -278,6 +310,14 @@ def source_job_id(preview: dict[str, Any]) -> str:
     return match.group(1) if match else ""
 
 
+def ensure_migrated_database(db_path: Path) -> Path:
+    resolved_db = db_path.resolve()
+    if resolved_db not in MIGRATED_DATABASES:
+        migrate_database(resolved_db)
+        MIGRATED_DATABASES.add(resolved_db)
+    return resolved_db
+
+
 def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) -> bool:
     if not db_path.exists():
         return False
@@ -285,11 +325,8 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
     if not job_id:
         return False
 
-    resolved_db = db_path.resolve()
-    if resolved_db not in MIGRATED_DATABASES:
-        migrate_database(resolved_db)
-        MIGRATED_DATABASES.add(resolved_db)
-    with sqlite3.connect(resolved_db) as connection:
+    resolved_db = ensure_migrated_database(db_path)
+    with closing(sqlite3.connect(resolved_db)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         return is_registered(connection, "linkedin", job_id)
 
@@ -297,6 +334,7 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
 def decide_preview(
     preview: dict[str, Any],
     config_path: Path = DEFAULT_PREVIEW_CONFIG,
+    db_path: Path = DEFAULT_DB,
 ) -> dict[str, Any]:
     config = load_config(config_path)
     if not enabled(config):
@@ -306,8 +344,12 @@ def decide_preview(
             "preview_blocked_terms": [],
         }
 
-    result = VacancyFilter(preview_config_path=config_path).filter_title(
-        str(preview.get("title") or "").strip()
+    result = VacancyFilter(
+        preview_config_path=config_path,
+        db_path=db_path,
+    ).filter_preview(
+        str(preview.get("title") or "").strip(),
+        str(preview.get("company") or "").strip(),
     )
     if result.rejected:
         return {
@@ -315,7 +357,7 @@ def decide_preview(
             "preview_reason": result.reason,
             "preview_blocked_terms": list(result.terms),
         }
-    if is_duplicate_preview(preview):
+    if is_duplicate_preview(preview, db_path):
         return {
             "preview_decision": "skip",
             "preview_reason": "duplicate source_job_id",
@@ -354,9 +396,16 @@ def content_response(result: FilterResult) -> dict[str, Any]:
     return response
 
 
-def apply_preview_decision(payload: Any, config_path: Path) -> Any:
+def apply_preview_decision(
+    payload: Any,
+    config_path: Path,
+    db_path: Path = DEFAULT_DB,
+) -> Any:
     if isinstance(payload, list):
-        return [apply_preview_decision(item, config_path) for item in payload]
+        return [
+            apply_preview_decision(item, config_path, db_path)
+            for item in payload
+        ]
     if not isinstance(payload, dict):
         raise ValueError("Preview payload must be a JSON object or list.")
 
@@ -364,7 +413,7 @@ def apply_preview_decision(payload: Any, config_path: Path) -> Any:
     if not isinstance(preview, dict):
         preview = payload
     return record_preview_filter(
-        {**payload, **decide_preview(preview, config_path)}
+        {**payload, **decide_preview(preview, config_path, db_path)}
     )
 
 
@@ -387,7 +436,9 @@ def main() -> None:
     preview.add_argument("--input", "-i", default="-")
     preview.add_argument("--output", "-o", default="-")
     preview.add_argument("--title", default="")
+    preview.add_argument("--company", default="")
     preview.add_argument("--config", default=str(DEFAULT_PREVIEW_CONFIG))
+    preview.add_argument("--db", default=str(DEFAULT_DB))
 
     content = subparsers.add_parser("content")
     content.add_argument("--source", required=True)
@@ -400,13 +451,13 @@ def main() -> None:
 
     if args.stage == "preview":
         if args.title:
-            payload: Any = {"title": args.title}
+            payload: Any = {"title": args.title, "company": args.company}
         elif args.input == "-":
             payload = json.load(sys.stdin)
         else:
             payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
         write_result(
-            apply_preview_decision(payload, Path(args.config)),
+            apply_preview_decision(payload, Path(args.config), Path(args.db)),
             args.output,
         )
         return

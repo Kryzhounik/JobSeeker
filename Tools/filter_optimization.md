@@ -16,6 +16,18 @@ Driver/collector/filtering/linkedin_preview_filter.ini
 Driver/collector/filtering/linkedin_preview_blocked_titles.txt
 ```
 
+The preview stage checks both preview-visible fields before opening a vacancy:
+
+```text
+title -> configured title block terms
+company -> companies.blacklisted in Data/jobs.sqlite
+```
+
+Company matching is an exact, case-insensitive name match. Companies are stored
+once in `companies`; saved jobs reference them through `jobs.company_id`.
+`companies.blacklisted` defaults to `0`, and deleting a job does not delete its
+company entry or blacklist setting.
+
 Do not confuse it with:
 
 ```text
@@ -151,11 +163,11 @@ top-level filter used by the GUI and review the rejected jobs:
 python Tools/filter_database.py
 ```
 
-The utility reads `jobs.title` and stored `source_job_texts.readable_text`, then
-calls `VacancyFilter.filter(Vacancy)`. It prints a JSON list with each rejected
-job's ID, title, and reason and does not change the database. Deletion is a
-separate database-layer operation used by the GUI after immediate execution or
-explicit confirmation.
+The utility reads the normalized company name, `jobs.title`, and stored
+`source_job_texts.readable_text`, then calls `VacancyFilter.filter(Vacancy)`.
+It prints a JSON list with each rejected job's ID, title, and reason and does
+not change the database. Deletion is a separate database-layer operation used
+by the GUI after immediate execution or explicit confirmation.
 
 This instruction file may be updated when the optimization process itself needs
 clarification so that future agents understand the same workflow.
