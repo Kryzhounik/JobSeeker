@@ -225,3 +225,10 @@ level in Language`, `Language (C1 level)`, and `Language at C1 level` forms.
 The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
 `Fluency in`, and `Fluent in` followed by a configured language. Keep extraction
 soft: an unrecognized or ambiguous phrase passes to the agent pipeline.
+
+The four pre-agent semantic filters have runtime switches in the SQLite
+`config` table: `company_filter`, `title_filter`, `language_filter`, and
+`technology_filter`. Each filter reads its own current value before applying
+its rules. `1` enables a filter and `0` disables it; all four default to `1`.
+Source-job deduplication is a separate registry check and is not controlled by
+these switches.

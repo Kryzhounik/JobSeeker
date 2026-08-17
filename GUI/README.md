@@ -35,6 +35,11 @@ Clicking a blue `Reason code` adds it to the filter without duplicates. `Clear`
 resets all search fields. Runtime status messages are shown in the bottom-right
 footer.
 
+The small gear button in the upper-right corner opens the database-backed
+configuration switches from the `config` table. Every row is rendered as a
+checkbox; toggling it immediately writes text value `0` or `1` without an Apply
+button. The config window size is stored with the other GUI settings.
+
 ## Vacancy detail
 
 The right side starts in `Skills` mode with the technology table and summary.

@@ -455,6 +455,8 @@ class JobsViewer(tk.Tk):
         self.availability_button: ttk.Button | None = None
         self.refilter_button: ttk.Button | None = None
         self.refilter_detail_button: ttk.Button | None = None
+        self.config_window: tk.Toplevel | None = None
+        self.config_vars: dict[int, tk.BooleanVar] = {}
         self.companies_window: tk.Toplevel | None = None
         self.company_rows: list[dict[str, Any]] = []
         self.company_row_widgets: dict[
@@ -623,6 +625,17 @@ class JobsViewer(tk.Tk):
             column=7,
             sticky="w",
             padx=(4, 0),
+        )
+        ttk.Button(
+            search_filters,
+            text="\u2699",
+            width=3,
+            command=self._open_config_window,
+        ).grid(
+            row=0,
+            column=8,
+            sticky="e",
+            padx=(8, 0),
         )
 
         pane = ttk.PanedWindow(self, orient=tk.VERTICAL)
@@ -1189,6 +1202,119 @@ class JobsViewer(tk.Tk):
             self.status_var.set("Could not open Black titles")
             return
         self.status_var.set("Opened Black titles")
+
+    def _open_config_window(self) -> None:
+        window = self.config_window
+        if window is not None and window.winfo_exists():
+            self._refresh_config_window()
+            window.deiconify()
+            window.lift()
+            window.focus_force()
+            return
+
+        window = tk.Toplevel(self)
+        self.config_window = window
+        window.title("Config")
+        window.geometry(self._saved_window_size("config", "380x260", 300, 180))
+        window.minsize(300, 180)
+        window.transient(self)
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(0, weight=1)
+
+        size_save_after_id: str | None = None
+
+        def save_size() -> None:
+            nonlocal size_save_after_id
+            size_save_after_id = None
+            self._remember_window_size("config", window)
+
+        def schedule_size_save(event: tk.Event[tk.Misc]) -> None:
+            nonlocal size_save_after_id
+            if event.widget is not window or clean(window.state()) != "normal":
+                return
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+            size_save_after_id = window.after(300, save_size)
+
+        def close_window() -> None:
+            nonlocal size_save_after_id
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+                size_save_after_id = None
+            self._remember_window_size("config", window)
+            self.config_window = None
+            self.config_vars.clear()
+            window.destroy()
+
+        window.bind("<Configure>", schedule_size_save)
+        window.protocol("WM_DELETE_WINDOW", close_window)
+
+        self.config_rows_frame = ttk.Frame(window, padding=14)
+        self.config_rows_frame.grid(row=0, column=0, sticky="nsew")
+        self.config_rows_frame.columnconfigure(0, weight=1)
+        self._refresh_config_window()
+
+    def _refresh_config_window(self) -> None:
+        try:
+            with self.connect() as connection:
+                rows = connection.execute(
+                    """
+                    SELECT "key", config_name, value
+                    FROM config
+                    ORDER BY "key"
+                    """
+                ).fetchall()
+        except Exception as error:
+            messagebox.showerror("Config load failed", str(error))
+            self.status_var.set("Config load failed")
+            return
+
+        for widget in self.config_rows_frame.winfo_children():
+            widget.destroy()
+        self.config_vars.clear()
+
+        for row_index, row in enumerate(rows):
+            config_key = int(row["key"])
+            config_name = clean(row["config_name"])
+            variable = tk.BooleanVar(value=clean(row["value"]) == "1")
+            checkbox = ttk.Checkbutton(
+                self.config_rows_frame,
+                text=config_name,
+                variable=variable,
+                command=lambda key=config_key, name=config_name, var=variable: (
+                    self._set_config_value(key, name, var)
+                ),
+            )
+            checkbox.grid(row=row_index, column=0, sticky="w", pady=4)
+            self.config_vars[config_key] = variable
+
+    def _set_config_value(
+        self,
+        config_key: int,
+        config_name: str,
+        variable: tk.BooleanVar,
+    ) -> None:
+        enabled = bool(variable.get())
+        try:
+            with self.connect_writable() as connection:
+                result = connection.execute(
+                    """
+                    UPDATE config
+                    SET value = ?
+                    WHERE "key" = ?
+                    """,
+                    ("1" if enabled else "0", config_key),
+                )
+                if result.rowcount != 1:
+                    raise KeyError(f"Config not found: {config_name}")
+        except Exception as error:
+            variable.set(not enabled)
+            messagebox.showerror("Config update failed", str(error))
+            self.status_var.set("Config update failed")
+            return
+
+        value = "1" if enabled else "0"
+        self.status_var.set(f"{config_name} = {value}")
 
     def _jobs_tree_yview(self, *args: Any) -> None:
         self.jobs_tree.yview(*args)

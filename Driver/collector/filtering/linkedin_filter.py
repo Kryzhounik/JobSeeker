@@ -25,6 +25,11 @@ from analyzer.candidate_fit.filter import evaluate_required_languages
 from analyzer.candidate_fit.filter import load_resume
 from collector.filtering.language_requirements import extract_language_requirements
 from db.companies import is_company_blacklisted
+from db.config import COMPANY_FILTER
+from db.config import LANGUAGE_FILTER
+from db.config import TECHNOLOGY_FILTER
+from db.config import TITLE_FILTER
+from db.config import config_enabled
 from db.job_registry import is_registered
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
@@ -202,17 +207,17 @@ class VacancyFilter:
         return self.filter_text(vacancy.title, vacancy.text)
 
     def filter_preview(self, title: str, company: str = "") -> FilterResult:
-        if not enabled(self.preview_config):
-            return FilterResult(False, "preview filter disabled")
         result = self.filter_title(title)
         if result.rejected:
             return result
         return self.filter_company(company)
 
     def filter_title(self, title: str) -> FilterResult:
+        if not self.database_filter_enabled(TITLE_FILTER):
+            return FilterResult(False, "title filter disabled")
         config = self.preview_config
         if not enabled(config):
-            return FilterResult(False, "preview filter disabled")
+            return FilterResult(False, "title filter disabled")
 
         matches = [
             term
@@ -230,6 +235,8 @@ class VacancyFilter:
         return FilterResult(False, "no title skip signals")
 
     def filter_company(self, company: str) -> FilterResult:
+        if not self.database_filter_enabled(COMPANY_FILTER):
+            return FilterResult(False, "company filter disabled")
         name = company.strip()
         if not name or not self.db_path.exists():
             return FilterResult(False, "no company skip signals")
@@ -249,6 +256,7 @@ class VacancyFilter:
         return FilterResult(False, "no company skip signals")
 
     def filter_text(self, title: str, text: str) -> FilterResult:
+        technology_filter_enabled = self.database_filter_enabled(TECHNOLOGY_FILTER)
         config = self.content_config
         pass_word_patterns = [
             (name, technology_pattern(name))
@@ -266,7 +274,7 @@ class VacancyFilter:
                 match=title,
             )
 
-        if not pass_result and enabled(config):
+        if not pass_result and technology_filter_enabled and enabled(config):
             technologies = [
                 (name, technology_pattern(name))
                 for name in configured_names(config, "blocked_technologies")
@@ -308,11 +316,13 @@ class VacancyFilter:
             return language_result
         if pass_result:
             return pass_result
-        if not enabled(config):
+        if not technology_filter_enabled or not enabled(config):
             return FilterResult(False, "technology content filter disabled")
         return FilterResult(False, "no content skip signals")
 
     def filter_language_requirements(self, text: str) -> FilterResult:
+        if not self.database_filter_enabled(LANGUAGE_FILTER):
+            return FilterResult(False, "language filter disabled")
         requirements = extract_language_requirements(
             text,
             self.language_config_path,
@@ -338,6 +348,13 @@ class VacancyFilter:
                 keyword_patterns=((label, requirement.pattern),),
             )
         return FilterResult(False, "no language skip signals")
+
+    def database_filter_enabled(self, config_name: str) -> bool:
+        if not self.db_path.exists():
+            return True
+        resolved_db = ensure_migrated_database(self.db_path)
+        with closing(sqlite3.connect(resolved_db)) as connection:
+            return config_enabled(connection, config_name)
 
 
 DEFAULT_FILTER = VacancyFilter()
@@ -383,13 +400,6 @@ def decide_preview(
     db_path: Path = DEFAULT_DB,
 ) -> dict[str, Any]:
     config = load_config(config_path)
-    if not enabled(config):
-        return {
-            "preview_decision": "open",
-            "preview_reason": "preview filter disabled",
-            "preview_blocked_terms": [],
-        }
-
     result = VacancyFilter(
         preview_config_path=config_path,
         db_path=db_path,
@@ -425,11 +435,13 @@ def decide_content(
     title: str = "",
     language_config_path: Path = DEFAULT_LANGUAGE_CONFIG,
     resume_path: Path = DEFAULT_RESUME_CONFIG,
+    db_path: Path = DEFAULT_DB,
 ) -> dict[str, Any]:
     result = VacancyFilter(
         content_config_path=config_path,
         language_config_path=language_config_path,
         resume_path=resume_path,
+        db_path=db_path,
     ).filter_text(title, text)
     return content_response(result)
 
@@ -518,8 +530,7 @@ def main() -> None:
         )
         return
 
-    db_path = Path(args.db)
-    migrate_database(db_path)
+    db_path = ensure_migrated_database(Path(args.db))
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         text = load_readable_text(connection, args.source, args.job_id)
@@ -527,6 +538,7 @@ def main() -> None:
             content_config_path=Path(args.config),
             language_config_path=Path(args.language_config),
             resume_path=Path(args.resume),
+            db_path=db_path,
         ).filter_text(args.title, text)
         if filter_result.rejected:
             save_content_filter_rejection(
