@@ -483,6 +483,7 @@ class JobsViewer(tk.Tk):
         )
         self.id_search_var = tk.StringVar(value="")
         self.added_from_var = tk.StringVar(value="")
+        self.reason_filter_var = tk.StringVar(value="")
         self.job_sort_column = self._saved_job_sort_column()
         self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_sort_column: str | None = None
@@ -577,7 +578,7 @@ class JobsViewer(tk.Tk):
         self._bind_editable_entry(id_entry)
         id_entry.bind("<Return>", self._refresh_from_event)
 
-        ttk.Label(search_filters, text="Added >=", style="Muted.TLabel").grid(
+        ttk.Label(search_filters, text="Date", style="Muted.TLabel").grid(
             row=0,
             column=2,
             sticky="w",
@@ -592,9 +593,24 @@ class JobsViewer(tk.Tk):
         self._bind_editable_entry(self.added_from_entry)
         self.added_from_entry.bind("<Return>", self._refresh_from_event)
 
-        ttk.Button(search_filters, text="Search", command=self.refresh_jobs).grid(
+        ttk.Label(search_filters, text="Reason", style="Muted.TLabel").grid(
             row=0,
             column=4,
+            sticky="w",
+            padx=(10, 4),
+        )
+        self.reason_filter_entry = ttk.Entry(
+            search_filters,
+            textvariable=self.reason_filter_var,
+            width=20,
+        )
+        self.reason_filter_entry.grid(row=0, column=5, sticky="w")
+        self._bind_editable_entry(self.reason_filter_entry)
+        self.reason_filter_entry.bind("<Return>", self._refresh_from_event)
+
+        ttk.Button(search_filters, text="Search", command=self.refresh_jobs).grid(
+            row=0,
+            column=6,
             sticky="w",
             padx=(4, 0),
         )
@@ -604,7 +620,7 @@ class JobsViewer(tk.Tk):
             command=self._clear_search_filters,
         ).grid(
             row=0,
-            column=5,
+            column=7,
             sticky="w",
             padx=(4, 0),
         )
@@ -1155,6 +1171,7 @@ class JobsViewer(tk.Tk):
     def _clear_search_filters(self) -> None:
         self.id_search_var.set("")
         self.added_from_var.set("")
+        self.reason_filter_var.set("")
         self.refresh_jobs()
 
     def _open_black_titles(self) -> None:
@@ -1267,6 +1284,17 @@ class JobsViewer(tk.Tk):
                     foreground,
                 )
 
+            reason_code = clean(row.get("candidate_fit_reason_code", "")).strip()
+            if reason_code:
+                add_link(
+                    item,
+                    "candidate_fit_reason_code",
+                    reason_code,
+                    lambda value=reason_code: self._add_reason_filter_from_link(value),
+                    background,
+                    foreground,
+                )
+
     def _scroll_jobs_from_link(self, event: tk.Event[tk.Misc]) -> str:
         direction = -1 if int(getattr(event, "delta", 0) or 0) > 0 else 1
         if event.state & 0x1:
@@ -1285,7 +1313,24 @@ class JobsViewer(tk.Tk):
         self.added_from_var.set(added_from)
         self.added_from_entry.focus_set()
         self.added_from_entry.selection_range(0, tk.END)
-        self.status_var.set(f"Added >= {added_from}")
+        self.status_var.set(f"Date >= {added_from}")
+
+    def _add_reason_filter_from_link(self, value: str) -> None:
+        reason = clean(value).strip()
+        if not reason:
+            return
+        reasons = [
+            item.strip()
+            for item in self.reason_filter_var.get().split(",")
+            if item.strip()
+        ]
+        if reason.casefold() not in {item.casefold() for item in reasons}:
+            reasons.append(reason)
+        self.reason_filter_var.set(", ".join(reasons))
+        self.reason_filter_entry.focus_set()
+        self.reason_filter_entry.selection_clear()
+        self.reason_filter_entry.icursor(tk.END)
+        self.status_var.set(f"Reason: {', '.join(reasons)}")
 
     def _company_link_at_event(
         self,
@@ -1740,6 +1785,18 @@ class JobsViewer(tk.Tk):
                 raise ValueError("Added date must use DD.MM.YYYY format.") from error
             where_parts.append("date(jl.added_at) >= date(?)")
             parameters.append(added_from_date.strftime(DATABASE_DATE_FORMAT))
+
+        reasons = [
+            item.strip()
+            for item in self.reason_filter_var.get().split(",")
+            if item.strip()
+        ]
+        if reasons:
+            placeholders = ", ".join("?" for _reason in reasons)
+            where_parts.append(
+                f"coalesce(j.candidate_fit_reason_code, '') IN ({placeholders})"
+            )
+            parameters.extend(reasons)
 
         where_sql = "WHERE " + " AND ".join(where_parts)
         with self.connect() as connection:

@@ -26,12 +26,14 @@ settings file is ignored by git.
 
 ## Filters
 
-The upper-right search area contains an ID search and an `Added >=` date filter.
-Dates use the European `DD.MM.YYYY` format; the filter includes jobs added on
-or after that date.
+The upper-right search area contains ID, `Date`, and `Reason` filters. Dates use
+the European `DD.MM.YYYY` format; the date filter includes jobs added on or
+after that date. `Reason` accepts comma-separated reason codes and filters them
+with an SQL `IN` condition.
 Clicking a blue date link in the main table copies that date into the filter.
-`Clear` resets both search fields. Runtime status messages are shown in the
-bottom-right footer.
+Clicking a blue `Reason code` adds it to the filter without duplicates. `Clear`
+resets all search fields. Runtime status messages are shown in the bottom-right
+footer.
 
 ## Vacancy detail
 
