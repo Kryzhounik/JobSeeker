@@ -226,9 +226,16 @@ The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
 `Fluency in`, and `Fluent in` followed by a configured language. Keep extraction
 soft: an unrecognized or ambiguous phrase passes to the agent pipeline.
 
+The extractor compiles the configured language vocabulary into one named regex
+group and each requirement template into one regex. A match supplies
+`group("language")` and, for explicit templates, `group("level")`; never loop
+over every language and CEFR level for every text unit.
+
 The four pre-agent semantic filters have runtime switches in the SQLite
 `config` table: `company_filter`, `title_filter`, `language_filter`, and
-`technology_filter`. Each filter reads its own current value before applying
-its rules. `1` enables a filter and `0` disables it; all four default to `1`.
-Source-job deduplication is a separate registry check and is not controlled by
-these switches.
+`technology_filter`. A `VacancyFilter` reads all four values in one query and
+loads the company blacklist once. That snapshot is reused for one operation:
+one Refilter pass, one preview batch, or one vacancy-processing invocation. A
+new operation creates a new filter and refreshes the snapshot. `1` enables a
+filter and `0` disables it; all four default to `1`. Source-job deduplication is
+a separate registry check and is not controlled by these switches.

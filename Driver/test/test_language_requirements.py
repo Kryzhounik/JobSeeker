@@ -11,6 +11,9 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.filtering.language_requirements import extract_language_requirements
+from collector.filtering.language_requirements import (
+    load_language_requirement_extractor,
+)
 from collector.filtering.linkedin_filter import DEFAULT_LANGUAGE_CONFIG
 from collector.filtering.linkedin_filter import decide_content
 
@@ -80,6 +83,11 @@ Russian = C2
 
 
 class LanguageRequirementsTest(unittest.TestCase):
+    def test_default_config_compiles_each_template_once(self) -> None:
+        extractor = load_language_requirement_extractor(DEFAULT_LANGUAGE_CONFIG)
+
+        self.assertEqual(len(extractor.patterns), 8)
+
     def test_default_config_extracts_reviewed_explicit_level(self) -> None:
         requirements = extract_language_requirements(
             "English: C1 Advanced",
@@ -99,6 +107,25 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "C1")
+
+    def test_named_groups_preserve_plus_and_normalize_language_name(self) -> None:
+        requirements = extract_language_requirements(
+            "english: B2+",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "B2+")
+        self.assertEqual(requirements[0].level_rank, 4)
+
+    def test_programming_language_is_not_a_human_language_match(self) -> None:
+        requirements = extract_language_requirements(
+            "Fluent in Java",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(requirements, [])
 
     def test_template_extracts_explicit_language_and_cefr_level(self) -> None:
         with TemporaryDirectory() as temp_directory:

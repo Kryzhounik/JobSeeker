@@ -40,3 +40,19 @@ def config_enabled(
     fallback = "1" if default else "0"
     value = config_value(connection, config_name, fallback)
     return value.strip().casefold() not in DISABLED_VALUES
+
+
+def load_filter_switches(
+    connection: sqlite3.Connection,
+) -> dict[str, bool]:
+    values = dict(FILTER_DEFAULTS)
+    for config_name, value in connection.execute(
+        "SELECT config_name, value FROM config"
+    ).fetchall():
+        name = str(config_name)
+        if name in values:
+            values[name] = str(value)
+    return {
+        name: value.strip().casefold() not in DISABLED_VALUES
+        for name, value in values.items()
+    }

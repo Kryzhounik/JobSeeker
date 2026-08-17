@@ -6,18 +6,22 @@ from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 
 DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from collector.filtering.linkedin_filter import DEFAULT_PREVIEW_CONFIG
 from collector.filtering.linkedin_filter import VacancyFilter
+from collector.filtering.linkedin_filter import apply_preview_decision
 from db.config import COMPANY_FILTER
 from db.config import LANGUAGE_FILTER
 from db.config import TECHNOLOGY_FILTER
 from db.config import TITLE_FILTER
 from db.config import config_enabled
+from db.config import load_filter_switches
 from db.migrate import migrate_database
 
 
@@ -70,6 +74,53 @@ class FilterConfigTest(unittest.TestCase):
                 (TITLE_FILTER,),
             )
             self.assertFalse(config_enabled(connection, TITLE_FILTER))
+
+    def test_filter_loads_database_switches_once_per_operation(self) -> None:
+        with patch(
+            "collector.filtering.linkedin_filter.load_filter_switches",
+            wraps=load_filter_switches,
+        ) as loader:
+            vacancy_filter = VacancyFilter(db_path=self.db_path)
+            vacancy_filter.filter_title("Backend Engineer")
+            vacancy_filter.filter_company("Ordinary Company")
+            vacancy_filter.filter_text("Backend Engineer", "Java experience")
+
+        self.assertEqual(loader.call_count, 1)
+
+    def test_new_filter_instance_refreshes_database_snapshot(self) -> None:
+        first_filter = VacancyFilter(db_path=self.db_path)
+        self.disable(TITLE_FILTER)
+
+        first_result = first_filter.filter_title("Senior Python Developer")
+        refreshed_result = VacancyFilter(db_path=self.db_path).filter_title(
+            "Senior Python Developer"
+        )
+
+        self.assertTrue(first_result.rejected)
+        self.assertFalse(refreshed_result.rejected)
+
+    def test_preview_batch_uses_one_database_snapshot(self) -> None:
+        payload = [
+            {"title": "Backend Engineer", "company": "First Company"},
+            {"title": "Java Engineer", "company": "Second Company"},
+        ]
+        with (
+            patch(
+                "collector.filtering.linkedin_filter.load_filter_switches",
+                wraps=load_filter_switches,
+            ) as loader,
+            patch(
+                "collector.filtering.linkedin_filter.record_preview_filter",
+                side_effect=lambda item: item,
+            ),
+        ):
+            apply_preview_decision(
+                payload,
+                DEFAULT_PREVIEW_CONFIG,
+                self.db_path,
+            )
+
+        self.assertEqual(loader.call_count, 1)
 
     def test_disabled_title_filter_does_not_block_title(self) -> None:
         self.disable(TITLE_FILTER)

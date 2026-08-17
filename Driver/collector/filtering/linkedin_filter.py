@@ -23,13 +23,16 @@ if str(LOGGING_ROOT) not in sys.path:
 from analyzer.candidate_fit.filter import default_resume_path
 from analyzer.candidate_fit.filter import evaluate_required_languages
 from analyzer.candidate_fit.filter import load_resume
-from collector.filtering.language_requirements import extract_language_requirements
-from db.companies import is_company_blacklisted
+from collector.filtering.language_requirements import (
+    load_language_requirement_extractor,
+)
+from db.companies import normalize_company_name
 from db.config import COMPANY_FILTER
+from db.config import FILTER_DEFAULTS
 from db.config import LANGUAGE_FILTER
 from db.config import TECHNOLOGY_FILTER
 from db.config import TITLE_FILTER
-from db.config import config_enabled
+from db.config import load_filter_switches
 from db.job_registry import is_registered
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
@@ -199,6 +202,33 @@ class VacancyFilter:
         self.db_path = db_path
         self.preview_config = load_config(preview_config_path)
         self.content_config = load_config(content_config_path)
+        self.title_blocked_terms = tuple(
+            blocked_terms(self.preview_config, self.preview_config_path)
+        )
+        self.pass_word_patterns = tuple(
+            (name, technology_pattern(name))
+            for name in configured_names(self.content_config, "pass_words")
+        )
+        self.blocked_technology_patterns = tuple(
+            (name, technology_pattern(name))
+            for name in configured_names(
+                self.content_config,
+                "blocked_technologies",
+            )
+        )
+        self.hard_requirement_templates = tuple(
+            configured_values(self.content_config, "hard_requirement_templates")
+        )
+        self.content_optional_signals = tuple(
+            configured_patterns(self.content_config, "optional_signals")
+        )
+        self.language_extractor = load_language_requirement_extractor(
+            language_config_path
+        )
+        self.resume_languages = load_resume(resume_path)
+        self.filter_switches = {name: True for name in FILTER_DEFAULTS}
+        self.blacklisted_companies: frozenset[str] = frozenset()
+        self.load_database_snapshot()
 
     def filter(self, vacancy: Vacancy) -> FilterResult:
         result = self.filter_preview(vacancy.title, vacancy.company)
@@ -221,7 +251,7 @@ class VacancyFilter:
 
         matches = [
             term
-            for term in blocked_terms(config, self.preview_config_path)
+            for term in self.title_blocked_terms
             if matches_term(title, term)
         ]
         if matches:
@@ -238,14 +268,11 @@ class VacancyFilter:
         if not self.database_filter_enabled(COMPANY_FILTER):
             return FilterResult(False, "company filter disabled")
         name = company.strip()
-        if not name or not self.db_path.exists():
+        if not name:
             return FilterResult(False, "no company skip signals")
 
-        resolved_db = ensure_migrated_database(self.db_path)
-        with closing(sqlite3.connect(resolved_db)) as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
-            blacklisted = is_company_blacklisted(connection, name)
-        if blacklisted:
+        normalized = normalize_company_name(name).casefold()
+        if normalized in self.blacklisted_companies:
             return FilterResult(
                 True,
                 f"company blacklisted: {name}",
@@ -258,12 +285,10 @@ class VacancyFilter:
     def filter_text(self, title: str, text: str) -> FilterResult:
         technology_filter_enabled = self.database_filter_enabled(TECHNOLOGY_FILTER)
         config = self.content_config
-        pass_word_patterns = [
-            (name, technology_pattern(name))
-            for name in configured_names(config, "pass_words")
-        ]
         pass_words = [
-            name for name, pattern in pass_word_patterns if pattern.search(title)
+            name
+            for name, pattern in self.pass_word_patterns
+            if pattern.search(title)
         ]
         pass_result = None
         if pass_words:
@@ -275,30 +300,31 @@ class VacancyFilter:
             )
 
         if not pass_result and technology_filter_enabled and enabled(config):
-            technologies = [
-                (name, technology_pattern(name))
-                for name in configured_names(config, "blocked_technologies")
-            ]
-            hard_templates = configured_values(config, "hard_requirement_templates")
-            optional_signals = configured_patterns(config, "optional_signals")
-
             for unit, context in content_units(text):
                 unit_technologies = [
-                    name for name, pattern in technologies if pattern.search(unit)
+                    name
+                    for name, pattern in self.blocked_technology_patterns
+                    if pattern.search(unit)
                 ]
                 matches = [
                     (name, template)
                     for name in unit_technologies
-                    for template in hard_templates
+                    for template in self.hard_requirement_templates
                     if requirement_pattern(template, name).search(unit)
                 ]
                 matched_technologies = list(dict.fromkeys(name for name, _ in matches))
                 matched_signals = list(dict.fromkeys(template for _, template in matches))
                 if not matched_technologies or not matched_signals:
                     continue
-                if any(pattern.search(context) for _, pattern in pass_word_patterns):
+                if any(
+                    pattern.search(context)
+                    for _, pattern in self.pass_word_patterns
+                ):
                     continue
-                if any(pattern.search(context) for pattern in optional_signals):
+                if any(
+                    pattern.search(context)
+                    for pattern in self.content_optional_signals
+                ):
                     continue
                 return FilterResult(
                     True,
@@ -323,17 +349,13 @@ class VacancyFilter:
     def filter_language_requirements(self, text: str) -> FilterResult:
         if not self.database_filter_enabled(LANGUAGE_FILTER):
             return FilterResult(False, "language filter disabled")
-        requirements = extract_language_requirements(
-            text,
-            self.language_config_path,
-        )
+        requirements = self.language_extractor.extract(text)
         if not requirements:
             return FilterResult(False, "no language skip signals")
-        resume_languages = load_resume(self.resume_path)
         for requirement in requirements:
             comparison = evaluate_required_languages(
                 [requirement.as_filter_row()],
-                resume_languages=resume_languages,
+                resume_languages=self.resume_languages,
             )
             if comparison.passed:
                 continue
@@ -350,18 +372,24 @@ class VacancyFilter:
         return FilterResult(False, "no language skip signals")
 
     def database_filter_enabled(self, config_name: str) -> bool:
+        return self.filter_switches.get(config_name, True)
+
+    def load_database_snapshot(self) -> None:
         if not self.db_path.exists():
-            return True
+            return
         resolved_db = ensure_migrated_database(self.db_path)
         with closing(sqlite3.connect(resolved_db)) as connection:
-            return config_enabled(connection, config_name)
-
-
-DEFAULT_FILTER = VacancyFilter()
+            self.filter_switches = load_filter_switches(connection)
+            self.blacklisted_companies = frozenset(
+                normalize_company_name(row[0]).casefold()
+                for row in connection.execute(
+                    "SELECT name FROM companies WHERE blacklisted = 1"
+                ).fetchall()
+            )
 
 
 def filter_vacancy(vacancy: Vacancy) -> FilterResult:
-    return DEFAULT_FILTER.filter(vacancy)
+    return VacancyFilter().filter(vacancy)
 
 
 def source_job_id(preview: dict[str, Any]) -> str:
@@ -400,10 +428,25 @@ def decide_preview(
     db_path: Path = DEFAULT_DB,
 ) -> dict[str, Any]:
     config = load_config(config_path)
-    result = VacancyFilter(
+    vacancy_filter = VacancyFilter(
         preview_config_path=config_path,
         db_path=db_path,
-    ).filter_preview(
+    )
+    return decide_preview_with_filter(
+        preview,
+        config,
+        vacancy_filter,
+        db_path,
+    )
+
+
+def decide_preview_with_filter(
+    preview: dict[str, Any],
+    config: configparser.ConfigParser,
+    vacancy_filter: VacancyFilter,
+    db_path: Path,
+) -> dict[str, Any]:
+    result = vacancy_filter.filter_preview(
         str(preview.get("title") or "").strip(),
         str(preview.get("company") or "").strip(),
     )
@@ -467,9 +510,33 @@ def apply_preview_decision(
     config_path: Path,
     db_path: Path = DEFAULT_DB,
 ) -> Any:
+    config = load_config(config_path)
+    vacancy_filter = VacancyFilter(
+        preview_config_path=config_path,
+        db_path=db_path,
+    )
+    return apply_preview_decision_with_filter(
+        payload,
+        config,
+        vacancy_filter,
+        db_path,
+    )
+
+
+def apply_preview_decision_with_filter(
+    payload: Any,
+    config: configparser.ConfigParser,
+    vacancy_filter: VacancyFilter,
+    db_path: Path,
+) -> Any:
     if isinstance(payload, list):
         return [
-            apply_preview_decision(item, config_path, db_path)
+            apply_preview_decision_with_filter(
+                item,
+                config,
+                vacancy_filter,
+                db_path,
+            )
             for item in payload
         ]
     if not isinstance(payload, dict):
@@ -479,7 +546,15 @@ def apply_preview_decision(
     if not isinstance(preview, dict):
         preview = payload
     return record_preview_filter(
-        {**payload, **decide_preview(preview, config_path, db_path)}
+        {
+            **payload,
+            **decide_preview_with_filter(
+                preview,
+                config,
+                vacancy_filter,
+                db_path,
+            ),
+        }
     )
 
 
