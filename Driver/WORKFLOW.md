@@ -83,15 +83,64 @@ command sequence:
 One approval for a stable command prefix is acceptable. Repeated approval
 dialogs caused by per-batch command construction are not.
 
-## Interruption Policy
+## Strict Batch Execution, Waiting, And Stop Policy
 
-- A temporary slowdown, timeout, failed browser command, or unresponsive plugin
-  is not a reason to stop the run.
-- Report the problem to the user immediately, keep retrying/resuming the same
-  work, and include the incident in the final summary even if it recovered.
-- Stop on Codex's initiative only when work is genuinely impossible to
-  continue, user action is required, or continuing risks the account, data, or
-  project state.
+A batch is production execution of an already documented workflow. It is not a
+debugging, research, development, or workflow-design session.
+
+During a batch, Codex MUST execute only the exact operations, commands,
+navigation steps, and recovery branches that were documented in `WORKFLOW.md`
+and the owning stage instructions before the batch started.
+
+A temporary delay is not a workflow failure. A slow response, timeout, or
+temporarily unresponsive plugin MUST NOT stop the batch by itself. Codex may
+report the delay, wait, and retry the exact same operation with the same
+command, selector, API, browser tab, inputs, and parameters. When that exact
+operation succeeds, continue the documented workflow normally. Waiting longer
+before repeating the same operation is allowed; inventing a different way to
+perform it is not.
+
+The mandatory stop boundary is not "an operation timed out." The mandatory
+stop boundary is "continuing would require departing from the documented
+workflow." If the exact documented operation does not recover and the next
+step would require a different method, an undocumented recovery, diagnosis, or
+manual repair, Codex MUST:
+
+1. Stop the entire batch at the last successfully completed stage before
+   trying that alternative.
+2. Do not start or continue any other stage, including work that could run
+   independently on already collected vacancies.
+3. Report the problem to the user with the `run_id`, stage, affected page/card
+   or source-job ID, expected behavior, observed behavior or error, completed
+   scope count, exact retries already performed, and last successful
+   checkpoint.
+4. Wait for the user before performing diagnosis, testing a workaround,
+   changing instructions, or resuming/restarting the batch.
+
+The following actions are strictly prohibited inside a running batch unless
+the exact action is already an explicit recovery step in the owning
+instructions:
+
+- retrying an operation with a different command, selector, API, browser
+  surface, navigation strategy, parameters, or batch size;
+- reloading, replacing, reopening, or creating browser tabs as a workaround;
+- running exploratory diagnostics, experiments, probes, or one-off shell code;
+- creating or modifying project code, configuration, instructions, schemas, or
+  database structure;
+- synthesizing fallback input, manually repairing an intermediate result, or
+  bypassing a failed stage;
+- accepting partial completion and continuing the remainder of the pipeline.
+
+Repeating the same operation after waiting is allowed for a plausibly transient
+failure. A documented alternative recovery may be performed only with its
+documented command and conditions. Codex must never turn a transient retry into
+an improvised alternative approach.
+
+Diagnosis and solution design happen only after the batch has stopped and the
+user has approved that separate work. A discovered solution becomes available
+to later runs only after it is written into the owning workflow/stage
+instructions. The stopped batch may resume only after the user explicitly asks
+for it.
 
 Current MVP scopes:
 
