@@ -38,7 +38,15 @@ def configured_values(
     config: configparser.ConfigParser,
     section: str,
 ) -> list[str]:
-    value = config.get(section, "values", fallback="")
+    return configured_option_values(config, section, "values")
+
+
+def configured_option_values(
+    config: configparser.ConfigParser,
+    section: str,
+    option: str,
+) -> list[str]:
+    value = config.get(section, option, fallback="")
     return [line.strip() for line in value.splitlines() if line.strip()]
 
 
@@ -60,7 +68,7 @@ def level_expression(level: str) -> str:
 
 
 @lru_cache(maxsize=None)
-def requirement_pattern(
+def explicit_requirement_pattern(
     template: str,
     language: str,
     level: str,
@@ -76,6 +84,37 @@ def requirement_pattern(
         ),
         re.IGNORECASE,
     )
+
+
+@lru_cache(maxsize=None)
+def implied_requirement_pattern(
+    template: str,
+    language: str,
+) -> re.Pattern[str]:
+    if "{language}" not in template or "{level}" in template:
+        raise ValueError(
+            "Implied language requirement template must contain {language} "
+            f"and must not contain {{level}}: {template}"
+        )
+    return re.compile(
+        template.replace("{language}", language_expression(language)),
+        re.IGNORECASE,
+    )
+
+
+def configured_implied_templates(
+    config: configparser.ConfigParser,
+    levels: list[str],
+) -> list[tuple[str, str]]:
+    return [
+        (level, template)
+        for level in levels
+        for template in configured_option_values(
+            config,
+            "implied_level_templates",
+            level,
+        )
+    ]
 
 
 def text_units(text: str) -> list[tuple[str, str]]:
@@ -101,7 +140,8 @@ def extract_language_requirements(
 
     languages = configured_values(config, "languages")
     levels = configured_values(config, "cefr_levels")
-    templates = configured_values(config, "requirement_templates")
+    explicit_templates = configured_values(config, "requirement_templates")
+    implied_templates = configured_implied_templates(config, levels)
     optional_patterns = [
         re.compile(pattern, re.IGNORECASE)
         for pattern in configured_values(config, "optional_signals")
@@ -114,8 +154,12 @@ def extract_language_requirements(
             continue
         for language in languages:
             for level in levels:
-                for template in templates:
-                    if not requirement_pattern(template, language, level).search(unit):
+                for template in explicit_templates:
+                    if not explicit_requirement_pattern(
+                        template,
+                        language,
+                        level,
+                    ).search(unit):
                         continue
                     key = (language.casefold(), level.casefold())
                     if key in seen:
@@ -130,4 +174,20 @@ def extract_language_requirements(
                             pattern=template,
                         )
                     )
+            for level, template in implied_templates:
+                if not implied_requirement_pattern(template, language).search(unit):
+                    continue
+                key = (language.casefold(), level.casefold())
+                if key in seen:
+                    continue
+                seen.add(key)
+                results.append(
+                    LanguageRequirement(
+                        name=language,
+                        level=level.upper(),
+                        level_rank=language_rank(level),
+                        original=unit,
+                        pattern=template,
+                    )
+                )
     return results

@@ -216,8 +216,10 @@ Driver/collector/filtering/linkedin_language_filter.ini
 
 `VacancyFilter.filter_text()` calls this module and compares only confidently
 extracted `language + CEFR level` requirements with
-`Driver/analyzer/config/resume.ini`. The extractor's requirement templates are
-kept in `[requirement_templates]` and may remain empty. An empty template list
-means that language extraction returns no requirements and cannot reject a
+`Driver/analyzer/config/resume.ini`. Templates that contain explicit CEFR
+levels are kept in `[requirement_templates]` and use both `{language}` and
+`{level}`. Phrases that imply a fixed level are kept under that level in
+`[implied_level_templates]` and use `{language}` only. Both lists may remain
+empty; then language extraction returns no requirements and cannot reject a
 vacancy. Keep extraction soft: an unrecognized or ambiguous phrase passes to
 the agent pipeline.

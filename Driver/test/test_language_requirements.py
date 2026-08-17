@@ -16,10 +16,18 @@ from collector.filtering.linkedin_filter import decide_content
 
 
 LANGUAGE_TEMPLATE = r"\b{language}\s*:\s*{level}\b"
+IMPLIED_C1_TEMPLATE = r"\bfluent\s+in\s+{language}\b"
 
 
-def write_language_config(path: Path, templates: list[str]) -> None:
+def write_language_config(
+    path: Path,
+    templates: list[str],
+    implied_c1_templates: list[str] | None = None,
+) -> None:
     template_values = "\n".join(f"    {template}" for template in templates)
+    implied_c1_values = "\n".join(
+        f"    {template}" for template in (implied_c1_templates or [])
+    )
     path.write_text(
         """
 [filters]
@@ -43,6 +51,12 @@ values =
 values =
 """
         + template_values
+        + """
+
+[implied_level_templates]
+C1 =
+"""
+        + implied_c1_values
         + """
 
 [optional_signals]
@@ -90,6 +104,27 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].level_rank, 5)
         self.assertEqual(requirements[0].original, "English: C1 Advanced")
         self.assertEqual(requirements[0].pattern, LANGUAGE_TEMPLATE)
+
+    def test_template_can_assign_an_implied_level(self) -> None:
+        with TemporaryDirectory() as temp_directory:
+            config_path = Path(temp_directory) / "languages.ini"
+            write_language_config(
+                config_path,
+                [],
+                implied_c1_templates=[IMPLIED_C1_TEMPLATE],
+            )
+
+            requirements = extract_language_requirements(
+                "Fluent in English",
+                config_path,
+            )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level_rank, 5)
+        self.assertEqual(requirements[0].original, "Fluent in English")
+        self.assertEqual(requirements[0].pattern, IMPLIED_C1_TEMPLATE)
 
     def test_optional_context_is_not_extracted(self) -> None:
         with TemporaryDirectory() as temp_directory:
