@@ -570,3 +570,6 @@ Android Software Engineer
 Security SDK Engineer
 Accountant
 Full-Stack Java Developer
+
+Finance Accountant
+Security Expert

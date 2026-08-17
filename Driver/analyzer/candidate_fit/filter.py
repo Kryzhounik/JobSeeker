@@ -343,7 +343,6 @@ def evaluate_required_languages(
     resume_path: Path | None = None,
 ) -> FilterResult:
     resume = resume_languages if resume_languages is not None else load_resume(resume_path)
-    english_limit = LANGUAGE_RANKS["b2"]
 
     for row in required_languages:
         language = str(row_value(row, "language", "name") or "").strip()
@@ -353,9 +352,6 @@ def evaluate_required_languages(
         level = row_value(row, "level")
         required_rank = int(row_value(row, "level_rank") or language_rank(level))
         key = language.lower()
-
-        if key == "english" and required_rank > english_limit:
-            return FilterResult(False, 0, "lang", f"English above B2 required: {level}")
 
         own_rank = resume.get(key)
         if own_rank is None:

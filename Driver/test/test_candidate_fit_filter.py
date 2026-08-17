@@ -9,6 +9,7 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from analyzer.candidate_fit.filter import evaluate_required_languages
 from analyzer.candidate_fit.filter import filter_job_json
 
 
@@ -27,6 +28,37 @@ def base_job(**overrides):
 
 
 class CandidateFitFilterTest(unittest.TestCase):
+    def test_english_level_is_compared_with_resume_level(self) -> None:
+        result = evaluate_required_languages(
+            [
+                {
+                    "name": "English",
+                    "level": "C1",
+                    "level_rank": 5,
+                }
+            ],
+            resume_languages={"english": 6},
+        )
+
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
+    def test_english_above_resume_level_still_fails(self) -> None:
+        result = evaluate_required_languages(
+            [
+                {
+                    "name": "English",
+                    "level": "C1",
+                    "level_rank": 5,
+                }
+            ],
+            resume_languages={"english": 4},
+        )
+
+        self.assertFalse(result.passed)
+        self.assertEqual(result.reason_code, "lang")
+        self.assertEqual(result.reason, "English required C1, resume lower")
+
     def test_hybrid_allowed_onsite_location_passes(self) -> None:
         result = filter_job_json(base_job(location="Chisinau, Moldova"))
         self.assertTrue(result.passed)
