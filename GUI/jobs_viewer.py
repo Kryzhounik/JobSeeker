@@ -111,6 +111,8 @@ LEVEL_SORT_VALUES = {
     "advanced": 4,
     "master": 5,
 }
+DATABASE_DATE_FORMAT = "%Y-%m-%d"
+DISPLAY_DATE_FORMAT = "%d.%m.%Y"
 
 
 def db_uri() -> str:
@@ -125,6 +127,26 @@ def clean(value: Any) -> str:
     if value is None:
         return ""
     return str(value)
+
+
+def format_display_date(value: Any) -> str:
+    text = clean(value).strip()
+    match = re.match(r"\d{4}-\d{2}-\d{2}", text)
+    if match is None:
+        return text
+    try:
+        parsed = datetime.strptime(match.group(0), DATABASE_DATE_FORMAT)
+    except ValueError:
+        return text
+    return parsed.strftime(DISPLAY_DATE_FORMAT)
+
+
+def parse_display_date(value: Any) -> datetime:
+    text = clean(value).strip()
+    parsed = datetime.strptime(text, DISPLAY_DATE_FORMAT)
+    if parsed.strftime(DISPLAY_DATE_FORMAT) != text:
+        raise ValueError(text)
+    return parsed
 
 
 def calculate_score(fit: int, interest: int) -> int:
@@ -436,8 +458,8 @@ class JobsViewer(tk.Tk):
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
         self.company_link_press: tuple[str, int, int] | None = None
-        self.company_link_labels: list[tk.Label] = []
-        self.company_links_after_id: str | None = None
+        self.job_link_labels: list[tk.Label] = []
+        self.job_links_after_id: str | None = None
         self.availability_check_running = False
         self.availability_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.availability_log_lock = threading.Lock()
@@ -452,6 +474,7 @@ class JobsViewer(tk.Tk):
             value=bool(self.settings.get("show_zero", False))
         )
         self.id_search_var = tk.StringVar(value="")
+        self.added_from_var = tk.StringVar(value="")
         self.job_sort_column = self._saved_job_sort_column()
         self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_sort_column: str | None = None
@@ -479,6 +502,7 @@ class JobsViewer(tk.Tk):
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
+        self.status_var = tk.StringVar(value="")
 
         toolbar = ttk.Frame(self, padding=(10, 8))
         toolbar.grid(row=0, column=0, sticky="ew")
@@ -531,35 +555,50 @@ class JobsViewer(tk.Tk):
             command=self._filter_changed,
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
 
-        search_column = len(self.status_values) + 2
-        ttk.Label(filters, text="ID", style="Muted.TLabel").grid(
+        search_filters = ttk.Frame(toolbar)
+        search_filters.grid(row=0, column=5, sticky="e")
+
+        ttk.Label(search_filters, text="ID", style="Muted.TLabel").grid(
             row=0,
-            column=search_column,
+            column=0,
+            sticky="w",
+            padx=(0, 4),
+        )
+        id_entry = ttk.Entry(search_filters, textvariable=self.id_search_var, width=13)
+        id_entry.grid(row=0, column=1, sticky="w")
+        self._bind_editable_entry(id_entry)
+        id_entry.bind("<Return>", self._refresh_from_event)
+
+        ttk.Label(search_filters, text="Added >=", style="Muted.TLabel").grid(
+            row=0,
+            column=2,
             sticky="w",
             padx=(10, 4),
         )
-        id_entry = ttk.Entry(filters, textvariable=self.id_search_var, width=16)
-        id_entry.grid(row=0, column=search_column + 1, sticky="w")
-        self._bind_editable_entry(id_entry)
-        id_entry.bind("<Return>", self._refresh_from_event)
-        ttk.Button(filters, text="Search", command=self.refresh_jobs).grid(
-            row=0,
-            column=search_column + 2,
-            sticky="w",
-            padx=(4, 0),
+        self.added_from_entry = ttk.Entry(
+            search_filters,
+            textvariable=self.added_from_var,
+            width=12,
         )
-        ttk.Button(filters, text="Clear", command=self._clear_id_search).grid(
-            row=0,
-            column=search_column + 3,
-            sticky="w",
-            padx=(4, 0),
-        )
+        self.added_from_entry.grid(row=0, column=3, sticky="w")
+        self._bind_editable_entry(self.added_from_entry)
+        self.added_from_entry.bind("<Return>", self._refresh_from_event)
 
-        self.status_var = tk.StringVar(value="")
-        ttk.Label(toolbar, textvariable=self.status_var, style="Muted.TLabel").grid(
+        ttk.Button(search_filters, text="Search", command=self.refresh_jobs).grid(
+            row=0,
+            column=4,
+            sticky="w",
+            padx=(4, 0),
+        )
+        ttk.Button(
+            search_filters,
+            text="Clear",
+            command=self._clear_search_filters,
+        ).grid(
             row=0,
             column=5,
-            sticky="e",
+            sticky="w",
+            padx=(4, 0),
         )
 
         pane = ttk.PanedWindow(self, orient=tk.VERTICAL)
@@ -575,12 +614,18 @@ class JobsViewer(tk.Tk):
 
         footer = ttk.Frame(self, padding=(10, 0, 10, 10))
         footer.grid(row=2, column=0, sticky="ew")
+        footer.columnconfigure(1, weight=1)
         self.refilter_detail_button = ttk.Button(
             footer,
             text="Refilter detail",
             command=self._start_refilter_detail,
         )
         self.refilter_detail_button.grid(row=0, column=0, sticky="w")
+        ttk.Label(footer, textvariable=self.status_var, style="Muted.TLabel").grid(
+            row=0,
+            column=1,
+            sticky="e",
+        )
 
     def _build_jobs_table(self, parent: ttk.Frame) -> None:
         parent.columnconfigure(0, weight=1)
@@ -638,12 +683,12 @@ class JobsViewer(tk.Tk):
         )
         self.jobs_tree.bind(
             "<Configure>",
-            lambda _event: self._schedule_company_link_labels(),
+            lambda _event: self._schedule_job_link_labels(),
             add="+",
         )
         self.jobs_tree.bind(
             "<MouseWheel>",
-            lambda _event: self.after_idle(self._schedule_company_link_labels),
+            lambda _event: self.after_idle(self._schedule_job_link_labels),
             add="+",
         )
 
@@ -1060,7 +1105,10 @@ class JobsViewer(tk.Tk):
 
         for index, row in enumerate(rows):
             item_id = str(index)
-            values = [clean(row[name]) for name, _label, _width, _anchor in JOB_COLUMNS]
+            values = [
+                format_display_date(row[name]) if name == "added_at" else clean(row[name])
+                for name, _label, _width, _anchor in JOB_COLUMNS
+            ]
             tags = ("odd",) if index % 2 else ()
             self.jobs_tree.insert("", tk.END, iid=item_id, values=values, tags=tags)
             self.job_rows[item_id] = {key: clean(row[key]) for key in row.keys()}
@@ -1085,58 +1133,56 @@ class JobsViewer(tk.Tk):
             self.jobs_tree.selection_set(children[0])
             self.jobs_tree.focus(children[0])
             self.jobs_tree.see(children[0])
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
 
     def _refresh_from_event(self, _event: tk.Event[tk.Misc]) -> str:
         self.refresh_jobs()
         return "break"
 
-    def _clear_id_search(self) -> None:
+    def _clear_search_filters(self) -> None:
         self.id_search_var.set("")
+        self.added_from_var.set("")
         self.refresh_jobs()
 
     def _jobs_tree_yview(self, *args: Any) -> None:
         self.jobs_tree.yview(*args)
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
 
     def _jobs_tree_xview(self, *args: Any) -> None:
         self.jobs_tree.xview(*args)
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
 
-    def _schedule_company_link_labels(self) -> None:
-        if self.company_links_after_id is not None:
+    def _schedule_job_link_labels(self) -> None:
+        if self.job_links_after_id is not None:
             return
-        self.company_links_after_id = self.after_idle(self._render_company_link_labels)
+        self.job_links_after_id = self.after_idle(self._render_job_link_labels)
 
-    def _render_company_link_labels(self) -> None:
-        self.company_links_after_id = None
-        for label in self.company_link_labels:
+    def _render_job_link_labels(self) -> None:
+        self.job_links_after_id = None
+        for label in self.job_link_labels:
             label.destroy()
-        self.company_link_labels.clear()
+        self.job_link_labels.clear()
 
         selected = set(self.jobs_tree.selection())
-        for item in self.jobs_tree.get_children(""):
-            row = self.job_rows.get(item)
-            if not row or not row.get("company") or not row.get("company_id"):
-                continue
-            bounds = self.jobs_tree.bbox(item, "company")
+
+        def add_link(
+            item: str,
+            column: str,
+            text: str,
+            command: Any,
+            background: str,
+            foreground: str,
+        ) -> None:
+            bounds = self.jobs_tree.bbox(item, column)
             if not bounds:
-                continue
+                return
             x, y, width, height = bounds
             if width <= 2 or height <= 2:
-                continue
+                return
 
-            is_selected = item in selected
-            background = (
-                "#4b6f8d"
-                if is_selected
-                else ("#f7f9fb" if self.jobs_tree.index(item) % 2 else "#ffffff")
-            )
-            foreground = "#d9efff" if is_selected else "#005a9c"
-            company_id = int(row["company_id"])
             label = tk.Label(
                 self.jobs_tree,
-                text=row["company"],
+                text=text,
                 anchor="w",
                 background=background,
                 foreground=foreground,
@@ -1152,20 +1198,65 @@ class JobsViewer(tk.Tk):
             )
             label.bind(
                 "<ButtonRelease-1>",
-                lambda _event, value=company_id: self._open_companies_window(value),
+                lambda _event, action=command: action(),
             )
-            label.bind("<MouseWheel>", self._scroll_jobs_from_company_link)
-            label.bind("<Shift-MouseWheel>", self._scroll_jobs_from_company_link)
-            self.company_link_labels.append(label)
+            label.bind("<MouseWheel>", self._scroll_jobs_from_link)
+            label.bind("<Shift-MouseWheel>", self._scroll_jobs_from_link)
+            self.job_link_labels.append(label)
 
-    def _scroll_jobs_from_company_link(self, event: tk.Event[tk.Misc]) -> str:
+        for item in self.jobs_tree.get_children(""):
+            row = self.job_rows.get(item)
+            if not row:
+                continue
+
+            is_selected = item in selected
+            background = (
+                "#4b6f8d"
+                if is_selected
+                else ("#f7f9fb" if self.jobs_tree.index(item) % 2 else "#ffffff")
+            )
+            foreground = "#d9efff" if is_selected else "#005a9c"
+            if row.get("company") and row.get("company_id"):
+                company_id = int(row["company_id"])
+                add_link(
+                    item,
+                    "company",
+                    clean(row["company"]),
+                    lambda value=company_id: self._open_companies_window(value),
+                    background,
+                    foreground,
+                )
+
+            added_at = format_display_date(row.get("added_at", ""))
+            if added_at:
+                add_link(
+                    item,
+                    "added_at",
+                    added_at,
+                    lambda value=added_at: self._set_added_from_link(value),
+                    background,
+                    foreground,
+                )
+
+    def _scroll_jobs_from_link(self, event: tk.Event[tk.Misc]) -> str:
         direction = -1 if int(getattr(event, "delta", 0) or 0) > 0 else 1
         if event.state & 0x1:
             self.jobs_tree.xview_scroll(direction, "units")
         else:
             self.jobs_tree.yview_scroll(direction, "units")
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
         return "break"
+
+    def _set_added_from_link(self, value: str) -> None:
+        added_from = format_display_date(value)
+        try:
+            parse_display_date(added_from)
+        except ValueError:
+            return
+        self.added_from_var.set(added_from)
+        self.added_from_entry.focus_set()
+        self.added_from_entry.selection_range(0, tk.END)
+        self.status_var.set(f"Added >= {added_from}")
 
     def _company_link_at_event(
         self,
@@ -1612,6 +1703,15 @@ class JobsViewer(tk.Tk):
             )
             parameters.extend([id_query, id_query, f"%{id_query}%"])
 
+        added_from = self.added_from_var.get().strip()
+        if added_from:
+            try:
+                added_from_date = parse_display_date(added_from)
+            except ValueError as error:
+                raise ValueError("Added date must use DD.MM.YYYY format.") from error
+            where_parts.append("date(jl.added_at) >= date(?)")
+            parameters.append(added_from_date.strftime(DATABASE_DATE_FORMAT))
+
         where_sql = "WHERE " + " AND ".join(where_parts)
         with self.connect() as connection:
             return list(
@@ -1647,7 +1747,7 @@ class JobsViewer(tk.Tk):
             )
 
     def _on_job_selected(self, _event: tk.Event[tk.Misc]) -> None:
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
         item = self._detail_item_from_selection()
         if not item:
             self._clear_detail()
@@ -1802,7 +1902,10 @@ class JobsViewer(tk.Tk):
         self._set_text_widget(self.link_text, self.current_source_url)
 
         for name, _label in DETAIL_FIELDS:
-            self._set_text_widget(self.detail_fields[name], detail.get(name, ""))
+            value = detail.get(name, "")
+            if name == "added_at":
+                value = format_display_date(value)
+            self._set_text_widget(self.detail_fields[name], value)
         self._set_status_buttons_state(True)
 
         self.tech_sort_column = None
@@ -2842,7 +2945,7 @@ class JobsViewer(tk.Tk):
             self.job_sort_column,
             self.job_sort_descending,
         )
-        self._schedule_company_link_labels()
+        self._schedule_job_link_labels()
 
     def _sort_tech_table(self, column: str) -> None:
         descending = (
@@ -2896,6 +2999,11 @@ class JobsViewer(tk.Tk):
             value = tree.set(item, column)
             if column == "level":
                 return LEVEL_SORT_VALUES.get(value.casefold(), 0)
+            if column == "added_at":
+                try:
+                    return parse_display_date(value)
+                except ValueError:
+                    return datetime.min
             if column in numeric_columns:
                 try:
                     return float(value)

@@ -24,6 +24,15 @@ windows are stored in `GUI/jobs_viewer_settings.json`. Resizing is saved after
 a short pause and restored the next time the corresponding window opens. The
 settings file is ignored by git.
 
+## Filters
+
+The upper-right search area contains an ID search and an `Added >=` date filter.
+Dates use the European `DD.MM.YYYY` format; the filter includes jobs added on
+or after that date.
+Clicking a blue date link in the main table copies that date into the filter.
+`Clear` resets both search fields. Runtime status messages are shown in the
+bottom-right footer.
+
 ## Vacancy detail
 
 The right side starts in `Skills` mode with the technology table and summary.
