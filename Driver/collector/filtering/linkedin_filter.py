@@ -20,6 +20,10 @@ LOGGING_ROOT = ROOT / "collector" / "logging"
 if str(LOGGING_ROOT) not in sys.path:
     sys.path.insert(0, str(LOGGING_ROOT))
 
+from analyzer.candidate_fit.filter import default_resume_path
+from analyzer.candidate_fit.filter import evaluate_required_languages
+from analyzer.candidate_fit.filter import load_resume
+from collector.filtering.language_requirements import extract_language_requirements
 from db.companies import is_company_blacklisted
 from db.job_registry import is_registered
 from db.filter_rejections import save_content_filter_rejection
@@ -30,6 +34,8 @@ from linkedin_logger import record_preview_filter
 
 DEFAULT_PREVIEW_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
 DEFAULT_CONTENT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
+DEFAULT_LANGUAGE_CONFIG = Path(__file__).with_name("linkedin_language_filter.ini")
+DEFAULT_RESUME_CONFIG = default_resume_path()
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
 MIGRATED_DATABASES: set[Path] = set()
 
@@ -49,6 +55,7 @@ class FilterResult:
     match: str = ""
     terms: tuple[str, ...] = ()
     technologies: tuple[str, ...] = ()
+    languages: tuple[str, ...] = ()
     signals: tuple[str, ...] = ()
     keyword_patterns: tuple[tuple[str, str], ...] = ()
 
@@ -176,10 +183,14 @@ class VacancyFilter:
         self,
         preview_config_path: Path = DEFAULT_PREVIEW_CONFIG,
         content_config_path: Path = DEFAULT_CONTENT_CONFIG,
+        language_config_path: Path = DEFAULT_LANGUAGE_CONFIG,
+        resume_path: Path = DEFAULT_RESUME_CONFIG,
         db_path: Path = DEFAULT_DB,
     ) -> None:
         self.preview_config_path = preview_config_path
         self.content_config_path = content_config_path
+        self.language_config_path = language_config_path
+        self.resume_path = resume_path
         self.db_path = db_path
         self.preview_config = load_config(preview_config_path)
         self.content_config = load_config(content_config_path)
@@ -246,52 +257,87 @@ class VacancyFilter:
         pass_words = [
             name for name, pattern in pass_word_patterns if pattern.search(title)
         ]
+        pass_result = None
         if pass_words:
-            return FilterResult(
+            pass_result = FilterResult(
                 False,
                 "title pass word: " + ", ".join(pass_words),
                 rule="title_pass_word",
                 match=title,
             )
+
+        if not pass_result and enabled(config):
+            technologies = [
+                (name, technology_pattern(name))
+                for name in configured_names(config, "blocked_technologies")
+            ]
+            hard_templates = configured_values(config, "hard_requirement_templates")
+            optional_signals = configured_patterns(config, "optional_signals")
+
+            for unit, context in content_units(text):
+                unit_technologies = [
+                    name for name, pattern in technologies if pattern.search(unit)
+                ]
+                matches = [
+                    (name, template)
+                    for name in unit_technologies
+                    for template in hard_templates
+                    if requirement_pattern(template, name).search(unit)
+                ]
+                matched_technologies = list(dict.fromkeys(name for name, _ in matches))
+                matched_signals = list(dict.fromkeys(template for _, template in matches))
+                if not matched_technologies or not matched_signals:
+                    continue
+                if any(pattern.search(context) for _, pattern in pass_word_patterns):
+                    continue
+                if any(pattern.search(context) for pattern in optional_signals):
+                    continue
+                return FilterResult(
+                    True,
+                    "hard requirement for blocked technology: "
+                    + ", ".join(matched_technologies),
+                    rule="hard_blocked_technology",
+                    match=unit,
+                    technologies=tuple(matched_technologies),
+                    signals=tuple(matched_signals),
+                    keyword_patterns=tuple(dict.fromkeys(matches)),
+                )
+
+        language_result = self.filter_language_requirements(text)
+        if language_result.rejected:
+            return language_result
+        if pass_result:
+            return pass_result
         if not enabled(config):
-            return FilterResult(False, "content filter disabled")
+            return FilterResult(False, "technology content filter disabled")
+        return FilterResult(False, "no content skip signals")
 
-        technologies = [
-            (name, technology_pattern(name))
-            for name in configured_names(config, "blocked_technologies")
-        ]
-        hard_templates = configured_values(config, "hard_requirement_templates")
-        optional_signals = configured_patterns(config, "optional_signals")
-
-        for unit, context in content_units(text):
-            unit_technologies = [
-                name for name, pattern in technologies if pattern.search(unit)
-            ]
-            matches = [
-                (name, template)
-                for name in unit_technologies
-                for template in hard_templates
-                if requirement_pattern(template, name).search(unit)
-            ]
-            matched_technologies = list(dict.fromkeys(name for name, _ in matches))
-            matched_signals = list(dict.fromkeys(template for _, template in matches))
-            if not matched_technologies or not matched_signals:
+    def filter_language_requirements(self, text: str) -> FilterResult:
+        requirements = extract_language_requirements(
+            text,
+            self.language_config_path,
+        )
+        if not requirements:
+            return FilterResult(False, "no language skip signals")
+        resume_languages = load_resume(self.resume_path)
+        for requirement in requirements:
+            comparison = evaluate_required_languages(
+                [requirement.as_filter_row()],
+                resume_languages=resume_languages,
+            )
+            if comparison.passed:
                 continue
-            if any(pattern.search(context) for _, pattern in pass_word_patterns):
-                continue
-            if any(pattern.search(context) for pattern in optional_signals):
-                continue
+            label = f"{requirement.name} {requirement.level}"
             return FilterResult(
                 True,
-                "hard requirement for blocked technology: "
-                + ", ".join(matched_technologies),
-                rule="hard_blocked_technology",
-                match=unit,
-                technologies=tuple(matched_technologies),
-                signals=tuple(matched_signals),
-                keyword_patterns=tuple(dict.fromkeys(matches)),
+                comparison.reason,
+                rule="hard_language_requirement",
+                match=requirement.original,
+                languages=(label,),
+                signals=(requirement.pattern,),
+                keyword_patterns=((label, requirement.pattern),),
             )
-        return FilterResult(False, "no content skip signals")
+        return FilterResult(False, "no language skip signals")
 
 
 DEFAULT_FILTER = VacancyFilter()
@@ -377,8 +423,14 @@ def decide_content(
     config_path: Path = DEFAULT_CONTENT_CONFIG,
     *,
     title: str = "",
+    language_config_path: Path = DEFAULT_LANGUAGE_CONFIG,
+    resume_path: Path = DEFAULT_RESUME_CONFIG,
 ) -> dict[str, Any]:
-    result = VacancyFilter(content_config_path=config_path).filter_text(title, text)
+    result = VacancyFilter(
+        content_config_path=config_path,
+        language_config_path=language_config_path,
+        resume_path=resume_path,
+    ).filter_text(title, text)
     return content_response(result)
 
 
@@ -391,6 +443,8 @@ def content_response(result: FilterResult) -> dict[str, Any]:
     }
     if result.technologies:
         response["content_technologies"] = list(result.technologies)
+    if result.languages:
+        response["content_languages"] = list(result.languages)
     if result.signals:
         response["content_signals"] = list(result.signals)
     return response
@@ -446,6 +500,8 @@ def main() -> None:
     content.add_argument("--title", default="")
     content.add_argument("--output", "-o", default="-")
     content.add_argument("--config", default=str(DEFAULT_CONTENT_CONFIG))
+    content.add_argument("--language-config", default=str(DEFAULT_LANGUAGE_CONFIG))
+    content.add_argument("--resume", default=str(DEFAULT_RESUME_CONFIG))
     content.add_argument("--db", default=str(DEFAULT_DB))
     args = parser.parse_args()
 
@@ -468,7 +524,9 @@ def main() -> None:
         connection.execute("PRAGMA foreign_keys = ON")
         text = load_readable_text(connection, args.source, args.job_id)
         filter_result = VacancyFilter(
-            content_config_path=Path(args.config)
+            content_config_path=Path(args.config),
+            language_config_path=Path(args.language_config),
+            resume_path=Path(args.resume),
         ).filter_text(args.title, text)
         if filter_result.rejected:
             save_content_filter_rejection(

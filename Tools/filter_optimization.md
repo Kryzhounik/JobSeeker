@@ -206,3 +206,18 @@ that the requirement and technology are matched as one structure. Never add
 standalone words such as `required`, `advanced`, `experience`, or `years` as
 hard signals. Use `{years}` inside a complete template for numeric requirements
 starting at two years.
+
+Human-language requirement extraction is a separate, conservative module:
+
+```text
+Driver/collector/filtering/language_requirements.py
+Driver/collector/filtering/linkedin_language_filter.ini
+```
+
+`VacancyFilter.filter_text()` calls this module and compares only confidently
+extracted `language + CEFR level` requirements with
+`Driver/analyzer/config/resume.ini`. The extractor's requirement templates are
+kept in `[requirement_templates]` and may remain empty. An empty template list
+means that language extraction returns no requirements and cannot reject a
+vacancy. Keep extraction soft: an unrecognized or ambiguous phrase passes to
+the agent pipeline.

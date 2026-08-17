@@ -64,7 +64,9 @@ def collect_rejected_jobs(
                     "fit": int(fit or 0),
                     "source_url": str(source_url or ""),
                     "original": result.match or str(title),
-                    "matched": ", ".join(result.terms or result.technologies),
+                    "matched": ", ".join(
+                        result.terms or result.technologies or result.languages
+                    ),
                     "rule": result.rule,
                     "reason": result.reason,
                 }
