@@ -80,13 +80,23 @@ Russian = C2
 
 
 class LanguageRequirementsTest(unittest.TestCase):
-    def test_default_template_list_is_empty(self) -> None:
+    def test_default_explicit_template_list_is_empty(self) -> None:
         requirements = extract_language_requirements(
             "English: C1 Advanced",
             DEFAULT_LANGUAGE_CONFIG,
         )
 
         self.assertEqual(requirements, [])
+
+    def test_default_config_extracts_reviewed_implied_c1_phrase(self) -> None:
+        requirements = extract_language_requirements(
+            "Fluent in English",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "C1")
 
     def test_template_extracts_explicit_language_and_cefr_level(self) -> None:
         with TemporaryDirectory() as temp_directory:

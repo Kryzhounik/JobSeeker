@@ -220,6 +220,7 @@ extracted `language + CEFR level` requirements with
 levels are kept in `[requirement_templates]` and use both `{language}` and
 `{level}`. Phrases that imply a fixed level are kept under that level in
 `[implied_level_templates]` and use `{language}` only. Both lists may remain
-empty; then language extraction returns no requirements and cannot reject a
-vacancy. Keep extraction soft: an unrecognized or ambiguous phrase passes to
-the agent pipeline.
+empty. The currently reviewed implied-C1 templates cover `Advanced proficiency
+in`, `Fluency in`, and `Fluent in` followed by a configured language. Keep
+extraction soft: an unrecognized or ambiguous phrase passes to the agent
+pipeline.
