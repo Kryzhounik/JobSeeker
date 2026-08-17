@@ -454,12 +454,14 @@ def decide_preview_with_filter(
         return {
             "preview_decision": "skip",
             "preview_reason": result.reason,
+            "preview_rule": result.rule,
             "preview_blocked_terms": list(result.terms),
         }
     if is_duplicate_preview(preview, db_path):
         return {
             "preview_decision": "skip",
             "preview_reason": "duplicate source_job_id",
+            "preview_rule": "duplicate_source_job_id",
             "preview_blocked_terms": [],
         }
 
@@ -467,6 +469,7 @@ def decide_preview_with_filter(
     return {
         "preview_decision": "open" if when_unsure != "skip" else "skip",
         "preview_reason": "no preview skip signals",
+        "preview_rule": "",
         "preview_blocked_terms": [],
     }
 
@@ -554,7 +557,8 @@ def apply_preview_decision_with_filter(
                 vacancy_filter,
                 db_path,
             ),
-        }
+        },
+        db_path,
     )
 
 

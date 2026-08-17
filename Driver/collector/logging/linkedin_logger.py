@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 import os
 import sqlite3
@@ -45,6 +46,7 @@ def apply_schema(connection: sqlite3.Connection) -> None:
             last_source_url TEXT,
             last_company TEXT,
             last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            rule TEXT NOT NULL DEFAULT 'title_blocked',
             PRIMARY KEY (title, blocked_term)
         );
 
@@ -70,6 +72,19 @@ def apply_schema(connection: sqlite3.Connection) -> None:
             ON linkedin_collection_events(label, start);
         """
     )
+    columns = {
+        row[1]
+        for row in connection.execute(
+            "PRAGMA table_info(preview_filter_rejections)"
+        ).fetchall()
+    }
+    if "rule" not in columns:
+        connection.execute(
+            """
+            ALTER TABLE preview_filter_rejections
+            ADD COLUMN rule TEXT NOT NULL DEFAULT 'title_blocked'
+            """
+        )
 
 
 def text(value: Any) -> str:
@@ -98,12 +113,13 @@ def record_preview_filter(payload: Any, db_path: Path = DEFAULT_DB) -> Any:
 
     preview = preview_from_payload(payload)
     decision = text(payload.get("preview_decision")).lower()
+    rule = text(payload.get("preview_rule"))
     blocked_terms = payload.get("preview_blocked_terms") or []
     if not isinstance(blocked_terms, list):
         blocked_terms = [str(blocked_terms)]
 
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         apply_schema(connection)
         connection.execute(
             """
@@ -133,16 +149,24 @@ def record_preview_filter(payload: Any, db_path: Path = DEFAULT_DB) -> Any:
                         blocked_term,
                         count,
                         last_source_url,
-                        last_company
+                        last_company,
+                        rule
                     )
-                    VALUES (?, ?, 1, ?, ?)
+                    VALUES (?, ?, 1, ?, ?, ?)
                     ON CONFLICT(title, blocked_term) DO UPDATE SET
                         count = count + 1,
                         last_source_url = excluded.last_source_url,
                         last_company = excluded.last_company,
+                        rule = excluded.rule,
                         last_seen_at = CURRENT_TIMESTAMP
                     """,
-                    (title, blocked_term, source_url, company),
+                    (
+                        title,
+                        blocked_term,
+                        source_url,
+                        company,
+                        rule or "unknown",
+                    ),
                 )
 
         connection.commit()
@@ -175,7 +199,7 @@ def collection_event_from_payload(payload: dict[str, Any]) -> dict[str, Any]:
 def record_collection_event(payload: dict[str, Any], db_path: Path = DEFAULT_DB) -> None:
     event = collection_event_from_payload(payload)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         apply_schema(connection)
         connection.execute(
             """

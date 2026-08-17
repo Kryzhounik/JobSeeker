@@ -89,6 +89,17 @@ CREATE TABLE IF NOT EXISTS companies (
     blacklisted INTEGER NOT NULL DEFAULT 0 CHECK (blacklisted IN (0, 1))
 );
 
+CREATE TABLE IF NOT EXISTS preview_filter_rejections (
+    title TEXT NOT NULL,
+    blocked_term TEXT NOT NULL,
+    count INTEGER NOT NULL DEFAULT 0,
+    last_source_url TEXT,
+    last_company TEXT,
+    last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    rule TEXT NOT NULL DEFAULT 'title_blocked',
+    PRIMARY KEY (title, blocked_term)
+);
+
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),

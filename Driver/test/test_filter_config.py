@@ -22,6 +22,7 @@ from db.config import TECHNOLOGY_FILTER
 from db.config import TITLE_FILTER
 from db.config import config_enabled
 from db.config import load_filter_switches
+from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 
 
@@ -111,7 +112,7 @@ class FilterConfigTest(unittest.TestCase):
             ) as loader,
             patch(
                 "collector.filtering.linkedin_filter.record_preview_filter",
-                side_effect=lambda item: item,
+                side_effect=lambda item, _db_path: item,
             ),
         ):
             apply_preview_decision(
@@ -121,6 +122,109 @@ class FilterConfigTest(unittest.TestCase):
             )
 
         self.assertEqual(loader.call_count, 1)
+
+    def test_preview_rejections_store_filter_rule(self) -> None:
+        with closing(self.connect()) as connection:
+            connection.execute(
+                "INSERT INTO companies (name, blacklisted) VALUES (?, 1)",
+                ("Blocked Company",),
+            )
+            connection.commit()
+
+        apply_preview_decision(
+            [
+                {
+                    "title": "Senior Python Developer",
+                    "company": "Ordinary Company",
+                    "source_url": "https://example.test/title",
+                },
+                {
+                    "title": "Backend Engineer",
+                    "company": "Blocked Company",
+                    "source_url": "https://example.test/company",
+                },
+            ],
+            DEFAULT_PREVIEW_CONFIG,
+            self.db_path,
+        )
+
+        with closing(self.connect()) as connection:
+            rows = connection.execute(
+                """
+                SELECT title, blocked_term, rule
+                FROM preview_filter_rejections
+                ORDER BY rule
+                """
+            ).fetchall()
+
+        self.assertEqual(
+            rows,
+            [
+                (
+                    "Backend Engineer",
+                    "Blocked Company",
+                    "company_blacklisted",
+                ),
+                (
+                    "Senior Python Developer",
+                    "Python",
+                    "title_blocked",
+                ),
+            ],
+        )
+
+    def test_content_rejections_store_match_keyword_and_pattern(self) -> None:
+        with closing(self.connect()) as connection:
+            connection.executemany(
+                """
+                INSERT INTO source_jobs (
+                    source,
+                    source_job_id,
+                    processing_status
+                ) VALUES ('linkedin', ?, 'CLEANED')
+                """,
+                [("language-log",), ("technology-log",)],
+            )
+            connection.commit()
+
+        vacancy_filter = VacancyFilter(db_path=self.db_path)
+        cases = [
+            ("language-log", "Fluent in English"),
+            ("technology-log", "Proficiency in Python"),
+        ]
+        with closing(self.connect()) as connection:
+            for source_job_id, text in cases:
+                result = vacancy_filter.filter_text("Backend Engineer", text)
+                self.assertTrue(result.rejected)
+                save_content_filter_rejection(
+                    connection,
+                    "linkedin",
+                    source_job_id,
+                    rule=result.rule,
+                    matched_text=result.match,
+                    keyword_patterns=result.keyword_patterns,
+                )
+            connection.commit()
+            rows = connection.execute(
+                """
+                SELECT rule, matched_text, matched_keyword, matched_pattern
+                FROM content_filter_rejections
+                ORDER BY rule
+                """
+            ).fetchall()
+
+        self.assertEqual(rows[0][:3], (
+            "hard_blocked_technology",
+            "Proficiency in Python",
+            "Python",
+        ))
+        self.assertIn("{technology}", rows[0][3])
+        self.assertEqual(rows[1][:3], (
+            "hard_language_requirement",
+            "Fluent in English",
+            "English C1",
+        ))
+        self.assertIn("{language}", rows[1][3])
 
     def test_disabled_title_filter_does_not_block_title(self) -> None:
         self.disable(TITLE_FILTER)

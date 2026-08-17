@@ -106,6 +106,12 @@ def migration_already_effective(
             column_exists(connection, "jobs", "company_id")
             and table_exists(connection, "companies")
         )
+    if version == "015_preview_filter_rule":
+        return column_exists(
+            connection,
+            "preview_filter_rejections",
+            "rule",
+        )
     return False
 
 
