@@ -4,6 +4,7 @@ import json
 import queue
 import re
 import sqlite3
+import subprocess
 import sys
 import textwrap
 import threading
@@ -23,6 +24,13 @@ ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
 SETTINGS_PATH = Path(__file__).with_name("jobs_viewer_settings.json")
 AVAILABILITY_LOG_PATH = Path(__file__).with_name("linkedin_availability_check.log")
+BLOCKED_TITLES_PATH = (
+    ROOT
+    / "Driver"
+    / "collector"
+    / "filtering"
+    / "linkedin_preview_blocked_titles.txt"
+)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 DRIVER_ROOT = ROOT / "Driver"
@@ -614,16 +622,21 @@ class JobsViewer(tk.Tk):
 
         footer = ttk.Frame(self, padding=(10, 0, 10, 10))
         footer.grid(row=2, column=0, sticky="ew")
-        footer.columnconfigure(1, weight=1)
+        footer.columnconfigure(2, weight=1)
         self.refilter_detail_button = ttk.Button(
             footer,
             text="Refilter detail",
             command=self._start_refilter_detail,
         )
         self.refilter_detail_button.grid(row=0, column=0, sticky="w")
+        ttk.Button(
+            footer,
+            text="Black titles",
+            command=self._open_black_titles,
+        ).grid(row=0, column=1, sticky="w", padx=(6, 0))
         ttk.Label(footer, textvariable=self.status_var, style="Muted.TLabel").grid(
             row=0,
-            column=1,
+            column=2,
             sticky="e",
         )
 
@@ -1143,6 +1156,22 @@ class JobsViewer(tk.Tk):
         self.id_search_var.set("")
         self.added_from_var.set("")
         self.refresh_jobs()
+
+    def _open_black_titles(self) -> None:
+        if not BLOCKED_TITLES_PATH.is_file():
+            messagebox.showerror(
+                "Black titles",
+                f"File not found:\n{BLOCKED_TITLES_PATH}",
+            )
+            self.status_var.set("Black titles file not found")
+            return
+        try:
+            subprocess.Popen(["notepad.exe", str(BLOCKED_TITLES_PATH)])
+        except OSError as error:
+            messagebox.showerror("Black titles", str(error))
+            self.status_var.set("Could not open Black titles")
+            return
+        self.status_var.set("Opened Black titles")
 
     def _jobs_tree_yview(self, *args: Any) -> None:
         self.jobs_tree.yview(*args)

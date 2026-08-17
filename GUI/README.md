@@ -81,6 +81,11 @@ error to this log. The log is ignored by git.
 
 ## Refilter
 
+The bottom `Black titles` button opens the active LinkedIn preview-title block
+list in Windows Notepad:
+
+`Driver/collector/filtering/linkedin_preview_blocked_titles.txt`
+
 The refilter workflow uses:
 
 `python Tools/filter_database.py`
