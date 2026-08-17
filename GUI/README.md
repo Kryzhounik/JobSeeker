@@ -35,6 +35,17 @@ from `source_job_texts.readable_text`; the button then reads `Skills` and restor
 the original view. The full text is read-only and supports normal selection and
 `Ctrl+C`.
 
+## Companies
+
+The `Companies` button opens the normalized company list. The `Company` and
+`Blacklisted` headers toggle sorting; blacklist sorting shows blacklisted rows
+first on its first click. Each checkbox writes `companies.blacklisted`
+immediately, without an Apply button, and is restored if the database update
+fails. The window size and last sorting are saved with the other GUI settings.
+
+Company cells in the main jobs table are links. Clicking one opens the same
+window, scrolls to that company, and highlights its row.
+
 ## LinkedIn availability check
 
 The `Check LinkedIn` button checks LinkedIn jobs with:
