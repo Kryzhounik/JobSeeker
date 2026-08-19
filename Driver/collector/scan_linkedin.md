@@ -39,12 +39,15 @@ For left-panel card materialization and page-count verification, follow
    - `datePosted` is carried by the generated URL;
    - `sort=semantic` records the current LinkedIn behavior; there is no sort
      control to apply.
-   Submit each opened filter menu with `Show results`, then verify the selected
-   filter labels in the visible toolbar. Do not assume URL query parameters
-   applied filters that are not visibly selected. Select menu options by their
-   exact `checkbox` role, not by bare text: job cards may contain the same
-   words. Select the quick `Remote` filter through the exact `radio` named
-   `Filter by Remote`.
+   Open the experience menu through the exact `button` role named
+   `Filter by Experience level`. Its visible text is `Experience level`, but
+   that is not the button's full accessible name. Select `Entry-level` and
+   `Senior` through their exact `checkbox` roles, then submit through the exact
+   `link` role named `Show results`. Verify the selected filter labels in the
+   visible toolbar. Do not assume URL query parameters applied filters that
+   are not visibly selected. Select menu options by their exact `checkbox`
+   role, not by bare text: job cards may contain the same words. Select the
+   quick `Remote` filter through the exact `radio` named `Filter by Remote`.
 6. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
    or a critical blocker defined in `collector/browser.md` appears. A slow or
