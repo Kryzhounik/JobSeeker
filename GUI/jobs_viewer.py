@@ -474,7 +474,11 @@ class JobsViewer(tk.Tk):
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
         self.applications_window: tk.Toplevel | None = None
-        self.application_status_vars: dict[int, tk.StringVar] = {}
+        self.application_rows: list[dict[str, Any]] = []
+        self.application_rows_by_item: dict[str, dict[str, Any]] = {}
+        self.application_link_labels: list[tk.Label] = []
+        self.application_links_after_id: str | None = None
+        self.application_status_editor: ttk.Combobox | None = None
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
         self.availability_check_running = False
@@ -1873,29 +1877,6 @@ class JobsViewer(tk.Tk):
         self.companies_canvas.yview_scroll(direction, "units")
         return "break"
 
-    def _bind_copyable_link(self, widget: CopyableText, command: Any) -> None:
-        widget.tag_configure("link", foreground="#005a9c", underline=True)
-        widget.tag_add("link", "1.0", "end-1c")
-        press_position: list[tuple[int, int] | None] = [None]
-
-        def remember_press(event: tk.Event[tk.Misc]) -> None:
-            press_position[0] = (event.x_root, event.y_root)
-
-        def activate(event: tk.Event[tk.Misc]) -> str | None:
-            start = press_position[0]
-            press_position[0] = None
-            if start is None:
-                return None
-            if abs(event.x_root - start[0]) + abs(event.y_root - start[1]) > 4:
-                return None
-            command()
-            return "break"
-
-        widget.tag_bind("link", "<Enter>", lambda _event: widget.configure(cursor="hand2"))
-        widget.tag_bind("link", "<Leave>", lambda _event: widget.configure(cursor="xterm"))
-        widget.tag_bind("link", "<ButtonPress-1>", remember_press)
-        widget.tag_bind("link", "<ButtonRelease-1>", activate)
-
     def _open_applications_window(self) -> None:
         window = self.applications_window
         if window is not None and window.winfo_exists():
@@ -1934,7 +1915,13 @@ class JobsViewer(tk.Tk):
             if size_save_after_id is not None:
                 window.after_cancel(size_save_after_id)
                 size_save_after_id = None
+            if self.application_links_after_id is not None:
+                window.after_cancel(self.application_links_after_id)
+                self.application_links_after_id = None
             self._remember_window_size("applications", window)
+            self.application_status_editor = None
+            self.application_rows_by_item.clear()
+            self._destroy_application_link_labels()
             self.applications_window = None
             window.destroy()
 
@@ -1944,80 +1931,80 @@ class JobsViewer(tk.Tk):
         table = ttk.Frame(window, padding=10)
         table.grid(row=0, column=0, sticky="nsew")
         table.columnconfigure(0, weight=1)
-        table.rowconfigure(1, weight=1)
+        table.rowconfigure(0, weight=1)
 
-        header = tk.Frame(table, background="#e7e9e7")
-        header.grid(row=0, column=0, sticky="ew")
-        for column_index, (label, weight, minimum) in enumerate(
-            (
-                ("Title", 3, 260),
-                ("Company", 2, 180),
-                ("Date", 0, 110),
-                ("Status", 0, 150),
-            )
-        ):
-            header.columnconfigure(column_index, weight=weight, minsize=minimum)
-            tk.Label(
-                header,
-                text=label,
-                anchor="w" if column_index < 2 else "center",
-                background="#e7e9e7",
-                foreground="#202020",
-                font=("Segoe UI", 9, "bold"),
-                borderwidth=1,
-                relief="solid",
-                padx=6,
-                pady=5,
-            ).grid(row=0, column=column_index, sticky="nsew")
-
-        self.applications_canvas = tk.Canvas(
+        columns = ("title", "company", "applied_at", "status")
+        self.applications_tree = ttk.Treeview(
             table,
-            borderwidth=0,
-            highlightthickness=0,
-            background="#ffffff",
+            columns=columns,
+            show="headings",
+            selectmode="browse",
         )
-        self.applications_canvas.grid(row=1, column=0, sticky="nsew")
-        scrollbar = ttk.Scrollbar(
-            table,
-            orient=tk.VERTICAL,
-            command=self.applications_canvas.yview,
-        )
-        scrollbar.grid(row=1, column=1, sticky="ns")
-        self.applications_canvas.configure(yscrollcommand=scrollbar.set)
-
-        self.applications_rows_frame = tk.Frame(
-            self.applications_canvas,
-            background="#ffffff",
-        )
-        for column_index, (weight, minimum) in enumerate(
-            ((3, 260), (2, 180), (0, 110), (0, 150))
+        self.applications_tree.grid(row=0, column=0, sticky="nsew")
+        for name, label, width, anchor, stretch in (
+            ("title", "Title", 420, "w", True),
+            ("company", "Company", 280, "w", True),
+            ("applied_at", "Date", 110, "center", False),
+            ("status", "Status", 150, "center", False),
         ):
-            self.applications_rows_frame.columnconfigure(
-                column_index,
-                weight=weight,
-                minsize=minimum,
+            self.applications_tree.heading(name, text=label)
+            self.applications_tree.column(
+                name,
+                width=width,
+                minwidth=80,
+                anchor=anchor,
+                stretch=stretch,
             )
-        rows_window = self.applications_canvas.create_window(
-            (0, 0),
-            window=self.applications_rows_frame,
-            anchor="nw",
+        self.applications_tree.tag_configure("odd", background="#f7f9fb")
+
+        def scroll_y(*args: Any) -> None:
+            self.applications_tree.yview(*args)
+            self._schedule_application_controls()
+
+        def scroll_x(*args: Any) -> None:
+            self.applications_tree.xview(*args)
+            self._schedule_application_controls()
+
+        vertical = ttk.Scrollbar(table, orient=tk.VERTICAL, command=scroll_y)
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal = ttk.Scrollbar(table, orient=tk.HORIZONTAL, command=scroll_x)
+        horizontal.grid(row=1, column=0, sticky="ew")
+        self.applications_tree.configure(
+            yscrollcommand=vertical.set,
+            xscrollcommand=horizontal.set,
         )
-        self.applications_rows_frame.bind(
+
+        self.application_status_var = tk.StringVar()
+        self.application_status_editor = ttk.Combobox(
+            self.applications_tree,
+            textvariable=self.application_status_var,
+            state="readonly",
+        )
+        self.application_status_editor.bind(
+            "<<ComboboxSelected>>",
+            self._application_status_editor_changed,
+        )
+        self.application_status_editor.bind("<MouseWheel>", lambda _event: "break")
+
+        self.applications_tree.bind(
+            "<<TreeviewSelect>>",
+            lambda _event: self._schedule_application_controls(),
+        )
+        self.applications_tree.bind(
             "<Configure>",
-            lambda _event: self.applications_canvas.configure(
-                scrollregion=self.applications_canvas.bbox("all")
-            ),
+            lambda _event: self._schedule_application_controls(),
+            add="+",
         )
-        self.applications_canvas.bind(
-            "<Configure>",
-            lambda event: self.applications_canvas.itemconfigure(
-                rows_window,
-                width=event.width,
-            ),
+        self.applications_tree.bind(
+            "<MouseWheel>",
+            lambda _event: self.after_idle(self._schedule_application_controls),
+            add="+",
         )
-        self.applications_canvas.bind("<MouseWheel>", self._scroll_applications)
-        self.applications_canvas.bind("<Button-4>", self._scroll_applications)
-        self.applications_canvas.bind("<Button-5>", self._scroll_applications)
+        self.applications_tree.bind("<Control-c>", self._copy_tree_selection)
+        self.applications_tree.bind("<Control-C>", self._copy_tree_selection)
+        self.applications_tree.bind("<Control-Insert>", self._copy_tree_selection)
+        self.applications_tree.bind("<<Copy>>", self._copy_tree_selection)
+        self.applications_tree.bind("<Button-3>", self._show_copy_menu)
 
         self._refresh_applications()
 
@@ -2042,97 +2029,164 @@ class JobsViewer(tk.Tk):
         window = self.applications_window
         if window is None or not window.winfo_exists():
             return
-
-        for widget in self.applications_rows_frame.winfo_children():
-            widget.destroy()
-        self.application_status_vars.clear()
-
-        if not self.application_rows:
-            ttk.Label(
-                self.applications_rows_frame,
-                text="No applications",
-                padding=10,
-            ).grid(row=0, column=0, sticky="w")
-            return
-
+        selected = self.applications_tree.selection()
+        selected_id = selected[0] if selected else ""
+        self.applications_tree.delete(*self.applications_tree.get_children(""))
+        self.application_rows_by_item.clear()
         for row_index, row in enumerate(self.application_rows):
             application_id = int(row["id"])
-            company_id = row.get("company_id")
-            background = "#f7f9fb" if row_index % 2 else "#ffffff"
-
-            text_cells: list[CopyableText] = []
-            for column_index, value in enumerate(
-                (
+            item = str(application_id)
+            self.applications_tree.insert(
+                "",
+                tk.END,
+                iid=item,
+                values=(
                     clean(row.get("title")),
                     clean(row.get("company")),
                     format_display_date(row.get("applied_at")),
-                )
-            ):
-                cell = CopyableText(
-                    self.applications_rows_frame,
-                    readonly=True,
-                    copy_callback=lambda: self.status_var.set("Copied"),
-                    height=1,
-                    width=1,
-                    wrap="none",
-                    borderwidth=0,
-                    relief="flat",
-                    background=background,
-                    foreground="#202020",
-                    font=("Segoe UI", 9),
-                    padx=6,
-                    pady=4,
-                    cursor="xterm",
-                )
-                cell.set_value(value)
-                cell.grid(
-                    row=row_index,
-                    column=column_index,
-                    sticky="nsew",
-                    padx=(0, 1),
-                    pady=1,
-                )
-                text_cells.append(cell)
+                    clean(row.get("status")) or "Applied",
+                ),
+                tags=("odd",) if row_index % 2 else (),
+            )
+            self.application_rows_by_item[item] = row
 
-            self._bind_copyable_link(
-                text_cells[0],
+        children = self.applications_tree.get_children("")
+        if selected_id in self.application_rows_by_item:
+            selected_item = selected_id
+        elif children:
+            selected_item = children[0]
+        else:
+            selected_item = ""
+        if selected_item:
+            self.applications_tree.selection_set(selected_item)
+            self.applications_tree.focus(selected_item)
+            self.applications_tree.see(selected_item)
+        self._schedule_application_controls()
+
+    def _schedule_application_controls(self) -> None:
+        window = self.applications_window
+        if window is None or not window.winfo_exists():
+            return
+        if self.application_links_after_id is not None:
+            window.after_cancel(self.application_links_after_id)
+        self.application_links_after_id = window.after_idle(
+            self._render_application_controls
+        )
+
+    def _render_application_controls(self) -> None:
+        self.application_links_after_id = None
+        window = self.applications_window
+        if window is None or not window.winfo_exists():
+            return
+        self._destroy_application_link_labels()
+        selected = set(self.applications_tree.selection())
+
+        for item in self.applications_tree.get_children(""):
+            row = self.application_rows_by_item.get(item)
+            if row is None:
+                continue
+            row_index = self.applications_tree.index(item)
+            background = (
+                "#4b6f8d"
+                if item in selected
+                else ("#f7f9fb" if row_index % 2 else "#ffffff")
+            )
+            foreground = "#ffffff" if item in selected else "#005a9c"
+            self._add_application_link_label(
+                item,
+                "title",
+                clean(row.get("title")),
                 lambda value=clean(row.get("source_url")): (
                     self._focus_job_from_application(value)
                 ),
+                background,
+                foreground,
             )
+            company_id = row.get("company_id")
             if company_id is not None and clean(row.get("company")):
-                self._bind_copyable_link(
-                    text_cells[1],
+                self._add_application_link_label(
+                    item,
+                    "company",
+                    clean(row.get("company")),
                     lambda value=int(company_id): self._open_companies_window(value),
+                    background,
+                    foreground,
                 )
 
-            status_var = tk.StringVar(value=clean(row.get("status")) or "Applied")
-            status_box = ttk.Combobox(
-                self.applications_rows_frame,
-                textvariable=status_var,
-                values=self.application_status_values,
-                state="readonly",
-                width=16,
-            )
-            status_box.grid(
-                row=row_index,
-                column=3,
-                sticky="nsew",
-                padx=(1, 0),
-                pady=1,
-            )
-            status_box.bind(
-                "<<ComboboxSelected>>",
-                lambda _event, value=application_id, var=status_var: (
-                    self._application_status_changed(value, var)
-                ),
-            )
-            self.application_status_vars[application_id] = status_var
+        self._position_application_status_editor()
 
-            for widget in (*text_cells, status_box):
-                widget.bind("<MouseWheel>", self._scroll_applications, add="+")
-                widget.bind("<Button-4>", self._scroll_applications, add="+")
-                widget.bind("<Button-5>", self._scroll_applications, add="+")
+    def _add_application_link_label(
+        self,
+        item: str,
+        column: str,
+        text: str,
+        command: Any,
+        background: str,
+        foreground: str,
+    ) -> None:
+        if not text:
+            return
+        bounds = self.applications_tree.bbox(item, column)
+        if not bounds:
+            return
+        x, y, width, height = bounds
+        if width <= 8 or height <= 2:
+            return
+        label = tk.Label(
+            self.applications_tree,
+            text=text,
+            anchor="w",
+            background=background,
+            foreground=foreground,
+            font=("Segoe UI", 9, "underline"),
+            padx=0,
+            cursor="hand2",
+        )
+        label_width = min(label.winfo_reqwidth(), max(1, width - 10))
+        label.place(x=x + 5, y=y + 1, width=label_width, height=height - 2)
+        label.bind("<ButtonRelease-1>", lambda _event: command())
+        label.bind("<Button-3>", self._show_global_copy_menu)
+        label.bind("<MouseWheel>", self._scroll_applications_from_link)
+        label.bind(
+            "<Shift-MouseWheel>",
+            self._scroll_applications_horizontally_from_link,
+        )
+        self.application_link_labels.append(label)
+
+    def _destroy_application_link_labels(self) -> None:
+        for label in self.application_link_labels:
+            if label.winfo_exists():
+                label.destroy()
+        self.application_link_labels.clear()
+
+    def _position_application_status_editor(self) -> None:
+        editor = self.application_status_editor
+        if editor is None or not editor.winfo_exists():
+            return
+        selected = self.applications_tree.selection()
+        item = selected[0] if selected else ""
+        row = self.application_rows_by_item.get(item)
+        bounds = self.applications_tree.bbox(item, "status") if row else ()
+        if not bounds:
+            editor.place_forget()
+            return
+        x, y, width, height = bounds
+        editor.configure(values=self.application_status_values)
+        self.application_status_var.set(clean(row.get("status")) or "Applied")
+        editor.place(x=x + 1, y=y + 1, width=width - 2, height=height - 2)
+        editor.lift()
+
+    def _application_status_editor_changed(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        selected = self.applications_tree.selection()
+        if not selected:
+            return
+        row = self.application_rows_by_item.get(selected[0])
+        if row is None:
+            return
+        self._application_status_changed(int(row["id"]), self.application_status_var)
 
     def _application_status_changed(
         self,
@@ -2160,6 +2214,9 @@ class JobsViewer(tk.Tk):
             return
 
         row["status"] = status
+        item = str(application_id)
+        if item in self.application_rows_by_item:
+            self.applications_tree.set(item, "status", status)
         self.status_var.set(f"Application -> {status}")
 
     def _focus_job_from_application(self, source_url: str) -> None:
@@ -2212,15 +2269,23 @@ class JobsViewer(tk.Tk):
         self.lift()
         self.focus_force()
 
-    def _scroll_applications(self, event: tk.Event[tk.Misc]) -> str:
-        if not hasattr(self, "applications_canvas"):
-            return "break"
+    def _scroll_applications_from_link(self, event: tk.Event[tk.Misc]) -> str:
         delta = int(getattr(event, "delta", 0) or 0)
         if delta:
             direction = -1 if delta > 0 else 1
         else:
             direction = -1 if int(getattr(event, "num", 0) or 0) == 4 else 1
-        self.applications_canvas.yview_scroll(direction, "units")
+        self.applications_tree.yview_scroll(direction, "units")
+        self._schedule_application_controls()
+        return "break"
+
+    def _scroll_applications_horizontally_from_link(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str:
+        direction = -1 if int(getattr(event, "delta", 0) or 0) > 0 else 1
+        self.applications_tree.xview_scroll(direction, "units")
+        self._schedule_application_controls()
         return "break"
 
     def _load_jobs(self) -> list[sqlite3.Row]:

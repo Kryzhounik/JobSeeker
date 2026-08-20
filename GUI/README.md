@@ -78,7 +78,9 @@ The `Applications` button opens title, company, date, and status columns. Title
 links return to the main window, reveal and select that vacancy, and company
 links open and focus the matching Companies row. Dates use `DD.MM.YYYY`.
 Application status is changed immediately by the row selector and supports
-`Applied`, `Refused`, and `Confirmed`.
+`Applied`, `Refused`, and `Confirmed`. The applications list uses one native
+table and shows a single in-cell status selector for the selected row, so the
+window does not create a separate set of controls for every stored application.
 
 ## LinkedIn availability check
 
