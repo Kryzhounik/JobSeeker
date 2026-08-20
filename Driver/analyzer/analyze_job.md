@@ -13,12 +13,20 @@ Load the operation input with:
 `python db/readable_text.py --source <source> --job-id <job-id>`.
 Keep that text in memory; do not recreate a readable TXT file.
 
+Extract deterministic human-language facts by passing the same readable text as
+UTF-8 standard input to:
+`python collector/filtering/language_requirements.py`.
+Keep the returned JSON array in memory as `<deterministic-language-facts>`.
+
 1. Job facts
    - Invoke the operation through `agent_execution.md` with:
      - operation: `job_facts`;
      - instruction: `analyzer/job_facts/extract.md`;
      - input: `<readable-text loaded from SQLite>`;
-     - contexts: none;
+     - contexts:
+       - `<deterministic-language-facts>`, labelled as authoritative
+         deterministic language facts;
+       - `analyzer/job_facts/language_levels.md`;
      - output schema: `contracts/job_analysis.schema.json`;
      - run ID and target from the current analysis run.
    - Validate the returned object against the output schema and write it to

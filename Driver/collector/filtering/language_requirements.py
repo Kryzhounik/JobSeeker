@@ -5,8 +5,15 @@ from __future__ import annotations
 import configparser
 from dataclasses import dataclass
 from functools import lru_cache
+import json
 from pathlib import Path
 import re
+import sys
+
+
+DRIVER_ROOT = Path(__file__).resolve().parents[2]
+if str(DRIVER_ROOT) not in sys.path:
+    sys.path.insert(0, str(DRIVER_ROOT))
 
 from analyzer.candidate_fit.filter import language_rank
 
@@ -244,3 +251,12 @@ def extract_language_requirements(
     config_path: Path,
 ) -> list[LanguageRequirement]:
     return load_language_requirement_extractor(config_path).extract(text)
+
+
+if __name__ == "__main__":
+    config_path = Path(__file__).with_name("linkedin_language_filter.ini")
+    requirements = extract_language_requirements(
+        sys.stdin.buffer.read().decode("utf-8"),
+        config_path,
+    )
+    print(json.dumps([item.as_filter_row() for item in requirements], ensure_ascii=False))

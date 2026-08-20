@@ -26,6 +26,7 @@ Android BSP Developer
 Analytics Engineer
 
 Administrator IT
+OpenSearch Engineer
 
 Artificial Intelligence Engineer
 AI Engineer
@@ -573,3 +574,5 @@ Full-Stack Java Developer
 
 Finance Accountant
 Security Expert
+
+Machine Engineer

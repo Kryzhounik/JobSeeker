@@ -19,10 +19,11 @@ GUI-specific problem.
 
 ## Settings
 
-Filters, table sorting, and the last sizes of the main and `Refilter detail`
-windows are stored in `GUI/jobs_viewer_settings.json`. Resizing is saved after
-a short pause and restored the next time the corresponding window opens. The
-settings file is ignored by git.
+Filters, table sorting, and the last sizes of the main, `Refilter detail`,
+`Companies`, `Applications`, and config windows are stored in
+`GUI/jobs_viewer_settings.json`. Resizing is saved after a short pause and
+restored the next time the corresponding window opens. The settings file is
+ignored by git.
 
 ## Filters
 
@@ -53,14 +54,31 @@ the original view. The full text is read-only and supports normal selection and
 
 ## Companies
 
-The `Companies` button opens the normalized company list. The `Company` and
-`Blacklisted` headers toggle sorting; blacklist sorting shows blacklisted rows
-first on its first click. Each checkbox writes `companies.blacklisted`
-immediately, without an Apply button, and is restored if the database update
-fails. The window size and last sorting are saved with the other GUI settings.
+The `Companies` button opens the normalized company list. The `Company`,
+`Applications`, and `Blacklisted` headers toggle sorting. The Applications
+column counts application records linked to the company's vacancies. Blacklist
+sorting shows blacklisted rows first on its first click. Each checkbox writes
+`companies.blacklisted` immediately, without an Apply button, and is restored
+if the database update fails. The window size and last sorting are saved with
+the other GUI settings.
 
 Company cells in the main jobs table are links. Clicking one opens the same
 window, scrolls to that company, and highlights its row.
+
+## Applications
+
+Changing one or several selected vacancies to `Applied` creates one row per
+vacancy in `applications` as part of the same database transaction. The row
+stores the local application date and starts with application status `Applied`.
+The unique `job_id` prevents duplicates if the vacancy is marked `Applied`
+again. Migration intentionally does not create rows for vacancies that were
+already `Applied` before this feature was installed.
+
+The `Applications` button opens title, company, date, and status columns. Title
+links return to the main window, reveal and select that vacancy, and company
+links open and focus the matching Companies row. Dates use `DD.MM.YYYY`.
+Application status is changed immediately by the row selector and supports
+`Applied`, `Refused`, and `Confirmed`.
 
 ## LinkedIn availability check
 

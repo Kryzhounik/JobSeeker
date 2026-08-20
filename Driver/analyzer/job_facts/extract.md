@@ -50,6 +50,20 @@ Languages:
 - Store each language separately with its level when stated.
 - Use this JSON shape for each language:
   `{"name": "English", "level": "B2", "level_rank": 4, "raw_value": "..."}`
+- The caller supplies authoritative deterministic language facts when exact or
+  reviewed wording was recognized before this operation. Copy those facts into
+  `languages` without changing their `name`, `level`, `level_rank`, or
+  `raw_value`. Do not reinterpret a language already present in that context.
+  Semantically evaluate only language requirements not already resolved there.
+- Normalize human-language proficiency using the supplied
+  `language_levels.md` context.
+- Normalize semantic equivalents to the CEFR label; keep the vacancy's original
+  wording only in `raw_value`.
+- Requirement status and proficiency are independent. Never infer proficiency
+  from `required`, `mandatory`, a must-have section, vacancy seniority, or the
+  mere fact that the language will be used. If a language is required but the
+  text gives no proficiency signal, do not create a ranked language row; record
+  in `notes` that the language is required with level unspecified.
 - Pick primary_language as the language with the highest required level.
 - If a language is unclear, do not confuse it with a programming language.
 

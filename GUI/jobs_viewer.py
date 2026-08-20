@@ -37,6 +37,12 @@ DRIVER_ROOT = ROOT / "Driver"
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from db.applications import (
+    create_for_source_urls as create_applications_for_source_urls,
+    list_applications as load_applications,
+    list_application_statuses,
+    update_status as update_application_status,
+)
 from db.job_mapper import delete_jobs
 from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
@@ -461,12 +467,14 @@ class JobsViewer(tk.Tk):
         self.company_rows: list[dict[str, Any]] = []
         self.company_row_widgets: dict[
             int,
-            tuple[CopyableText, tk.Frame, str],
+            tuple[CopyableText, CopyableText, tk.Frame, str],
         ] = {}
         self.company_blacklist_vars: dict[int, tk.BooleanVar] = {}
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
+        self.applications_window: tk.Toplevel | None = None
+        self.application_status_vars: dict[int, tk.StringVar] = {}
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
         self.availability_check_running = False
@@ -516,7 +524,7 @@ class JobsViewer(tk.Tk):
 
         toolbar = ttk.Frame(self, padding=(10, 8))
         toolbar.grid(row=0, column=0, sticky="ew")
-        toolbar.columnconfigure(4, weight=1)
+        toolbar.columnconfigure(5, weight=1)
 
         refresh_button = ttk.Button(toolbar, text="Refresh", command=self.refresh_jobs)
         refresh_button.grid(row=0, column=0, sticky="w")
@@ -541,8 +549,14 @@ class JobsViewer(tk.Tk):
             command=self._open_companies_window,
         ).grid(row=0, column=3, sticky="w", padx=(6, 0))
 
+        ttk.Button(
+            toolbar,
+            text="Applications",
+            command=self._open_applications_window,
+        ).grid(row=0, column=4, sticky="w", padx=(6, 0))
+
         filters = ttk.Frame(toolbar)
-        filters.grid(row=0, column=4, sticky="w", padx=(8, 8))
+        filters.grid(row=0, column=5, sticky="w", padx=(8, 8))
 
         ttk.Label(filters, text="Status", style="Muted.TLabel").grid(
             row=0,
@@ -566,7 +580,7 @@ class JobsViewer(tk.Tk):
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
 
         search_filters = ttk.Frame(toolbar)
-        search_filters.grid(row=0, column=5, sticky="e")
+        search_filters.grid(row=0, column=6, sticky="e")
 
         ttk.Label(search_filters, text="ID", style="Muted.TLabel").grid(
             row=0,
@@ -1070,7 +1084,7 @@ class JobsViewer(tk.Tk):
     def _saved_company_sort_column(self) -> str:
         company_sort = self.settings.get("company_sort")
         column = company_sort.get("column") if isinstance(company_sort, dict) else None
-        if column in {"name", "blacklisted"}:
+        if column in {"name", "application_count", "blacklisted"}:
             return clean(column)
         return "name"
 
@@ -1458,8 +1472,8 @@ class JobsViewer(tk.Tk):
         window = tk.Toplevel(self)
         self.companies_window = window
         window.title("Companies")
-        window.geometry(self._saved_window_size("companies", "720x640", 480, 360))
-        window.minsize(480, 360)
+        window.geometry(self._saved_window_size("companies", "820x640", 560, 360))
+        window.minsize(560, 360)
         window.transient(self)
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
@@ -1499,11 +1513,13 @@ class JobsViewer(tk.Tk):
         header = tk.Frame(table, background="#e7e9e7")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1, minsize=320)
-        header.columnconfigure(1, minsize=140)
+        header.columnconfigure(1, minsize=110)
+        header.columnconfigure(2, minsize=140)
         self.company_headers: dict[str, tk.Label] = {}
         for column, label, column_index, anchor in (
             ("name", "Company", 0, "w"),
-            ("blacklisted", "Blacklisted", 1, "center"),
+            ("application_count", "Applications", 1, "center"),
+            ("blacklisted", "Blacklisted", 2, "center"),
         ):
             heading = tk.Label(
                 header,
@@ -1546,7 +1562,8 @@ class JobsViewer(tk.Tk):
             background="#ffffff",
         )
         self.companies_rows_frame.columnconfigure(0, weight=1, minsize=320)
-        self.companies_rows_frame.columnconfigure(1, minsize=140)
+        self.companies_rows_frame.columnconfigure(1, minsize=110)
+        self.companies_rows_frame.columnconfigure(2, minsize=140)
         rows_window = self.companies_canvas.create_window(
             (0, 0),
             window=self.companies_rows_frame,
@@ -1576,8 +1593,15 @@ class JobsViewer(tk.Tk):
             with self.connect() as connection:
                 rows = connection.execute(
                     """
-                    SELECT id, name, blacklisted
-                    FROM companies
+                    SELECT
+                        c.id,
+                        c.name,
+                        c.blacklisted,
+                        count(a.id) AS application_count
+                    FROM companies c
+                    LEFT JOIN jobs j ON j.company_id = c.id
+                    LEFT JOIN applications a ON a.job_id = j.id
+                    GROUP BY c.id, c.name, c.blacklisted
                     """
                 ).fetchall()
         except Exception as error:
@@ -1589,6 +1613,7 @@ class JobsViewer(tk.Tk):
             {
                 "id": int(row["id"]),
                 "name": clean(row["name"]),
+                "application_count": int(row["application_count"]),
                 "blacklisted": bool(row["blacklisted"]),
             }
             for row in rows
@@ -1598,18 +1623,28 @@ class JobsViewer(tk.Tk):
         self._render_company_rows()
 
     def _sort_companies(self, column: str) -> None:
-        if column not in {"name", "blacklisted"}:
+        if column not in {"name", "application_count", "blacklisted"}:
             return
         if self.company_sort_column == column:
             self.company_sort_descending = not self.company_sort_descending
         else:
             self.company_sort_column = column
-            self.company_sort_descending = column == "blacklisted"
+            self.company_sort_descending = column in {
+                "application_count",
+                "blacklisted",
+            }
         self._save_settings()
         self._render_company_rows()
 
     def _sorted_company_rows(self) -> list[dict[str, Any]]:
         rows = list(self.company_rows)
+        if self.company_sort_column == "application_count":
+            rows.sort(key=lambda row: clean(row["name"]).casefold())
+            rows.sort(
+                key=lambda row: int(row["application_count"]),
+                reverse=self.company_sort_descending,
+            )
+            return rows
         if self.company_sort_column == "blacklisted":
             rows.sort(key=lambda row: clean(row["name"]).casefold())
             rows.sort(
@@ -1634,7 +1669,11 @@ class JobsViewer(tk.Tk):
         self.company_blacklist_vars.clear()
 
         marker = " v" if self.company_sort_descending else " ^"
-        for column, label in (("name", "Company"), ("blacklisted", "Blacklisted")):
+        for column, label in (
+            ("name", "Company"),
+            ("application_count", "Applications"),
+            ("blacklisted", "Blacklisted"),
+        ):
             text = f"{label}{marker}" if self.company_sort_column == column else label
             self.company_headers[column].configure(text=text)
 
@@ -1670,13 +1709,39 @@ class JobsViewer(tk.Tk):
                 pady=1,
             )
 
+            count_cell = CopyableText(
+                self.companies_rows_frame,
+                readonly=True,
+                copy_callback=lambda: self.status_var.set("Copied"),
+                height=1,
+                wrap="none",
+                borderwidth=0,
+                relief="flat",
+                background=background,
+                foreground=foreground,
+                font=("Segoe UI", 9),
+                padx=6,
+                pady=4,
+                cursor="xterm",
+            )
+            count_cell.set_value(row["application_count"])
+            count_cell.tag_configure("center", justify="center")
+            count_cell.tag_add("center", "1.0", "end-1c")
+            count_cell.grid(
+                row=row_index,
+                column=1,
+                sticky="nsew",
+                padx=1,
+                pady=1,
+            )
+
             checkbox_cell = tk.Frame(
                 self.companies_rows_frame,
                 background=background,
             )
             checkbox_cell.grid(
                 row=row_index,
-                column=1,
+                column=2,
                 sticky="nsew",
                 padx=(1, 0),
                 pady=1,
@@ -1696,6 +1761,11 @@ class JobsViewer(tk.Tk):
                 lambda _event, value=company_id: self._select_company_row(value),
                 add="+",
             )
+            count_cell.bind(
+                "<ButtonPress-1>",
+                lambda _event, value=company_id: self._select_company_row(value),
+                add="+",
+            )
             checkbox_cell.bind(
                 "<ButtonPress-1>",
                 lambda _event, value=company_id: self._select_company_row(value),
@@ -1705,13 +1775,14 @@ class JobsViewer(tk.Tk):
                 lambda _event, value=company_id: self._select_company_row(value),
                 add="+",
             )
-            for widget in (name_cell, checkbox_cell, checkbox):
+            for widget in (name_cell, count_cell, checkbox_cell, checkbox):
                 widget.bind("<MouseWheel>", self._scroll_companies, add="+")
                 widget.bind("<Button-4>", self._scroll_companies, add="+")
                 widget.bind("<Button-5>", self._scroll_companies, add="+")
 
             self.company_row_widgets[company_id] = (
                 name_cell,
+                count_cell,
                 checkbox_cell,
                 base_background,
             )
@@ -1728,11 +1799,14 @@ class JobsViewer(tk.Tk):
         for row_id in (previous, company_id):
             if row_id is None or row_id not in self.company_row_widgets:
                 continue
-            name_cell, checkbox_cell, base_background = self.company_row_widgets[row_id]
+            name_cell, count_cell, checkbox_cell, base_background = (
+                self.company_row_widgets[row_id]
+            )
             selected = row_id == company_id
             background = "#4b6f8d" if selected else base_background
             foreground = "#ffffff" if selected else "#202020"
             name_cell.configure(background=background, foreground=foreground)
+            count_cell.configure(background=background, foreground=foreground)
             checkbox_cell.configure(background=background)
 
     def _focus_company_row(self, company_id: int | None) -> None:
@@ -1744,7 +1818,9 @@ class JobsViewer(tk.Tk):
         self.companies_canvas.update_idletasks()
         if len(displayed_ids) > 1:
             self.companies_canvas.yview_moveto(row_index / (len(displayed_ids) - 1))
-        name_cell, _checkbox_cell, _background = self.company_row_widgets[company_id]
+        name_cell, _count_cell, _checkbox_cell, _background = (
+            self.company_row_widgets[company_id]
+        )
         name_cell.focus_set()
 
     def _company_blacklist_changed(
@@ -1793,6 +1869,355 @@ class JobsViewer(tk.Tk):
         else:
             direction = -1 if int(getattr(event, "num", 0) or 0) == 4 else 1
         self.companies_canvas.yview_scroll(direction, "units")
+        return "break"
+
+    def _bind_copyable_link(self, widget: CopyableText, command: Any) -> None:
+        widget.tag_configure("link", foreground="#005a9c", underline=True)
+        widget.tag_add("link", "1.0", "end-1c")
+        press_position: list[tuple[int, int] | None] = [None]
+
+        def remember_press(event: tk.Event[tk.Misc]) -> None:
+            press_position[0] = (event.x_root, event.y_root)
+
+        def activate(event: tk.Event[tk.Misc]) -> str | None:
+            start = press_position[0]
+            press_position[0] = None
+            if start is None:
+                return None
+            if abs(event.x_root - start[0]) + abs(event.y_root - start[1]) > 4:
+                return None
+            command()
+            return "break"
+
+        widget.tag_bind("link", "<Enter>", lambda _event: widget.configure(cursor="hand2"))
+        widget.tag_bind("link", "<Leave>", lambda _event: widget.configure(cursor="xterm"))
+        widget.tag_bind("link", "<ButtonPress-1>", remember_press)
+        widget.tag_bind("link", "<ButtonRelease-1>", activate)
+
+    def _open_applications_window(self) -> None:
+        window = self.applications_window
+        if window is not None and window.winfo_exists():
+            self._refresh_applications()
+            window.deiconify()
+            window.lift()
+            window.focus_force()
+            return
+
+        window = tk.Toplevel(self)
+        self.applications_window = window
+        window.title("Applications")
+        window.geometry(self._saved_window_size("applications", "980x620", 700, 360))
+        window.minsize(700, 360)
+        window.transient(self)
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(0, weight=1)
+
+        size_save_after_id: str | None = None
+
+        def save_size() -> None:
+            nonlocal size_save_after_id
+            size_save_after_id = None
+            self._remember_window_size("applications", window)
+
+        def schedule_size_save(event: tk.Event[tk.Misc]) -> None:
+            nonlocal size_save_after_id
+            if event.widget is not window or clean(window.state()) != "normal":
+                return
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+            size_save_after_id = window.after(300, save_size)
+
+        def close_window() -> None:
+            nonlocal size_save_after_id
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+                size_save_after_id = None
+            self._remember_window_size("applications", window)
+            self.applications_window = None
+            window.destroy()
+
+        window.bind("<Configure>", schedule_size_save)
+        window.protocol("WM_DELETE_WINDOW", close_window)
+
+        table = ttk.Frame(window, padding=10)
+        table.grid(row=0, column=0, sticky="nsew")
+        table.columnconfigure(0, weight=1)
+        table.rowconfigure(1, weight=1)
+
+        header = tk.Frame(table, background="#e7e9e7")
+        header.grid(row=0, column=0, sticky="ew")
+        for column_index, (label, weight, minimum) in enumerate(
+            (
+                ("Title", 3, 260),
+                ("Company", 2, 180),
+                ("Date", 0, 110),
+                ("Status", 0, 150),
+            )
+        ):
+            header.columnconfigure(column_index, weight=weight, minsize=minimum)
+            tk.Label(
+                header,
+                text=label,
+                anchor="w" if column_index < 2 else "center",
+                background="#e7e9e7",
+                foreground="#202020",
+                font=("Segoe UI", 9, "bold"),
+                borderwidth=1,
+                relief="solid",
+                padx=6,
+                pady=5,
+            ).grid(row=0, column=column_index, sticky="nsew")
+
+        self.applications_canvas = tk.Canvas(
+            table,
+            borderwidth=0,
+            highlightthickness=0,
+            background="#ffffff",
+        )
+        self.applications_canvas.grid(row=1, column=0, sticky="nsew")
+        scrollbar = ttk.Scrollbar(
+            table,
+            orient=tk.VERTICAL,
+            command=self.applications_canvas.yview,
+        )
+        scrollbar.grid(row=1, column=1, sticky="ns")
+        self.applications_canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.applications_rows_frame = tk.Frame(
+            self.applications_canvas,
+            background="#ffffff",
+        )
+        for column_index, (weight, minimum) in enumerate(
+            ((3, 260), (2, 180), (0, 110), (0, 150))
+        ):
+            self.applications_rows_frame.columnconfigure(
+                column_index,
+                weight=weight,
+                minsize=minimum,
+            )
+        rows_window = self.applications_canvas.create_window(
+            (0, 0),
+            window=self.applications_rows_frame,
+            anchor="nw",
+        )
+        self.applications_rows_frame.bind(
+            "<Configure>",
+            lambda _event: self.applications_canvas.configure(
+                scrollregion=self.applications_canvas.bbox("all")
+            ),
+        )
+        self.applications_canvas.bind(
+            "<Configure>",
+            lambda event: self.applications_canvas.itemconfigure(
+                rows_window,
+                width=event.width,
+            ),
+        )
+        self.applications_canvas.bind("<MouseWheel>", self._scroll_applications)
+        self.applications_canvas.bind("<Button-4>", self._scroll_applications)
+        self.applications_canvas.bind("<Button-5>", self._scroll_applications)
+
+        self._refresh_applications()
+
+    def _refresh_applications(self) -> None:
+        window = self.applications_window
+        if window is None or not window.winfo_exists():
+            return
+        try:
+            with self.connect() as connection:
+                statuses = list_application_statuses(connection)
+                rows = load_applications(connection)
+        except Exception as error:
+            messagebox.showerror("Applications load failed", str(error))
+            self.status_var.set("Applications load failed")
+            return
+
+        self.application_status_values = statuses
+        self.application_rows = [dict(row) for row in rows]
+        self._render_application_rows()
+
+    def _render_application_rows(self) -> None:
+        window = self.applications_window
+        if window is None or not window.winfo_exists():
+            return
+
+        for widget in self.applications_rows_frame.winfo_children():
+            widget.destroy()
+        self.application_status_vars.clear()
+
+        if not self.application_rows:
+            ttk.Label(
+                self.applications_rows_frame,
+                text="No applications",
+                padding=10,
+            ).grid(row=0, column=0, sticky="w")
+            return
+
+        for row_index, row in enumerate(self.application_rows):
+            application_id = int(row["id"])
+            company_id = row.get("company_id")
+            background = "#f7f9fb" if row_index % 2 else "#ffffff"
+
+            text_cells: list[CopyableText] = []
+            for column_index, value in enumerate(
+                (
+                    clean(row.get("title")),
+                    clean(row.get("company")),
+                    format_display_date(row.get("applied_at")),
+                )
+            ):
+                cell = CopyableText(
+                    self.applications_rows_frame,
+                    readonly=True,
+                    copy_callback=lambda: self.status_var.set("Copied"),
+                    height=1,
+                    wrap="none",
+                    borderwidth=0,
+                    relief="flat",
+                    background=background,
+                    foreground="#202020",
+                    font=("Segoe UI", 9),
+                    padx=6,
+                    pady=4,
+                    cursor="xterm",
+                )
+                cell.set_value(value)
+                cell.grid(
+                    row=row_index,
+                    column=column_index,
+                    sticky="nsew",
+                    padx=(0, 1),
+                    pady=1,
+                )
+                text_cells.append(cell)
+
+            self._bind_copyable_link(
+                text_cells[0],
+                lambda value=clean(row.get("source_url")): (
+                    self._focus_job_from_application(value)
+                ),
+            )
+            if company_id is not None and clean(row.get("company")):
+                self._bind_copyable_link(
+                    text_cells[1],
+                    lambda value=int(company_id): self._open_companies_window(value),
+                )
+
+            status_var = tk.StringVar(value=clean(row.get("status")) or "Applied")
+            status_box = ttk.Combobox(
+                self.applications_rows_frame,
+                textvariable=status_var,
+                values=self.application_status_values,
+                state="readonly",
+                width=16,
+            )
+            status_box.grid(
+                row=row_index,
+                column=3,
+                sticky="nsew",
+                padx=(1, 0),
+                pady=1,
+            )
+            status_box.bind(
+                "<<ComboboxSelected>>",
+                lambda _event, value=application_id, var=status_var: (
+                    self._application_status_changed(value, var)
+                ),
+            )
+            self.application_status_vars[application_id] = status_var
+
+            for widget in (*text_cells, status_box):
+                widget.bind("<MouseWheel>", self._scroll_applications, add="+")
+                widget.bind("<Button-4>", self._scroll_applications, add="+")
+                widget.bind("<Button-5>", self._scroll_applications, add="+")
+
+    def _application_status_changed(
+        self,
+        application_id: int,
+        variable: tk.StringVar,
+    ) -> None:
+        row = next(
+            (item for item in self.application_rows if int(item["id"]) == application_id),
+            None,
+        )
+        if row is None:
+            return
+        previous = clean(row.get("status")) or "Applied"
+        status = clean(variable.get())
+        if status == previous:
+            return
+
+        try:
+            with self.connect_writable() as connection:
+                update_application_status(connection, application_id, status)
+        except Exception as error:
+            variable.set(previous)
+            messagebox.showerror("Application update failed", str(error))
+            self.status_var.set("Application update failed")
+            return
+
+        row["status"] = status
+        self.status_var.set(f"Application -> {status}")
+
+    def _focus_job_from_application(self, source_url: str) -> None:
+        if not source_url:
+            return
+        try:
+            with self.connect() as connection:
+                row = connection.execute(
+                    "SELECT id, status FROM jobs WHERE source_url = ?",
+                    (source_url,),
+                ).fetchone()
+        except Exception as error:
+            messagebox.showerror("Vacancy navigation failed", str(error))
+            return
+        if row is None:
+            messagebox.showerror("Vacancy navigation failed", "Vacancy not found.")
+            return
+
+        status = clean(row["status"])
+        if status in self.status_filter_vars:
+            self.status_filter_vars[status].set(True)
+        self.show_zero_var.set(True)
+        self.id_search_var.set(str(row["id"]))
+        self.added_from_var.set("")
+        self.reason_filter_var.set("")
+        self._save_settings()
+        self.refresh_jobs()
+
+        item = next(
+            (
+                item_id
+                for item_id, item_row in self.job_rows.items()
+                if item_row.get("source_url") == source_url
+            ),
+            "",
+        )
+        if not item:
+            messagebox.showerror(
+                "Vacancy navigation failed",
+                "Vacancy is hidden by the current filters.",
+            )
+            return
+        self.jobs_tree.selection_set(item)
+        self.jobs_tree.focus(item)
+        self.jobs_tree.see(item)
+        self.jobs_tree.event_generate("<<TreeviewSelect>>")
+        if self.applications_window is not None:
+            self.applications_window.withdraw()
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+
+    def _scroll_applications(self, event: tk.Event[tk.Misc]) -> str:
+        if not hasattr(self, "applications_canvas"):
+            return "break"
+        delta = int(getattr(event, "delta", 0) or 0)
+        if delta:
+            direction = -1 if delta > 0 else 1
+        else:
+            direction = -1 if int(getattr(event, "num", 0) or 0) == 4 else 1
+        self.applications_canvas.yview_scroll(direction, "units")
         return "break"
 
     def _load_jobs(self) -> list[sqlite3.Row]:
@@ -2896,6 +3321,7 @@ class JobsViewer(tk.Tk):
         if not source_urls:
             return
 
+        created_applications = 0
         try:
             with self.connect_writable() as connection:
                 placeholders = ", ".join("?" for _source_url in source_urls)
@@ -2910,12 +3336,26 @@ class JobsViewer(tk.Tk):
                 )
                 if result.rowcount == 0:
                     raise KeyError("Selected jobs were not found.")
+                if status == "Applied":
+                    created_applications = create_applications_for_source_urls(
+                        connection,
+                        source_urls,
+                        datetime.now().strftime(DATABASE_DATE_FORMAT),
+                    )
         except Exception as error:
             messagebox.showerror("Status update failed", str(error))
             self.status_var.set("Status update failed")
             return
 
         self._update_selected_jobs_status(status, items, source_urls)
+        if created_applications:
+            if self.companies_window is not None and self.companies_window.winfo_exists():
+                self._refresh_companies(self.selected_company_id)
+            if (
+                self.applications_window is not None
+                and self.applications_window.winfo_exists()
+            ):
+                self._refresh_applications()
         self.status_var.set(f"Status -> {status} ({len(source_urls)})")
 
     def _save_scores_from_detail(self, _event: tk.Event[tk.Misc] | None = None) -> str:
