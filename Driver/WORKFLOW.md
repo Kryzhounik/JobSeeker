@@ -53,10 +53,14 @@ read LinkedIn collector settings
    -> run collector/scan_linkedin.py batch --location <location>
    -> fetch guest-search pages in steps of 9
    -> save accepted guest raw/readable data with collection_method=script
-   -> run the logged-in browser collector for that same location
+   -> recalculate remaining = global limit - combined run scope size
+   -> if remaining is zero, stop collection immediately
+   -> otherwise run the logged-in browser collector for that same location
    -> skip guest-prefetched IDs through normal preview deduplication
    -> save browser-only raw/readable data with collection_method=browser
    -> merge both location scopes into the explicit run scope
+   -> recalculate remaining = global limit - combined run scope size
+   -> if remaining is zero, stop collection immediately
    -> only then move to the next location
 -> continue the main pipeline for the explicit run scope
 ```
@@ -73,7 +77,9 @@ browser operation with an undocumented alternative during the batch.
 
 The global limit applies to the combined scope. The caller tracks the remaining
 limit across both passes and all locations; neither collector may independently
-restart the limit for the next location.
+restart the limit for the next location. The browser pass is only a gap-fill up
+to that limit. If the guest pass reaches the global limit, do not invoke the
+browser collector, inspect browser coverage, or continue to another location.
 
 LinkedIn guest responses are not stable snapshots. If adjacent `start` pages
 have no overlapping job ID, `scan_linkedin.py` logs a pagination warning and

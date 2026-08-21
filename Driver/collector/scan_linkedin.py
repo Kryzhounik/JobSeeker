@@ -17,10 +17,12 @@ For that reason, missing ID overlap between adjacent guest responses is logged
 as a warning and never stops collection by itself.
 Use this module as the cheap first pass for one location at a time: it stores
 every vacancy it can reach and records its source job ID in SQLite with
-`source_jobs.collection_method = script`. Then run the browser collector for
-that same location; its preview deduplication skips stored IDs before opening a
-job pane, while browser-only vacancies are still collected with
-`collection_method = browser`. Only then move to the next configured location.
+`source_jobs.collection_method = script`. If this pass reaches the remaining
+global limit, collection ends without opening the browser. Otherwise the
+browser collector fills only the remaining count for the same location; its
+preview deduplication skips stored IDs before opening a job pane. Move to the
+next configured location only while the combined scope remains below the
+global limit.
 """
 
 from __future__ import annotations

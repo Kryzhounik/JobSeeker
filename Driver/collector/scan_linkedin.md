@@ -33,6 +33,12 @@ caller. Do not move to the next configured location inside this browser call.
 The caller merges guest and browser scopes, updates the remaining global limit,
 and then starts the guest pass for the next location.
 
+This browser collector is a gap-fill, not a mandatory verification pass. The
+caller must calculate the remaining global limit before invoking it. If the
+remaining limit is zero, do not open Chrome, inspect the browser result set, or
+invoke this collector at all. During the browser pass, stop immediately when
+the combined run scope reaches the global limit.
+
 1. Run `python collector/linkedin_search_urls.py`.
 2. Open `seed:<location>` URL(s) first, but do not collect vacancies from them.
    They only anchor LinkedIn's sticky remote-search location.
@@ -104,10 +110,10 @@ and then starts the guest pass for the next location.
     verify that the selected details link contains the same `job_id` and wait
     for the job details pane.
 14. Keep skipped preview cards in the report for debugging false rejects.
-15. Stop at `limit` from `collector/config/linkedin.properties`. Increment the
-    limit counter only after a new raw page is successfully saved. Blocked
-    previews, registry duplicates, `already_raw`, and failures do not consume
-    the limit.
+15. Stop after saving the caller-supplied remaining number of vacancies. The
+    browser call must not restart the configured global limit. Increment its
+    counter only after a new raw page is successfully saved. Blocked previews,
+    registry duplicates, `already_raw`, and failures do not consume the limit.
 16. Do not normally build a queue and later open each `/jobs/view/<id>/` URL.
     The normal LinkedIn path is search UI card -> details pane -> raw save.
     If the accepted card cannot be found/clicked in the current search UI

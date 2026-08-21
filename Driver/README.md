@@ -40,13 +40,14 @@ Missing ID overlap between adjacent guest pages is therefore diagnostic only:
 the script records a warning and continues. It does not treat overlap as a
 pagination requirement.
 
-Immediately after one location's guest pass, run the logged-in browser
-collector for that same location. Its preview filter checks title and company
-first, then checks `(source, source_job_id)` in `source_jobs`. Jobs already
-stored by the guest pass are skipped before a details pane is opened. The
-browser therefore acts as a coverage pass for browser-only vacancies while
-avoiding repeated per-vacancy browser work for the overlap. Move to the next
-configured location only after both passes finish for the current one.
+After one location's guest pass, recalculate the remaining global limit. If it
+is zero, collection ends immediately and the logged-in browser is not opened.
+Otherwise, run the browser collector for that same location only as a gap-fill
+for the remaining count. Its preview filter checks title and company first,
+then checks `(source, source_job_id)` in `source_jobs`. Jobs already stored by
+the guest pass are skipped before a details pane is opened. Move to the next
+configured location only if the combined scope is still below the global
+limit. Never run a coverage-only browser pass after the limit has been reached.
 
 `source_jobs.collection_method` records which collector first persisted valid
 raw data: `script` for the guest collector and `browser` for the logged-in
