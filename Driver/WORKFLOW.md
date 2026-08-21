@@ -49,13 +49,24 @@ analysis.
 
 ```text
 read LinkedIn collector settings
--> open LinkedIn search in the logged-in browser
--> inspect search result cards
+-> run collector/scan_linkedin.py batch
+-> fetch LinkedIn guest-search pages in steps of 9
 -> apply the preview filter to each card
--> save accepted vacancy detail panes as raw HTML
+-> fetch accepted vacancy details and save raw HTML
 -> prepare readable text and apply the content filter
+-> return the explicit source-job ID scope accepted by both filters
 -> continue the main pipeline for the explicit run scope
 ```
+
+The collector's stable public command is:
+
+```text
+python collector/scan_linkedin.py batch
+```
+
+For diagnostics, use its `search-page` and `job` commands. Do not replace a
+failing batch command with browser collection or one-off HTTP commands during
+the batch.
 
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.

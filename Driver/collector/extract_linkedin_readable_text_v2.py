@@ -20,6 +20,7 @@ TAIL_MARKERS = (
     "Set alert for similar jobs",
     "More jobs",
     "Looking for talent?",
+    "Show more",
 )
 
 CHROME_LINES = {
@@ -50,6 +51,8 @@ BLOCK_UNTIL_ABOUT_JOB = {
     "People you can reach out to",
     "Meet the hiring team",
 }
+GUEST_SIGN_IN_START = "Join or sign in to find your next job"
+GUEST_DESCRIPTION_START = "Description"
 
 MOJIBAKE_MARKERS = (
     "В·",
@@ -101,6 +104,7 @@ def normalize_text(text: str) -> str:
     lines: list[str] = []
     previous = ""
     skip_until_about_job = False
+    skip_guest_sign_in = False
 
     for raw_line in text.splitlines():
         line = repair_mojibake(raw_line)
@@ -110,6 +114,16 @@ def normalize_text(text: str) -> str:
 
         if line in TAIL_MARKERS:
             break
+
+        if line == GUEST_SIGN_IN_START:
+            skip_guest_sign_in = True
+            continue
+
+        if skip_guest_sign_in:
+            if line == GUEST_DESCRIPTION_START:
+                skip_guest_sign_in = False
+            else:
+                continue
 
         if skip_until_about_job:
             if line == "About the job":

@@ -58,6 +58,7 @@ def validate_content(source: str, content: str) -> None:
             "Role Overview",
             "Requirements",
             "Key Responsibilities",
+            "show-more-less-html__markup",
         )
     )
     still_loading = "In progress" in content or "progressbar" in content
@@ -121,8 +122,8 @@ def main() -> None:
     else:
         if args.source.lower() == "linkedin":
             raise SystemExit(
-                "LinkedIn raw pages must come from the logged-in browser. "
-                "Use --content-file or --stdin."
+                "LinkedIn raw pages are fetched by collector/scan_linkedin.py. "
+                "Use that command, --content-file, or --stdin."
             )
         content = fetch(args.url)
 
