@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
+import tempfile
 from urllib.parse import parse_qs, urlparse
 import unittest
 
@@ -11,9 +12,11 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from collector.scan_linkedin import CollectionError
+from collector.scan_linkedin import collect_batch
 from collector.scan_linkedin import parse_location
 from collector.scan_linkedin import parse_search_page
 from collector.scan_linkedin import search_page_url
+from collector.scan_linkedin import should_stop_location
 from collector.scan_linkedin import validate_page_overlap
 from collector.save_raw_page import validate_content
 
@@ -80,6 +83,57 @@ class ScanLinkedInTest(unittest.TestCase):
 
         with self.assertRaises(CollectionError):
             validate_page_overlap({"1", "2"}, {"3", "4"})
+
+    def test_location_requires_two_pages_without_new_ids(self) -> None:
+        self.assertFalse(should_stop_location(0, 20, 0))
+        self.assertFalse(should_stop_location(0, 20, 1))
+        self.assertTrue(should_stop_location(0, 20, 2))
+        self.assertTrue(should_stop_location(20, 20, 0))
+
+    def test_empty_page_is_retried_at_next_start(self) -> None:
+        class EmptyClient:
+            def __init__(self) -> None:
+                self.urls: list[str] = []
+
+            def get(self, url: str) -> str:
+                self.urls.append(url)
+                return "<ul></ul>"
+
+        client = EmptyClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = collect_batch(
+                {"keywords": "Java", "locations": "Moldova:106178099"},
+                limit=1,
+                client=client,
+                db_path=Path(directory) / "jobs.sqlite",
+                raw_dir=Path(directory) / "raw",
+            )
+
+        self.assertEqual([page["start"] for page in result["pages"]], [0, 9])
+        self.assertEqual(len(client.urls), 2)
+
+    def test_location_override_processes_only_one_location(self) -> None:
+        class EmptyClient:
+            def get(self, url: str) -> str:
+                return "<ul></ul>"
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = collect_batch(
+                {
+                    "keywords": "Java",
+                    "locations": "Ukraine:102264497,Moldova:106178099",
+                },
+                limit=1,
+                client=EmptyClient(),
+                db_path=Path(directory) / "jobs.sqlite",
+                raw_dir=Path(directory) / "raw",
+                location_value="Moldova:106178099",
+            )
+
+        self.assertEqual(
+            [page["label"] for page in result["pages"]],
+            ["Moldova", "Moldova"],
+        )
 
     def test_guest_job_description_is_valid_raw(self) -> None:
         validate_content(

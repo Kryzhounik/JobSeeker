@@ -35,6 +35,9 @@ class JobRegistryTest(unittest.TestCase):
                 source TEXT NOT NULL REFERENCES job_sources(code),
                 source_job_id TEXT NOT NULL,
                 processing_status TEXT NOT NULL REFERENCES processing_statuses(code),
+                collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
+                    collection_method IN ('unknown', 'script', 'browser')
+                ),
                 UNIQUE(source, source_job_id)
             );
             """
@@ -53,6 +56,42 @@ class JobRegistryTest(unittest.TestCase):
         ).fetchone()[0]
         self.assertEqual(status, "CLEANED")
         self.assertTrue(is_registered(self.connection, "linkedin", "123"))
+
+    def test_collection_method_records_first_collector(self) -> None:
+        mark_status(
+            self.connection,
+            "linkedin",
+            "123",
+            "RAW",
+            collection_method="script",
+        )
+        mark_status(
+            self.connection,
+            "linkedin",
+            "123",
+            "CLEANED",
+            collection_method="browser",
+        )
+
+        method = self.connection.execute(
+            "SELECT collection_method FROM source_jobs"
+        ).fetchone()[0]
+        self.assertEqual(method, "script")
+
+    def test_collection_method_replaces_legacy_unknown(self) -> None:
+        mark_status(self.connection, "linkedin", "123", "RAW")
+        mark_status(
+            self.connection,
+            "linkedin",
+            "123",
+            "RAW",
+            collection_method="browser",
+        )
+
+        method = self.connection.execute(
+            "SELECT collection_method FROM source_jobs"
+        ).fetchone()[0]
+        self.assertEqual(method, "browser")
 
     def test_source_job_id_uses_canonical_url_identity(self) -> None:
         self.assertEqual(

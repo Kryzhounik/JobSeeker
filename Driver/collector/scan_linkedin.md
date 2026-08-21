@@ -21,6 +21,18 @@ For left-panel card materialization and page-count verification, follow
 
 ## Workflow
 
+This browser collector is the second half of a location-by-location hybrid
+collection. The caller supplies one current location after running:
+
+```text
+python collector/scan_linkedin.py batch --location <Name[:geoId]>
+```
+
+Process only that same location and return its browser-only scope to the
+caller. Do not move to the next configured location inside this browser call.
+The caller merges guest and browser scopes, updates the remaining global limit,
+and then starts the guest pass for the next location.
+
 1. Run `python collector/linkedin_search_urls.py`.
 2. Open `seed:<location>` URL(s) first, but do not collect vacancies from them.
    They only anchor LinkedIn's sticky remote-search location.
@@ -126,8 +138,9 @@ For left-panel card materialization and page-count verification, follow
    filter, and the collection logger. Do not recreate this sequence as an
    inline shell command for each browser batch.
 22. The saver records processing status `RAW` only after valid raw content is
-   present on disk. The cleaner writes analyzer-ready text to SQLite
-   `source_job_texts` and records `CLEANED`. If cleaning fails, leave the
+    present on disk and sets `source_jobs.collection_method = browser` for a
+    newly collected vacancy. The cleaner writes analyzer-ready text to SQLite
+    `source_job_texts` and records `CLEANED`. If cleaning fails, leave the
    vacancy at `RAW`, report the failure, and do not analyze it.
 23. The content stage runs the equivalent of:
    `python collector/filtering/linkedin_filter.py content --source linkedin --job-id <job_id> --title <title>`.

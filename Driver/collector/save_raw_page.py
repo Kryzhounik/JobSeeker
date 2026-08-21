@@ -81,6 +81,7 @@ def save_content(
     ext: str,
     force: bool,
     db_path: Path | None = None,
+    collection_method: str | None = None,
 ) -> Path:
     validate_content(source, content)
 
@@ -97,7 +98,13 @@ def save_content(
     migrate_database(database)
     with sqlite3.connect(database) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        mark_url_status(connection, source, url, "RAW")
+        mark_url_status(
+            connection,
+            source,
+            url,
+            "RAW",
+            collection_method=collection_method,
+        )
         connection.commit()
     return path
 
@@ -112,6 +119,10 @@ def main() -> None:
     parser.add_argument("--ext", default="html")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
+    parser.add_argument(
+        "--collection-method",
+        choices=("script", "browser"),
+    )
     args = parser.parse_args()
 
     out_dir = Path(args.out_dir) if args.out_dir else DATA_ROOT / "raw" / args.source
@@ -135,6 +146,7 @@ def main() -> None:
         ext=args.ext,
         force=args.force,
         db_path=Path(args.db),
+        collection_method=args.collection_method,
     )
 
 

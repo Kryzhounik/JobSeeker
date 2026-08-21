@@ -24,6 +24,7 @@ from common.paths import DATA_ROOT
 SOURCE_CODES = ("justjoin", "linkedin")
 PROCESSING_STATUSES = ("RAW", "CLEANED", "ANALYZED", "SCORED", "SAVED")
 STATUS_ORDER = {status: index for index, status in enumerate(PROCESSING_STATUSES)}
+COLLECTION_METHODS = ("unknown", "script", "browser")
 
 
 def source_job_id(source: str, source_url: str) -> str:
@@ -63,15 +64,21 @@ def mark_status(
     source: str,
     job_id: str,
     status: str,
+    *,
+    collection_method: str | None = None,
 ) -> int:
     source, job_id = validate_identity(source, job_id)
     status = status.strip().upper()
     if status not in STATUS_ORDER:
         raise ValueError(f"Unsupported processing status: {status!r}")
+    if collection_method is not None:
+        collection_method = collection_method.strip().lower()
+        if collection_method not in COLLECTION_METHODS:
+            raise ValueError(f"Unsupported collection method: {collection_method!r}")
 
     row = connection.execute(
         """
-        SELECT id, processing_status
+        SELECT id, processing_status, collection_method
         FROM source_jobs
         WHERE source = ? AND source_job_id = ?
         """,
@@ -80,10 +87,15 @@ def mark_status(
     if row is None:
         cursor = connection.execute(
             """
-            INSERT INTO source_jobs (source, source_job_id, processing_status)
-            VALUES (?, ?, ?)
+            INSERT INTO source_jobs (
+                source,
+                source_job_id,
+                processing_status,
+                collection_method
+            )
+            VALUES (?, ?, ?, ?)
             """,
-            (source, job_id, status),
+            (source, job_id, status, collection_method or "unknown"),
         )
         return int(cursor.lastrowid)
 
@@ -93,6 +105,14 @@ def mark_status(
             "UPDATE source_jobs SET processing_status = ? WHERE id = ?",
             (status, registry_id),
         )
+    if (
+        collection_method is not None
+        and str(row[2]) == "unknown"
+    ):
+        connection.execute(
+            "UPDATE source_jobs SET collection_method = ? WHERE id = ?",
+            (collection_method, registry_id),
+        )
     return registry_id
 
 
@@ -101,12 +121,15 @@ def mark_url_status(
     source: str,
     source_url: str,
     status: str,
+    *,
+    collection_method: str | None = None,
 ) -> int:
     return mark_status(
         connection,
         source,
         source_job_id(source, source_url),
         status,
+        collection_method=collection_method,
     )
 
 
@@ -120,6 +143,7 @@ def main() -> None:
     identity.add_argument("--job-id")
     identity.add_argument("--url")
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
+    parser.add_argument("--collection-method", choices=COLLECTION_METHODS)
     args = parser.parse_args()
 
     db_path = Path(args.db)
@@ -127,7 +151,13 @@ def main() -> None:
     job_id = args.job_id or source_job_id(args.source, args.url)
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        mark_status(connection, args.source, job_id, args.status)
+        mark_status(
+            connection,
+            args.source,
+            job_id,
+            args.status,
+            collection_method=args.collection_method,
+        )
         connection.commit()
     print(f"{args.source}:{job_id} -> {args.status}")
 

@@ -49,24 +49,31 @@ analysis.
 
 ```text
 read LinkedIn collector settings
--> run collector/scan_linkedin.py batch
--> fetch LinkedIn guest-search pages in steps of 9
--> apply the preview filter to each card
--> fetch accepted vacancy details and save raw HTML
--> prepare readable text and apply the content filter
--> return the explicit source-job ID scope accepted by both filters
+-> for each configured location in order:
+   -> run collector/scan_linkedin.py batch --location <location>
+   -> fetch guest-search pages in steps of 9
+   -> save accepted guest raw/readable data with collection_method=script
+   -> run the logged-in browser collector for that same location
+   -> skip guest-prefetched IDs through normal preview deduplication
+   -> save browser-only raw/readable data with collection_method=browser
+   -> merge both location scopes into the explicit run scope
+   -> only then move to the next location
 -> continue the main pipeline for the explicit run scope
 ```
 
-The collector's stable public command is:
+The guest prefetch command is:
 
 ```text
-python collector/scan_linkedin.py batch
+python collector/scan_linkedin.py batch --location <Name[:geoId]>
 ```
 
-For diagnostics, use its `search-page` and `job` commands. Do not replace a
-failing batch command with browser collection or one-off HTTP commands during
-the batch.
+For diagnostics, use its `search-page` and `job` commands. The guest prefetch
+does not replace the browser coverage pass. Do not replace a failing guest or
+browser operation with an undocumented alternative during the batch.
+
+The global limit applies to the combined scope. The caller tracks the remaining
+limit across both passes and all locations; neither collector may independently
+restart the limit for the next location.
 
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.

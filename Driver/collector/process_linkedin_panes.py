@@ -37,7 +37,12 @@ def write_scope(path: Path, scope: list[dict[str, str]]) -> None:
     )
 
 
-def process(batch_path: Path, scope_path: Path) -> list[dict[str, str]]:
+def process(
+    batch_path: Path,
+    scope_path: Path,
+    db_path: Path = DATA_ROOT / "jobs.sqlite",
+    raw_dir: Path = DATA_ROOT / "raw" / "linkedin",
+) -> list[dict[str, str]]:
     batch = load_list(batch_path)
     scope = load_list(scope_path) if scope_path.exists() else []
     scoped_ids = {str(item.get("job_id", "")) for item in scope}
@@ -69,11 +74,15 @@ def process(batch_path: Path, scope_path: Path) -> list[dict[str, str]]:
             "--source", "linkedin",
             "--url", source_url,
             "--content-file", str(pane_path),
+            "--out-dir", str(raw_dir),
+            "--db", str(db_path),
+            "--collection-method", "browser",
         )
         run(
             "collector/extract_linkedin_readable_text_v2.py",
             "--source", "linkedin",
-            "--input", str(DATA_ROOT / "raw" / "linkedin" / "pages" / f"{job_id}.html"),
+            "--input", str(raw_dir / "pages" / f"{job_id}.html"),
+            "--db", str(db_path),
         )
 
         decision_path = batch_path.parent / f"content_{job_id}.json"
@@ -84,6 +93,7 @@ def process(batch_path: Path, scope_path: Path) -> list[dict[str, str]]:
             "--job-id", job_id,
             "--title", title,
             "--output", str(decision_path),
+            "--db", str(db_path),
         )
         decision = json.loads(decision_path.read_text(encoding="utf-8"))
         analyze = decision["content_decision"] == "analyze"
@@ -101,6 +111,7 @@ def process(batch_path: Path, scope_path: Path) -> list[dict[str, str]]:
             "--company", company,
             "--status", final_status,
             "--reason", str(decision.get("content_reason", "")),
+            "--db", str(db_path),
         )
 
         if analyze and job_id not in scoped_ids:
@@ -120,8 +131,20 @@ def main() -> None:
     )
     parser.add_argument("--batch", type=Path, required=True)
     parser.add_argument("--scope", type=Path, required=True)
+    parser.add_argument("--db", type=Path, default=DATA_ROOT / "jobs.sqlite")
+    parser.add_argument(
+        "--raw-dir",
+        type=Path,
+        default=DATA_ROOT / "raw" / "linkedin",
+    )
     args = parser.parse_args()
-    print(json.dumps(process(args.batch, args.scope), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            process(args.batch, args.scope, args.db, args.raw_dir),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

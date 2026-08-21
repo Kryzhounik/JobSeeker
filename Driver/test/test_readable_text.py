@@ -35,6 +35,9 @@ class ReadableTextTest(unittest.TestCase):
                 source TEXT NOT NULL REFERENCES job_sources(code),
                 source_job_id TEXT NOT NULL,
                 processing_status TEXT NOT NULL REFERENCES processing_statuses(code),
+                collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
+                    collection_method IN ('unknown', 'script', 'browser')
+                ),
                 UNIQUE(source, source_job_id)
             );
             CREATE TABLE source_job_texts (

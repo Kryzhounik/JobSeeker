@@ -1,0 +1,173 @@
+[
+  {
+    "job_id": "4451212612",
+    "source_url": "https://www.linkedin.com/jobs/view/4451212612/",
+    "title": "Java Software Engineer",
+    "company": "R Systems",
+    "location": "Chișinău, Moldova",
+    "workplace": "Hybrid",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 1,
+    "preview_decision": "skip",
+    "preview_reason": "duplicate source_job_id",
+    "preview_rule": "duplicate_source_job_id",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4455783281",
+    "source_url": "https://www.linkedin.com/jobs/view/4455783281/",
+    "title": "Junior Software Engineer",
+    "company": "R Systems",
+    "location": "Moldova",
+    "workplace": "Remote",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 2,
+    "preview_decision": "skip",
+    "preview_reason": "duplicate source_job_id",
+    "preview_rule": "duplicate_source_job_id",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4173050863",
+    "source_url": "https://www.linkedin.com/jobs/view/4173050863/",
+    "title": "RPA Junior Developer (Cedacri International)",
+    "company": "ION",
+    "location": "Chişinău",
+    "workplace": "Hybrid",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 3,
+    "preview_decision": "open",
+    "preview_reason": "no preview skip signals",
+    "preview_rule": "",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4432241233",
+    "source_url": "https://www.linkedin.com/jobs/view/4432241233/",
+    "title": "Full-stack Java Developer (Digital Media)",
+    "company": "Coherent Solutions",
+    "location": "Moldova",
+    "workplace": "Remote",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 4,
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Full-Stack Java Developer",
+    "preview_rule": "title_blocked",
+    "preview_blocked_terms": [
+      "Full-Stack Java Developer"
+    ]
+  },
+  {
+    "job_id": "4455329565",
+    "source_url": "https://www.linkedin.com/jobs/view/4455329565/",
+    "title": "Senior Java Software Engineer",
+    "company": "IDT Corporation",
+    "location": "Chişinău",
+    "workplace": "Hybrid",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 5,
+    "preview_decision": "skip",
+    "preview_reason": "duplicate source_job_id",
+    "preview_rule": "duplicate_source_job_id",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4454808757",
+    "source_url": "https://www.linkedin.com/jobs/view/4454808757/",
+    "title": "Lead Java Developer (with C background)",
+    "company": "IDT Corporation",
+    "location": "Chişinău",
+    "workplace": "Hybrid",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 6,
+    "preview_decision": "skip",
+    "preview_reason": "duplicate source_job_id",
+    "preview_rule": "duplicate_source_job_id",
+    "preview_blocked_terms": []
+  },
+  {
+    "job_id": "4455266568",
+    "source_url": "https://www.linkedin.com/jobs/view/4455266568/",
+    "title": "1127 | QA Fullstack Engineer",
+    "company": "Intetics",
+    "location": "Moldova",
+    "workplace": "Remote",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 7,
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: QA, Fullstack",
+    "preview_rule": "title_blocked",
+    "preview_blocked_terms": [
+      "QA",
+      "Fullstack"
+    ]
+  },
+  {
+    "job_id": "4452275079",
+    "source_url": "https://www.linkedin.com/jobs/view/4452275079/",
+    "title": "Senior QA Engineer",
+    "company": "R Systems",
+    "location": "Chișinău, Moldova",
+    "workplace": "Hybrid",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 8,
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: QA",
+    "preview_rule": "title_blocked",
+    "preview_blocked_terms": [
+      "QA"
+    ]
+  },
+  {
+    "job_id": "4455316920",
+    "source_url": "https://www.linkedin.com/jobs/view/4455316920/",
+    "title": "Senior QA Engineer",
+    "company": "R Systems",
+    "location": "Moldova",
+    "workplace": "Remote",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 9,
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: QA",
+    "preview_rule": "title_blocked",
+    "preview_blocked_terms": [
+      "QA"
+    ]
+  },
+  {
+    "job_id": "4453461103",
+    "source_url": "https://www.linkedin.com/jobs/view/4453461103/",
+    "title": "Senior Site Reliability Engineer",
+    "company": "MoldStud",
+    "location": "Moldova",
+    "workplace": "Remote",
+    "salary": "",
+    "label": "Moldova",
+    "start": 0,
+    "index": 10,
+    "preview_decision": "skip",
+    "preview_reason": "title blocked: Reliability Engineer",
+    "preview_rule": "title_blocked",
+    "preview_blocked_terms": [
+      "Reliability Engineer"
+    ]
+  }
+]

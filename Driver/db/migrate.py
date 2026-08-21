@@ -112,6 +112,8 @@ def migration_already_effective(
             "preview_filter_rejections",
             "rule",
         )
+    if version == "017_collection_method":
+        return column_exists(connection, "source_jobs", "collection_method")
     return False
 
 
@@ -200,6 +202,7 @@ def migrate_database(
 
         ensure_migration_table(connection)
         done = applied_versions(connection)
+        readable_text_migrated = False
 
         for path in migration_files(migrations_dir):
             version = path.stem
@@ -212,12 +215,14 @@ def migrate_database(
             if version == "003_source_job_registry":
                 registry_migrated = True
             if version == "011_source_job_readable_text":
-                count = backfill_legacy_readable_texts(connection, db_path.parent)
-                messages.append(f"backfilled source_job_texts +{count}")
+                readable_text_migrated = True
             connection.commit()
 
         if schema_changed:
             apply_schema(connection, schema_path)
+        if readable_text_migrated:
+            count = backfill_legacy_readable_texts(connection, db_path.parent)
+            messages.append(f"backfilled source_job_texts +{count}")
         if registry_migrated:
             count = backfill_processing_registry(connection, db_path.parent)
             messages.append(f"backfilled source_jobs +{count}")

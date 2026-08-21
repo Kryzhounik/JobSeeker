@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Collect LinkedIn vacancies through the public guest endpoints.
+"""Prefetch LinkedIn vacancies through the public guest endpoints.
 
 The module exposes small diagnostic commands as well as the full batch:
 
@@ -9,6 +9,16 @@ The module exposes small diagnostic commands as well as the full batch:
 
 Collection stops at analyzer-ready text in SQLite. Analysis and scoring belong
 to the top-level workflow.
+
+This collector is not a complete replacement for logged-in browser collection.
+LinkedIn's guest and authenticated searches can return different inventories,
+counts, and ordering, and guest results can vary between repeated requests.
+Use this module as the cheap first pass for one location at a time: it stores
+every vacancy it can reach and records its source job ID in SQLite with
+`source_jobs.collection_method = script`. Then run the browser collector for
+that same location; its preview deduplication skips stored IDs before opening a
+job pane, while browser-only vacancies are still collected with
+`collection_method = browser`. Only then move to the next configured location.
 """
 
 from __future__ import annotations
@@ -54,7 +64,6 @@ SEARCH_ENDPOINT = (
 JOB_ENDPOINT = "https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}"
 DEFAULT_CONFIG = COLLECTOR_ROOT / "config" / "linkedin.properties"
 DEFAULT_DB = DATA_ROOT / "jobs.sqlite"
-PAGE_SIZE = 10
 PAGE_STEP = 9
 DATE_POSTED = {
     "day": "r86400",
@@ -275,6 +284,10 @@ def validate_page_overlap(previous_ids: set[str], current_ids: set[str]) -> None
         )
 
 
+def should_stop_location(accepted_count: int, limit: int, no_new_pages: int) -> bool:
+    return accepted_count >= limit or no_new_pages >= 2
+
+
 def save_readable(
     card: Card,
     html: str,
@@ -291,6 +304,7 @@ def save_readable(
             ext="html",
             force=force,
             db_path=db_path,
+            collection_method="script",
         )
     text = readable_text("linkedin", raw_path)
     with sqlite3.connect(db_path) as connection:
@@ -367,6 +381,7 @@ def collect_batch(
     client: HttpClient,
     db_path: Path,
     raw_dir: Path,
+    location_value: str | None = None,
 ) -> dict[str, Any]:
     preview_config = load_filter_config(
         COLLECTOR_ROOT / "filtering" / "linkedin_preview_filter.ini"
@@ -377,7 +392,12 @@ def collect_batch(
     outcomes: list[dict[str, Any]] = []
     pages: list[dict[str, Any]] = []
 
-    for location in map(parse_location, csv(settings.get("locations", ""))):
+    configured_locations = (
+        [location_value]
+        if location_value is not None
+        else csv(settings.get("locations", ""))
+    )
+    for location in map(parse_location, configured_locations):
         previous_ids: set[str] = set()
         start = 0
         no_new_pages = 0
@@ -402,9 +422,6 @@ def collect_batch(
                 f"new={len(new_cards)} accepted={len(scope)}/{limit}",
                 file=sys.stderr,
             )
-            if not cards:
-                break
-
             no_new_pages = no_new_pages + 1 if not new_cards else 0
             for index, card in enumerate(new_cards, start=1):
                 seen_ids.add(card.job_id)
@@ -445,7 +462,7 @@ def collect_batch(
                     if len(scope) >= limit:
                         break
 
-            if len(scope) >= limit or no_new_pages >= 2 or len(cards) < PAGE_SIZE:
+            if should_stop_location(len(scope), limit, no_new_pages):
                 break
             previous_ids = current_ids
             start += PAGE_STEP
@@ -499,6 +516,10 @@ def build_parser() -> argparse.ArgumentParser:
     batch = commands.add_parser("batch", help="Run the configured collection batch.")
     common(batch)
     batch.add_argument("--limit", type=int)
+    batch.add_argument(
+        "--location",
+        help="Process exactly this Name or Name:geoId location.",
+    )
     return parser
 
 
@@ -556,6 +577,7 @@ def main() -> None:
             client=client,
             db_path=db_path,
             raw_dir=raw_dir,
+            location_value=args.location,
         ),
         args.output,
     )

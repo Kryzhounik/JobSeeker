@@ -75,6 +75,9 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     source TEXT NOT NULL REFERENCES job_sources(code),
     source_job_id TEXT NOT NULL,
     processing_status TEXT NOT NULL REFERENCES processing_statuses(code),
+    collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
+        collection_method IN ('unknown', 'script', 'browser')
+    ),
     UNIQUE(source, source_job_id)
 );
 
@@ -316,6 +319,8 @@ CREATE INDEX IF NOT EXISTS idx_applications_applied_at
     ON applications(applied_at);
 CREATE INDEX IF NOT EXISTS idx_source_jobs_processing_status
     ON source_jobs(processing_status);
+CREATE INDEX IF NOT EXISTS idx_source_jobs_collection_method
+    ON source_jobs(collection_method);
 CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_keyword
     ON content_filter_rejections(matched_keyword);
 CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_pattern
