@@ -36,6 +36,10 @@ authenticated search inventory, personalization, ranking, caching, or guest
 endpoint behavior; completing guest pagination therefore does not guarantee
 the same inventory as the browser.
 
+Missing ID overlap between adjacent guest pages is therefore diagnostic only:
+the script records a warning and continues. It does not treat overlap as a
+pagination requirement.
+
 Immediately after one location's guest pass, run the logged-in browser
 collector for that same location. Its preview filter checks title and company
 first, then checks `(source, source_job_id)` in `source_jobs`. Jobs already

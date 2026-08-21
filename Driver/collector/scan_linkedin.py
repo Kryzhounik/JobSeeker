@@ -13,6 +13,8 @@ to the top-level workflow.
 This collector is not a complete replacement for logged-in browser collection.
 LinkedIn's guest and authenticated searches can return different inventories,
 counts, and ordering, and guest results can vary between repeated requests.
+For that reason, missing ID overlap between adjacent guest responses is logged
+as a warning and never stops collection by itself.
 Use this module as the cheap first pass for one location at a time: it stores
 every vacancy it can reach and records its source job ID in SQLite with
 `source_jobs.collection_method = script`. Then run the browser collector for
@@ -276,12 +278,12 @@ def parse_search_page(html: str) -> list[Card]:
     return parser.cards
 
 
-def validate_page_overlap(previous_ids: set[str], current_ids: set[str]) -> None:
-    if previous_ids and current_ids and not previous_ids.intersection(current_ids):
-        raise CollectionError(
-            "LinkedIn pagination integrity check failed: adjacent start pages "
-            "have no overlapping job ID"
-        )
+def page_overlap_missing(previous_ids: set[str], current_ids: set[str]) -> bool:
+    return bool(
+        previous_ids
+        and current_ids
+        and not previous_ids.intersection(current_ids)
+    )
 
 
 def should_stop_location(accepted_count: int, limit: int, no_new_pages: int) -> bool:
@@ -406,17 +408,26 @@ def collect_batch(
                 client.get(search_page_url(settings, location, start))
             )
             current_ids = {card.job_id for card in cards}
-            validate_page_overlap(previous_ids, current_ids)
+            overlap = len(previous_ids.intersection(current_ids))
+            overlap_warning = ""
+            if page_overlap_missing(previous_ids, current_ids):
+                overlap_warning = (
+                    f"LinkedIn pagination warning at {location.label} start={start}: "
+                    "adjacent responses have no overlapping job ID; continuing "
+                    "because guest results are not stable between requests"
+                )
+                print(f"WARNING: {overlap_warning}", file=sys.stderr)
             new_cards = [card for card in cards if card.job_id not in seen_ids]
-            pages.append(
-                {
-                    "label": location.label,
-                    "start": start,
-                    "cards": len(cards),
-                    "new": len(new_cards),
-                    "overlap": len(previous_ids.intersection(current_ids)),
-                }
-            )
+            page_result = {
+                "label": location.label,
+                "start": start,
+                "cards": len(cards),
+                "new": len(new_cards),
+                "overlap": overlap,
+            }
+            if overlap_warning:
+                page_result["warning"] = overlap_warning
+            pages.append(page_result)
             print(
                 f"{location.label} start={start} cards={len(cards)} "
                 f"new={len(new_cards)} accepted={len(scope)}/{limit}",

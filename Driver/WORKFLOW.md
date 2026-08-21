@@ -75,6 +75,12 @@ The global limit applies to the combined scope. The caller tracks the remaining
 limit across both passes and all locations; neither collector may independently
 restart the limit for the next location.
 
+LinkedIn guest responses are not stable snapshots. If adjacent `start` pages
+have no overlapping job ID, `scan_linkedin.py` logs a pagination warning and
+continues. This warning is not a batch failure or a Strict Batch Policy stop
+condition. Deduplication and two consecutive pages without new IDs remain the
+exhaustion safeguards.
+
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.
 

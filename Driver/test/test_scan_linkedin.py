@@ -11,13 +11,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from collector.scan_linkedin import CollectionError
 from collector.scan_linkedin import collect_batch
 from collector.scan_linkedin import parse_location
 from collector.scan_linkedin import parse_search_page
 from collector.scan_linkedin import search_page_url
 from collector.scan_linkedin import should_stop_location
-from collector.scan_linkedin import validate_page_overlap
+from collector.scan_linkedin import page_overlap_missing
 from collector.save_raw_page import validate_content
 
 
@@ -78,11 +77,10 @@ class ScanLinkedInTest(unittest.TestCase):
             "https://www.linkedin.com/jobs/view/12345/",
         )
 
-    def test_adjacent_pages_require_overlap(self) -> None:
-        validate_page_overlap({"1", "2"}, {"2", "3"})
-
-        with self.assertRaises(CollectionError):
-            validate_page_overlap({"1", "2"}, {"3", "4"})
+    def test_missing_page_overlap_is_only_a_warning_signal(self) -> None:
+        self.assertFalse(page_overlap_missing({"1", "2"}, {"2", "3"}))
+        self.assertTrue(page_overlap_missing({"1", "2"}, {"3", "4"}))
+        self.assertFalse(page_overlap_missing(set(), {"3", "4"}))
 
     def test_location_requires_two_pages_without_new_ids(self) -> None:
         self.assertFalse(should_stop_location(0, 20, 0))
