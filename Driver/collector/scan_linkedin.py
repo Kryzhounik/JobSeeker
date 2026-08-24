@@ -421,6 +421,7 @@ def collect_batch(
     for location in map(parse_location, configured_locations):
         search_index = 0
         search_name, company_ids = search_passes[search_index]
+        search_seen_ids: set[str] = set()
         previous_ids: set[str] = set()
         start = 0
         no_new_pages = 0
@@ -429,6 +430,8 @@ def collect_batch(
                 client.get(search_page_url(settings, location, start, company_ids))
             )
             current_ids = {card.job_id for card in cards}
+            search_new_ids = current_ids - search_seen_ids
+            search_seen_ids.update(current_ids)
             overlap = len(previous_ids.intersection(current_ids))
             overlap_warning = ""
             if page_overlap_missing(previous_ids, current_ids):
@@ -457,7 +460,7 @@ def collect_batch(
                 f"accepted={len(scope)}/{limit}",
                 file=sys.stderr,
             )
-            no_new_pages = no_new_pages + 1 if not new_cards else 0
+            no_new_pages = no_new_pages + 1 if not search_new_ids else 0
             for index, card in enumerate(new_cards, start=1):
                 seen_ids.add(card.job_id)
                 preview = card.preview(label=location.label, start=start, index=index)
@@ -502,6 +505,7 @@ def collect_batch(
                 if len(scope) >= limit or search_index >= len(search_passes):
                     break
                 search_name, company_ids = search_passes[search_index]
+                search_seen_ids = set()
                 previous_ids = set()
                 start = 0
                 no_new_pages = 0
