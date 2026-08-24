@@ -71,6 +71,11 @@ The guest prefetch command is:
 python collector/scan_linkedin.py batch --location <Name[:geoId]>
 ```
 
+During a workflow batch, consume this command's JSON result directly from
+stdout. Do not pass `--output`, create a scope file, or invent a temporary
+directory for the result. The returned `scope` list is the in-memory list of
+source-job IDs that the caller merges into the current run scope.
+
 For diagnostics, use its `search-page` and `job` commands. The guest prefetch
 does not replace the browser coverage pass. Do not replace a failing guest or
 browser operation with an undocumented alternative during the batch.
