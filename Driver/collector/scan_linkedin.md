@@ -66,8 +66,7 @@ the combined run scope reaches the global limit.
    Verify the selected filter labels in the visible toolbar. Do not assume URL
    query parameters applied filters that are not visibly selected. Select menu
    options by their exact `checkbox` role, not by bare text: job cards may
-   contain the same words. Select the quick `Remote` filter through the exact
-   `radio` named `Filter by Remote`.
+   contain the same words.
 6. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
    or a critical blocker defined in `collector/browser.md` appears. A slow or
