@@ -59,19 +59,20 @@ the original view. The full text is read-only and supports normal selection and
 
 ## Companies
 
-The `Companies` button opens the normalized company list. The `Company`,
-`LinkedIn ID`, `Applications`, and `Blacklisted` headers toggle sorting. The
-optional LinkedIn ID is stored as `companies.linkedin_id`; blank values are
-stored as `NULL`, while nonblank IDs are unique. The Applications column counts
-application records linked to the company's vacancies. Blacklist sorting shows
-blacklisted rows first on its first click. Each checkbox writes
-`companies.blacklisted` immediately, without an Apply button, and is restored
-if the database update fails. The window size and last sorting are saved with
-the other GUI settings.
+The `Companies` button opens the normalized company list. The `Priority`,
+`Company`, `LinkedIn ID`, `Applications`, and `Blacklisted` headers toggle
+sorting. Priority is the first column and stores `0` or `1` in
+`companies.priority`; it defaults to `0`. Priority and blacklist checkboxes
+write to the database immediately, without an Apply button, and are restored if
+the database update fails. Double-click a LinkedIn ID cell to edit it; Enter or
+focus-out saves, while Escape cancels. Blank LinkedIn IDs are stored as `NULL`,
+while nonblank IDs are unique. The Applications column counts application
+records linked to the company's vacancies. The window size and last sorting are
+saved with the other GUI settings.
 
-The company list uses one native table. Blacklist checkboxes are created only
-for rows currently visible in the viewport, rather than creating controls for
-every company in the database.
+The company list uses one native table. Priority and blacklist checkboxes are
+created only for rows currently visible in the viewport, rather than creating
+controls for every company in the database.
 
 The form below the company list creates a company from a required name and an
 optional LinkedIn ID. `Add` or Enter inserts it immediately and focuses the new

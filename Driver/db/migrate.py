@@ -116,6 +116,8 @@ def migration_already_effective(
         return column_exists(connection, "source_jobs", "collection_method")
     if version == "018_company_linkedin_id":
         return column_exists(connection, "companies", "linkedin_id")
+    if version == "019_company_priority":
+        return column_exists(connection, "companies", "priority")
     return False
 
 

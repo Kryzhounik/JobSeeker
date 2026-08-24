@@ -38,6 +38,41 @@ def create_company(
     return int(result.lastrowid)
 
 
+def update_company_linkedin_id(
+    connection: sqlite3.Connection,
+    company_id: int,
+    linkedin_id: Any,
+) -> None:
+    result = connection.execute(
+        """
+        UPDATE companies
+        SET linkedin_id = ?
+        WHERE id = ?
+        """,
+        (normalize_linkedin_id(linkedin_id), company_id),
+    )
+    if result.rowcount != 1:
+        raise KeyError(f"Company not found: {company_id}")
+
+
+def update_company_priority(
+    connection: sqlite3.Connection,
+    company_id: int,
+    priority: Any,
+) -> None:
+    normalized_priority = int(bool(priority))
+    result = connection.execute(
+        """
+        UPDATE companies
+        SET priority = ?
+        WHERE id = ?
+        """,
+        (normalized_priority, company_id),
+    )
+    if result.rowcount != 1:
+        raise KeyError(f"Company not found: {company_id}")
+
+
 def get_or_create_company(
     connection: sqlite3.Connection,
     company: Any,

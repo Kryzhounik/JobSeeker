@@ -43,7 +43,11 @@ from db.applications import (
     list_application_statuses,
     update_status as update_application_status,
 )
-from db.companies import create_company
+from db.companies import (
+    create_company,
+    update_company_linkedin_id,
+    update_company_priority,
+)
 from db.job_mapper import delete_jobs
 from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
@@ -653,6 +657,8 @@ class JobsViewer(tk.Tk):
         self.company_rows_by_item: dict[str, dict[str, Any]] = {}
         self.company_checkbox_widgets: list[tk.Widget] = []
         self.company_controls_after_id: str | None = None
+        self.company_linkedin_editor: ttk.Entry | None = None
+        self.company_linkedin_editor_item = ""
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
@@ -1265,7 +1271,13 @@ class JobsViewer(tk.Tk):
     def _saved_company_sort_column(self) -> str:
         company_sort = self.settings.get("company_sort")
         column = company_sort.get("column") if isinstance(company_sort, dict) else None
-        if column in {"name", "linkedin_id", "application_count", "blacklisted"}:
+        if column in {
+            "priority",
+            "name",
+            "linkedin_id",
+            "application_count",
+            "blacklisted",
+        }:
             return clean(column)
         return "name"
 
@@ -1705,6 +1717,7 @@ class JobsViewer(tk.Tk):
                 window.after_cancel(self.company_controls_after_id)
                 self.company_controls_after_id = None
             self._remember_window_size("companies", window)
+            self._finish_company_linkedin_edit(save=False)
             self._destroy_company_checkbox_widgets()
             self.company_rows_by_item.clear()
             self.companies_window = None
@@ -1719,6 +1732,7 @@ class JobsViewer(tk.Tk):
         table.rowconfigure(0, weight=1)
 
         company_columns = (
+            ("priority", "Priority", 90, "center"),
             ("name", "Company", 360, "w"),
             ("linkedin_id", "LinkedIn ID", 170, "w"),
             ("application_count", "Applications", 110, "center"),
@@ -1727,22 +1741,25 @@ class JobsViewer(tk.Tk):
         self.companies_tree = SortableTreeview(
             table,
             company_columns,
-            numeric_columns={"application_count", "blacklisted"},
+            numeric_columns={"priority", "application_count", "blacklisted"},
             sort_column=self.company_sort_column,
             sort_descending=self.company_sort_descending,
             on_sorted=self._companies_sorted,
             selectmode="browse",
         )
         self.companies_tree.grid(row=0, column=0, sticky="nsew")
+        self.companies_tree.column("priority", minwidth=72, stretch=False)
         self.companies_tree.column("application_count", minwidth=90, stretch=False)
         self.companies_tree.column("blacklisted", minwidth=110, stretch=False)
         self.companies_tree.tag_configure("odd", background="#f7f9fb")
 
         def scroll_y(*args: Any) -> None:
+            self._finish_company_linkedin_edit()
             self.companies_tree.yview(*args)
             self._schedule_company_controls()
 
         def scroll_x(*args: Any) -> None:
+            self._finish_company_linkedin_edit()
             self.companies_tree.xview(*args)
             self._schedule_company_controls()
 
@@ -1765,7 +1782,7 @@ class JobsViewer(tk.Tk):
         )
         self.companies_tree.bind(
             "<MouseWheel>",
-            lambda _event: self.after_idle(self._schedule_company_controls),
+            self._company_tree_mousewheel,
             add="+",
         )
         self.companies_tree.bind("<Control-c>", self._copy_tree_selection)
@@ -1773,6 +1790,10 @@ class JobsViewer(tk.Tk):
         self.companies_tree.bind("<Control-Insert>", self._copy_tree_selection)
         self.companies_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.companies_tree.bind("<Button-3>", self._show_copy_menu)
+        self.companies_tree.bind(
+            "<Double-Button-1>",
+            self._start_company_linkedin_edit,
+        )
 
         add_form = ttk.Frame(table, padding=(0, 8, 0, 0))
         add_form.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -1823,6 +1844,7 @@ class JobsViewer(tk.Tk):
                     """
                     SELECT
                         c.id,
+                        c.priority,
                         c.name,
                         c.linkedin_id,
                         c.blacklisted,
@@ -1830,7 +1852,12 @@ class JobsViewer(tk.Tk):
                     FROM companies c
                     LEFT JOIN jobs j ON j.company_id = c.id
                     LEFT JOIN applications a ON a.job_id = j.id
-                    GROUP BY c.id, c.name, c.linkedin_id, c.blacklisted
+                    GROUP BY
+                        c.id,
+                        c.priority,
+                        c.name,
+                        c.linkedin_id,
+                        c.blacklisted
                     """
                 ).fetchall()
         except Exception as error:
@@ -1841,6 +1868,7 @@ class JobsViewer(tk.Tk):
         self.company_rows = [
             {
                 "id": int(row["id"]),
+                "priority": bool(row["priority"]),
                 "name": clean(row["name"]),
                 "linkedin_id": clean(row["linkedin_id"]),
                 "application_count": int(row["application_count"]),
@@ -1853,6 +1881,7 @@ class JobsViewer(tk.Tk):
         self._render_company_rows(focus_company_id)
 
     def _companies_sorted(self, column: str, descending: bool) -> None:
+        self._finish_company_linkedin_edit()
         self.company_sort_column = column
         self.company_sort_descending = descending
         self._save_settings()
@@ -1874,6 +1903,7 @@ class JobsViewer(tk.Tk):
                 tk.END,
                 iid=item,
                 values=(
+                    str(int(bool(row["priority"]))),
                     clean(row["name"]),
                     clean(row["linkedin_id"]),
                     str(row["application_count"]),
@@ -1934,45 +1964,49 @@ class JobsViewer(tk.Tk):
             row = self.company_rows_by_item.get(item)
             if row is None:
                 continue
-            bounds = self.companies_tree.bbox(item, "blacklisted")
-            if not bounds:
-                continue
-            x, y, width, height = bounds
             row_index = self.companies_tree.index(item)
             background = (
                 "#4b6f8d"
                 if item in selected
                 else ("#f7f9fb" if row_index % 2 else "#ffffff")
             )
-            variable = tk.BooleanVar(value=bool(row["blacklisted"]))
-            cell = tk.Frame(self.companies_tree, background=background)
-            cell.place(x=x + 1, y=y + 1, width=width - 2, height=height - 2)
-            checkbox = tk.Checkbutton(
-                cell,
-                variable=variable,
-                command=lambda value=int(item), var=variable: (
-                    self._company_blacklist_changed(value, var)
-                ),
-                background=background,
-                activebackground=background,
-                borderwidth=0,
-                highlightthickness=0,
-                padx=0,
-                pady=0,
-            )
-            checkbox.pack(expand=True)
-            for widget in (cell, checkbox):
-                widget.bind(
-                    "<MouseWheel>",
-                    self._scroll_companies_from_control,
-                    add="+",
+            for column, callback in (
+                ("priority", self._company_priority_changed),
+                ("blacklisted", self._company_blacklist_changed),
+            ):
+                bounds = self.companies_tree.bbox(item, column)
+                if not bounds:
+                    continue
+                x, y, width, height = bounds
+                variable = tk.BooleanVar(value=bool(row[column]))
+                cell = tk.Frame(self.companies_tree, background=background)
+                cell.place(x=x + 1, y=y + 1, width=width - 2, height=height - 2)
+                checkbox = tk.Checkbutton(
+                    cell,
+                    variable=variable,
+                    command=lambda value=int(item), var=variable, action=callback: (
+                        action(value, var)
+                    ),
+                    background=background,
+                    activebackground=background,
+                    borderwidth=0,
+                    highlightthickness=0,
+                    padx=0,
+                    pady=0,
                 )
-                widget.bind(
-                    "<Shift-MouseWheel>",
-                    self._scroll_companies_from_control,
-                    add="+",
-                )
-            self.company_checkbox_widgets.extend((cell, checkbox))
+                checkbox.pack(expand=True)
+                for widget in (cell, checkbox):
+                    widget.bind(
+                        "<MouseWheel>",
+                        self._scroll_companies_from_control,
+                        add="+",
+                    )
+                    widget.bind(
+                        "<Shift-MouseWheel>",
+                        self._scroll_companies_from_control,
+                        add="+",
+                    )
+                self.company_checkbox_widgets.extend((cell, checkbox))
 
     def _destroy_company_checkbox_widgets(self) -> None:
         for widget in self.company_checkbox_widgets:
@@ -1980,7 +2014,12 @@ class JobsViewer(tk.Tk):
                 widget.destroy()
         self.company_checkbox_widgets.clear()
 
+    def _company_tree_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self._finish_company_linkedin_edit()
+        self.after_idle(self._schedule_company_controls)
+
     def _scroll_companies_from_control(self, event: tk.Event[tk.Misc]) -> str:
+        self._finish_company_linkedin_edit()
         direction = -1 if int(getattr(event, "delta", 0) or 0) > 0 else 1
         if event.state & 0x1:
             self.companies_tree.xview_scroll(direction, "units")
@@ -1988,6 +2027,103 @@ class JobsViewer(tk.Tk):
             self.companies_tree.yview_scroll(direction, "units")
         self._schedule_company_controls()
         return "break"
+
+    def _start_company_linkedin_edit(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        if self.companies_tree.identify_region(event.x, event.y) != "cell":
+            return None
+        item = self.companies_tree.identify_row(event.y)
+        column_ref = self.companies_tree.identify_column(event.x)
+        columns = tuple(self.companies_tree["columns"])
+        try:
+            column = columns[int(column_ref.removeprefix("#")) - 1]
+        except (ValueError, IndexError):
+            return None
+        if not item or column != "linkedin_id":
+            return None
+
+        self._finish_company_linkedin_edit()
+        bounds = self.companies_tree.bbox(item, column)
+        row = self.company_rows_by_item.get(item)
+        if not bounds or row is None:
+            return "break"
+
+        x, y, width, height = bounds
+        editor = ttk.Entry(self.companies_tree)
+        editor.insert(0, clean(row["linkedin_id"]))
+        editor.place(x=x, y=y, width=width, height=height)
+        self._bind_editable_entry(editor)
+        editor.bind("<Return>", self._finish_company_linkedin_edit)
+        editor.bind("<KP_Enter>", self._finish_company_linkedin_edit)
+        editor.bind("<Escape>", self._cancel_company_linkedin_edit)
+        editor.bind("<FocusOut>", self._finish_company_linkedin_edit)
+        self.company_linkedin_editor = editor
+        self.company_linkedin_editor_item = item
+        self.companies_tree.selection_set(item)
+        self.companies_tree.focus(item)
+        self.selected_company_id = int(item)
+        editor.focus_set()
+        editor.selection_range(0, tk.END)
+        return "break"
+
+    def _finish_company_linkedin_edit(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+        *,
+        save: bool = True,
+    ) -> str:
+        editor = self.company_linkedin_editor
+        item = self.company_linkedin_editor_item
+        if editor is None:
+            return "break"
+
+        value = editor.get().strip()
+        self.company_linkedin_editor = None
+        self.company_linkedin_editor_item = ""
+        if editor.winfo_exists():
+            editor.destroy()
+        if not save:
+            return "break"
+
+        row = self.company_rows_by_item.get(item)
+        if row is None or value == clean(row["linkedin_id"]):
+            return "break"
+
+        try:
+            with self.connect_writable() as connection:
+                update_company_linkedin_id(connection, int(item), value)
+        except sqlite3.IntegrityError as error:
+            error_text = clean(error).casefold()
+            message = (
+                f"LinkedIn ID already exists: {value}"
+                if "companies.linkedin_id" in error_text
+                else str(error)
+            )
+            messagebox.showerror("Company update failed", message)
+            self.status_var.set("Company update failed")
+            self._schedule_company_controls()
+            return "break"
+        except Exception as error:
+            messagebox.showerror("Company update failed", str(error))
+            self.status_var.set("Company update failed")
+            self._schedule_company_controls()
+            return "break"
+
+        row["linkedin_id"] = value
+        self.companies_tree.set(item, "linkedin_id", value)
+        if self.company_sort_column == "linkedin_id":
+            self.companies_tree.reapply_sort()
+        self._schedule_company_controls()
+        self.status_var.set(f"{clean(row['name'])}: LinkedIn ID updated")
+        return "break"
+
+    def _cancel_company_linkedin_edit(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> str:
+        return self._finish_company_linkedin_edit(save=False)
 
     def _add_company_from_event(
         self,
@@ -2067,6 +2203,38 @@ class JobsViewer(tk.Tk):
         if item in self.company_rows_by_item:
             self.companies_tree.set(item, "blacklisted", str(int(blacklisted)))
         if self.company_sort_column == "blacklisted":
+            self.companies_tree.reapply_sort()
+        self._schedule_company_controls()
+
+    def _company_priority_changed(
+        self,
+        company_id: int,
+        variable: tk.BooleanVar,
+    ) -> None:
+        priority = bool(variable.get())
+        try:
+            with self.connect_writable() as connection:
+                update_company_priority(connection, company_id, priority)
+        except Exception as error:
+            variable.set(not priority)
+            messagebox.showerror("Company update failed", str(error))
+            self.status_var.set("Company update failed")
+            return
+
+        for row in self.company_rows:
+            if int(row["id"]) == company_id:
+                row["priority"] = priority
+                company_name = clean(row["name"])
+                break
+        else:
+            company_name = str(company_id)
+
+        action = "priority enabled" if priority else "priority disabled"
+        self.status_var.set(f"{company_name}: {action}")
+        item = str(company_id)
+        if item in self.company_rows_by_item:
+            self.companies_tree.set(item, "priority", str(int(priority)))
+        if self.company_sort_column == "priority":
             self.companies_tree.reapply_sort()
         self._schedule_company_controls()
 
