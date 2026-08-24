@@ -86,7 +86,7 @@ class LanguageRequirementsTest(unittest.TestCase):
     def test_default_config_compiles_each_template_once(self) -> None:
         extractor = load_language_requirement_extractor(DEFAULT_LANGUAGE_CONFIG)
 
-        self.assertEqual(len(extractor.patterns), 8)
+        self.assertEqual(len(extractor.patterns), 9)
 
     def test_default_config_extracts_reviewed_explicit_level(self) -> None:
         requirements = extract_language_requirements(
@@ -108,6 +108,16 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "C1")
 
+    def test_default_config_extracts_fluent_language_skills(self) -> None:
+        requirements = extract_language_requirements(
+            "Fluent English skills, in both speech and writing",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "C1")
+
     def test_named_groups_preserve_plus_and_normalize_language_name(self) -> None:
         requirements = extract_language_requirements(
             "english: B2+",
@@ -121,7 +131,7 @@ class LanguageRequirementsTest(unittest.TestCase):
 
     def test_programming_language_is_not_a_human_language_match(self) -> None:
         requirements = extract_language_requirements(
-            "Fluent in Java",
+            "Fluent in Java. Fluent Java skills.",
             DEFAULT_LANGUAGE_CONFIG,
         )
 

@@ -223,8 +223,9 @@ levels are kept in `[requirement_templates]` and use both `{language}` and
 empty. Reviewed explicit templates cover `Language: C1`, `Language C1`, `C1
 level in Language`, `Language (C1 level)`, and `Language at C1 level` forms.
 The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
-`Fluency in`, and `Fluent in` followed by a configured language. Keep extraction
-soft: an unrecognized or ambiguous phrase passes to the agent pipeline.
+`Fluency in`, `Fluent in Language`, and `Fluent Language skills`. Keep
+extraction soft: an unrecognized or ambiguous phrase passes to the agent
+pipeline.
 
 The extractor compiles the configured language vocabulary into one named regex
 group and each requirement template into one regex. A match supplies
