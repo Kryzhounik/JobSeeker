@@ -52,12 +52,14 @@ Keep the returned JSON array in memory as `<deterministic-language-facts>`.
      instruction, input, and context files.
    - Do not pass readable-text context, the job-facts agent's reasoning, an
      existing scored JSON, or an existing database score.
-   - Validate the returned three-field object, then pass its UTF-8 JSON bytes
-     through standard input to:
-     `python analyzer/candidate_fit/merge_result.py --input <analyzed-json> --output <scored-json>`.
-   - Do not read or rewrite the analyzed JSON through PowerShell or console
-     text. `merge_result.py` owns the UTF-8-safe merge and scored persistence in
-     both Desktop and CLI execution modes.
+   - Validate the returned three-field object and write it as a temporary UTF-8
+     JSON file using the file-editing tool, not terminal or PowerShell text.
+   - Run:
+     `python analyzer/candidate_fit/merge_result.py --input <analyzed-json> --result <fit-result-json> --output <scored-json>`.
+   - Do not pass JSON through stdin or command arguments, and do not read or
+     rewrite the analyzed JSON through PowerShell or console text.
+     `merge_result.py` owns the UTF-8-safe merge and scored persistence in both
+     Desktop and CLI execution modes.
 
 3. Job interest
    - Run:

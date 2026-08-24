@@ -1,10 +1,9 @@
-"""Merge a candidate-fit result into analyzed JSON without console decoding."""
+"""Merge a candidate-fit result into analyzed JSON using UTF-8 files only."""
 
 from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -34,10 +33,11 @@ def merge_json(source_path: Path, patch: dict[str, Any], output_path: Path) -> N
 def main() -> None:
     parser = argparse.ArgumentParser(description="Merge candidate fit into analyzed JSON.")
     parser.add_argument("--input", required=True, help="Analyzed JSON file.")
+    parser.add_argument("--result", required=True, help="Candidate-fit result JSON file.")
     parser.add_argument("--output", required=True, help="Scored JSON file.")
     args = parser.parse_args()
 
-    patch = json.loads(sys.stdin.buffer.read().decode("utf-8"))
+    patch = json.loads(Path(args.result).read_text(encoding="utf-8"))
     if not isinstance(patch, dict):
         raise ValueError("candidate-fit result must contain an object")
     merge_json(Path(args.input), patch, Path(args.output))
