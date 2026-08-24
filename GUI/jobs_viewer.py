@@ -278,21 +278,175 @@ class CopyableText(tk.Text):
         return "break"
 
 
-class CopyableGrid(ttk.Frame):
+class SortableTableMixin:
+    def _init_sorting(
+        self,
+        columns: tuple[tuple[str, str, int, str], ...],
+        numeric_columns: set[str] | None = None,
+        sort_column: str | None = None,
+        sort_descending: bool = False,
+    ) -> None:
+        self.sortable_columns = columns
+        self.sortable_numeric_columns = numeric_columns or set()
+        self.sort_column = sort_column
+        self.sort_descending = sort_descending
+
+    def _sort_direction(self, column: str) -> bool:
+        if self.sort_column == column:
+            return not self.sort_descending
+        return column in self.sortable_numeric_columns
+
+    def _sort_value(self, column: str, value: Any) -> Any:
+        text = clean(value).strip()
+        if column == "level":
+            return LEVEL_SORT_VALUES.get(text.casefold(), 0)
+        if column in {"added_at", "applied_at"}:
+            try:
+                return parse_display_date(text)
+            except ValueError:
+                return datetime.min
+        if column in self.sortable_numeric_columns:
+            try:
+                return float(value)
+            except (TypeError, ValueError):
+                return float("-inf")
+        return text.casefold()
+
+    def _sort_heading_text(self, name: str, label: str) -> str:
+        if name != self.sort_column:
+            return label
+        marker = " v" if self.sort_descending else " ^"
+        return f"{label}{marker}"
+
+
+class SortableRows(SortableTableMixin):
+    def __init__(
+        self,
+        columns: tuple[tuple[str, str, int, str], ...],
+        numeric_columns: set[str] | None = None,
+        sort_column: str | None = None,
+        sort_descending: bool = False,
+    ) -> None:
+        self._init_sorting(
+            columns,
+            numeric_columns,
+            sort_column,
+            sort_descending,
+        )
+
+    def sort_by(self, column: str) -> None:
+        valid = {
+            name for name, _label, _width, _anchor in self.sortable_columns
+        }
+        if column not in valid:
+            return
+        self.sort_descending = self._sort_direction(column)
+        self.sort_column = column
+
+    def sorted_rows(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        result = list(rows)
+        if not self.sort_column:
+            return result
+        column = self.sort_column
+        result.sort(
+            key=lambda row: self._sort_value(column, row.get(column, "")),
+            reverse=self.sort_descending,
+        )
+        return result
+
+
+class SortableTreeview(SortableTableMixin, ttk.Treeview):
     def __init__(
         self,
         parent: tk.Misc,
         columns: tuple[tuple[str, str, int, str], ...],
         *,
-        sort_command: Any = None,
+        numeric_columns: set[str] | None = None,
+        sort_column: str | None = None,
+        sort_descending: bool = False,
+        on_sorted: Any = None,
+        **kwargs: Any,
+    ) -> None:
+        names = tuple(name for name, _label, _width, _anchor in columns)
+        super().__init__(parent, columns=names, show="headings", **kwargs)
+        self._init_sorting(
+            columns,
+            numeric_columns,
+            sort_column,
+            sort_descending,
+        )
+        self.on_sorted = on_sorted
+        for name, label, width, anchor in columns:
+            self.heading(
+                name,
+                text=self._sort_heading_text(name, label),
+                command=lambda value=name: self.sort_by(value),
+            )
+            self.column(
+                name,
+                width=width,
+                minwidth=42,
+                anchor=anchor,
+                stretch=True,
+            )
+
+    def sort_by(
+        self,
+        column: str,
+        descending: bool | None = None,
+        *,
+        notify: bool = True,
+    ) -> None:
+        valid = {name for name, _label, _width, _anchor in self.sortable_columns}
+        if column not in valid:
+            return
+        if descending is None:
+            descending = self._sort_direction(column)
+        self.sort_column = column
+        self.sort_descending = bool(descending)
+        items = list(self.get_children(""))
+        items.sort(
+            key=lambda item: self._sort_value(column, self.set(item, column)),
+            reverse=self.sort_descending,
+        )
+        for index, item in enumerate(items):
+            self.move(item, "", index)
+            self.item(item, tags=("odd",) if index % 2 else ())
+        self._update_sort_headings()
+        if notify and self.on_sorted is not None:
+            self.on_sorted(self.sort_column, self.sort_descending)
+
+    def reapply_sort(self) -> None:
+        if self.sort_column:
+            self.sort_by(self.sort_column, self.sort_descending, notify=False)
+        else:
+            self._update_sort_headings()
+
+    def _update_sort_headings(self) -> None:
+        for name, label, _width, _anchor in self.sortable_columns:
+            self.heading(
+                name,
+                text=self._sort_heading_text(name, label),
+                command=lambda value=name: self.sort_by(value),
+            )
+
+
+class CopyableGrid(SortableTableMixin, ttk.Frame):
+    def __init__(
+        self,
+        parent: tk.Misc,
+        columns: tuple[tuple[str, str, int, str], ...],
+        *,
+        numeric_columns: set[str] | None = None,
         copy_callback: Any = None,
     ) -> None:
         super().__init__(parent)
         self.columns = columns
-        self.sort_command = sort_command
+        self._init_sorting(columns, numeric_columns)
         self.copy_callback = copy_callback
         self.headers: dict[str, tk.Label] = {}
         self.cells: list[CopyableText] = []
+        self.rows: list[dict[str, str]] = []
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=1)
@@ -342,23 +496,34 @@ class CopyableGrid(ttk.Frame):
                 relief="solid",
                 padx=4,
                 pady=3,
-                cursor="hand2" if sort_command is not None else "arrow",
+                cursor="hand2",
             )
             header.grid(row=0, column=column_index, sticky="nsew")
-            if sort_command is not None:
-                header.bind(
-                    "<Button-1>",
-                    lambda _event, column=name: self.sort_command(column),
-                )
+            header.bind(
+                "<Button-1>",
+                lambda _event, column=name: self.sort_by(column),
+            )
             self._bind_canvas_wheel(header)
             self.headers[name] = header
 
     def set_rows(self, rows: list[dict[str, str]]) -> None:
+        self.rows = list(rows)
+        if self.sort_column:
+            self.rows.sort(
+                key=lambda row: self._sort_value(
+                    self.sort_column or "",
+                    row.get(self.sort_column or "", ""),
+                ),
+                reverse=self.sort_descending,
+            )
+        self._render_rows()
+
+    def _render_rows(self) -> None:
         for cell in self.cells:
             cell.destroy()
         self.cells.clear()
 
-        for row_index, row in enumerate(rows, start=1):
+        for row_index, row in enumerate(self.rows, start=1):
             background = "#f7f9fb" if row_index % 2 == 0 else "#ffffff"
             for column_index, (name, _label, width, anchor) in enumerate(self.columns):
                 cell = CopyableText(
@@ -392,15 +557,34 @@ class CopyableGrid(ttk.Frame):
         self.rows_frame.update_idletasks()
         self._update_scroll_region()
 
+    def sort_by(self, column: str) -> None:
+        valid = {name for name, _label, _width, _anchor in self.columns}
+        if column not in valid:
+            return
+        descending = self._sort_direction(column)
+        self.sort_column = column
+        self.sort_descending = descending
+        self.rows.sort(
+            key=lambda row: self._sort_value(column, row.get(column, "")),
+            reverse=descending,
+        )
+        self._render_rows()
+        self.update_headings(self.sort_column, self.sort_descending)
+
+    def reset_sort(self) -> None:
+        self.sort_column = None
+        self.sort_descending = False
+        self.update_headings(None, False)
+
     def update_headings(
         self,
         sort_column: str | None,
         descending: bool,
     ) -> None:
-        marker = " v" if descending else " ^"
+        self.sort_column = sort_column
+        self.sort_descending = descending
         for name, label, _width, _anchor in self.columns:
-            text = f"{label}{marker}" if name == sort_column else label
-            self.headers[name].configure(text=text)
+            self.headers[name].configure(text=self._sort_heading_text(name, label))
 
     def _text_justify(self, anchor: str) -> str:
         if anchor in {"center", "e", "right"}:
@@ -472,6 +656,16 @@ class JobsViewer(tk.Tk):
         self.company_blacklist_vars: dict[int, tk.BooleanVar] = {}
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
+        self.company_sorter = SortableRows(
+            (
+                ("name", "Company", 320, "w"),
+                ("application_count", "Applications", 110, "center"),
+                ("blacklisted", "Blacklisted", 140, "center"),
+            ),
+            {"application_count", "blacklisted"},
+            self.company_sort_column,
+            self.company_sort_descending,
+        )
         self.selected_company_id: int | None = None
         self.applications_window: tk.Toplevel | None = None
         self.application_rows: list[dict[str, Any]] = []
@@ -479,6 +673,8 @@ class JobsViewer(tk.Tk):
         self.application_link_labels: list[tk.Label] = []
         self.application_links_after_id: str | None = None
         self.application_status_editor: ttk.Combobox | None = None
+        self.application_sort_column = self._saved_application_sort_column()
+        self.application_sort_descending = self._saved_application_sort_descending()
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
         self.availability_check_running = False
@@ -499,8 +695,6 @@ class JobsViewer(tk.Tk):
         self.reason_filter_var = tk.StringVar(value="")
         self.job_sort_column = self._saved_job_sort_column()
         self.job_sort_descending = self._saved_job_sort_descending()
-        self.tech_sort_column: str | None = None
-        self.tech_sort_descending = False
         self.tech_rows: list[dict[str, str]] = []
         self.detail_view_mode = "skills"
 
@@ -690,11 +884,13 @@ class JobsViewer(tk.Tk):
         parent.columnconfigure(0, weight=1)
         parent.rowconfigure(0, weight=1)
 
-        columns = [name for name, _label, _width, _anchor in JOB_COLUMNS]
-        self.jobs_tree = ttk.Treeview(
+        self.jobs_tree = SortableTreeview(
             parent,
-            columns=columns,
-            show="headings",
+            JOB_COLUMNS,
+            numeric_columns=JOB_NUMERIC_COLUMNS,
+            sort_column=self.job_sort_column,
+            sort_descending=self.job_sort_descending,
+            on_sorted=self._jobs_tree_sorted,
             selectmode="extended",
         )
         self.jobs_tree.grid(row=0, column=0, sticky="nsew")
@@ -712,14 +908,6 @@ class JobsViewer(tk.Tk):
         )
         x_scroll.grid(row=1, column=0, sticky="ew")
         self.jobs_tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
-
-        for name, label, width, anchor in JOB_COLUMNS:
-            self.jobs_tree.heading(
-                name,
-                text=label,
-                command=lambda column=name: self._sort_jobs_tree(column),
-            )
-            self.jobs_tree.column(name, width=width, minwidth=42, anchor=anchor, stretch=True)
 
         self.jobs_tree.tag_configure("odd", background="#f7f9fb")
         self.jobs_tree.bind("<<TreeviewSelect>>", self._on_job_selected)
@@ -889,7 +1077,7 @@ class JobsViewer(tk.Tk):
         self.tech_table = CopyableGrid(
             tech_box,
             TECH_COLUMNS,
-            sort_command=self._sort_tech_table,
+            numeric_columns=TECH_NUMERIC_COLUMNS,
             copy_callback=lambda: self.status_var.set("Copied"),
         )
         self.tech_table.grid(row=0, column=0, sticky="nsew")
@@ -1098,6 +1286,23 @@ class JobsViewer(tk.Tk):
             return bool(company_sort.get("descending", False))
         return False
 
+    def _saved_application_sort_column(self) -> str | None:
+        application_sort = self.settings.get("application_sort")
+        column = (
+            application_sort.get("column")
+            if isinstance(application_sort, dict)
+            else None
+        )
+        if column in {"title", "company", "applied_at", "status"}:
+            return clean(column)
+        return None
+
+    def _saved_application_sort_descending(self) -> bool:
+        application_sort = self.settings.get("application_sort")
+        if isinstance(application_sort, dict):
+            return bool(application_sort.get("descending", False))
+        return False
+
     def _filter_changed(self) -> None:
         self._save_settings()
         self.refresh_jobs()
@@ -1117,6 +1322,10 @@ class JobsViewer(tk.Tk):
             "company_sort": {
                 "column": self.company_sort_column,
                 "descending": bool(self.company_sort_descending),
+            },
+            "application_sort": {
+                "column": self.application_sort_column,
+                "descending": bool(self.application_sort_descending),
             },
         })
         self.settings = data
@@ -1161,20 +1370,7 @@ class JobsViewer(tk.Tk):
             self.job_rows[item_id] = {key: clean(row[key]) for key in row.keys()}
 
         self.status_var.set(f"{len(rows)} jobs")
-        if self.job_sort_column:
-            self._apply_tree_sort(
-                self.jobs_tree,
-                JOB_NUMERIC_COLUMNS,
-                self.job_sort_column,
-                self.job_sort_descending,
-            )
-        self._update_tree_headings(
-            self.jobs_tree,
-            JOB_COLUMNS,
-            self._sort_jobs_tree,
-            self.job_sort_column,
-            self.job_sort_descending,
-        )
+        self.jobs_tree.reapply_sort()
         children = self.jobs_tree.get_children()
         if children:
             self.jobs_tree.selection_set(children[0])
@@ -1627,40 +1823,16 @@ class JobsViewer(tk.Tk):
         self._render_company_rows()
 
     def _sort_companies(self, column: str) -> None:
-        if column not in {"name", "application_count", "blacklisted"}:
-            return
-        if self.company_sort_column == column:
-            self.company_sort_descending = not self.company_sort_descending
-        else:
-            self.company_sort_column = column
-            self.company_sort_descending = column in {
-                "application_count",
-                "blacklisted",
-            }
+        self.company_sorter.sort_by(column)
+        self.company_sort_column = self.company_sorter.sort_column or "name"
+        self.company_sort_descending = self.company_sorter.sort_descending
         self._save_settings()
         self._render_company_rows()
 
     def _sorted_company_rows(self) -> list[dict[str, Any]]:
         rows = list(self.company_rows)
-        if self.company_sort_column == "application_count":
-            rows.sort(key=lambda row: clean(row["name"]).casefold())
-            rows.sort(
-                key=lambda row: int(row["application_count"]),
-                reverse=self.company_sort_descending,
-            )
-            return rows
-        if self.company_sort_column == "blacklisted":
-            rows.sort(key=lambda row: clean(row["name"]).casefold())
-            rows.sort(
-                key=lambda row: bool(row["blacklisted"]),
-                reverse=self.company_sort_descending,
-            )
-            return rows
-        rows.sort(
-            key=lambda row: clean(row["name"]).casefold(),
-            reverse=self.company_sort_descending,
-        )
-        return rows
+        rows.sort(key=lambda row: clean(row["name"]).casefold())
+        return self.company_sorter.sorted_rows(rows)
 
     def _render_company_rows(self) -> None:
         window = self.companies_window
@@ -1933,28 +2105,23 @@ class JobsViewer(tk.Tk):
         table.columnconfigure(0, weight=1)
         table.rowconfigure(0, weight=1)
 
-        columns = ("title", "company", "applied_at", "status")
-        self.applications_tree = ttk.Treeview(
+        application_columns = (
+            ("title", "Title", 420, "w"),
+            ("company", "Company", 280, "w"),
+            ("applied_at", "Date", 110, "center"),
+            ("status", "Status", 150, "center"),
+        )
+        self.applications_tree = SortableTreeview(
             table,
-            columns=columns,
-            show="headings",
+            application_columns,
+            sort_column=self.application_sort_column,
+            sort_descending=self.application_sort_descending,
+            on_sorted=self._applications_sorted,
             selectmode="browse",
         )
         self.applications_tree.grid(row=0, column=0, sticky="nsew")
-        for name, label, width, anchor, stretch in (
-            ("title", "Title", 420, "w", True),
-            ("company", "Company", 280, "w", True),
-            ("applied_at", "Date", 110, "center", False),
-            ("status", "Status", 150, "center", False),
-        ):
-            self.applications_tree.heading(name, text=label)
-            self.applications_tree.column(
-                name,
-                width=width,
-                minwidth=80,
-                anchor=anchor,
-                stretch=stretch,
-            )
+        self.applications_tree.column("applied_at", minwidth=90, stretch=False)
+        self.applications_tree.column("status", minwidth=110, stretch=False)
         self.applications_tree.tag_configure("odd", background="#f7f9fb")
 
         def scroll_y(*args: Any) -> None:
@@ -2008,6 +2175,12 @@ class JobsViewer(tk.Tk):
 
         self._refresh_applications()
 
+    def _applications_sorted(self, column: str, descending: bool) -> None:
+        self.application_sort_column = column
+        self.application_sort_descending = descending
+        self._save_settings()
+        self._schedule_application_controls()
+
     def _refresh_applications(self) -> None:
         window = self.applications_window
         if window is None or not window.winfo_exists():
@@ -2050,6 +2223,7 @@ class JobsViewer(tk.Tk):
             )
             self.application_rows_by_item[item] = row
 
+        self.applications_tree.reapply_sort()
         children = self.applications_tree.get_children("")
         if selected_id in self.application_rows_by_item:
             selected_item = selected_id
@@ -2547,8 +2721,7 @@ class JobsViewer(tk.Tk):
             self._set_text_widget(self.detail_fields[name], value)
         self._set_status_buttons_state(True)
 
-        self.tech_sort_column = None
-        self.tech_sort_descending = False
+        self.tech_table.reset_sort()
         self.tech_rows = [
             {
                 name: clean(row[name])
@@ -2557,10 +2730,6 @@ class JobsViewer(tk.Tk):
             for row in technologies
         ]
         self.tech_table.set_rows(self.tech_rows)
-        self.tech_table.update_headings(
-            self.tech_sort_column,
-            self.tech_sort_descending,
-        )
 
         self._set_summary(detail.get("summary", ""))
         self._set_text_widget(
@@ -2576,14 +2745,9 @@ class JobsViewer(tk.Tk):
         for field in self.detail_fields.values():
             self._set_text_widget(field, "")
         self._set_status_buttons_state(False)
-        self.tech_sort_column = None
-        self.tech_sort_descending = False
+        self.tech_table.reset_sort()
         self.tech_rows = []
         self.tech_table.set_rows(self.tech_rows)
-        self.tech_table.update_headings(
-            self.tech_sort_column,
-            self.tech_sort_descending,
-        )
         self._set_summary("")
         self._set_text_widget(self.readable_text, "")
 
@@ -2933,14 +3097,14 @@ class JobsViewer(tk.Tk):
             cell.bind("<ButtonRelease-1>", open_without_drag, add="+")
 
         columns = (
-            ("ID", 9, "center"),
-            ("Title", 30, "left"),
-            ("Fit", 7, "center"),
-            ("Original", 74, "left"),
-            ("Match", 24, "left"),
+            ("id", "ID", 9, "center"),
+            ("title", "Title", 30, "left"),
+            ("fit", "Fit", 7, "center"),
+            ("original", "Original", 74, "left"),
+            ("matched", "Match", 24, "left"),
         )
-        headers: list[tk.Label] = []
-        for column_index, (label, width, justify) in enumerate(columns):
+        headers: dict[str, tk.Label] = {}
+        for column_index, (name, label, width, justify) in enumerate(columns):
             header = tk.Label(
                 rows_frame,
                 text=label,
@@ -2956,7 +3120,7 @@ class JobsViewer(tk.Tk):
             )
             header.grid(row=0, column=column_index, sticky="nsew")
             bind_canvas_wheel(header)
-            headers.append(header)
+            headers[name] = header
 
         row_cells: list[CopyableText] = []
 
@@ -2979,9 +3143,12 @@ class JobsViewer(tk.Tk):
                 )
                 row_height = max(
                     wrapped_line_count(value, width)
-                    for (_label, width, _justify), value in zip(columns, values)
+                    for (_name, _label, width, _justify), value in zip(columns, values)
                 )
-                for column_index, ((_label, width, justify), value) in enumerate(
+                for column_index, (
+                    (_name, _label, width, justify),
+                    value,
+                ) in enumerate(
                     zip(columns, values)
                 ):
                     cell = CopyableText(
@@ -3017,22 +3184,28 @@ class JobsViewer(tk.Tk):
                         )
                     row_cells.append(cell)
 
-        fit_descending = False
+        sorter = SortableRows(
+            tuple(
+                (name, label, width, justify)
+                for name, label, width, justify in columns
+            ),
+            {"id", "fit"},
+        )
 
-        def sort_by_fit(_event: tk.Event[tk.Misc] | None = None) -> None:
-            nonlocal fit_descending
-            fit_descending = not fit_descending
-            headers[2].configure(text="Fit v" if fit_descending else "Fit ^")
-            displayed = sorted(
-                candidates,
-                key=lambda candidate: int(candidate.get("fit") or 0),
-                reverse=fit_descending,
-            )
+        def sort_candidates(column: str) -> None:
+            sorter.sort_by(column)
+            displayed = sorter.sorted_rows(candidates)
+            for name, label, _width, _justify in columns:
+                headers[name].configure(text=sorter._sort_heading_text(name, label))
             render_candidates(displayed)
             dialog.after_idle(lambda: canvas.yview_moveto(0))
 
-        headers[2].configure(cursor="hand2")
-        headers[2].bind("<ButtonRelease-1>", sort_by_fit)
+        for name, header in headers.items():
+            header.configure(cursor="hand2")
+            header.bind(
+                "<ButtonRelease-1>",
+                lambda _event, column=name: sort_candidates(column),
+            )
         render_candidates(candidates)
 
         actions = ttk.Frame(dialog, padding=10)
@@ -3582,114 +3755,11 @@ class JobsViewer(tk.Tk):
     def _score_visible(self, score: int) -> bool:
         return self.show_zero_var.get() or score != 0
 
-    def _sort_jobs_tree(self, column: str) -> None:
-        self.job_sort_column, self.job_sort_descending = self._sort_tree(
-            self.jobs_tree,
-            JOB_COLUMNS,
-            JOB_NUMERIC_COLUMNS,
-            column,
-            self.job_sort_column,
-            self.job_sort_descending,
-        )
+    def _jobs_tree_sorted(self, column: str, descending: bool) -> None:
+        self.job_sort_column = column
+        self.job_sort_descending = descending
         self._save_settings()
-        self._update_tree_headings(
-            self.jobs_tree,
-            JOB_COLUMNS,
-            self._sort_jobs_tree,
-            self.job_sort_column,
-            self.job_sort_descending,
-        )
         self._schedule_job_link_labels()
-
-    def _sort_tech_table(self, column: str) -> None:
-        descending = (
-            not self.tech_sort_descending
-            if self.tech_sort_column == column
-            else column in TECH_NUMERIC_COLUMNS
-        )
-
-        def sort_key(row: dict[str, str]) -> Any:
-            value = clean(row.get(column, ""))
-            if column == "level":
-                return LEVEL_SORT_VALUES.get(value.casefold(), 0)
-            return value.casefold()
-
-        self.tech_rows.sort(key=sort_key, reverse=descending)
-        self.tech_sort_column = column
-        self.tech_sort_descending = descending
-        self.tech_table.set_rows(self.tech_rows)
-        self.tech_table.update_headings(
-            self.tech_sort_column,
-            self.tech_sort_descending,
-        )
-
-    def _sort_tree(
-        self,
-        tree: ttk.Treeview,
-        columns: tuple[tuple[str, str, int, str], ...],
-        numeric_columns: set[str],
-        column: str,
-        current_column: str | None,
-        current_descending: bool,
-    ) -> tuple[str, bool]:
-        descending = (
-            not current_descending
-            if current_column == column
-            else column in numeric_columns
-        )
-        self._apply_tree_sort(tree, numeric_columns, column, descending)
-        return column, descending
-
-    def _apply_tree_sort(
-        self,
-        tree: ttk.Treeview,
-        numeric_columns: set[str],
-        column: str,
-        descending: bool,
-    ) -> None:
-        items = list(tree.get_children(""))
-
-        def sort_key(item: str) -> Any:
-            value = tree.set(item, column)
-            if column == "level":
-                return LEVEL_SORT_VALUES.get(value.casefold(), 0)
-            if column == "added_at":
-                try:
-                    return parse_display_date(value)
-                except ValueError:
-                    return datetime.min
-            if column in numeric_columns:
-                try:
-                    return float(value)
-                except ValueError:
-                    return float("-inf")
-            return value.casefold()
-
-        items.sort(key=sort_key, reverse=descending)
-        for index, item in enumerate(items):
-            tree.move(item, "", index)
-        self._retag_tree(tree)
-
-    def _update_tree_headings(
-        self,
-        tree: ttk.Treeview,
-        columns: tuple[tuple[str, str, int, str], ...],
-        sort_command: Any,
-        sort_column: str | None,
-        descending: bool,
-    ) -> None:
-        marker = " v" if descending else " ^"
-        for name, label, _width, _anchor in columns:
-            text = f"{label}{marker}" if name == sort_column else label
-            tree.heading(
-                name,
-                text=text,
-                command=lambda column=name: sort_command(column),
-            )
-
-    def _retag_tree(self, tree: ttk.Treeview) -> None:
-        for index, item in enumerate(tree.get_children("")):
-            tree.item(item, tags=("odd",) if index % 2 else ())
 
     def _bind_score_field(self, widget: CopyableText) -> None:
         widget.bind("<KeyPress>", self._score_field_keypress)

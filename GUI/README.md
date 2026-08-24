@@ -25,6 +25,11 @@ Filters, table sorting, and the last sizes of the main, `Refilter detail`,
 restored the next time the corresponding window opens. The settings file is
 ignored by git.
 
+All table headers are sortable. Repeated clicks on the active header toggle
+ascending and descending order; the header shows `^` or `v`. Native tables and
+copyable text grids share the same sortable-table base behavior. Main,
+Companies, and Applications sorting is restored from GUI settings.
+
 ## Filters
 
 The upper-right search area contains ID, `Date`, and `Reason` filters. Dates use
@@ -81,6 +86,7 @@ Application status is changed immediately by the row selector and supports
 `Applied`, `Refused`, and `Confirmed`. The applications list uses one native
 table and shows a single in-cell status selector for the selected row, so the
 window does not create a separate set of controls for every stored application.
+Every column header sorts the list, and the selected sorting is preserved.
 
 ## LinkedIn availability check
 
@@ -127,7 +133,7 @@ through the database layer. The bottom `Refilter detail` button only collects
 them and opens a confirmation window with `ID`, `Title`, `Fit`, `Original`, and
 `Match` columns. Its contents are read-only text, so any substring can be
 selected with the mouse and copied with `Ctrl+C`. Clicking a title without
-dragging opens the vacancy `source_url`; clicking the `Fit` header toggles
-ascending/descending sorting. The mouse wheel scrolls rows, and `Shift` plus the
-mouse wheel scrolls horizontally. `Confirm` deletes that displayed set;
+dragging opens the vacancy `source_url`; every header toggles
+ascending/descending sorting. The mouse wheel scrolls rows, and `Shift` plus
+the mouse wheel scrolls horizontally. `Confirm` deletes that displayed set;
 `Cancel` or closing the window leaves the database unchanged.
