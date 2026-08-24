@@ -99,6 +99,9 @@ CREATE TABLE IF NOT EXISTS content_filter_rejections (
 CREATE TABLE IF NOT EXISTS companies (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL COLLATE NOCASE UNIQUE CHECK (length(trim(name)) > 0),
+    linkedin_id TEXT CHECK (
+        linkedin_id IS NULL OR length(trim(linkedin_id)) > 0
+    ),
     blacklisted INTEGER NOT NULL DEFAULT 0 CHECK (blacklisted IN (0, 1))
 );
 
@@ -312,6 +315,9 @@ CREATE TABLE IF NOT EXISTS codex_run_operations (
 CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company_id);
 CREATE INDEX IF NOT EXISTS idx_companies_blacklisted
     ON companies(blacklisted);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_companies_linkedin_id
+    ON companies(linkedin_id)
+    WHERE linkedin_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_applications_status
     ON applications(status);

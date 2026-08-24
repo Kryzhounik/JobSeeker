@@ -24,6 +24,12 @@ Current reasons:
 
 ## Chrome Tab Ownership
 
+LinkedIn collection uses the Chrome profile logged in as Rolling Stone. If two
+Chrome extension instances are connected, choose the instance with few open
+tabs; the normal browsing profile has many tabs and must not be used. The user
+normally disables the extension in that normal profile, so one connected Chrome
+is the expected state.
+
 Prefer a Chrome tab created through the Codex Chrome extension. It appears in
 the user's Chrome window/group as a Codex-controlled tab.
 

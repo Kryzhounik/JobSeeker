@@ -43,6 +43,7 @@ from db.applications import (
     list_application_statuses,
     update_status as update_application_status,
 )
+from db.companies import create_company
 from db.job_mapper import delete_jobs
 from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
@@ -651,7 +652,7 @@ class JobsViewer(tk.Tk):
         self.company_rows: list[dict[str, Any]] = []
         self.company_row_widgets: dict[
             int,
-            tuple[CopyableText, CopyableText, tk.Frame, str],
+            tuple[CopyableText, CopyableText, CopyableText, tk.Frame, str],
         ] = {}
         self.company_blacklist_vars: dict[int, tk.BooleanVar] = {}
         self.company_sort_column = self._saved_company_sort_column()
@@ -659,6 +660,7 @@ class JobsViewer(tk.Tk):
         self.company_sorter = SortableRows(
             (
                 ("name", "Company", 320, "w"),
+                ("linkedin_id", "LinkedIn ID", 150, "w"),
                 ("application_count", "Applications", 110, "center"),
                 ("blacklisted", "Blacklisted", 140, "center"),
             ),
@@ -1276,7 +1278,7 @@ class JobsViewer(tk.Tk):
     def _saved_company_sort_column(self) -> str:
         company_sort = self.settings.get("company_sort")
         column = company_sort.get("column") if isinstance(company_sort, dict) else None
-        if column in {"name", "application_count", "blacklisted"}:
+        if column in {"name", "linkedin_id", "application_count", "blacklisted"}:
             return clean(column)
         return "name"
 
@@ -1686,8 +1688,8 @@ class JobsViewer(tk.Tk):
         window = tk.Toplevel(self)
         self.companies_window = window
         window.title("Companies")
-        window.geometry(self._saved_window_size("companies", "820x640", 560, 360))
-        window.minsize(560, 360)
+        window.geometry(self._saved_window_size("companies", "940x640", 820, 360))
+        window.minsize(820, 360)
         window.transient(self)
         window.columnconfigure(0, weight=1)
         window.rowconfigure(0, weight=1)
@@ -1727,13 +1729,15 @@ class JobsViewer(tk.Tk):
         header = tk.Frame(table, background="#e7e9e7")
         header.grid(row=0, column=0, sticky="ew")
         header.columnconfigure(0, weight=1, minsize=320)
-        header.columnconfigure(1, minsize=110)
-        header.columnconfigure(2, minsize=140)
+        header.columnconfigure(1, minsize=150)
+        header.columnconfigure(2, minsize=110)
+        header.columnconfigure(3, minsize=140)
         self.company_headers: dict[str, tk.Label] = {}
         for column, label, column_index, anchor in (
             ("name", "Company", 0, "w"),
-            ("application_count", "Applications", 1, "center"),
-            ("blacklisted", "Blacklisted", 2, "center"),
+            ("linkedin_id", "LinkedIn ID", 1, "w"),
+            ("application_count", "Applications", 2, "center"),
+            ("blacklisted", "Blacklisted", 3, "center"),
         ):
             heading = tk.Label(
                 header,
@@ -1776,8 +1780,9 @@ class JobsViewer(tk.Tk):
             background="#ffffff",
         )
         self.companies_rows_frame.columnconfigure(0, weight=1, minsize=320)
-        self.companies_rows_frame.columnconfigure(1, minsize=110)
-        self.companies_rows_frame.columnconfigure(2, minsize=140)
+        self.companies_rows_frame.columnconfigure(1, minsize=150)
+        self.companies_rows_frame.columnconfigure(2, minsize=110)
+        self.companies_rows_frame.columnconfigure(3, minsize=140)
         rows_window = self.companies_canvas.create_window(
             (0, 0),
             window=self.companies_rows_frame,
@@ -1800,6 +1805,46 @@ class JobsViewer(tk.Tk):
         self.companies_canvas.bind("<Button-4>", self._scroll_companies)
         self.companies_canvas.bind("<Button-5>", self._scroll_companies)
 
+        add_form = ttk.Frame(table, padding=(0, 8, 0, 0))
+        add_form.grid(row=2, column=0, columnspan=2, sticky="ew")
+        add_form.columnconfigure(3, weight=1)
+        ttk.Label(add_form, text="LinkedIn ID", style="Muted.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=(0, 4),
+        )
+        self.new_company_linkedin_id_var = tk.StringVar()
+        linkedin_id_entry = ttk.Entry(
+            add_form,
+            textvariable=self.new_company_linkedin_id_var,
+            width=18,
+        )
+        linkedin_id_entry.grid(row=0, column=1, sticky="w", padx=(0, 12))
+        self._bind_editable_entry(linkedin_id_entry)
+        linkedin_id_entry.bind("<Return>", self._add_company_from_event)
+
+        ttk.Label(add_form, text="Name", style="Muted.TLabel").grid(
+            row=0,
+            column=2,
+            sticky="w",
+            padx=(0, 4),
+        )
+        self.new_company_name_var = tk.StringVar()
+        self.new_company_name_entry = ttk.Entry(
+            add_form,
+            textvariable=self.new_company_name_var,
+            width=36,
+        )
+        self.new_company_name_entry.grid(row=0, column=3, sticky="ew")
+        self._bind_editable_entry(self.new_company_name_entry)
+        self.new_company_name_entry.bind("<Return>", self._add_company_from_event)
+        ttk.Button(
+            add_form,
+            text="Add",
+            command=self._add_company,
+        ).grid(row=0, column=4, sticky="e", padx=(8, 0))
+
         self._refresh_companies(company_id)
 
     def _refresh_companies(self, focus_company_id: int | None = None) -> None:
@@ -1810,12 +1855,13 @@ class JobsViewer(tk.Tk):
                     SELECT
                         c.id,
                         c.name,
+                        c.linkedin_id,
                         c.blacklisted,
                         count(a.id) AS application_count
                     FROM companies c
                     LEFT JOIN jobs j ON j.company_id = c.id
                     LEFT JOIN applications a ON a.job_id = j.id
-                    GROUP BY c.id, c.name, c.blacklisted
+                    GROUP BY c.id, c.name, c.linkedin_id, c.blacklisted
                     """
                 ).fetchall()
         except Exception as error:
@@ -1827,6 +1873,7 @@ class JobsViewer(tk.Tk):
             {
                 "id": int(row["id"]),
                 "name": clean(row["name"]),
+                "linkedin_id": clean(row["linkedin_id"]),
                 "application_count": int(row["application_count"]),
                 "blacklisted": bool(row["blacklisted"]),
             }
@@ -1861,6 +1908,7 @@ class JobsViewer(tk.Tk):
         marker = " v" if self.company_sort_descending else " ^"
         for column, label in (
             ("name", "Company"),
+            ("linkedin_id", "LinkedIn ID"),
             ("application_count", "Applications"),
             ("blacklisted", "Blacklisted"),
         ):
@@ -1900,6 +1948,31 @@ class JobsViewer(tk.Tk):
                 pady=1,
             )
 
+            linkedin_id_cell = CopyableText(
+                self.companies_rows_frame,
+                readonly=True,
+                copy_callback=lambda: self.status_var.set("Copied"),
+                height=1,
+                width=1,
+                wrap="none",
+                borderwidth=0,
+                relief="flat",
+                background=background,
+                foreground=foreground,
+                font=("Segoe UI", 9),
+                padx=6,
+                pady=4,
+                cursor="xterm",
+            )
+            linkedin_id_cell.set_value(row["linkedin_id"])
+            linkedin_id_cell.grid(
+                row=row_index,
+                column=1,
+                sticky="nsew",
+                padx=1,
+                pady=1,
+            )
+
             count_cell = CopyableText(
                 self.companies_rows_frame,
                 readonly=True,
@@ -1921,7 +1994,7 @@ class JobsViewer(tk.Tk):
             count_cell.tag_add("center", "1.0", "end-1c")
             count_cell.grid(
                 row=row_index,
-                column=1,
+                column=2,
                 sticky="nsew",
                 padx=1,
                 pady=1,
@@ -1933,7 +2006,7 @@ class JobsViewer(tk.Tk):
             )
             checkbox_cell.grid(
                 row=row_index,
-                column=2,
+                column=3,
                 sticky="nsew",
                 padx=(1, 0),
                 pady=1,
@@ -1953,6 +2026,11 @@ class JobsViewer(tk.Tk):
                 lambda _event, value=company_id: self._select_company_row(value),
                 add="+",
             )
+            linkedin_id_cell.bind(
+                "<ButtonPress-1>",
+                lambda _event, value=company_id: self._select_company_row(value),
+                add="+",
+            )
             count_cell.bind(
                 "<ButtonPress-1>",
                 lambda _event, value=company_id: self._select_company_row(value),
@@ -1967,13 +2045,20 @@ class JobsViewer(tk.Tk):
                 lambda _event, value=company_id: self._select_company_row(value),
                 add="+",
             )
-            for widget in (name_cell, count_cell, checkbox_cell, checkbox):
+            for widget in (
+                name_cell,
+                linkedin_id_cell,
+                count_cell,
+                checkbox_cell,
+                checkbox,
+            ):
                 widget.bind("<MouseWheel>", self._scroll_companies, add="+")
                 widget.bind("<Button-4>", self._scroll_companies, add="+")
                 widget.bind("<Button-5>", self._scroll_companies, add="+")
 
             self.company_row_widgets[company_id] = (
                 name_cell,
+                linkedin_id_cell,
                 count_cell,
                 checkbox_cell,
                 base_background,
@@ -1991,13 +2076,14 @@ class JobsViewer(tk.Tk):
         for row_id in (previous, company_id):
             if row_id is None or row_id not in self.company_row_widgets:
                 continue
-            name_cell, count_cell, checkbox_cell, base_background = (
+            name_cell, linkedin_id_cell, count_cell, checkbox_cell, base_background = (
                 self.company_row_widgets[row_id]
             )
             selected = row_id == company_id
             background = "#4b6f8d" if selected else base_background
             foreground = "#ffffff" if selected else "#202020"
             name_cell.configure(background=background, foreground=foreground)
+            linkedin_id_cell.configure(background=background, foreground=foreground)
             count_cell.configure(background=background, foreground=foreground)
             checkbox_cell.configure(background=background)
 
@@ -2010,10 +2096,50 @@ class JobsViewer(tk.Tk):
         self.companies_canvas.update_idletasks()
         if len(displayed_ids) > 1:
             self.companies_canvas.yview_moveto(row_index / (len(displayed_ids) - 1))
-        name_cell, _count_cell, _checkbox_cell, _background = (
+        name_cell, _linkedin_id_cell, _count_cell, _checkbox_cell, _background = (
             self.company_row_widgets[company_id]
         )
         name_cell.focus_set()
+
+    def _add_company_from_event(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> str:
+        self._add_company()
+        return "break"
+
+    def _add_company(self) -> None:
+        name = self.new_company_name_var.get().strip()
+        linkedin_id = self.new_company_linkedin_id_var.get().strip()
+        if not name:
+            messagebox.showerror("Company add failed", "Company name is required.")
+            self.new_company_name_entry.focus_set()
+            return
+
+        try:
+            with self.connect_writable() as connection:
+                company_id = create_company(connection, name, linkedin_id)
+        except sqlite3.IntegrityError as error:
+            error_text = clean(error).casefold()
+            if "companies.name" in error_text:
+                message = f"Company already exists: {name}"
+            elif "companies.linkedin_id" in error_text:
+                message = f"LinkedIn ID already exists: {linkedin_id}"
+            else:
+                message = str(error)
+            messagebox.showerror("Company add failed", message)
+            self.status_var.set("Company add failed")
+            return
+        except Exception as error:
+            messagebox.showerror("Company add failed", str(error))
+            self.status_var.set("Company add failed")
+            return
+
+        self.new_company_linkedin_id_var.set("")
+        self.new_company_name_var.set("")
+        self._refresh_companies(company_id)
+        self.new_company_name_entry.focus_set()
+        self.status_var.set(f"Company added: {name}")
 
     def _company_blacklist_changed(
         self,

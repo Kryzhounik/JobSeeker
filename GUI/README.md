@@ -60,12 +60,18 @@ the original view. The full text is read-only and supports normal selection and
 ## Companies
 
 The `Companies` button opens the normalized company list. The `Company`,
-`Applications`, and `Blacklisted` headers toggle sorting. The Applications
-column counts application records linked to the company's vacancies. Blacklist
-sorting shows blacklisted rows first on its first click. Each checkbox writes
+`LinkedIn ID`, `Applications`, and `Blacklisted` headers toggle sorting. The
+optional LinkedIn ID is stored as `companies.linkedin_id`; blank values are
+stored as `NULL`, while nonblank IDs are unique. The Applications column counts
+application records linked to the company's vacancies. Blacklist sorting shows
+blacklisted rows first on its first click. Each checkbox writes
 `companies.blacklisted` immediately, without an Apply button, and is restored
 if the database update fails. The window size and last sorting are saved with
 the other GUI settings.
+
+The form below the company list creates a company from a required name and an
+optional LinkedIn ID. `Add` or Enter inserts it immediately and focuses the new
+row. Duplicate names and duplicate nonblank LinkedIn IDs are rejected.
 
 Company cells in the main jobs table are links. Clicking one opens the same
 window, scrolls to that company, and highlights its row.

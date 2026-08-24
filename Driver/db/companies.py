@@ -12,6 +12,32 @@ def normalize_company_name(value: Any) -> str:
     return " ".join(str(value).split())
 
 
+def normalize_linkedin_id(value: Any) -> str | None:
+    if value is None:
+        return None
+    linkedin_id = str(value).strip()
+    return linkedin_id or None
+
+
+def create_company(
+    connection: sqlite3.Connection,
+    name: Any,
+    linkedin_id: Any = None,
+) -> int:
+    normalized_name = normalize_company_name(name)
+    if not normalized_name:
+        raise ValueError("Company name is required.")
+
+    result = connection.execute(
+        """
+        INSERT INTO companies (name, linkedin_id)
+        VALUES (?, ?)
+        """,
+        (normalized_name, normalize_linkedin_id(linkedin_id)),
+    )
+    return int(result.lastrowid)
+
+
 def get_or_create_company(
     connection: sqlite3.Connection,
     company: Any,
