@@ -66,6 +66,14 @@ MOJIBAKE_MARKERS = (
 )
 
 
+class LinkedInTextExtractor(TextExtractor):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        classes = dict(attrs).get("class", "") or ""
+        if "show-more-less-html__markup" in classes.split():
+            self.parts.append("\nDescription\n")
+        super().handle_starttag(tag, attrs)
+
+
 def mojibake_score(text: str) -> int:
     return sum(text.count(marker) for marker in MOJIBAKE_MARKERS)
 
@@ -147,7 +155,7 @@ def normalize_text(text: str) -> str:
 
 
 def readable_text(source: str, raw_path: Path) -> str:
-    parser = TextExtractor()
+    parser = LinkedInTextExtractor()
     parser.feed(raw_path.read_text(encoding="utf-8", errors="replace"))
     text = normalize_text(parser.text())
     metadata = [

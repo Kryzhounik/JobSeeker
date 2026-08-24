@@ -576,3 +576,5 @@ Finance Accountant
 Security Expert
 
 Machine Engineer
+DevSecOps Tech Lead
+Governance Engineer

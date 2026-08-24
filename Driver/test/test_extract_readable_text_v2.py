@@ -47,6 +47,20 @@ Build Java services.
             "Senior Java Developer\nExample Corp\nUkraine\nDescription\nBuild Java services.\n",
         )
 
+    def test_marks_description_container_after_guest_sign_in(self) -> None:
+        parser = MODULE.LinkedInTextExtractor()
+        parser.feed(
+            "<h1>Senior Java Developer</h1>"
+            "<div>Join or sign in to find your next job</div>"
+            "<div>Email</div>"
+            '<div class="show-more-less-html__markup">Build Java services.</div>'
+        )
+
+        self.assertEqual(
+            MODULE.normalize_text(parser.text()),
+            "Senior Java Developer\nDescription\nBuild Java services.\n",
+        )
+
     def test_removes_guest_metadata_tail(self) -> None:
         text = "Description\nBuild Java services.\nShow more\nSeniority level\nSenior\n"
 
