@@ -134,8 +134,25 @@ the combined run scope reaches the global limit.
 20. Get the raw HTML from the right-side details pane, not from the whole
     search page. For `source_url` fallback pages, get the loaded job details
     content from the job page instead.
-21. Store one or more verified pane results as a JSON list and run the stable
-   command:
+21. Save each verified pane HTML as a UTF-8 temporary file. Store its metadata
+   using exactly this JSON shape (do not flatten `preview` and do not embed the
+   HTML in this JSON):
+   ```json
+   [{
+     "preview": {
+       "job_id": "<job-id>",
+       "source_url": "<canonical-url>",
+       "title": "<title>",
+       "company": "<company>"
+     },
+     "status": "pane_saved",
+     "temp_path": "<absolute-pane-html-path>",
+     "label": "<location-label>",
+     "start": 0,
+     "index": 0
+   }]
+   ```
+   Then run the stable command:
    `python collector/process_linkedin_panes.py --batch <browser-results.json> --scope <run-scope.json>`.
    This command performs the already-defined deterministic sequence through
    `save_raw_page.py`, `extract_linkedin_readable_text_v2.py`, the content
