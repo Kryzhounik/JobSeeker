@@ -1,0 +1,118 @@
+LANGUAGE REQUIREMENT WORDING: MARKET SAMPLE
+============================================
+
+Status: research note, not an executable filter configuration.
+
+Scope
+-----
+
+The source sample contains 54 unique Senior Java / Senior Backend vacancies
+from Poland, Ukraine, Moldova, and remote Europe, mostly recent vacancies from
+2026. Mirrors of the same vacancy on different aggregators were excluded where
+possible. Several vacancies contained more than one wording paired with an
+explicit CEFR level, resulting in 59 pairs of "wording -> explicit CEFR".
+
+This is not a random statistical sample of the whole market. It is an internal
+calibration sample for interpreting HR language in relevant vacancies.
+
+Observed results
+----------------
+
+Wording     Pairs   B2 / B2+       C1 / C1+       B2-C1       Interpretation
+very good      9    7 (78%)        2 (22%)        0           primarily B2/B2+
+excellent     10    6 (60%)        4 (40%)        0           ambiguous B2+-C1
+fluent        29   16 (55%)       10 (34%)        3 (10%)     ambiguous B2+-C1
+good           6    3 (50%)        3 (50%)        0           weak signal
+strong         5    3 (60%)        0               2 (40%)     usually B2/B2+
+
+Key observations
+----------------
+
+1. "Fluent English" more often corresponded to B2/B2+ than C1.
+
+Examples from the sample:
+
+- EPAM: "Fluent English" paired with B2+.
+- ITDS: "Fluent English" paired with B2.
+- Xebia: "Fluent English" paired with B2.
+- Link Group and Luxoft also use "Fluent English" for C1.
+- LeoVegas explicitly writes "Fluent English (C1 level is a minimum)".
+
+Therefore, "fluent" alone does not reliably distinguish B2 from C1.
+
+2. "Very good English" was predominantly B2/B2+.
+
+Examples from the sample:
+
+- Xebia: "very good English (B2+)".
+- PAYBACK: "Very good English ... at least B2".
+- ALTEN: "Very good English - at least B2+".
+- Some vacancies from Codibly and Edge One paired it with C1.
+
+3. "Excellent English" was split between B2/B2+ and C1.
+
+Examples from the sample:
+
+- Trui: "Excellent English communication skills (B2+)".
+- Upvanta: "excellent English communication" paired with B2.
+- Tenarai: "Excellent English communication skills" paired with B2.
+- Netguru: "Excellent English skills" paired with C1.
+
+4. "Good English" carried little information by itself.
+
+Examples from the sample:
+
+- IDT: "Good English level - B2 or higher".
+- Luxoft: "Good spoken English" paired with B2 Upper Intermediate.
+- Another Luxoft Senior Java vacancy paired "Good English" with C1 Advanced.
+
+5. "Strong English" generally corresponded to B2/B2+.
+
+Examples from the sample:
+
+- EPAM: "Strong English communication at B2 level or higher".
+- Next Ventures: "Strong English communication skills (B2+)".
+- PTT: "Strong English communication (B2/C1 level)".
+
+Suggested semantic calibration
+------------------------------
+
+HR wording                         Suggested interpretation without explicit CEFR
+communicative English              B1/B1+
+intermediate                       B1
+good English                       B1+/B2; usually a general working requirement
+upper-intermediate                 B2
+very good English                  B2/B2+
+strong English                     B2/B2+
+excellent English                  B2+/C1
+fluent English                     B2+/C1
+advanced English                   C1 when used as a named proficiency level
+professional working proficiency   B2
+full professional proficiency      C1
+near-native                        C1+/C2
+native/bilingual proficiency       C2/native-like
+proficient                         unclear without context
+C2 Proficiency                     C2 when used as the formal qualification name
+
+Interpretation notes
+--------------------
+
+The official CEFR descriptions do not reserve fluency for C1. A B2 speaker can
+interact with sufficient fluency and spontaneity for regular communication.
+C1 describes a broader, more consistent, and less effortful form of fluency.
+
+Practical evidence-based conclusion: when no explicit CEFR level is stated,
+"very good", "strong", "excellent", and "fluent" should not be treated as
+reliable proof of a level above B2.
+
+Current Seeker policy
+---------------------
+
+Despite that evidence, Seeker currently keeps "fluent" at C1. This is a
+deliberately stricter product decision: mapping it to B2 would make almost all
+vacancies pass the language filter because explicit C1/C2 wording is uncommon.
+Do not silently change this mapping based only on the semantic calibration
+above. Re-evaluate it together with the desired selectivity of the filter.
+
+Explicit requirements such as "C1", "C1 minimum", or "English C1" remain
+unambiguous and should take precedence over descriptive wording.

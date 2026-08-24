@@ -59,8 +59,11 @@ Languages:
   `language_levels.md` context.
 - Normalize semantic equivalents to the CEFR label; keep the vacancy's original
   wording only in `raw_value`.
+- When that context gives an allowed range for ambiguous wording, choose one
+  level inside the range using the role's stated communication demands. Use the
+  listed default when the vacancy provides no useful signal for choosing.
 - Requirement status and proficiency are independent. Never infer proficiency
-  from `required`, `mandatory`, a must-have section, vacancy seniority, or the
+  from `required`, `mandatory`, a must-have section, generic seniority, or the
   mere fact that the language will be used. If a language is required but the
   text gives no proficiency signal, do not create a ranked language row; record
   in `notes` that the language is required with level unspecified.
