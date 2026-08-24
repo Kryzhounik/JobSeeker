@@ -73,6 +73,22 @@ def update_company_priority(
         raise KeyError(f"Company not found: {company_id}")
 
 
+def get_priority_linkedin_ids(connection: sqlite3.Connection) -> list[str]:
+    return [
+        str(row[0]).strip()
+        for row in connection.execute(
+            """
+            SELECT linkedin_id
+            FROM companies
+            WHERE priority = 1
+                AND linkedin_id IS NOT NULL
+                AND trim(linkedin_id) <> ''
+            ORDER BY id
+            """
+        )
+    ]
+
+
 def get_or_create_company(
     connection: sqlite3.Connection,
     company: Any,

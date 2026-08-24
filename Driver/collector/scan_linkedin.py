@@ -57,6 +57,7 @@ from collector.filtering.linkedin_filter import load_config as load_filter_confi
 from collector.logging.linkedin_logger import record_collection_event
 from collector.save_raw_page import save_content
 from common.paths import DATA_ROOT
+from db.companies import get_priority_linkedin_ids
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 from db.readable_text import save_readable_text
@@ -259,7 +260,12 @@ def parse_location(raw: str) -> Location:
     )
 
 
-def search_page_url(settings: dict[str, str], location: Location, start: int) -> str:
+def search_page_url(
+    settings: dict[str, str],
+    location: Location,
+    start: int,
+    company_ids: list[str] | None = None,
+) -> str:
     params = {
         "keywords": settings.get("keywords", ""),
         "start": str(start),
@@ -271,6 +277,8 @@ def search_page_url(settings: dict[str, str], location: Location, start: int) ->
     date_posted = DATE_POSTED.get(settings.get("datePosted", ""))
     if date_posted:
         params["f_TPR"] = date_posted
+    if company_ids:
+        params["f_C"] = ",".join(company_ids)
     return SEARCH_ENDPOINT + "?" + urlencode(params)
 
 
@@ -391,6 +399,15 @@ def collect_batch(
         COLLECTOR_ROOT / "filtering" / "linkedin_preview_filter.ini"
     )
     vacancy_filter = VacancyFilter(db_path=db_path)
+    connection = sqlite3.connect(db_path)
+    try:
+        priority_company_ids = get_priority_linkedin_ids(connection)
+    finally:
+        connection.close()
+    search_passes = []
+    if priority_company_ids:
+        search_passes.append(("priority", priority_company_ids))
+    search_passes.append(("general", []))
     seen_ids: set[str] = set()
     scope: list[dict[str, str]] = []
     outcomes: list[dict[str, Any]] = []
@@ -402,26 +419,30 @@ def collect_batch(
         else csv(settings.get("locations", ""))
     )
     for location in map(parse_location, configured_locations):
+        search_index = 0
+        search_name, company_ids = search_passes[search_index]
         previous_ids: set[str] = set()
         start = 0
         no_new_pages = 0
         while len(scope) < limit:
             cards = parse_search_page(
-                client.get(search_page_url(settings, location, start))
+                client.get(search_page_url(settings, location, start, company_ids))
             )
             current_ids = {card.job_id for card in cards}
             overlap = len(previous_ids.intersection(current_ids))
             overlap_warning = ""
             if page_overlap_missing(previous_ids, current_ids):
                 overlap_warning = (
-                    f"LinkedIn pagination warning at {location.label} start={start}: "
-                    "adjacent responses have no overlapping job ID; continuing "
-                    "because guest results are not stable between requests"
+                    f"LinkedIn pagination warning at {location.label} "
+                    f"{search_name} start={start}: adjacent responses have no "
+                    "overlapping job ID; continuing because guest results are "
+                    "not stable between requests"
                 )
                 print(f"WARNING: {overlap_warning}", file=sys.stderr)
             new_cards = [card for card in cards if card.job_id not in seen_ids]
             page_result = {
                 "label": location.label,
+                "search": search_name,
                 "start": start,
                 "cards": len(cards),
                 "new": len(new_cards),
@@ -431,8 +452,9 @@ def collect_batch(
                 page_result["warning"] = overlap_warning
             pages.append(page_result)
             print(
-                f"{location.label} start={start} cards={len(cards)} "
-                f"new={len(new_cards)} accepted={len(scope)}/{limit}",
+                f"{location.label} {search_name} start={start} "
+                f"cards={len(cards)} new={len(new_cards)} "
+                f"accepted={len(scope)}/{limit}",
                 file=sys.stderr,
             )
             no_new_pages = no_new_pages + 1 if not new_cards else 0
@@ -476,7 +498,14 @@ def collect_batch(
                         break
 
             if should_stop_location(len(scope), limit, no_new_pages):
-                break
+                search_index += 1
+                if len(scope) >= limit or search_index >= len(search_passes):
+                    break
+                search_name, company_ids = search_passes[search_index]
+                previous_ids = set()
+                start = 0
+                no_new_pages = 0
+                continue
             previous_ids = current_ids
             start += PAGE_STEP
 

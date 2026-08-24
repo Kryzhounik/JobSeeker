@@ -5,6 +5,7 @@ import sys
 import tempfile
 from urllib.parse import parse_qs, urlparse
 import unittest
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +38,18 @@ class ScanLinkedInTest(unittest.TestCase):
         self.assertEqual(query["f_TPR"], ["r604800"])
         self.assertEqual(query["start"], ["18"])
         self.assertNotIn("f_SAL", query)
+
+    def test_search_page_url_contains_priority_companies(self) -> None:
+        url = search_page_url(
+            {"keywords": "Java"},
+            parse_location("Ukraine:102264497"),
+            0,
+            ["1069110", "250774"],
+        )
+
+        query = parse_qs(urlparse(url).query)
+
+        self.assertEqual(query["f_C"], ["1069110,250774"])
 
     def test_locationless_search_omits_location_parameters(self) -> None:
         url = search_page_url(
@@ -99,16 +112,53 @@ class ScanLinkedInTest(unittest.TestCase):
 
         client = EmptyClient()
         with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "jobs.sqlite"
+            db_path.touch()
             result = collect_batch(
                 {"keywords": "Java", "locations": "Moldova:106178099"},
                 limit=1,
                 client=client,
-                db_path=Path(directory) / "jobs.sqlite",
+                db_path=db_path,
                 raw_dir=Path(directory) / "raw",
             )
 
         self.assertEqual([page["start"] for page in result["pages"]], [0, 9])
         self.assertEqual(len(client.urls), 2)
+
+    def test_priority_companies_are_searched_before_general_results(self) -> None:
+        class EmptyClient:
+            def __init__(self) -> None:
+                self.urls: list[str] = []
+
+            def get(self, url: str) -> str:
+                self.urls.append(url)
+                return "<ul></ul>"
+
+        client = EmptyClient()
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "jobs.sqlite"
+            db_path.touch()
+            with patch(
+                "collector.scan_linkedin.get_priority_linkedin_ids",
+                return_value=["1069110", "250774"],
+            ):
+                result = collect_batch(
+                    {"keywords": "Java", "locations": "Moldova:106178099"},
+                    limit=1,
+                    client=client,
+                    db_path=db_path,
+                    raw_dir=Path(directory) / "raw",
+                )
+
+        queries = [parse_qs(urlparse(url).query) for url in client.urls]
+        self.assertEqual(
+            [query.get("f_C") for query in queries],
+            [["1069110,250774"], ["1069110,250774"], None, None],
+        )
+        self.assertEqual(
+            [page["search"] for page in result["pages"]],
+            ["priority", "priority", "general", "general"],
+        )
 
     def test_location_override_processes_only_one_location(self) -> None:
         class EmptyClient:
@@ -116,6 +166,8 @@ class ScanLinkedInTest(unittest.TestCase):
                 return "<ul></ul>"
 
         with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "jobs.sqlite"
+            db_path.touch()
             result = collect_batch(
                 {
                     "keywords": "Java",
@@ -123,7 +175,7 @@ class ScanLinkedInTest(unittest.TestCase):
                 },
                 limit=1,
                 client=EmptyClient(),
-                db_path=Path(directory) / "jobs.sqlite",
+                db_path=db_path,
                 raw_dir=Path(directory) / "raw",
                 location_value="Moldova:106178099",
             )

@@ -5,6 +5,11 @@
 The LinkedIn guest endpoint is a cheap prefetch, not an inventory-equivalent
 replacement for the logged-in browser search.
 
+For each location, the guest collector first searches companies whose
+`companies.priority` is `1`, using their `linkedin_id` values in `f_C`. If the
+run limit is still not reached, it continues with the normal company-unfiltered
+search for the same location. Both passes share the same limit and ID dedup.
+
 Measured for `Moldova:106178099` with `Java` and `Past week`:
 
 - the browser search displayed `EMEA (Remote)` vacancies;
