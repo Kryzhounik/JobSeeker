@@ -36,6 +36,13 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Next
 
+- Add a priority-company LinkedIn search pass:
+  - configure selected companies by their numeric LinkedIn company IDs;
+  - search all configured locations with `f_C=<priority-company-ids>` before
+    the general company-unfiltered pass;
+  - use the same global limit and normal source-job deduplication across both
+    passes, so broad country results cannot consume the limit before companies
+    known for worldwide work or relocation are checked.
 - Investigate dedup for near-identical LinkedIn jobs:
   - compare raw/card/analyzed data for 4441196528, 4441182950,
     4441197535, and 4441183936;
