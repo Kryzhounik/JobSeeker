@@ -650,24 +650,11 @@ class JobsViewer(tk.Tk):
         self.config_vars: dict[int, tk.BooleanVar] = {}
         self.companies_window: tk.Toplevel | None = None
         self.company_rows: list[dict[str, Any]] = []
-        self.company_row_widgets: dict[
-            int,
-            tuple[CopyableText, CopyableText, CopyableText, tk.Frame, str],
-        ] = {}
-        self.company_blacklist_vars: dict[int, tk.BooleanVar] = {}
+        self.company_rows_by_item: dict[str, dict[str, Any]] = {}
+        self.company_checkbox_widgets: list[tk.Widget] = []
+        self.company_controls_after_id: str | None = None
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
-        self.company_sorter = SortableRows(
-            (
-                ("name", "Company", 320, "w"),
-                ("linkedin_id", "LinkedIn ID", 150, "w"),
-                ("application_count", "Applications", 110, "center"),
-                ("blacklisted", "Blacklisted", 140, "center"),
-            ),
-            {"application_count", "blacklisted"},
-            self.company_sort_column,
-            self.company_sort_descending,
-        )
         self.selected_company_id: int | None = None
         self.applications_window: tk.Toplevel | None = None
         self.application_rows: list[dict[str, Any]] = []
@@ -1714,7 +1701,12 @@ class JobsViewer(tk.Tk):
             if size_save_after_id is not None:
                 window.after_cancel(size_save_after_id)
                 size_save_after_id = None
+            if self.company_controls_after_id is not None:
+                window.after_cancel(self.company_controls_after_id)
+                self.company_controls_after_id = None
             self._remember_window_size("companies", window)
+            self._destroy_company_checkbox_widgets()
+            self.company_rows_by_item.clear()
             self.companies_window = None
             window.destroy()
 
@@ -1724,86 +1716,63 @@ class JobsViewer(tk.Tk):
         table = ttk.Frame(window, padding=10)
         table.grid(row=0, column=0, sticky="nsew")
         table.columnconfigure(0, weight=1)
-        table.rowconfigure(1, weight=1)
+        table.rowconfigure(0, weight=1)
 
-        header = tk.Frame(table, background="#e7e9e7")
-        header.grid(row=0, column=0, sticky="ew")
-        header.columnconfigure(0, weight=1, minsize=320)
-        header.columnconfigure(1, minsize=150)
-        header.columnconfigure(2, minsize=110)
-        header.columnconfigure(3, minsize=140)
-        self.company_headers: dict[str, tk.Label] = {}
-        for column, label, column_index, anchor in (
-            ("name", "Company", 0, "w"),
-            ("linkedin_id", "LinkedIn ID", 1, "w"),
-            ("application_count", "Applications", 2, "center"),
-            ("blacklisted", "Blacklisted", 3, "center"),
-        ):
-            heading = tk.Label(
-                header,
-                text=label,
-                anchor=anchor,
-                background="#e7e9e7",
-                foreground="#202020",
-                font=("Segoe UI", 9, "bold"),
-                borderwidth=1,
-                relief="solid",
-                padx=6,
-                pady=5,
-                cursor="hand2",
-            )
-            heading.grid(row=0, column=column_index, sticky="nsew")
-            heading.bind(
-                "<ButtonRelease-1>",
-                lambda _event, value=column: self._sort_companies(value),
-            )
-            heading.bind("<MouseWheel>", self._scroll_companies, add="+")
-            self.company_headers[column] = heading
-
-        self.companies_canvas = tk.Canvas(
+        company_columns = (
+            ("name", "Company", 360, "w"),
+            ("linkedin_id", "LinkedIn ID", 170, "w"),
+            ("application_count", "Applications", 110, "center"),
+            ("blacklisted", "Blacklisted", 140, "center"),
+        )
+        self.companies_tree = SortableTreeview(
             table,
-            borderwidth=0,
-            highlightthickness=0,
-            background="#ffffff",
+            company_columns,
+            numeric_columns={"application_count", "blacklisted"},
+            sort_column=self.company_sort_column,
+            sort_descending=self.company_sort_descending,
+            on_sorted=self._companies_sorted,
+            selectmode="browse",
         )
-        self.companies_canvas.grid(row=1, column=0, sticky="nsew")
-        scrollbar = ttk.Scrollbar(
-            table,
-            orient=tk.VERTICAL,
-            command=self.companies_canvas.yview,
-        )
-        scrollbar.grid(row=1, column=1, sticky="ns")
-        self.companies_canvas.configure(yscrollcommand=scrollbar.set)
+        self.companies_tree.grid(row=0, column=0, sticky="nsew")
+        self.companies_tree.column("application_count", minwidth=90, stretch=False)
+        self.companies_tree.column("blacklisted", minwidth=110, stretch=False)
+        self.companies_tree.tag_configure("odd", background="#f7f9fb")
 
-        self.companies_rows_frame = tk.Frame(
-            self.companies_canvas,
-            background="#ffffff",
+        def scroll_y(*args: Any) -> None:
+            self.companies_tree.yview(*args)
+            self._schedule_company_controls()
+
+        def scroll_x(*args: Any) -> None:
+            self.companies_tree.xview(*args)
+            self._schedule_company_controls()
+
+        vertical = ttk.Scrollbar(table, orient=tk.VERTICAL, command=scroll_y)
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal = ttk.Scrollbar(table, orient=tk.HORIZONTAL, command=scroll_x)
+        horizontal.grid(row=1, column=0, sticky="ew")
+        self.companies_tree.configure(
+            yscrollcommand=vertical.set,
+            xscrollcommand=horizontal.set,
         )
-        self.companies_rows_frame.columnconfigure(0, weight=1, minsize=320)
-        self.companies_rows_frame.columnconfigure(1, minsize=150)
-        self.companies_rows_frame.columnconfigure(2, minsize=110)
-        self.companies_rows_frame.columnconfigure(3, minsize=140)
-        rows_window = self.companies_canvas.create_window(
-            (0, 0),
-            window=self.companies_rows_frame,
-            anchor="nw",
+        self.companies_tree.bind(
+            "<<TreeviewSelect>>",
+            lambda _event: self._schedule_company_controls(),
         )
-        self.companies_rows_frame.bind(
+        self.companies_tree.bind(
             "<Configure>",
-            lambda _event: self.companies_canvas.configure(
-                scrollregion=self.companies_canvas.bbox("all")
-            ),
+            lambda _event: self._schedule_company_controls(),
+            add="+",
         )
-        self.companies_canvas.bind(
-            "<Configure>",
-            lambda event: self.companies_canvas.itemconfigure(
-                rows_window,
-                width=event.width,
-            ),
+        self.companies_tree.bind(
+            "<MouseWheel>",
+            lambda _event: self.after_idle(self._schedule_company_controls),
+            add="+",
         )
-        self.companies_canvas.bind("<MouseWheel>", self._scroll_companies)
-        self.companies_canvas.bind("<Button-4>", self._scroll_companies)
-        self.companies_canvas.bind("<Button-5>", self._scroll_companies)
+        self.companies_tree.bind("<Control-c>", self._copy_tree_selection)
+        self.companies_tree.bind("<Control-C>", self._copy_tree_selection)
+        self.companies_tree.bind("<Control-Insert>", self._copy_tree_selection)
+        self.companies_tree.bind("<<Copy>>", self._copy_tree_selection)
+        self.companies_tree.bind("<Button-3>", self._show_copy_menu)
 
         add_form = ttk.Frame(table, padding=(0, 8, 0, 0))
         add_form.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -1881,225 +1850,144 @@ class JobsViewer(tk.Tk):
         ]
         if focus_company_id is not None:
             self.selected_company_id = int(focus_company_id)
-        self._render_company_rows()
+        self._render_company_rows(focus_company_id)
 
-    def _sort_companies(self, column: str) -> None:
-        self.company_sorter.sort_by(column)
-        self.company_sort_column = self.company_sorter.sort_column or "name"
-        self.company_sort_descending = self.company_sorter.sort_descending
+    def _companies_sorted(self, column: str, descending: bool) -> None:
+        self.company_sort_column = column
+        self.company_sort_descending = descending
         self._save_settings()
-        self._render_company_rows()
+        self._schedule_company_controls()
 
-    def _sorted_company_rows(self) -> list[dict[str, Any]]:
-        rows = list(self.company_rows)
-        rows.sort(key=lambda row: clean(row["name"]).casefold())
-        return self.company_sorter.sorted_rows(rows)
-
-    def _render_company_rows(self) -> None:
+    def _render_company_rows(self, focus_company_id: int | None = None) -> None:
         window = self.companies_window
         if window is None or not window.winfo_exists():
             return
-
-        for widget in self.companies_rows_frame.winfo_children():
-            widget.destroy()
-        self.company_row_widgets.clear()
-        self.company_blacklist_vars.clear()
-
-        marker = " v" if self.company_sort_descending else " ^"
-        for column, label in (
-            ("name", "Company"),
-            ("linkedin_id", "LinkedIn ID"),
-            ("application_count", "Applications"),
-            ("blacklisted", "Blacklisted"),
-        ):
-            text = f"{label}{marker}" if self.company_sort_column == column else label
-            self.company_headers[column].configure(text=text)
-
-        displayed = self._sorted_company_rows()
-        for row_index, row in enumerate(displayed):
+        selected = self.companies_tree.selection()
+        selected_id = selected[0] if selected else ""
+        self.companies_tree.delete(*self.companies_tree.get_children(""))
+        self.company_rows_by_item.clear()
+        for row_index, row in enumerate(self.company_rows):
             company_id = int(row["id"])
-            base_background = "#f7f9fb" if row_index % 2 else "#ffffff"
-            selected = company_id == self.selected_company_id
-            background = "#4b6f8d" if selected else base_background
-            foreground = "#ffffff" if selected else "#202020"
-
-            name_cell = CopyableText(
-                self.companies_rows_frame,
-                readonly=True,
-                copy_callback=lambda: self.status_var.set("Copied"),
-                height=1,
-                width=1,
-                wrap="none",
-                borderwidth=0,
-                relief="flat",
-                background=background,
-                foreground=foreground,
-                font=("Segoe UI", 9),
-                padx=6,
-                pady=4,
-                cursor="xterm",
-            )
-            name_cell.set_value(row["name"])
-            name_cell.grid(
-                row=row_index,
-                column=0,
-                sticky="nsew",
-                padx=(0, 1),
-                pady=1,
-            )
-
-            linkedin_id_cell = CopyableText(
-                self.companies_rows_frame,
-                readonly=True,
-                copy_callback=lambda: self.status_var.set("Copied"),
-                height=1,
-                width=1,
-                wrap="none",
-                borderwidth=0,
-                relief="flat",
-                background=background,
-                foreground=foreground,
-                font=("Segoe UI", 9),
-                padx=6,
-                pady=4,
-                cursor="xterm",
-            )
-            linkedin_id_cell.set_value(row["linkedin_id"])
-            linkedin_id_cell.grid(
-                row=row_index,
-                column=1,
-                sticky="nsew",
-                padx=1,
-                pady=1,
-            )
-
-            count_cell = CopyableText(
-                self.companies_rows_frame,
-                readonly=True,
-                copy_callback=lambda: self.status_var.set("Copied"),
-                height=1,
-                width=1,
-                wrap="none",
-                borderwidth=0,
-                relief="flat",
-                background=background,
-                foreground=foreground,
-                font=("Segoe UI", 9),
-                padx=6,
-                pady=4,
-                cursor="xterm",
-            )
-            count_cell.set_value(row["application_count"])
-            count_cell.tag_configure("center", justify="center")
-            count_cell.tag_add("center", "1.0", "end-1c")
-            count_cell.grid(
-                row=row_index,
-                column=2,
-                sticky="nsew",
-                padx=1,
-                pady=1,
-            )
-
-            checkbox_cell = tk.Frame(
-                self.companies_rows_frame,
-                background=background,
-            )
-            checkbox_cell.grid(
-                row=row_index,
-                column=3,
-                sticky="nsew",
-                padx=(1, 0),
-                pady=1,
-            )
-            variable = tk.BooleanVar(value=bool(row["blacklisted"]))
-            checkbox = ttk.Checkbutton(
-                checkbox_cell,
-                variable=variable,
-                command=lambda value=company_id, var=variable: (
-                    self._company_blacklist_changed(value, var)
+            item = str(company_id)
+            self.companies_tree.insert(
+                "",
+                tk.END,
+                iid=item,
+                values=(
+                    clean(row["name"]),
+                    clean(row["linkedin_id"]),
+                    str(row["application_count"]),
+                    str(int(bool(row["blacklisted"]))),
                 ),
+                tags=("odd",) if row_index % 2 else (),
             )
-            checkbox.pack(expand=True)
+            self.company_rows_by_item[item] = row
 
-            name_cell.bind(
-                "<ButtonPress-1>",
-                lambda _event, value=company_id: self._select_company_row(value),
-                add="+",
-            )
-            linkedin_id_cell.bind(
-                "<ButtonPress-1>",
-                lambda _event, value=company_id: self._select_company_row(value),
-                add="+",
-            )
-            count_cell.bind(
-                "<ButtonPress-1>",
-                lambda _event, value=company_id: self._select_company_row(value),
-                add="+",
-            )
-            checkbox_cell.bind(
-                "<ButtonPress-1>",
-                lambda _event, value=company_id: self._select_company_row(value),
-            )
-            checkbox.bind(
-                "<ButtonPress-1>",
-                lambda _event, value=company_id: self._select_company_row(value),
-                add="+",
-            )
-            for widget in (
-                name_cell,
-                linkedin_id_cell,
-                count_cell,
-                checkbox_cell,
-                checkbox,
-            ):
-                widget.bind("<MouseWheel>", self._scroll_companies, add="+")
-                widget.bind("<Button-4>", self._scroll_companies, add="+")
-                widget.bind("<Button-5>", self._scroll_companies, add="+")
-
-            self.company_row_widgets[company_id] = (
-                name_cell,
-                linkedin_id_cell,
-                count_cell,
-                checkbox_cell,
-                base_background,
-            )
-            self.company_blacklist_vars[company_id] = variable
-
-        if self.selected_company_id in self.company_row_widgets:
-            window.after_idle(
-                lambda value=self.selected_company_id: self._focus_company_row(value)
-            )
-
-    def _select_company_row(self, company_id: int) -> None:
-        previous = self.selected_company_id
-        self.selected_company_id = company_id
-        for row_id in (previous, company_id):
-            if row_id is None or row_id not in self.company_row_widgets:
-                continue
-            name_cell, linkedin_id_cell, count_cell, checkbox_cell, base_background = (
-                self.company_row_widgets[row_id]
-            )
-            selected = row_id == company_id
-            background = "#4b6f8d" if selected else base_background
-            foreground = "#ffffff" if selected else "#202020"
-            name_cell.configure(background=background, foreground=foreground)
-            linkedin_id_cell.configure(background=background, foreground=foreground)
-            count_cell.configure(background=background, foreground=foreground)
-            checkbox_cell.configure(background=background)
+        self.companies_tree.reapply_sort()
+        focus_item = str(focus_company_id) if focus_company_id is not None else ""
+        if focus_item in self.company_rows_by_item:
+            selected_item = focus_item
+        elif selected_id in self.company_rows_by_item:
+            selected_item = selected_id
+        else:
+            children = self.companies_tree.get_children("")
+            selected_item = children[0] if children else ""
+        if selected_item:
+            self.companies_tree.selection_set(selected_item)
+            self.companies_tree.focus(selected_item)
+            self.companies_tree.see(selected_item)
+            self.selected_company_id = int(selected_item)
+        self._schedule_company_controls()
 
     def _focus_company_row(self, company_id: int | None) -> None:
-        if company_id is None or company_id not in self.company_row_widgets:
+        item = str(company_id) if company_id is not None else ""
+        if not item or item not in self.company_rows_by_item:
             return
-        self._select_company_row(company_id)
-        displayed_ids = [int(row["id"]) for row in self._sorted_company_rows()]
-        row_index = displayed_ids.index(company_id)
-        self.companies_canvas.update_idletasks()
-        if len(displayed_ids) > 1:
-            self.companies_canvas.yview_moveto(row_index / (len(displayed_ids) - 1))
-        name_cell, _linkedin_id_cell, _count_cell, _checkbox_cell, _background = (
-            self.company_row_widgets[company_id]
+        self.selected_company_id = int(item)
+        self.companies_tree.selection_set(item)
+        self.companies_tree.focus(item)
+        self.companies_tree.see(item)
+        self.companies_tree.focus_set()
+        self._schedule_company_controls()
+
+    def _schedule_company_controls(self) -> None:
+        window = self.companies_window
+        if window is None or not window.winfo_exists():
+            return
+        if self.company_controls_after_id is not None:
+            window.after_cancel(self.company_controls_after_id)
+        self.company_controls_after_id = window.after_idle(
+            self._render_company_controls
         )
-        name_cell.focus_set()
+
+    def _render_company_controls(self) -> None:
+        self.company_controls_after_id = None
+        window = self.companies_window
+        if window is None or not window.winfo_exists():
+            return
+        self._destroy_company_checkbox_widgets()
+        selected = set(self.companies_tree.selection())
+        if selected:
+            self.selected_company_id = int(next(iter(selected)))
+
+        for item in self.companies_tree.get_children(""):
+            row = self.company_rows_by_item.get(item)
+            if row is None:
+                continue
+            bounds = self.companies_tree.bbox(item, "blacklisted")
+            if not bounds:
+                continue
+            x, y, width, height = bounds
+            row_index = self.companies_tree.index(item)
+            background = (
+                "#4b6f8d"
+                if item in selected
+                else ("#f7f9fb" if row_index % 2 else "#ffffff")
+            )
+            variable = tk.BooleanVar(value=bool(row["blacklisted"]))
+            cell = tk.Frame(self.companies_tree, background=background)
+            cell.place(x=x + 1, y=y + 1, width=width - 2, height=height - 2)
+            checkbox = tk.Checkbutton(
+                cell,
+                variable=variable,
+                command=lambda value=int(item), var=variable: (
+                    self._company_blacklist_changed(value, var)
+                ),
+                background=background,
+                activebackground=background,
+                borderwidth=0,
+                highlightthickness=0,
+                padx=0,
+                pady=0,
+            )
+            checkbox.pack(expand=True)
+            for widget in (cell, checkbox):
+                widget.bind(
+                    "<MouseWheel>",
+                    self._scroll_companies_from_control,
+                    add="+",
+                )
+                widget.bind(
+                    "<Shift-MouseWheel>",
+                    self._scroll_companies_from_control,
+                    add="+",
+                )
+            self.company_checkbox_widgets.extend((cell, checkbox))
+
+    def _destroy_company_checkbox_widgets(self) -> None:
+        for widget in self.company_checkbox_widgets:
+            if widget.winfo_exists():
+                widget.destroy()
+        self.company_checkbox_widgets.clear()
+
+    def _scroll_companies_from_control(self, event: tk.Event[tk.Misc]) -> str:
+        direction = -1 if int(getattr(event, "delta", 0) or 0) > 0 else 1
+        if event.state & 0x1:
+            self.companies_tree.xview_scroll(direction, "units")
+        else:
+            self.companies_tree.yview_scroll(direction, "units")
+        self._schedule_company_controls()
+        return "break"
 
     def _add_company_from_event(
         self,
@@ -2175,19 +2063,12 @@ class JobsViewer(tk.Tk):
 
         action = "blacklisted" if blacklisted else "removed from blacklist"
         self.status_var.set(f"{company_name}: {action}")
+        item = str(company_id)
+        if item in self.company_rows_by_item:
+            self.companies_tree.set(item, "blacklisted", str(int(blacklisted)))
         if self.company_sort_column == "blacklisted":
-            self._render_company_rows()
-
-    def _scroll_companies(self, event: tk.Event[tk.Misc]) -> str:
-        if not hasattr(self, "companies_canvas"):
-            return "break"
-        delta = int(getattr(event, "delta", 0) or 0)
-        if delta:
-            direction = -1 if delta > 0 else 1
-        else:
-            direction = -1 if int(getattr(event, "num", 0) or 0) == 4 else 1
-        self.companies_canvas.yview_scroll(direction, "units")
-        return "break"
+            self.companies_tree.reapply_sort()
+        self._schedule_company_controls()
 
     def _open_applications_window(
         self,

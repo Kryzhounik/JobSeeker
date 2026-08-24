@@ -69,6 +69,10 @@ blacklisted rows first on its first click. Each checkbox writes
 if the database update fails. The window size and last sorting are saved with
 the other GUI settings.
 
+The company list uses one native table. Blacklist checkboxes are created only
+for rows currently visible in the viewport, rather than creating controls for
+every company in the database.
+
 The form below the company list creates a company from a required name and an
 optional LinkedIn ID. `Add` or Enter inserts it immediately and focuses the new
 row. Duplicate names and duplicate nonblank LinkedIn IDs are rejected.
