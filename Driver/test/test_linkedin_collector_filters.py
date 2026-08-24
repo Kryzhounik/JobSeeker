@@ -124,6 +124,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "PySpark"])
 
+    def test_strong_software_development_experience_is_blocked(self) -> None:
+        result = decide_content("Strong software development experience with Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
     def test_professional_proficiency_developing_with_technology_is_blocked(
         self,
     ) -> None:
