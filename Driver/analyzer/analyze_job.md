@@ -55,10 +55,10 @@ Keep the returned JSON array in memory as `<deterministic-language-facts>`.
    - Validate the returned three-field object and write it as a temporary UTF-8
      JSON file using the file-editing tool, not terminal or PowerShell text.
    - Run:
-     `python analyzer/candidate_fit/merge_result.py --input <analyzed-json> --result <fit-result-json> --output <scored-json>`.
+     `python analyzer/candidate_fit/add_fit_score.py --input <analyzed-json> --result <fit-result-json> --output <scored-json>`.
    - Do not pass JSON through stdin or command arguments, and do not read or
      rewrite the analyzed JSON through PowerShell or console text.
-     `merge_result.py` owns the UTF-8-safe merge and scored persistence in both
+     `add_fit_score.py` owns the UTF-8-safe update and scored persistence in both
      Desktop and CLI execution modes.
 
 3. Job interest

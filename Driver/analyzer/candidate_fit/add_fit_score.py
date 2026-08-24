@@ -1,4 +1,4 @@
-"""Merge a candidate-fit result into analyzed JSON using UTF-8 files only."""
+"""Add a candidate-fit score to analyzed JSON using UTF-8 files only."""
 
 from __future__ import annotations
 
@@ -15,14 +15,14 @@ FIT_FIELDS = {
 }
 
 
-def merge_json(source_path: Path, patch: dict[str, Any], output_path: Path) -> None:
+def add_fit_score(source_path: Path, fit_result: dict[str, Any], output_path: Path) -> None:
     source = json.loads(source_path.read_text(encoding="utf-8"))
     if not isinstance(source, dict):
         raise ValueError("analyzed JSON must contain an object")
-    if set(patch) != FIT_FIELDS:
+    if set(fit_result) != FIT_FIELDS:
         raise ValueError(f"candidate-fit result must contain exactly: {sorted(FIT_FIELDS)}")
 
-    source.update(patch)
+    source.update(fit_result)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(source, ensure_ascii=False, indent=2) + "\n",
@@ -31,16 +31,16 @@ def merge_json(source_path: Path, patch: dict[str, Any], output_path: Path) -> N
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Merge candidate fit into analyzed JSON.")
+    parser = argparse.ArgumentParser(description="Add candidate fit score to analyzed JSON.")
     parser.add_argument("--input", required=True, help="Analyzed JSON file.")
     parser.add_argument("--result", required=True, help="Candidate-fit result JSON file.")
     parser.add_argument("--output", required=True, help="Scored JSON file.")
     args = parser.parse_args()
 
-    patch = json.loads(Path(args.result).read_text(encoding="utf-8"))
-    if not isinstance(patch, dict):
+    fit_result = json.loads(Path(args.result).read_text(encoding="utf-8"))
+    if not isinstance(fit_result, dict):
         raise ValueError("candidate-fit result must contain an object")
-    merge_json(Path(args.input), patch, Path(args.output))
+    add_fit_score(Path(args.input), fit_result, Path(args.output))
 
 
 if __name__ == "__main__":
