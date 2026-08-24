@@ -82,6 +82,8 @@ already `Applied` before this feature was installed.
 The `Applications` button opens title, company, date, and status columns. Title
 links return to the main window, reveal and select that vacancy, and company
 links open and focus the matching Companies row. Dates use `DD.MM.YYYY`.
+In the main jobs table, an `Applied` status is a link to the matching
+application row; opening it scrolls, selects, and focuses that exact record.
 Application status is changed immediately by the row selector and supports
 `Applied`, `Refused`, and `Confirmed`. The applications list uses one native
 table and shows a single in-cell status selector for the selected row, so the

@@ -1590,6 +1590,20 @@ class JobsViewer(tk.Tk):
                 else ("#f7f9fb" if self.jobs_tree.index(item) % 2 else "#ffffff")
             )
             foreground = "#d9efff" if is_selected else "#005a9c"
+            status = clean(row.get("status", ""))
+            application_id = clean(row.get("application_id", ""))
+            if status == "Applied" and application_id:
+                add_link(
+                    item,
+                    "status",
+                    status,
+                    lambda value=int(application_id): (
+                        self._open_applications_window(value)
+                    ),
+                    background,
+                    foreground,
+                )
+
             if row.get("company") and row.get("company_id"):
                 company_id = int(row["company_id"])
                 add_link(
@@ -2049,10 +2063,13 @@ class JobsViewer(tk.Tk):
         self.companies_canvas.yview_scroll(direction, "units")
         return "break"
 
-    def _open_applications_window(self) -> None:
+    def _open_applications_window(
+        self,
+        focus_application_id: int | None = None,
+    ) -> None:
         window = self.applications_window
         if window is not None and window.winfo_exists():
-            self._refresh_applications()
+            self._refresh_applications(focus_application_id)
             window.deiconify()
             window.lift()
             window.focus_force()
@@ -2173,7 +2190,7 @@ class JobsViewer(tk.Tk):
         self.applications_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.applications_tree.bind("<Button-3>", self._show_copy_menu)
 
-        self._refresh_applications()
+        self._refresh_applications(focus_application_id)
 
     def _applications_sorted(self, column: str, descending: bool) -> None:
         self.application_sort_column = column
@@ -2181,7 +2198,10 @@ class JobsViewer(tk.Tk):
         self._save_settings()
         self._schedule_application_controls()
 
-    def _refresh_applications(self) -> None:
+    def _refresh_applications(
+        self,
+        focus_application_id: int | None = None,
+    ) -> None:
         window = self.applications_window
         if window is None or not window.winfo_exists():
             return
@@ -2196,9 +2216,12 @@ class JobsViewer(tk.Tk):
 
         self.application_status_values = statuses
         self.application_rows = [dict(row) for row in rows]
-        self._render_application_rows()
+        self._render_application_rows(focus_application_id)
 
-    def _render_application_rows(self) -> None:
+    def _render_application_rows(
+        self,
+        focus_application_id: int | None = None,
+    ) -> None:
         window = self.applications_window
         if window is None or not window.winfo_exists():
             return
@@ -2225,7 +2248,10 @@ class JobsViewer(tk.Tk):
 
         self.applications_tree.reapply_sort()
         children = self.applications_tree.get_children("")
-        if selected_id in self.application_rows_by_item:
+        focus_item = str(focus_application_id) if focus_application_id is not None else ""
+        if focus_item in self.application_rows_by_item:
+            selected_item = focus_item
+        elif selected_id in self.application_rows_by_item:
             selected_item = selected_id
         elif children:
             selected_item = children[0]
@@ -2235,6 +2261,8 @@ class JobsViewer(tk.Tk):
             self.applications_tree.selection_set(selected_item)
             self.applications_tree.focus(selected_item)
             self.applications_tree.see(selected_item)
+            if focus_item:
+                self.applications_tree.focus_set()
         self._schedule_application_controls()
 
     def _schedule_application_controls(self) -> None:
@@ -2547,12 +2575,14 @@ class JobsViewer(tk.Tk):
                         jl.added_at,
                         jl.source_url,
                         j.company_id,
+                        a.id AS application_id,
                         coalesce(j.candidate_fit_reason_code, '')
                             AS candidate_fit_reason_code,
                         coalesce(j.candidate_fit_reason, '')
                             AS candidate_fit_reason
                     FROM job_list jl
                     JOIN jobs j ON j.source_url = jl.source_url
+                    LEFT JOIN applications a ON a.job_id = j.id
                     {where_sql}
                     """,
                     parameters,
@@ -3563,6 +3593,7 @@ class JobsViewer(tk.Tk):
             return
 
         created_applications = 0
+        application_ids: dict[str, str] = {}
         try:
             with self.connect_writable() as connection:
                 placeholders = ", ".join("?" for _source_url in source_urls)
@@ -3583,12 +3614,30 @@ class JobsViewer(tk.Tk):
                         source_urls,
                         datetime.now().strftime(DATABASE_DATE_FORMAT),
                     )
+                    application_ids = {
+                        clean(row["source_url"]): str(row["application_id"])
+                        for row in connection.execute(
+                            f"""
+                            SELECT j.source_url, a.id AS application_id
+                            FROM jobs j
+                            JOIN applications a ON a.job_id = j.id
+                            WHERE j.source_url IN ({placeholders})
+                            """,
+                            source_urls,
+                        )
+                    }
         except Exception as error:
             messagebox.showerror("Status update failed", str(error))
             self.status_var.set("Status update failed")
             return
 
         self._update_selected_jobs_status(status, items, source_urls)
+        if application_ids:
+            for row in self.job_rows.values():
+                source_url = row.get("source_url", "")
+                if source_url in application_ids:
+                    row["application_id"] = application_ids[source_url]
+            self._schedule_job_link_labels()
         if created_applications:
             if self.companies_window is not None and self.companies_window.winfo_exists():
                 self._refresh_companies(self.selected_company_id)
