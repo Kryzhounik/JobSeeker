@@ -51,9 +51,8 @@ the combined run scope reaches the global limit.
    - `experience`: `entry_level` -> `Entry-level`, `senior` -> `Senior`;
    - `jobTypes`: `full_time` -> `Full-time`, `part_time` -> `Part-time`,
      `contract` -> `Contract`;
-   - use `remoteBroadWorkplace` for a locationless search and `workplace` for
-     a country search. If all three country workplace modes are configured,
-     leave the workplace filter unrestricted;
+   - use `workplace` for the current country search. If all three workplace
+     modes are configured, leave the workplace filter unrestricted;
    - `datePosted` is carried by the generated URL;
    - `sort=semantic` records the current LinkedIn behavior; there is no sort
      control to apply.
