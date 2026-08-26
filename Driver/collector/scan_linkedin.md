@@ -136,30 +136,16 @@ the combined run scope reaches the global limit.
 20. Get the raw HTML from the right-side details pane, not from the whole
     search page. For `source_url` fallback pages, get the loaded job details
     content from the job page instead.
-21. Save each verified pane HTML as a UTF-8 temporary file. Store its metadata
-   using exactly this JSON shape (do not flatten `preview` and do not embed the
-   HTML in this JSON):
-   ```json
-   [{
-     "preview": {
-       "job_id": "<job-id>",
-       "source_url": "<canonical-url>",
-       "title": "<title>",
-       "company": "<company>"
-     },
-     "status": "pane_saved",
-     "temp_path": "<absolute-pane-html-path>",
-     "label": "<location-label>",
-     "start": 0,
-     "index": 0
-   }]
-   ```
-   Then run the stable command:
-   `python collector/process_linkedin_panes.py --batch <browser-results.json> --scope <run-scope.json>`.
+21. Save each verified pane HTML as a UTF-8 temporary file under
+   `../Data/_tmp_collect`. Then run the stable command for that pane:
+   `python collector/process_linkedin_panes.py --job-id <job-id> --source-url <canonical-url> --title <title> --company <company> --pane-html <absolute-pane-html-path> --label <location-label> --start <start> --index <index>`.
    This command performs the already-defined deterministic sequence through
    `save_raw_page.py`, `extract_linkedin_readable_text_v2.py`, the content
-   filter, and the collection logger. Do not recreate this sequence as an
-   inline shell command for each browser batch.
+   filter, and the collection logger. Read its JSON result from stdout. Add the
+   returned source/job ID to the in-memory run scope only when `status` is
+   `raw_saved`. The processor deletes the temporary pane HTML after success.
+   Do not create browser-results, run-scope, or content-decision JSON files.
+   Do not recreate this sequence as an inline shell command.
 22. The saver records processing status `RAW` only after valid raw content is
     present on disk and sets `source_jobs.collection_method = browser` for a
     newly collected vacancy. The cleaner writes analyzer-ready text to SQLite

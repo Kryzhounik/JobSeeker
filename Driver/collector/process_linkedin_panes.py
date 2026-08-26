@@ -19,118 +19,112 @@ def run(*args: str) -> None:
         check=True,
         text=True,
         encoding="utf-8",
+        stdout=subprocess.DEVNULL,
     )
 
 
-def load_list(path: Path) -> list[dict[str, Any]]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
-        raise ValueError(f"Expected a JSON object list: {path}")
+def run_json(*args: str) -> dict[str, Any]:
+    completed = subprocess.run(
+        [sys.executable, *args],
+        cwd=ROOT,
+        check=True,
+        text=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+    )
+    value = json.loads(completed.stdout)
+    if not isinstance(value, dict):
+        raise ValueError("Collector command returned a non-object JSON result")
     return value
 
 
-def write_scope(path: Path, scope: list[dict[str, str]]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(scope, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-
 def process(
-    batch_path: Path,
-    scope_path: Path,
+    job_id: str,
+    source_url: str,
+    title: str,
+    company: str,
+    pane_path: Path,
+    label: str = "",
+    start: str = "",
+    index: str = "",
     db_path: Path = DATA_ROOT / "jobs.sqlite",
     raw_dir: Path = DATA_ROOT / "raw" / "linkedin",
-) -> list[dict[str, str]]:
-    batch = load_list(batch_path)
-    scope = load_list(scope_path) if scope_path.exists() else []
-    scoped_ids = {str(item.get("job_id", "")) for item in scope}
-    outcomes: list[dict[str, str]] = []
+) -> dict[str, str]:
+    job_id = job_id.strip()
+    source_url = source_url.strip()
+    pane_path = pane_path.resolve()
+    db_path = db_path.resolve()
+    raw_dir = raw_dir.resolve()
+    if not job_id or not source_url:
+        raise ValueError("Browser result is missing job_id or source_url")
+    if not pane_path.is_file():
+        raise FileNotFoundError(pane_path)
 
-    for item in batch:
-        preview = item.get("preview")
-        if not isinstance(preview, dict):
-            raise ValueError("Browser result is missing preview")
+    run(
+        "collector/save_raw_page.py",
+        "--source", "linkedin",
+        "--url", source_url,
+        "--content-file", str(pane_path),
+        "--out-dir", str(raw_dir),
+        "--db", str(db_path),
+        "--collection-method", "browser",
+    )
+    run(
+        "collector/extract_linkedin_readable_text_v2.py",
+        "--source", "linkedin",
+        "--input", str(raw_dir / "pages" / f"{job_id}.html"),
+        "--db", str(db_path),
+    )
 
-        job_id = str(preview.get("job_id", "")).strip()
-        source_url = str(preview.get("source_url", "")).strip()
-        title = str(preview.get("title", "")).strip()
-        company = str(preview.get("company", "")).strip()
-        if not job_id or not source_url:
-            raise ValueError("Browser result is missing job_id or source_url")
+    decision = run_json(
+        "collector/filtering/linkedin_filter.py",
+        "content",
+        "--source", "linkedin",
+        "--job-id", job_id,
+        "--title", title,
+        "--db", str(db_path),
+    )
+    analyze = decision["content_decision"] == "analyze"
+    final_status = "raw_saved" if analyze else "content_filtered"
+    reason = str(decision.get("content_reason", ""))
 
-        status = str(item.get("status", ""))
-        if status != "pane_saved":
-            outcomes.append({"job_id": job_id, "status": status})
-            continue
+    run(
+        "collector/logging/linkedin_logger.py",
+        "collection",
+        "--label", label,
+        "--start", start,
+        "--card-index", index,
+        "--job-id", job_id,
+        "--source-url", source_url,
+        "--title", title,
+        "--company", company,
+        "--status", final_status,
+        "--reason", reason,
+        "--db", str(db_path),
+    )
 
-        pane_path = Path(str(item.get("temp_path", "")))
-        if not pane_path.is_file():
-            raise FileNotFoundError(pane_path)
-
-        run(
-            "collector/save_raw_page.py",
-            "--source", "linkedin",
-            "--url", source_url,
-            "--content-file", str(pane_path),
-            "--out-dir", str(raw_dir),
-            "--db", str(db_path),
-            "--collection-method", "browser",
-        )
-        run(
-            "collector/extract_linkedin_readable_text_v2.py",
-            "--source", "linkedin",
-            "--input", str(raw_dir / "pages" / f"{job_id}.html"),
-            "--db", str(db_path),
-        )
-
-        decision_path = batch_path.parent / f"content_{job_id}.json"
-        run(
-            "collector/filtering/linkedin_filter.py",
-            "content",
-            "--source", "linkedin",
-            "--job-id", job_id,
-            "--title", title,
-            "--output", str(decision_path),
-            "--db", str(db_path),
-        )
-        decision = json.loads(decision_path.read_text(encoding="utf-8"))
-        analyze = decision["content_decision"] == "analyze"
-        final_status = "raw_saved" if analyze else "content_filtered"
-
-        run(
-            "collector/logging/linkedin_logger.py",
-            "collection",
-            "--label", str(item.get("label", "")),
-            "--start", str(item.get("start", "")),
-            "--card-index", str(item.get("index", "")),
-            "--job-id", job_id,
-            "--source-url", source_url,
-            "--title", title,
-            "--company", company,
-            "--status", final_status,
-            "--reason", str(decision.get("content_reason", "")),
-            "--db", str(db_path),
-        )
-
-        if analyze and job_id not in scoped_ids:
-            scope.append({"source": "linkedin", "job_id": job_id, "title": title})
-            scoped_ids.add(job_id)
-            write_scope(scope_path, scope)
-
-        pane_path.unlink()
-        outcomes.append({"job_id": job_id, "status": final_status})
-
-    return outcomes
+    pane_path.unlink()
+    return {
+        "source": "linkedin",
+        "job_id": job_id,
+        "title": title,
+        "status": final_status,
+        "reason": reason,
+    }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Process saved LinkedIn panes through deterministic collector stages."
     )
-    parser.add_argument("--batch", type=Path, required=True)
-    parser.add_argument("--scope", type=Path, required=True)
+    parser.add_argument("--job-id", required=True)
+    parser.add_argument("--source-url", required=True)
+    parser.add_argument("--title", required=True)
+    parser.add_argument("--company", default="")
+    parser.add_argument("--pane-html", type=Path, required=True)
+    parser.add_argument("--label", default="")
+    parser.add_argument("--start", default="")
+    parser.add_argument("--index", default="")
     parser.add_argument("--db", type=Path, default=DATA_ROOT / "jobs.sqlite")
     parser.add_argument(
         "--raw-dir",
@@ -140,7 +134,18 @@ def main() -> None:
     args = parser.parse_args()
     print(
         json.dumps(
-            process(args.batch, args.scope, args.db, args.raw_dir),
+            process(
+                args.job_id,
+                args.source_url,
+                args.title,
+                args.company,
+                args.pane_html,
+                args.label,
+                args.start,
+                args.index,
+                args.db,
+                args.raw_dir,
+            ),
             ensure_ascii=False,
             indent=2,
         )
