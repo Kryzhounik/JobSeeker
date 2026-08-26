@@ -570,6 +570,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
     args = build_parser().parse_args()
     settings = load_settings(Path(args.config))
     delay = args.delay_seconds
