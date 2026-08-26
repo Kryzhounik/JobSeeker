@@ -22,6 +22,22 @@ Current reasons:
 - The in-app browser was measured at roughly 69 seconds per saved job in the
   same search UI test.
 
+## LinkedIn Batch Preflight
+
+Before any `batch linkedin` run starts, including before its guest pass:
+
+1. Connect to Chrome through the Browser plugin and select the Rolling Stone
+   profile instance described below.
+2. Open or reuse a controlled Chrome tab for LinkedIn.
+3. Verify that the tab can load the LinkedIn Jobs UI in an authenticated
+   session: it must not redirect to login, show a sign-in wall, or show a
+   CAPTCHA/checkpoint/account warning.
+
+If Chrome is running but the Browser plugin cannot connect, or if the LinkedIn
+session is not authenticated, do not create the run ID and do not start any
+collector or analyzer stage. Report the exact failed preflight check and wait
+for the user.
+
 ## Chrome Tab Ownership
 
 LinkedIn collection uses the Chrome profile logged in as Rolling Stone. If two

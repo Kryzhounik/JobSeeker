@@ -45,6 +45,11 @@ analysis.
 
 ## LinkedIn Batch Contract
 
+Before creating the `run_id` or starting any `batch linkedin` collection step,
+complete the Chrome connection and LinkedIn login preflight defined in
+`collector/browser.md`. If that preflight fails, do not start the guest pass or
+any other batch stage; report the failed check and wait for the user.
+
 `batch linkedin` means:
 
 ```text
