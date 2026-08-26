@@ -578,9 +578,9 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="stage", required=True)
 
     preview = subparsers.add_parser("preview")
-    preview.add_argument("--input", "-i", default="-")
-    preview.add_argument("--output", "-o", default="-")
-    preview.add_argument("--title", default="")
+    preview.add_argument("--job-id", required=True)
+    preview.add_argument("--source-url", required=True)
+    preview.add_argument("--title", required=True)
     preview.add_argument("--company", default="")
     preview.add_argument("--config", default=str(DEFAULT_PREVIEW_CONFIG))
     preview.add_argument("--db", default=str(DEFAULT_DB))
@@ -597,15 +597,15 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.stage == "preview":
-        if args.title:
-            payload: Any = {"title": args.title, "company": args.company}
-        elif args.input == "-":
-            payload = json.load(sys.stdin)
-        else:
-            payload = json.loads(Path(args.input).read_text(encoding="utf-8"))
+        payload: Any = {
+            "job_id": args.job_id,
+            "source_url": args.source_url,
+            "title": args.title,
+            "company": args.company,
+        }
         write_result(
             apply_preview_decision(payload, Path(args.config), Path(args.db)),
-            args.output,
+            "-",
         )
         return
 

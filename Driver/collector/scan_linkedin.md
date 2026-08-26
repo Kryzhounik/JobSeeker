@@ -94,8 +94,10 @@ the combined run scope reaches the global limit.
    In the LazyColumn layout, read `job_id` from the exact
    `componentkey="job-card-component-ref-<job_id>"` prefix and construct the
    canonical URL because unselected cards do not expose their own link.
-12. Run the preview object through:
-   `python collector/filtering/linkedin_filter.py preview --input <preview_json>`.
+12. Run the preview fields directly through:
+   `python collector/filtering/linkedin_filter.py preview --job-id <job-id> --source-url <canonical-url> --title <title> --company <company>`.
+   Read the JSON decision from stdout. Do not create preview input or output
+   files.
    This checks title block words, the company blacklist, then
    `(linkedin, job_id)` in `source_jobs`. Any match is skipped before the
    vacancy is opened.
