@@ -52,12 +52,11 @@ Keep the returned JSON array in memory as `<deterministic-language-facts>`.
      instruction, input, and context files.
    - Do not pass readable-text context, the job-facts agent's reasoning, an
      existing scored JSON, or an existing database score.
-   - Validate the returned three-field object and write it as a temporary UTF-8
-     JSON file using the file-editing tool, not terminal or PowerShell text.
-   - Run:
-     `python analyzer/candidate_fit/add_fit_score.py --input <analyzed-json> --result <fit-result-json> --output <scored-json>`.
-   - Do not pass JSON through stdin or command arguments, and do not read or
-     rewrite the analyzed JSON through PowerShell or console text.
+   - Validate the returned three-field object, start the following command, and
+     send that object directly to its UTF-8 standard input as JSON:
+     `python analyzer/candidate_fit/add_fit_score.py --input <analyzed-json> --output <scored-json>`.
+   - Do not create a temporary candidate-fit result file, pass the JSON through
+     command arguments, or read or rewrite the analyzed JSON through PowerShell.
      `add_fit_score.py` owns the UTF-8-safe update and scored persistence in both
      Desktop and CLI execution modes.
 

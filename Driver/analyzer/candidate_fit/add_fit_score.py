@@ -1,11 +1,12 @@
-"""Add a candidate-fit score to analyzed JSON using UTF-8 files only."""
+"""Add a candidate-fit result from UTF-8 stdin to analyzed JSON."""
 
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
-from typing import Any
+import sys
+from typing import Any, TextIO
 
 
 FIT_FIELDS = {
@@ -13,6 +14,24 @@ FIT_FIELDS = {
     "candidate_fit_reason_code",
     "candidate_fit_reason",
 }
+
+
+def read_json_object(stream: TextIO) -> dict[str, Any]:
+    buffer = ""
+    decoder = json.JSONDecoder()
+    for line in stream:
+        buffer += line
+        try:
+            text = buffer.lstrip()
+            value, end = decoder.raw_decode(text)
+        except json.JSONDecodeError:
+            continue
+        if text[end:].strip():
+            raise ValueError("candidate-fit stdin contains trailing data")
+        if not isinstance(value, dict):
+            raise ValueError("candidate-fit result must contain an object")
+        return value
+    raise ValueError("candidate-fit stdin does not contain a complete JSON object")
 
 
 def add_fit_score(source_path: Path, fit_result: dict[str, Any], output_path: Path) -> None:
@@ -33,13 +52,12 @@ def add_fit_score(source_path: Path, fit_result: dict[str, Any], output_path: Pa
 def main() -> None:
     parser = argparse.ArgumentParser(description="Add candidate fit score to analyzed JSON.")
     parser.add_argument("--input", required=True, help="Analyzed JSON file.")
-    parser.add_argument("--result", required=True, help="Candidate-fit result JSON file.")
     parser.add_argument("--output", required=True, help="Scored JSON file.")
     args = parser.parse_args()
 
-    fit_result = json.loads(Path(args.result).read_text(encoding="utf-8"))
-    if not isinstance(fit_result, dict):
-        raise ValueError("candidate-fit result must contain an object")
+    if hasattr(sys.stdin, "reconfigure"):
+        sys.stdin.reconfigure(encoding="utf-8")
+    fit_result = read_json_object(sys.stdin)
     add_fit_score(Path(args.input), fit_result, Path(args.output))
 
 

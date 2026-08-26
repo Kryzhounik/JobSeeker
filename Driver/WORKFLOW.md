@@ -123,6 +123,13 @@ command sequence:
 One approval for a stable command prefix is acceptable. Repeated approval
 dialogs caused by per-batch command construction are not.
 
+Do not create a file solely to transport an in-memory result to the next
+operation. Use a direct return, stdin/stdout, or an existing persisted workflow
+artifact. Raw, analyzed, and scored files are workflow data; a temporary agent
+response JSON is not. The documented browser-pane HTML is the only current
+collector exception because the browser payload itself must cross a process
+boundary before raw persistence.
+
 ## Strict Batch Execution, Waiting, And Stop Policy
 
 A batch is production execution of an already documented workflow. It is not a
