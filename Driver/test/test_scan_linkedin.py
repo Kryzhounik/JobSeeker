@@ -19,9 +19,41 @@ from collector.scan_linkedin import search_page_url
 from collector.scan_linkedin import should_stop_location
 from collector.scan_linkedin import page_overlap_missing
 from collector.save_raw_page import validate_content
+from collector.linkedin_search_urls import build_urls
 
 
 class ScanLinkedInTest(unittest.TestCase):
+    def test_browser_remote_priority_preserves_country_workplace_filters(self) -> None:
+        urls = build_urls({
+            "keywords": "Java",
+            "locations": "AccountRemote,Moldova:106178099,Ukraine:102264497",
+            "remoteBroadWorkplace": "remote",
+            "workplace": "remote,hybrid,office",
+            "experience": "associate,mid_senior",
+            "jobTypes": "full_time,part_time,contract",
+            "datePosted": "week",
+            "sort": "newest",
+        })
+        self.assertEqual(
+            [label for label, _ in urls],
+            ["seed:Moldova", "AccountRemote", "Moldova", "Ukraine"],
+        )
+        queries = [parse_qs(urlparse(url).query) for _, url in urls]
+        seed, priority, moldova, ukraine = queries
+        self.assertEqual(seed["geoId"], ["106178099"])
+        self.assertEqual(seed["f_WT"], ["2"])
+        self.assertEqual(priority["f_WT"], ["2"])
+        self.assertNotIn("geoId", priority)
+        self.assertNotIn("location", priority)
+        self.assertEqual(moldova["f_WT"], ["2,3,1"])
+        self.assertEqual(ukraine["geoId"], ["102264497"])
+        for (_, url), query in zip(urls, queries):
+            self.assertEqual(urlparse(url).path, "/jobs/search/")
+            self.assertEqual(query["f_E"], ["3,4"])
+            self.assertEqual(query["f_JT"], ["F,P,C"])
+            self.assertEqual(query["f_TPR"], ["r604800"])
+            self.assertEqual(query["sortBy"], ["DD"])
+
     def test_search_page_url_contains_supported_filters(self) -> None:
         settings = {"keywords": "Java", "datePosted": "week"}
 
@@ -101,7 +133,7 @@ class ScanLinkedInTest(unittest.TestCase):
         self.assertTrue(should_stop_location(0, 20, 2))
         self.assertTrue(should_stop_location(20, 20, 0))
 
-    def test_empty_page_is_retried_at_next_start(self) -> None:
+    def test_guest_skips_configured_browser_pass_and_retries_empty_page(self) -> None:
         class EmptyClient:
             def __init__(self) -> None:
                 self.urls: list[str] = []
@@ -115,7 +147,7 @@ class ScanLinkedInTest(unittest.TestCase):
             db_path = Path(directory) / "jobs.sqlite"
             db_path.touch()
             result = collect_batch(
-                {"keywords": "Java", "locations": "Moldova:106178099"},
+                {"keywords": "Java", "locations": "AccountRemote,Moldova:106178099"},
                 limit=1,
                 client=client,
                 db_path=db_path,
@@ -123,6 +155,7 @@ class ScanLinkedInTest(unittest.TestCase):
             )
 
         self.assertEqual([page["start"] for page in result["pages"]], [0, 9])
+        self.assertEqual([page["label"] for page in result["pages"]], ["Moldova"] * 2)
         self.assertEqual(len(client.urls), 2)
 
     def test_priority_companies_are_searched_before_general_results(self) -> None:

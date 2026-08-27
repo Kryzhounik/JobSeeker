@@ -54,8 +54,12 @@ any other batch stage; report the failed check and wait for the user.
 
 ```text
 read LinkedIn collector settings
--> for each configured location in order:
-   -> run collector/scan_linkedin.py batch --location <location>
+-> if AccountRemote is configured, run its browser-only priority pass first
+   using collector/scan_linkedin.md (including its remote seed)
+-> recalculate remaining = global limit - combined run scope size
+-> if remaining is zero, stop collection immediately
+-> for each configured country in order (excluding AccountRemote):
+   -> run collector/scan_linkedin.py batch --location <location> --limit <remaining>
    -> fetch guest-search pages in steps of 9
    -> save accepted guest raw/readable data with collection_method=script
    -> recalculate remaining = global limit - combined run scope size
@@ -73,7 +77,7 @@ read LinkedIn collector settings
 The guest prefetch command is:
 
 ```text
-python collector/scan_linkedin.py batch --location <Name[:geoId]>
+python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>
 ```
 
 During a workflow batch, consume this command's JSON result directly from
@@ -86,10 +90,14 @@ does not replace the browser coverage pass. Do not replace a failing guest or
 browser operation with an undocumented alternative during the batch.
 
 The global limit applies to the combined scope. The caller tracks the remaining
-limit across both passes and all locations; neither collector may independently
-restart the limit for the next location. The browser pass is only a gap-fill up
-to that limit. If the guest pass reaches the global limit, do not invoke the
-browser collector, inspect browser coverage, or continue to another location.
+limit across AccountRemote, both country passes, and all locations; neither
+collector may independently restart the limit for the next location.
+The browser pass is only a gap-fill up to that limit after a country's guest
+pass; AccountRemote is the initial browser-only priority pass, not a guest
+location. Never pass AccountRemote to
+the guest command in this workflow. If the guest pass reaches the global limit,
+do not invoke the browser collector, inspect browser coverage, or continue to
+another location.
 
 LinkedIn guest responses are not stable snapshots. If adjacent `start` pages
 have no overlapping job ID, `scan_linkedin.py` logs a pagination warning and

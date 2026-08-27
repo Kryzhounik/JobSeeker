@@ -15,10 +15,11 @@ LinkedIn's guest and authenticated searches can return different inventories,
 counts, and ordering, and guest results can vary between repeated requests.
 For that reason, missing ID overlap between adjacent guest responses is logged
 as a warning and never stops collection by itself.
-Use this module as the cheap first pass for one location at a time: it stores
+After the browser-only AccountRemote priority pass, use this module as the
+cheap first pass for one country at a time: it stores
 every vacancy it can reach and records its source job ID in SQLite with
 `source_jobs.collection_method = script`. If this pass reaches the remaining
-global limit, collection ends without opening the browser. Otherwise the
+global limit, collection ends without a browser gap-fill. Otherwise the
 browser collector fills only the remaining count for the same location; its
 preview deduplication skips stored IDs before opening a job pane. Move to the
 next configured location only while the combined scope remains below the
@@ -419,6 +420,9 @@ def collect_batch(
         else csv(settings.get("locations", ""))
     )
     for location in map(parse_location, configured_locations):
+        # AccountRemote in the shared search order belongs to the browser only.
+        if location_value is None and not location.name:
+            continue
         search_index = 0
         search_name, company_ids = search_passes[search_index]
         search_seen_ids: set[str] = set()

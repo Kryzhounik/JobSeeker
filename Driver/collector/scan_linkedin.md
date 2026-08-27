@@ -21,52 +21,58 @@ For left-panel card materialization and page-count verification, follow
 
 ## Workflow
 
-This browser collector is the second half of a location-by-location hybrid
-collection. The caller supplies one current location after running:
+This browser collector has two calls: the initial browser-only `AccountRemote`
+priority pass, and a country's gap-fill after its guest pass. The country call
+follows:
 
 ```text
-python collector/scan_linkedin.py batch --location <Name[:geoId]>
+python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>
 ```
 
-Process only that same location and return its browser-only scope to the
+Process only the caller-supplied label and return its browser-only scope to the
 caller. Do not move to the next configured location inside this browser call.
 The caller merges guest and browser scopes, updates the remaining global limit,
 and then starts the guest pass for the next location.
 
-This browser collector is a gap-fill, not a mandatory verification pass. The
+AccountRemote runs before any guest collection. Its seed is the first real
+country from `locations`, with `remoteBroadWorkplace=remote`; the seed is not
+collected. AccountRemote then uses that same browser tab without `location` or
+`geoId`, still remote-only. This prioritizes broad EMEA/worldwide remote jobs
+mixed with remote jobs in the anchor country before ordinary country passes
+include hybrid/office jobs. It does not guarantee a worldwide inventory.
+
+Country calls are gap-fills, not mandatory verification passes. The
 caller must calculate the remaining global limit before invoking it. If the
 remaining limit is zero, do not open Chrome, inspect the browser result set, or
 invoke this collector at all. During the browser pass, stop immediately when
 the combined run scope reaches the global limit.
 
 1. Run `python collector/linkedin_search_urls.py`.
-2. Open `seed:<location>` URL(s) first, but do not collect vacancies from them.
-   They only anchor LinkedIn's sticky remote-search location.
-3. After a seed URL, always open the first printed non-seed URL explicitly,
-   even if the current page is already a LinkedIn search page. The seed page is
-   a workaround, not the first collection page.
-4. Process printed non-seed search URLs strictly in config order.
-5. On the first collection page for a location, apply and verify the UI filters
-   from `collector/config/linkedin.properties` before reading cards:
-   - `experience`: `entry_level` -> `Entry-level`, `senior` -> `Senior`;
+2. For AccountRemote only, open its printed `seed:<location>` URL. Wait until
+   the anchor country is shown in the search field and remote-only is applied.
+   Click the exact `button` named `Search` once and wait for the search to
+   finish. Opening the URL alone can leave a previously remembered country;
+   this submission commits the seed country to the logged-in search context.
+   Do not collect the seed page or count it toward the limit.
+3. Then explicitly open the printed `AccountRemote` URL in the same tab.
+   It omits both `location` and `geoId`. Verify that the displayed country
+   still matches the seed; a different remembered country is not a valid seed.
+4. For a country call, open only its matching printed URL. Do not repeat the
+   seed or AccountRemote pass inside a country call.
+5. Generated URLs use `/jobs/search/` and carry all browser filters. After
+   loading, verify the applied values from `collector/config/linkedin.properties`:
+   - `experience`: `associate` -> `Associate`, `mid_senior` -> `Mid-Senior level`;
    - `jobTypes`: `full_time` -> `Full-time`, `part_time` -> `Part-time`,
      `contract` -> `Contract`;
-   - use `workplace` for the current country search. If all three workplace
-     modes are configured, leave the workplace filter unrestricted;
-   - `datePosted` is carried by the generated URL;
-   - `sort=semantic` records the current LinkedIn behavior; there is no sort
-     control to apply.
-   Open the experience menu through the exact `button` role named
-   `Filter by Experience level`. Its visible text is `Experience level`, but
-   that is not the button's full accessible name. Select `Entry-level` and
-   `Senior` through their exact `checkbox` roles. Open the job-type menu through
-   the exact `button` role named `Filter by Employment type`, then select
-   `Full-time`, `Part-time`, and `Contract` through their exact `checkbox`
-   roles. Submit each menu through the exact `link` role named `Show results`.
-   Verify the selected filter labels in the visible toolbar. Do not assume URL
-   query parameters applied filters that are not visibly selected. Select menu
-   options by their exact `checkbox` role, not by bare text: job cards may
-   contain the same words.
+   - `remoteBroadWorkplace` applies to the seed and AccountRemote;
+     `workplace` applies to country calls, including all configured modes;
+   - `datePosted=week` -> `Past week`, `sort=newest` -> `Most recent`.
+   Read the applied filter labels/states; do not set filters through checkbox
+   clicks. Applied chips such as Remote may be collapsed: read their applied
+   state/accessible label, not a requirement that every chip be visible.
+   Wait for loading before treating a missing label as a mismatch.
+   `/jobs/search-results/` is not an equivalent replacement: follow the endpoint
+   policy in `collector/README.md` and the Strict Batch Policy on failure.
 6. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
    or a critical blocker defined in `collector/browser.md` appears. A slow or
@@ -77,13 +83,15 @@ the combined run scope reaches the global limit.
 8. On each LinkedIn search page, materialize and verify the complete result
    page with `collector/linkedin_scroll_results.md`, then extract
    previews from that verified card set.
-9. After the current result page is exhausted, use
-   `data-testid="pagination-controls-next-button-visible"`. Do not select a
-   button by the name `Next`: the details pane may expose an unrelated carousel
-   button with that name. This preserves UI filters that are not encoded in the
-   URL. Verify that the selected filter labels remain visible after navigation.
-   Do not construct the next page by adding `start=25`; direct URL navigation
-   resets the new UI filter state.
+9. After the current page is exhausted, navigate to the same generated URL with
+   `start += 25` (`0`, `25`, `50`, ...). Preserve all its filter parameters;
+   do not build pagination from the selected job's details URL. Verify the
+   selected page number, retained country, and applied filter state after
+   loading. A country heading can update before its cards, so wait for the
+   result list to finish replacing old cards before materialization. Use the
+   classic pagination's exact `button` named `View next page` only to detect
+   exhaustion, not to apply or preserve filters. Do not use a details-pane
+   carousel named `Next`.
 10. Respect `delaySeconds` from `collector/config/linkedin.properties` as the
    minimum interval between browser navigation actions. Measure it from the
    previous search-page navigation start. If collecting, filtering, saving, or

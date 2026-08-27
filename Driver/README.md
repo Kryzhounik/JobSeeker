@@ -24,8 +24,12 @@ with the analyzer.
 
 ## LinkedIn Collection
 
-LinkedIn collection is hybrid and location-by-location. For each configured
-location, `collector/scan_linkedin.py` uses the public guest endpoints as a
+LinkedIn starts with the browser-only AccountRemote priority pass described in
+`collector/scan_linkedin.md`: remote jobs first, before country hybrid/office
+results. It shares the global limit and is not sent to the guest collector.
+
+After that, collection is hybrid and location-by-location. For each configured
+country, `collector/scan_linkedin.py` uses the public guest endpoints as a
 cheap deterministic first pass. It saves reachable raw HTML and readable text
 and stores source job IDs without spending model tokens on browser interaction.
 
@@ -41,7 +45,7 @@ the script records a warning and continues. It does not treat overlap as a
 pagination requirement.
 
 After one location's guest pass, recalculate the remaining global limit. If it
-is zero, collection ends immediately and the logged-in browser is not opened.
+is zero, collection ends immediately without a browser gap-fill.
 Otherwise, run the browser collector for that same location only as a gap-fill
 for the remaining count. Its preview filter checks title and company first,
 then checks `(source, source_job_id)` in `source_jobs`. Jobs already stored by
@@ -57,4 +61,4 @@ stages do not overwrite the first collection method.
 Do not remove the browser collector or describe `scan_linkedin.py` as a full
 replacement for it. The guest script may also be run independently through
 its `search-page` and `job` diagnostic commands. The workflow invokes its batch
-mode as `python collector/scan_linkedin.py batch --location <Name[:geoId]>`.
+mode as `python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>`.
