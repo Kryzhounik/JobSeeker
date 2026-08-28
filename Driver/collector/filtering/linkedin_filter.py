@@ -140,9 +140,12 @@ def matches_term(text: str, term: str) -> bool:
     ) is not None
 
 
+YEARS_COUNT_EXPRESSION = (
+    r"(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)"
+)
 YEARS_EXPRESSION = (
-    r"(?:[2-9]|[1-9]\d+)"
-    r"(?:\+|\s*[-\u2013\u2014]\s*(?:[2-9]|[1-9]\d+))?"
+    rf"{YEARS_COUNT_EXPRESSION}"
+    rf"(?:\+|\s*(?:[-\u2013\u2014]|to)\s*{YEARS_COUNT_EXPRESSION})?"
     r"\s+years?"
 )
 

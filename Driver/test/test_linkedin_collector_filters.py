@@ -39,6 +39,29 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++"])
 
+    def test_fluent_technology_requirement_is_blocked(self) -> None:
+        for text in (
+            "Fluent contest C++ (STL, complexity)",
+            "Fluent in C++",
+            "Fluent C++",
+        ):
+            with self.subTest(text=text):
+                result = decide_content(text)
+                self.assertEqual(result["content_decision"], "skip")
+                self.assertEqual(result["content_technologies"], ["C++"])
+
+    def test_fluent_requirement_keeps_optional_and_java_exceptions(self) -> None:
+        for text in (
+            "Nice to have:\nFluent contest C++ (STL, complexity)",
+            "Fluent contest C++ or Java (STL, complexity)",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+
+    def test_fluent_english_does_not_bind_unrelated_technology(self) -> None:
+        result = decide_content("Fluent English and some familiarity with C++")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_camunda_in_non_strict_alternative_list_is_not_blocked(self) -> None:
         result = decide_content(
             "Solutions using Power Platform, UiPath, Camunda, Flowable, Appian, n8n or similar"
@@ -187,6 +210,40 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("2+ years of work experience with JavaScript")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["JavaScript"])
+
+    def test_minimum_years_written_in_words_is_blocked(self) -> None:
+        for count in ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"):
+            with self.subTest(count=count):
+                result = decide_content(
+                    f"Minimum of {count} years of experience in Node.JS development."
+                )
+                self.assertEqual(result["content_decision"], "skip")
+                self.assertEqual(result["content_technologies"], ["Node.js"])
+
+    def test_written_year_ranges_are_blocked(self) -> None:
+        for count in ("three-five", "three to five", "two+", "THREE"):
+            with self.subTest(count=count):
+                result = decide_content(f"{count} years of experience with Python")
+                self.assertEqual(result["content_decision"], "skip")
+                self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_written_one_year_stays_optional(self) -> None:
+        for text in (
+            "Minimum of one year of experience in Node.JS development.",
+            "One year of Node.js experience",
+            "One to three years of experience with Python",
+            "One-three years of experience with Python",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+
+    def test_written_years_keep_optional_and_java_exceptions(self) -> None:
+        for text in (
+            "Three years of experience with Python is a plus",
+            "Three years of experience with Python or Java",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(decide_content(text)["content_decision"], "analyze")
 
     def test_year_range_binds_listed_technologies(self) -> None:
         result = decide_content(
