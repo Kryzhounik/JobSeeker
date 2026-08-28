@@ -582,3 +582,5 @@ ML Operations Engineer
 HCL Commerce Backend Developer
 Senior MuleSoft Engineer
 Finance Transformation Architect
+Research Assistant
+ASIC Verification Engineer

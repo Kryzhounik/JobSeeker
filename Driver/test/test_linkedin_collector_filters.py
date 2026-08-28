@@ -129,6 +129,33 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
+    def test_strong_hands_on_technology_experience_is_blocked(self) -> None:
+        for text, technology in (
+            (
+                "Strong hands-on experience with SAP ABAP and S/4HANA development.",
+                "SAP ABAP",
+            ),
+            ("Strong hands-on experience with ABAP", "ABAP"),
+            ("Strong hands on experience with Python", "Python"),
+        ):
+            with self.subTest(text=text):
+                result = decide_content(text)
+                self.assertEqual(result["content_decision"], "skip")
+                self.assertEqual(result["content_technologies"], [technology])
+
+    def test_optional_strong_hands_on_experience_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Nice to have:\n"
+            "Strong hands-on experience with SAP ABAP and S/4HANA development."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_java_alternative_to_strong_hands_on_experience_is_not_blocked(
+        self,
+    ) -> None:
+        result = decide_content("Strong hands-on experience with SAP ABAP or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_proven_knowledge_of_technology_is_blocked(self) -> None:
         result = decide_content("Proven knowledge of Python")
         self.assertEqual(result["content_decision"], "skip")
