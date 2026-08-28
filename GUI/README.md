@@ -121,9 +121,12 @@ The run writes an append-only JSONL log next to the GUI:
 `GUI/linkedin_availability_check.log`
 
 Each line is one JSON object. Useful events are `start`, `request`, `response`,
-`closed`, `stop_error`, `popup_error`, and `done`. If LinkedIn returns `429`, a
-network error, or unexpected HTML, the run stops, shows a popup, and writes the
-error to this log. The log is ignored by git.
+`closed`, `skip`, `stop_error`, `popup_error`, and `done`. HTTP `404` leaves the
+job status unchanged, logs `skip` with `reason: http_404`, increments the GUI's
+`skipped` counter, and continues to the next job after the usual 5-second pause.
+It does not show an error popup. Other HTTP errors (including `429`), network
+errors, or unexpected HTML still stop the run, show a popup, and write the error
+to this log. The log is ignored by git.
 
 ## Refilter
 

@@ -3573,6 +3573,17 @@ class JobsViewer(tk.Tk):
                         source_url=source_url,
                         updated=updated_count,
                     )
+                elif state == "not_found":
+                    skipped += 1
+                    self._append_availability_log(
+                        "skip",
+                        reason="http_404",
+                        processed=processed,
+                        total=total,
+                        job_id=job_id,
+                        source_url=source_url,
+                        error=message,
+                    )
                 elif state != "available":
                     error_message = f"{job_id}: {message}"
                     self._append_availability_log(
@@ -3633,6 +3644,8 @@ class JobsViewer(tk.Tk):
                 content_type = response.headers.get("Content-Type", "")
                 body = response.read(1_000_000)
         except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return "not_found", "LinkedIn returned HTTP 404."
             if error.code == 429:
                 return "error", "LinkedIn returned 429; stopped to avoid rate limit."
             return "error", f"LinkedIn returned HTTP {error.code}."
@@ -3641,6 +3654,8 @@ class JobsViewer(tk.Tk):
         except TimeoutError:
             return "error", "Request timed out."
 
+        if status_code == 404:
+            return "not_found", "LinkedIn returned HTTP 404."
         if status_code == 429:
             return "error", "LinkedIn returned 429; stopped to avoid rate limit."
         if status_code != 200:
