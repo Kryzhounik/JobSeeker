@@ -601,3 +601,7 @@ Human Data Specialist
 DevOps Tech Lead
 Machine Learning Ops Engineer
 Senior ML
+Системний аналітик
+Observability Engineer
+IT Auditor
+Developer ERP
