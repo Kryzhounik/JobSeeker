@@ -201,6 +201,16 @@ adjacent non-empty line keeps the vacancy. Generic alternatives such as `or`,
 `and/or`, `one of`, and `any of` do not keep it unless Java or explicit optional
 wording is also present. When the text is ambiguous, keep the vacancy.
 
+Structured technology lists are handled separately through
+`[alternative_technology_list_templates]` and
+`[technology_list_templates]` in `linkedin_content_filter.ini`. A configured
+template captures the complete list through `{technologies}`. For an AND list,
+each item is an independent requirement and any blocked item rejects the
+vacancy. For an OR list, the vacancy is rejected only when every alternative
+is blocked; any unblocked or unknown alternative keeps it for agent analysis.
+`Java` is not special-cased in this list logic. Explicit optional wording still
+keeps the vacancy.
+
 Every entry in `[hard_requirement_templates]` must contain `{technology}` so
 that the requirement and technology are matched as one structure. Never add
 standalone words such as `required`, `advanced`, `experience`, or `years` as

@@ -145,12 +145,18 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
-            ["C", "Python", "C++", "C#", "Rust"],
+            ["C", "C++", "C#", "Python", "Rust"],
         )
 
     def test_java_in_proficiency_language_list_prevents_rejection(self) -> None:
         result = decide_content(
             "Proficiency in programming languages such as C++, Java, or Python"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_unblocked_proficiency_alternative_prevents_rejection(self) -> None:
+        result = decide_content(
+            "Proficiency in programming languages such as C++, Scala, or Python"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
@@ -162,7 +168,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
-            ["Python", "JavaScript", "C++"],
+            ["C++", "JavaScript", "Python"],
         )
 
     def test_optional_proficiency_language_list_is_not_blocked(self) -> None:
@@ -185,6 +191,61 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Strong software development experience with Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_strong_experience_and_list_blocks_each_unsupported_item(self) -> None:
+        result = decide_content("Strong experience with Spark, Scala, and Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_rule"], "hard_blocked_technology")
+        self.assertEqual(result["content_technologies"], ["Spark", "Python"])
+
+    def test_strong_experience_single_technology_is_blocked(self) -> None:
+        result = decide_content("Strong experience with Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_java_does_not_hide_and_list_requirement(self) -> None:
+        result = decide_content("Strong experience with Java and Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_unblocked_or_list_alternative_prevents_rejection(self) -> None:
+        for text in (
+            "Strong experience with Java or Python",
+            "Strong experience with Scala or Python",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+
+    def test_all_blocked_or_list_alternatives_are_rejected(self) -> None:
+        result = decide_content("Strong experience with JavaScript or Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["JavaScript", "Python"],
+        )
+
+    def test_optional_strong_experience_list_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Strong experience with Spark, Scala, and Python is a plus"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_strong_proficiency_and_list_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong proficiency with Python, REST APIs and Cloud (e.g. AWS, GCP)"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_strong_proficiency_or_list_keeps_unblocked_alternative(self) -> None:
+        result = decide_content("Strong proficiency with Python or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_optional_strong_proficiency_list_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Strong proficiency with Python, REST APIs and Cloud is a plus"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_hands_on_technology_experience_is_blocked(self) -> None:
         for text, technology in (

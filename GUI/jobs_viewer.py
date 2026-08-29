@@ -705,6 +705,7 @@ class JobsViewer(tk.Tk):
         self.application_sort_descending = self._saved_application_sort_descending()
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
+        self.job_column_resize_active = False
         self.title_selection_entry: tk.Entry | None = None
         self.title_selection_item = ""
         self.title_selection_menu_open = False
@@ -948,6 +949,21 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.jobs_tree.bind("<Button-3>", self._show_copy_menu)
         self.jobs_tree.bind("<Double-Button-1>", self._start_title_selection)
+        self.jobs_tree.bind(
+            "<ButtonPress-1>",
+            self._jobs_tree_button_press,
+            add="+",
+        )
+        self.jobs_tree.bind(
+            "<B1-Motion>",
+            self._jobs_tree_button_drag,
+            add="+",
+        )
+        self.jobs_tree.bind(
+            "<ButtonRelease-1>",
+            self._jobs_tree_button_release,
+            add="+",
+        )
         self.jobs_tree.bind(
             "<Configure>",
             self._jobs_tree_configured,
@@ -1581,6 +1597,23 @@ class JobsViewer(tk.Tk):
         self._close_title_selection()
         self.after_idle(self._schedule_job_link_labels)
 
+    def _jobs_tree_button_press(self, event: tk.Event[tk.Misc]) -> None:
+        if self.jobs_tree.identify_region(event.x, event.y) != "separator":
+            return
+        self.job_column_resize_active = True
+        self._close_title_selection()
+        self._clear_job_link_labels()
+
+    def _jobs_tree_button_drag(self, _event: tk.Event[tk.Misc]) -> None:
+        if self.job_column_resize_active:
+            self._clear_job_link_labels()
+
+    def _jobs_tree_button_release(self, _event: tk.Event[tk.Misc]) -> None:
+        if not self.job_column_resize_active:
+            return
+        self.job_column_resize_active = False
+        self._schedule_job_link_labels()
+
     def _start_title_selection(
         self,
         event: tk.Event[tk.Misc],
@@ -1758,15 +1791,26 @@ class JobsViewer(tk.Tk):
         return "break"
 
     def _schedule_job_link_labels(self) -> None:
+        if self.job_column_resize_active:
+            return
         if self.job_links_after_id is not None:
             return
         self.job_links_after_id = self.after_idle(self._render_job_link_labels)
 
+    def _clear_job_link_labels(self) -> None:
+        if self.job_links_after_id is not None:
+            self.after_cancel(self.job_links_after_id)
+            self.job_links_after_id = None
+        for label in self.job_link_labels:
+            if label.winfo_exists():
+                label.destroy()
+        self.job_link_labels.clear()
+
     def _render_job_link_labels(self) -> None:
         self.job_links_after_id = None
-        for label in self.job_link_labels:
-            label.destroy()
-        self.job_link_labels.clear()
+        self._clear_job_link_labels()
+        if self.job_column_resize_active:
+            return
 
         selected = set(self.jobs_tree.selection())
 

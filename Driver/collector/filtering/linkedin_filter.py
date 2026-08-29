@@ -148,6 +148,15 @@ YEARS_EXPRESSION = (
     rf"(?:\+|\s*(?:[-\u2013\u2014]|to)\s*{YEARS_COUNT_EXPRESSION})?"
     r"\s+years?"
 )
+TECHNOLOGY_LIST_GROUP = "technologies"
+TECHNOLOGY_LIST_EXPRESSION = (
+    rf"(?P<{TECHNOLOGY_LIST_GROUP}>[^.;:\r\n]{{1,200}})"
+)
+TECHNOLOGY_LIST_SEPARATOR = re.compile(
+    r"\s*(?:\band/or\b|\bor\b|\band\b|,|/)\s*",
+    re.IGNORECASE,
+)
+TECHNOLOGY_LIST_OR = re.compile(r"\band/or\b|\bor\b", re.IGNORECASE)
 
 
 def technology_expression(name: str) -> str:
@@ -174,6 +183,26 @@ def requirement_pattern(template: str, technology: str) -> re.Pattern[str]:
         ),
         re.IGNORECASE,
     )
+
+
+@lru_cache(maxsize=None)
+def technology_list_pattern(template: str) -> re.Pattern[str]:
+    if "{technologies}" not in template:
+        raise ValueError(
+            "Technology list template must contain {technologies}: " + template
+        )
+    return re.compile(
+        template.replace("{technologies}", TECHNOLOGY_LIST_EXPRESSION),
+        re.IGNORECASE,
+    )
+
+
+def split_technology_list(value: str) -> list[str]:
+    return [
+        item.strip()
+        for item in TECHNOLOGY_LIST_SEPARATOR.split(value)
+        if item.strip()
+    ]
 
 
 def content_units(text: str) -> list[tuple[str, str]]:
@@ -221,6 +250,20 @@ class VacancyFilter:
         )
         self.hard_requirement_templates = tuple(
             configured_values(self.content_config, "hard_requirement_templates")
+        )
+        self.alternative_technology_list_templates = tuple(
+            (template, technology_list_pattern(template))
+            for template in configured_values(
+                self.content_config,
+                "alternative_technology_list_templates",
+            )
+        )
+        self.technology_list_templates = tuple(
+            (template, technology_list_pattern(template))
+            for template in configured_values(
+                self.content_config,
+                "technology_list_templates",
+            )
         )
         self.content_optional_signals = tuple(
             configured_patterns(self.content_config, "optional_signals")
@@ -304,6 +347,15 @@ class VacancyFilter:
 
         if not pass_result and technology_filter_enabled and enabled(config):
             for unit, context in content_units(text):
+                list_handled, list_result = self.filter_technology_lists(
+                    unit,
+                    context,
+                )
+                if list_result is not None:
+                    return list_result
+                if list_handled:
+                    continue
+
                 unit_technologies = [
                     name
                     for name, pattern in self.blocked_technology_patterns
@@ -348,6 +400,69 @@ class VacancyFilter:
         if not technology_filter_enabled or not enabled(config):
             return FilterResult(False, "technology content filter disabled")
         return FilterResult(False, "no content skip signals")
+
+    def filter_technology_lists(
+        self,
+        unit: str,
+        context: str,
+    ) -> tuple[bool, FilterResult | None]:
+        template_groups = (
+            (True, self.alternative_technology_list_templates),
+            (False, self.technology_list_templates),
+        )
+        for always_alternative, templates in template_groups:
+            for template, pattern in templates:
+                match = pattern.search(unit)
+                if match is None:
+                    continue
+                if any(
+                    optional.search(context)
+                    for optional in self.content_optional_signals
+                ):
+                    return True, None
+
+                list_text = match.group(TECHNOLOGY_LIST_GROUP)
+                items = split_technology_list(list_text)
+                if not items:
+                    return True, None
+
+                matches_by_item = [
+                    [
+                        name
+                        for name, technology in self.blocked_technology_patterns
+                        if technology.search(item)
+                    ]
+                    for item in items
+                ]
+                alternative = always_alternative or bool(
+                    TECHNOLOGY_LIST_OR.search(list_text)
+                )
+                if alternative and any(not names for names in matches_by_item):
+                    return True, None
+
+                matched_technologies = list(
+                    dict.fromkeys(
+                        name
+                        for names in matches_by_item
+                        for name in names
+                    )
+                )
+                if not matched_technologies:
+                    return True, None
+
+                return True, FilterResult(
+                    True,
+                    "hard requirement for blocked technology: "
+                    + ", ".join(matched_technologies),
+                    rule="hard_blocked_technology",
+                    match=unit,
+                    technologies=tuple(matched_technologies),
+                    signals=(template,),
+                    keyword_patterns=tuple(
+                        (name, template) for name in matched_technologies
+                    ),
+                )
+        return False, None
 
     def filter_language_requirements(self, text: str) -> FilterResult:
         if not self.database_filter_enabled(LANGUAGE_FILTER):
