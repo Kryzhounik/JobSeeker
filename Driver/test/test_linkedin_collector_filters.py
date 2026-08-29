@@ -200,6 +200,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Strong Python, PySpark and SQL is a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_short_strong_list_does_not_cross_into_next_requirement(self) -> None:
+        result = decide_content(
+            "A strong comfort level with Linux is highly desired\n"
+            "Familiarity with programming/scripting "
+            "(C++, Java, Python, Perl, JavaScript, shell)/ Cloud"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_strong_software_development_experience_is_blocked(self) -> None:
         result = decide_content("Strong software development experience with Python")
         self.assertEqual(result["content_decision"], "skip")
