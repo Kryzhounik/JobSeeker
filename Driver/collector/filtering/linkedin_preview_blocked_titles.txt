@@ -594,3 +594,9 @@ Science Research Assistant
 CNC Programmer
 AI Architect
 GRC Content Engineer
+Quality Assurance
+Cloud Delivery Architect
+SRE Engineer
+Human Data Specialist
+DevOps Tech Lead
+Machine Learning Ops Engineer

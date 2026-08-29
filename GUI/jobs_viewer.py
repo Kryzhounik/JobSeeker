@@ -159,6 +159,28 @@ def format_company_display(name: Any, application_count: Any) -> str:
     return f"{company} ({count})"
 
 
+def append_unique_blacklist_term(path: Path, value: Any) -> bool:
+    term = " ".join(clean(value).split())
+    if not term:
+        raise ValueError("Select a non-empty title fragment.")
+
+    existing_text = path.read_text(encoding="utf-8") if path.exists() else ""
+    existing_terms = {
+        line.strip().casefold()
+        for line in existing_text.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+    if term.casefold() in existing_terms:
+        return False
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as blacklist_file:
+        if existing_text and not existing_text.endswith(("\n", "\r")):
+            blacklist_file.write("\n")
+        blacklist_file.write(term + "\n")
+    return True
+
+
 def format_display_date(value: Any) -> str:
     text = clean(value).strip()
     match = re.match(r"\d{4}-\d{2}-\d{2}", text)
@@ -683,6 +705,9 @@ class JobsViewer(tk.Tk):
         self.application_sort_descending = self._saved_application_sort_descending()
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
+        self.title_selection_entry: tk.Entry | None = None
+        self.title_selection_item = ""
+        self.title_selection_menu_open = False
         self.availability_check_running = False
         self.availability_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.availability_log_lock = threading.Lock()
@@ -922,14 +947,15 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.bind("<Control-Insert>", self._copy_tree_selection)
         self.jobs_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.jobs_tree.bind("<Button-3>", self._show_copy_menu)
+        self.jobs_tree.bind("<Double-Button-1>", self._start_title_selection)
         self.jobs_tree.bind(
             "<Configure>",
-            lambda _event: self._schedule_job_link_labels(),
+            self._jobs_tree_configured,
             add="+",
         )
         self.jobs_tree.bind(
             "<MouseWheel>",
-            lambda _event: self.after_idle(self._schedule_job_link_labels),
+            self._jobs_tree_mousewheel,
             add="+",
         )
 
@@ -1359,6 +1385,7 @@ class JobsViewer(tk.Tk):
         return connection
 
     def refresh_jobs(self) -> None:
+        self._close_title_selection()
         try:
             rows = self._load_jobs()
         except Exception as error:
@@ -1537,12 +1564,198 @@ class JobsViewer(tk.Tk):
         self.status_var.set(f"{config_name} = {value}")
 
     def _jobs_tree_yview(self, *args: Any) -> None:
+        self._close_title_selection()
         self.jobs_tree.yview(*args)
         self._schedule_job_link_labels()
 
     def _jobs_tree_xview(self, *args: Any) -> None:
+        self._close_title_selection()
         self.jobs_tree.xview(*args)
         self._schedule_job_link_labels()
+
+    def _jobs_tree_configured(self, _event: tk.Event[tk.Misc]) -> None:
+        self._close_title_selection()
+        self._schedule_job_link_labels()
+
+    def _jobs_tree_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self._close_title_selection()
+        self.after_idle(self._schedule_job_link_labels)
+
+    def _start_title_selection(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        if self.jobs_tree.identify_region(event.x, event.y) != "cell":
+            return None
+        item = self.jobs_tree.identify_row(event.y)
+        column_ref = self.jobs_tree.identify_column(event.x)
+        columns = tuple(self.jobs_tree["columns"])
+        try:
+            column = columns[int(column_ref.removeprefix("#")) - 1]
+        except (ValueError, IndexError):
+            return None
+        if not item or column != "title":
+            return None
+
+        self._close_title_selection()
+        bounds = self.jobs_tree.bbox(item, column)
+        row = self.job_rows.get(item)
+        if not bounds or row is None:
+            return "break"
+
+        x, y, width, height = bounds
+        entry = tk.Entry(
+            self.jobs_tree,
+            borderwidth=1,
+            relief="solid",
+            background="#fff2a8",
+            foreground="#000000",
+            selectbackground="#2d668f",
+            selectforeground="#ffffff",
+            exportselection=True,
+        )
+        entry.insert(0, clean(row.get("title", "")))
+        entry.place(x=x, y=y, width=width, height=height)
+        entry.bind("<KeyPress>", self._block_title_selection_edit)
+        entry.bind("<Control-a>", self._select_entry_text)
+        entry.bind("<Control-A>", self._select_entry_text)
+        entry.bind("<Control-c>", self._copy_widget_event)
+        entry.bind("<Control-C>", self._copy_widget_event)
+        entry.bind("<Control-Insert>", self._copy_widget_event)
+        entry.bind("<<Copy>>", self._copy_widget_event)
+        entry.bind("<Button-3>", self._show_title_selection_menu)
+        entry.bind("<Escape>", self._close_title_selection_from_event)
+        entry.bind("<FocusOut>", self._title_selection_focus_out)
+        entry.bind("<MouseWheel>", self._scroll_jobs_from_title_selection)
+        entry.bind(
+            "<Shift-MouseWheel>",
+            self._scroll_jobs_from_title_selection,
+        )
+        self.title_selection_entry = entry
+        self.title_selection_item = item
+        entry.focus_set()
+        entry.selection_range(0, tk.END)
+        entry.icursor(tk.END)
+        return "break"
+
+    def _block_title_selection_edit(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        key = event.keysym.lower()
+        if event.state & 0x4 and key in {"a", "c", "insert"}:
+            return None
+        if key in {
+            "left",
+            "right",
+            "home",
+            "end",
+            "tab",
+            "shift_l",
+            "shift_r",
+            "control_l",
+            "control_r",
+            "escape",
+        }:
+            return None
+        return "break"
+
+    def _selected_title_fragment(self, entry: tk.Entry) -> str:
+        try:
+            first = entry.index(tk.SEL_FIRST)
+            last = entry.index(tk.SEL_LAST)
+        except tk.TclError:
+            return ""
+        return entry.get()[first:last]
+
+    def _show_title_selection_menu(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str:
+        entry = event.widget
+        if not isinstance(entry, tk.Entry):
+            return "break"
+        fragment = self._selected_title_fragment(entry)
+        menu = tk.Menu(self, tearoff=False)
+        menu.add_command(
+            label="Copy",
+            command=lambda widget=entry: self._copy_widget_selection(widget),
+            state=tk.NORMAL if fragment else tk.DISABLED,
+        )
+        menu.add_command(
+            label="To blacklist",
+            command=lambda widget=entry: self._add_title_selection_to_blacklist(
+                widget
+            ),
+            state=tk.NORMAL if fragment.strip() else tk.DISABLED,
+        )
+        self.title_selection_menu_open = True
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+            self.title_selection_menu_open = False
+            self.after_idle(self._close_title_selection_if_unfocused)
+        return "break"
+
+    def _add_title_selection_to_blacklist(self, entry: tk.Entry) -> None:
+        fragment = self._selected_title_fragment(entry)
+        try:
+            added = append_unique_blacklist_term(BLOCKED_TITLES_PATH, fragment)
+        except (OSError, ValueError) as error:
+            messagebox.showerror("Title blacklist", str(error))
+            self.status_var.set("Could not update title blacklist")
+            return
+
+        term = " ".join(fragment.split())
+        if added:
+            self.status_var.set(f"Added to title blacklist: {term}")
+        else:
+            self.status_var.set(f"Already in title blacklist: {term}")
+        self._close_title_selection()
+
+    def _title_selection_focus_out(
+        self,
+        _event: tk.Event[tk.Misc],
+    ) -> None:
+        self.after(50, self._close_title_selection_if_unfocused)
+
+    def _close_title_selection_if_unfocused(self) -> None:
+        entry = self.title_selection_entry
+        if entry is None or self.title_selection_menu_open:
+            return
+        if self.focus_get() is not entry:
+            self._close_title_selection()
+
+    def _close_title_selection_from_event(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> str:
+        self._close_title_selection()
+        self.jobs_tree.focus_set()
+        return "break"
+
+    def _close_title_selection(self) -> None:
+        entry = self.title_selection_entry
+        self.title_selection_entry = None
+        self.title_selection_item = ""
+        if entry is not None and entry.winfo_exists():
+            entry.destroy()
+
+    def _scroll_jobs_from_title_selection(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str:
+        delta = int(getattr(event, "delta", 0) or 0)
+        direction = -1 if delta > 0 else 1
+        horizontal = bool(event.state & 0x1)
+        self._close_title_selection()
+        if horizontal:
+            self.jobs_tree.xview_scroll(direction, "units")
+        else:
+            self.jobs_tree.yview_scroll(direction, "units")
+        self._schedule_job_link_labels()
+        return "break"
 
     def _schedule_job_link_labels(self) -> None:
         if self.job_links_after_id is not None:
@@ -2798,6 +3011,7 @@ class JobsViewer(tk.Tk):
             )
 
     def _on_job_selected(self, _event: tk.Event[tk.Misc]) -> None:
+        self._close_title_selection()
         self._schedule_job_link_labels()
         item = self._detail_item_from_selection()
         if not item:
@@ -4076,6 +4290,7 @@ class JobsViewer(tk.Tk):
         return self.show_zero_var.get() or score != 0
 
     def _jobs_tree_sorted(self, column: str, descending: bool) -> None:
+        self._close_title_selection()
         self.job_sort_column = column
         self.job_sort_descending = descending
         self._save_settings()

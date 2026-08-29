@@ -3,6 +3,19 @@
 Purpose: user-facing viewer for inspecting SQLite results and manually triaging
 job status.
 
+## Launch
+
+Start the GUI by double-clicking `GUI/JobsViewer.exe`. The launcher uses the
+embedded Seeker Jobs icon and starts `jobs_viewer.py` through `pythonw.exe`, so
+no console window remains open.
+
+To rebuild the launcher and its multi-size Windows icon, run:
+
+`powershell -ExecutionPolicy Bypass -File GUI/build_launcher.ps1`
+
+The build reads `JobsViewerIcon.png`, writes `JobsViewerIcon.ico`, and embeds
+the icon into `JobsViewer.exe`.
+
 The GUI is for the human user. It is not an automation driver for Codex/agents.
 
 Agents must not use the GUI to run the pipeline, inspect batch state, validate
@@ -29,6 +42,12 @@ All table headers are sortable. Repeated clicks on the active header toggle
 ascending and descending order; the header shows `^` or `v`. Native tables and
 copyable text grids share the same sortable-table base behavior. Main,
 Companies, and Applications sorting is restored from GUI settings.
+
+In the main table, double-click a `Title` cell to open title-selection mode.
+Drag across any title fragment and right-click it to use `Copy` or
+`To blacklist`. `To blacklist` appends the selected fragment to the active
+LinkedIn title blacklist file. Blank selections and case-insensitive duplicates
+are not added. This selection mode is available only in the `Title` column.
 
 ## Filters
 
