@@ -209,7 +209,9 @@ each item is an independent requirement and any blocked item rejects the
 vacancy. For an OR list, the vacancy is rejected only when every alternative
 is blocked; any unblocked or unknown alternative keeps it for agent analysis.
 `Java` is not special-cased in this list logic. Explicit optional wording still
-keeps the vacancy.
+keeps the vacancy. List templates may also use the shared `{years}` expression.
+The parser recognizes English `and/or` and Ukrainian `та/і/або/чи` list
+separators.
 
 Every entry in `[hard_requirement_templates]` must contain `{technology}` so
 that the requirement and technology are matched as one structure. Never add

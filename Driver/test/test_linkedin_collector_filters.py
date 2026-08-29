@@ -237,6 +237,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
+    def test_long_technology_name_hides_nested_alias(self) -> None:
+        result = decide_content("Strong proficiency with Node.js and TypeScript")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["Node.js", "TypeScript"],
+        )
+
     def test_strong_proficiency_or_list_keeps_unblocked_alternative(self) -> None:
         result = decide_content("Strong proficiency with Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
@@ -339,6 +347,30 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         ):
             with self.subTest(text=text):
                 self.assertEqual(decide_content(text)["content_decision"], "analyze")
+
+    def test_ukrainian_years_and_technology_list_is_blocked(self) -> None:
+        result = decide_content(
+            "5+ років досвіду backend-розробки з використанням "
+            "Node.js та TypeScript"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["Node.js", "TypeScript"],
+        )
+
+    def test_ukrainian_or_list_keeps_unblocked_alternative(self) -> None:
+        result = decide_content(
+            "5+ років досвіду backend-розробки з використанням "
+            "Node.js або Java"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_ukrainian_one_year_stays_optional(self) -> None:
+        result = decide_content(
+            "1+ рік досвіду backend-розробки з використанням Node.js"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_year_range_binds_listed_technologies(self) -> None:
         result = decide_content(

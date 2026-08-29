@@ -143,20 +143,25 @@ def matches_term(text: str, term: str) -> bool:
 YEARS_COUNT_EXPRESSION = (
     r"(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)"
 )
+YEARS_UNIT_EXPRESSION = r"(?:years?|роки|років)"
 YEARS_EXPRESSION = (
     rf"{YEARS_COUNT_EXPRESSION}"
     rf"(?:\+|\s*(?:[-\u2013\u2014]|to)\s*{YEARS_COUNT_EXPRESSION})?"
-    r"\s+years?"
+    rf"\s+{YEARS_UNIT_EXPRESSION}"
 )
 TECHNOLOGY_LIST_GROUP = "technologies"
 TECHNOLOGY_LIST_EXPRESSION = (
-    rf"(?P<{TECHNOLOGY_LIST_GROUP}>[^.;:\r\n]{{1,200}})"
+    rf"(?P<{TECHNOLOGY_LIST_GROUP}>[^;:\r\n]{{1,200}}?)"
+    r"(?=\.(?:\s|$)|[;:\r\n]|$)"
 )
 TECHNOLOGY_LIST_SEPARATOR = re.compile(
-    r"\s*(?:\band/or\b|\bor\b|\band\b|,|/)\s*",
+    r"\s*(?:\band/or\b|\bor\b|\band\b|\bабо\b|\bчи\b|\bта\b|\bі\b|,|/)\s*",
     re.IGNORECASE,
 )
-TECHNOLOGY_LIST_OR = re.compile(r"\band/or\b|\bor\b", re.IGNORECASE)
+TECHNOLOGY_LIST_OR = re.compile(
+    r"\band/or\b|\bor\b|\bабо\b|\bчи\b",
+    re.IGNORECASE,
+)
 
 
 def technology_expression(name: str) -> str:
@@ -166,6 +171,29 @@ def technology_expression(name: str) -> str:
 def technology_pattern(name: str) -> re.Pattern[str]:
     flags = 0 if name == "Go" else re.IGNORECASE
     return re.compile(technology_expression(name), flags)
+
+
+def technology_matches(
+    text: str,
+    patterns: tuple[tuple[str, re.Pattern[str]], ...],
+) -> list[str]:
+    candidates = []
+    for name, pattern in patterns:
+        match = pattern.search(text)
+        if match is not None:
+            candidates.append((name, match.start(), match.end()))
+
+    selected = []
+    for name, start, end in candidates:
+        if any(
+            other_start <= start
+            and end <= other_end
+            and other_end - other_start > end - start
+            for _, other_start, other_end in candidates
+        ):
+            continue
+        selected.append(name)
+    return selected
 
 
 @lru_cache(maxsize=None)
@@ -192,7 +220,10 @@ def technology_list_pattern(template: str) -> re.Pattern[str]:
             "Technology list template must contain {technologies}: " + template
         )
     return re.compile(
-        template.replace("{technologies}", TECHNOLOGY_LIST_EXPRESSION),
+        template.replace("{technologies}", TECHNOLOGY_LIST_EXPRESSION).replace(
+            "{years}",
+            YEARS_EXPRESSION,
+        ),
         re.IGNORECASE,
     )
 
@@ -356,11 +387,10 @@ class VacancyFilter:
                 if list_handled:
                     continue
 
-                unit_technologies = [
-                    name
-                    for name, pattern in self.blocked_technology_patterns
-                    if pattern.search(unit)
-                ]
+                unit_technologies = technology_matches(
+                    unit,
+                    self.blocked_technology_patterns,
+                )
                 matches = [
                     (name, template)
                     for name in unit_technologies
@@ -427,11 +457,7 @@ class VacancyFilter:
                     return True, None
 
                 matches_by_item = [
-                    [
-                        name
-                        for name, technology in self.blocked_technology_patterns
-                        if technology.search(item)
-                    ]
+                    technology_matches(item, self.blocked_technology_patterns)
                     for item in items
                 ]
                 alternative = always_alternative or bool(
