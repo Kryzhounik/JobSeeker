@@ -137,6 +137,40 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Python"])
         self.assertEqual(len(result["content_signals"]), 1)
 
+    def test_proficiency_in_alternative_language_list_is_blocked(self) -> None:
+        result = decide_content(
+            "Proficiency in programming languages such as "
+            "C/C++, C#, Python, or Rust"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["C", "Python", "C++", "C#", "Rust"],
+        )
+
+    def test_java_in_proficiency_language_list_prevents_rejection(self) -> None:
+        result = decide_content(
+            "Proficiency in programming languages such as C++, Java, or Python"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_javascript_in_proficiency_language_list_is_not_java(self) -> None:
+        result = decide_content(
+            "Proficiency in programming languages such as "
+            "C++, JavaScript, or Python"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["Python", "JavaScript", "C++"],
+        )
+
+    def test_optional_proficiency_language_list_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Proficiency in programming languages such as C++ or Python is a plus"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_strong_proficiency_uses_plain_proficiency_template(self) -> None:
         result = decide_content("Strong proficiency in Python")
         self.assertEqual(result["content_decision"], "skip")
