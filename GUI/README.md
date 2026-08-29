@@ -79,7 +79,9 @@ optional LinkedIn ID. `Add` or Enter inserts it immediately and focuses the new
 row. Duplicate names and duplicate nonblank LinkedIn IDs are rejected.
 
 Company cells in the main jobs table are links. Clicking one opens the same
-window, scrolls to that company, and highlights its row.
+window, scrolls to that company, and highlights its row. The link text includes
+the total number of application records for that company, for example
+`Intellias (6)`.
 
 ## Applications
 

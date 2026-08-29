@@ -148,6 +148,17 @@ def clean(value: Any) -> str:
     return str(value)
 
 
+def format_company_display(name: Any, application_count: Any) -> str:
+    company = clean(name)
+    if not company:
+        return ""
+    try:
+        count = int(application_count)
+    except (TypeError, ValueError):
+        count = 0
+    return f"{company} ({count})"
+
+
 def format_display_date(value: Any) -> str:
     text = clean(value).strip()
     match = re.match(r"\d{4}-\d{2}-\d{2}", text)
@@ -1363,7 +1374,14 @@ class JobsViewer(tk.Tk):
         for index, row in enumerate(rows):
             item_id = str(index)
             values = [
-                format_display_date(row[name]) if name == "added_at" else clean(row[name])
+                format_display_date(row[name])
+                if name == "added_at"
+                else format_company_display(
+                    row[name],
+                    row["company_application_count"],
+                )
+                if name == "company"
+                else clean(row[name])
                 for name, _label, _width, _anchor in JOB_COLUMNS
             ]
             tags = ("odd",) if index % 2 else ()
@@ -1610,7 +1628,10 @@ class JobsViewer(tk.Tk):
                 add_link(
                     item,
                     "company",
-                    clean(row["company"]),
+                    format_company_display(
+                        row["company"],
+                        row.get("company_application_count", 0),
+                    ),
                     lambda value=company_id: self._open_companies_window(value),
                     background,
                     foreground,
@@ -2751,6 +2772,8 @@ class JobsViewer(tk.Tk):
                         jl.source_url,
                         j.company_id,
                         a.id AS application_id,
+                        coalesce(company_apps.application_count, 0)
+                            AS company_application_count,
                         coalesce(j.candidate_fit_reason_code, '')
                             AS candidate_fit_reason_code,
                         coalesce(j.candidate_fit_reason, '')
@@ -2758,6 +2781,16 @@ class JobsViewer(tk.Tk):
                     FROM job_list jl
                     JOIN jobs j ON j.source_url = jl.source_url
                     LEFT JOIN applications a ON a.job_id = j.id
+                    LEFT JOIN (
+                        SELECT
+                            company_jobs.company_id,
+                            count(company_applications.id) AS application_count
+                        FROM jobs company_jobs
+                        JOIN applications company_applications
+                            ON company_applications.job_id = company_jobs.id
+                        WHERE company_jobs.company_id IS NOT NULL
+                        GROUP BY company_jobs.company_id
+                    ) company_apps ON company_apps.company_id = j.company_id
                     {where_sql}
                     """,
                     parameters,
@@ -3784,6 +3817,7 @@ class JobsViewer(tk.Tk):
 
         created_applications = 0
         application_ids: dict[str, str] = {}
+        company_application_counts: dict[str, str] = {}
         try:
             with self.connect_writable() as connection:
                 placeholders = ", ".join("?" for _source_url in source_urls)
@@ -3816,6 +3850,28 @@ class JobsViewer(tk.Tk):
                             source_urls,
                         )
                     }
+                    company_application_counts = {
+                        str(row["company_id"]): str(row["application_count"])
+                        for row in connection.execute(
+                            f"""
+                            SELECT
+                                company_jobs.company_id,
+                                count(company_applications.id)
+                                    AS application_count
+                            FROM jobs company_jobs
+                            JOIN applications company_applications
+                                ON company_applications.job_id = company_jobs.id
+                            WHERE company_jobs.company_id IN (
+                                SELECT company_id
+                                FROM jobs
+                                WHERE source_url IN ({placeholders})
+                                    AND company_id IS NOT NULL
+                            )
+                            GROUP BY company_jobs.company_id
+                            """,
+                            source_urls,
+                        )
+                    }
         except Exception as error:
             messagebox.showerror("Status update failed", str(error))
             self.status_var.set("Status update failed")
@@ -3828,6 +3884,10 @@ class JobsViewer(tk.Tk):
                 if source_url in application_ids:
                     row["application_id"] = application_ids[source_url]
             self._schedule_job_link_labels()
+        if company_application_counts:
+            self._update_job_company_application_counts(
+                company_application_counts
+            )
         if created_applications:
             if self.companies_window is not None and self.companies_window.winfo_exists():
                 self._refresh_companies(self.selected_company_id)
@@ -3933,6 +3993,27 @@ class JobsViewer(tk.Tk):
         if self.current_source_url in source_url_set:
             self.current_status = status
             self._set_text_widget(self.detail_fields["status"], status)
+
+    def _update_job_company_application_counts(
+        self,
+        counts: dict[str, str],
+    ) -> None:
+        columns = [name for name, _label, _width, _anchor in JOB_COLUMNS]
+        company_index = columns.index("company")
+        for item, row in self.job_rows.items():
+            company_id = clean(row.get("company_id", ""))
+            if company_id not in counts:
+                continue
+            count = counts[company_id]
+            row["company_application_count"] = count
+            values = list(self.jobs_tree.item(item, "values"))
+            if len(values) > company_index:
+                values[company_index] = format_company_display(
+                    row.get("company", ""),
+                    count,
+                )
+                self.jobs_tree.item(item, values=values)
+        self._schedule_job_link_labels()
 
     def _selected_job_items(self) -> list[str]:
         return [item for item in self.jobs_tree.selection() if item in self.job_rows]
