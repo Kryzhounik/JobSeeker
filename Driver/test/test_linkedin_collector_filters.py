@@ -255,6 +255,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_significant_experience_with_technology_is_blocked(self) -> None:
+        result = decide_content("You have significant experience with Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_significant_experience_or_list_keeps_unblocked_option(self) -> None:
+        result = decide_content("Significant experience with Python or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_optional_significant_experience_is_not_blocked(self) -> None:
+        result = decide_content("Significant experience with Python is a plus")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_strong_hands_on_technology_experience_is_blocked(self) -> None:
         for text, technology in (
             (
