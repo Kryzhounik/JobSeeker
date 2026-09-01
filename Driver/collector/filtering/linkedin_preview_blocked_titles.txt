@@ -640,3 +640,11 @@ Health Experts
 CAM Programmer
 Manufacturing Engineer
 Senior Data Integration Engineer
+Менеджер
+Intervention Specialist
+AI Creative Engineer
+Product Team Lead
+DevSecOps Engineer
+Engineering Lab Technician
+Supply Chain Leader
+Фахівець по роботі з госпітальним

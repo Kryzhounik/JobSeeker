@@ -31,14 +31,11 @@ word forms and phrasing to the corresponding CEFR level.
 For ambiguous wording, return one level from the allowed range:
 
 - Start from the default when the vacancy provides no useful context.
-- Prefer the upper bound when the role or stated duties are language-heavy:
-  people or team leadership, regular client or stakeholder communication,
-  workshops, negotiation, presentations, sales, support, or substantial writing.
-- Prefer the lower bound for an individual-contributor technical role with no
-  language-heavy duties, especially when the vacancy explicitly describes a
-  local or non-English-speaking working environment.
-- Do not raise the level merely because the vacancy is senior. A team-lead role
-  is an upper-bound signal because of its communication duties, not its rank.
+- When wording only describes professional activities performed in English,
+  without an explicit proficiency qualifier, use B2.
+- Use C1 from role context only when the vacancy explicitly makes English the
+  regular working language for leading an international or English-speaking
+  team, or for regular client or stakeholder communication in English.
 - Never choose a level outside the wording's allowed range. Explicit CEFR levels
   always override this table.
 
