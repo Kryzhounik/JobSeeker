@@ -3101,7 +3101,10 @@ class JobsViewer(tk.Tk):
                     j.salary,
                     j.job_interest AS interest,
                     j.candidate_fit_percent AS fit,
-                    CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER)
+                    CAST((
+                        j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
+                        + 9999
+                    ) / 10000 AS INTEGER)
                         AS score,
                     j.source_url,
                     j.summary,
@@ -3742,10 +3745,10 @@ class JobsViewer(tk.Tk):
 
     def _load_linkedin_availability_candidates(self) -> list[dict[str, str]]:
         score_sql = """
-            CAST(ROUND(
+            CAST((
                 j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
-                / 10000.0
-            ) AS INTEGER)
+                + 9999
+            ) / 10000 AS INTEGER)
         """
         with self.connect() as connection:
             rows = connection.execute(

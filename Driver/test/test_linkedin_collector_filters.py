@@ -182,6 +182,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(len(result["content_signals"]), 1)
 
+    def test_versioned_cpp_is_blocked_as_cpp(self) -> None:
+        result = decide_content(
+            "Strong proficiency in C++17 (or later) with a deep understanding "
+            "of the language specification, memory management, standard "
+            "library, and multi-threading."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C++"])
+
+    def test_versioned_cpp_with_real_java_alternative_is_not_blocked(self) -> None:
+        result = decide_content("Strong proficiency in C++17 (or later) or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_strong_list_of_technology_skills_is_blocked(self) -> None:
         result = decide_content("Strong Python, PySpark, and SQL skills")
         self.assertEqual(result["content_decision"], "skip")

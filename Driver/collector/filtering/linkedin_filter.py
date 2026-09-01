@@ -162,10 +162,15 @@ TECHNOLOGY_LIST_OR = re.compile(
     r"\band/or\b|\bor\b|\bабо\b|\bчи\b",
     re.IGNORECASE,
 )
+TECHNOLOGY_VERSION_QUALIFIER = re.compile(
+    r"\(\s*or\s+(?:later|newer|higher)\s*\)",
+    re.IGNORECASE,
+)
 
 
 def technology_expression(name: str) -> str:
-    return rf"(?<![\w+#]){re.escape(name)}(?![\w+#])"
+    version = r"(?:\d{2,4})?" if name.casefold() == "c++" else ""
+    return rf"(?<![\w+#]){re.escape(name)}{version}(?![\w+#])"
 
 
 def technology_pattern(name: str) -> re.Pattern[str]:
@@ -231,7 +236,9 @@ def technology_list_pattern(template: str) -> re.Pattern[str]:
 def split_technology_list(value: str) -> list[str]:
     return [
         item.strip()
-        for item in TECHNOLOGY_LIST_SEPARATOR.split(value)
+        for item in TECHNOLOGY_LIST_SEPARATOR.split(
+            TECHNOLOGY_VERSION_QUALIFIER.sub("", value)
+        )
         if item.strip()
     ]
 
@@ -460,8 +467,9 @@ class VacancyFilter:
                     technology_matches(item, self.blocked_technology_patterns)
                     for item in items
                 ]
+                alternative_text = TECHNOLOGY_VERSION_QUALIFIER.sub("", list_text)
                 alternative = always_alternative or bool(
-                    TECHNOLOGY_LIST_OR.search(list_text)
+                    TECHNOLOGY_LIST_OR.search(alternative_text)
                 )
                 if alternative and any(not names for names in matches_by_item):
                     return True, None

@@ -372,7 +372,10 @@ DROP VIEW IF EXISTS job_view;
 
 CREATE VIEW job_list AS
 SELECT
-    CAST(CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER) AS TEXT) AS score,
+    CAST(CAST((
+        j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
+        + 9999
+    ) / 10000 AS INTEGER) AS TEXT) AS score,
     CAST(j.candidate_fit_percent AS TEXT) AS fit,
     CAST(j.job_interest AS TEXT) AS interest,
     coalesce(j.remote_scope, '') AS remote_scope,
@@ -477,7 +480,10 @@ SELECT
 FROM jobs j
 LEFT JOIN companies c ON c.id = j.company_id
 ORDER BY
-    CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER) DESC,
+    CAST((
+        j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
+        + 9999
+    ) / 10000 AS INTEGER) DESC,
     j.job_interest DESC,
     j.id;
 
@@ -506,7 +512,10 @@ WITH ordered AS (
         j.remote_scope,
         j.status,
         j.relocation,
-        CAST(ROUND(j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent / 10000.0) AS INTEGER)
+        CAST((
+            j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
+            + 9999
+        ) / 10000 AS INTEGER)
             AS score_sort,
         j.job_interest AS interest_sort,
         j.candidate_fit_percent AS fit_sort,
