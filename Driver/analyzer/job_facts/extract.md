@@ -34,7 +34,8 @@ Job fields:
 - source_url: original vacancy URL.
 - title: job title.
 - company: company name.
-- location: country/city/timezone if available.
+- location: one or more places from which the candidate may perform the role;
+  separate multiple locations with ` / `.
 - remote_type: remote, hybrid, office, unknown.
 - remote_scope: actual allowed remote geography, for example worldwide, EU,
   Europe, Poland, Germany, US time zones, EMEA, unknown.
@@ -168,16 +169,20 @@ Technology requirements:
   `AWS CI/CD pipelines` item, unless the vacancy clearly requires each service
   independently.
 
-Remote scope rules:
-- Determine `remote_scope` from the full vacancy text. The LinkedIn header and
-  listed location are useful evidence, but they are not authoritative by
-  themselves.
+Location and remote-work rules:
+- Treat the listed location or locations as confirmed candidate locations. Add
+  any additional candidate locations explicitly offered in the vacancy text;
+  never narrow or replace the listed set.
+- Use a geographic reference only when it answers: "Where may the candidate
+  perform this role?"
 - Determine `remote_type` from whether physical presence is mandatory, not from
   the header label. If office attendance is entirely optional, use `remote`;
   use `hybrid` only when office presence is required or regularly expected.
-  When the header conflicts with the full vacancy text, prefer the full text.
+  For `remote_type`, explicit attendance requirements in the full text override
+  the header label.
 - `remote_scope` means the geography from which a fully remote worker may be
-  located.
+  located. Set it from explicitly stated candidate eligibility; if remote work
+  is available but its exact geography is not stated, use `unknown`.
 - For hybrid or office vacancies, leave `remote_scope` empty unless the vacancy
   explicitly allows fully remote work.
 - If exact remote geography is explicitly stated as worldwide, global, any
@@ -186,14 +191,6 @@ Remote scope rules:
   range, or country, preserve that scope exactly. Examples: EMEA, Europe, EU,
   APAC, US time zones, Poland, Germany. Do not expand regions into countries
   and do not treat EU, Europe, and EMEA as interchangeable.
-- If the header says remote and the full text gives no better evidence about
-  allowed remote geography, infer `remote_scope` from the listed location when
-  possible.
-- Do not infer `remote_scope` from the header/listed location when the full
-  vacancy text gives credible evidence that allowed remote geography may differ
-  from that location but does not define the exact scope.
-- If remote work is allowed but the exact allowed geography cannot be determined
-  from the full text, use `unknown` and explain the ambiguity in `notes`.
 
 Relocation rules:
 - Use NO when relocation is not offered or not mentioned.

@@ -620,3 +620,9 @@ Lead Technical Architect
 Platform Tech Lead
 SMM Specialist
 Customer Service Specialist
+Customer Support
+Data Migration & Compliance Lead
+Cryptologic Technician
+Аналітик
+Game Client Team Lead
+AQA Engineer
