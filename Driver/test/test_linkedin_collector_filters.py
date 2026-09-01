@@ -246,6 +246,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++", "Python"])
 
+    def test_strong_modified_backend_engineering_experience_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong extensive hands-on practical large-scale distributed "
+            "backend engineering experience with Go"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Go"])
+
     def test_strong_software_engineering_or_list_keeps_unblocked_option(
         self,
     ) -> None:
