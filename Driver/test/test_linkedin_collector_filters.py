@@ -192,6 +192,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "PySpark"])
 
+    def test_strong_technology_before_semicolon_is_blocked(self) -> None:
+        result = decide_content("Strong C++; Linux and embedded software.")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C++"])
+
     def test_short_strong_or_list_keeps_unblocked_option(self) -> None:
         result = decide_content("Strong Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
