@@ -103,11 +103,10 @@ Technology requirements:
     the same job, or the candidate would be rejected, without it.
   - Determine `core` from the technical work the person will actually perform,
     separately from how flexible the employer is about prior experience. A
-    technology that defines the actual implementation stack remains `core` even
-    when prior experience with it is preferred rather than mandatory, analogous
-    experience is accepted, or the candidate may learn it. Represent that
-    flexibility through the required level and notes, not by automatically
-    lowering the technology to `desired`.
+    technology that defines the actual implementation stack remains `core` when
+    prior experience with it is preferred rather than mandatory or the candidate
+    may learn it. Represent that flexibility through the required level and
+    notes, not by automatically lowering the technology to `desired`.
   - Keep the `core` set minimal. Include the primary technical track and the
     technologies that define how its central work is implemented. Do not make
     every component of a named stack `core`: supporting infrastructure,
@@ -151,15 +150,14 @@ Technology requirements:
 - If a technology is only mentioned in text, infer the level from wording.
 - If wording is too vague but the technology is required, use level_rank 2.
 - If wording is too vague and the technology is optional, use level_rank 1.
-- If one requirement lists true alternatives where any one option satisfies the
-  requirement, keep it as one technology item instead of splitting it into
-  several required rows. Use a slash-separated name such as
-  `Python / Scala / SQL`, keep the original sentence in `raw_value`, and let
-  candidate-fit evaluation choose the best matching alternative. Split into
-  separate rows only when the vacancy requires each item independently.
-- Use `/` only for true OR alternatives. Do not use slash for AND requirements,
-  bundled skill groups, capability names, examples, or concepts that must be
-  covered together.
+- Use a slash-separated name for interchangeable peer technologies at the same
+  level of abstraction when any one of them satisfies the requirement. Keep the
+  original sentence in `raw_value` and let candidate-fit evaluation choose the
+  best matching peer.
+- When a named technology is an implementation or member of a broader accepted
+  capability, extract the broader capability at its stated importance and depth,
+  and extract the named technology as a separate `nice_to_have` item at the
+  same depth using the same `raw_value`.
 - Split AND requirements into separate technology rows when each part is a
   distinct skill or technology that should stay in the candidate-fit
   denominator. Use one capability row only when the text describes one
