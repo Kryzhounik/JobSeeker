@@ -190,6 +190,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["ElectronJS"])
 
+    def test_deep_hands_on_expertise_is_blocked(self) -> None:
+        result = decide_content("Deep hands-on expertise with Node.js — must-have.")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Node.js"])
+
     def test_versioned_cpp_is_blocked_as_cpp(self) -> None:
         result = decide_content(
             "Strong proficiency in C++17 (or later) with a deep understanding "
