@@ -39,7 +39,8 @@ Job fields:
 - remote_type: remote, hybrid, office, unknown.
 - remote_scope: actual allowed remote geography, for example worldwide, EU,
   Europe, Poland, Germany, US time zones, EMEA, unknown.
-- relocation: NO, or a concise list of relocation destination countries/places.
+- relocation: NO, unknown, or a concise list of relocation destination
+  countries/places. Never use YES.
 - seniority: intern, junior, middle, senior, lead, unknown.
 - role: backend, frontend, fullstack, devops, data, ml_ai, qa, product, other.
 - salary: salary range/currency if available, otherwise empty string.
@@ -196,6 +197,9 @@ Relocation rules:
 - Use NO when relocation is not offered or not mentioned.
 - If relocation is offered, write the destination countries/places, for example
   Poland, Germany, Netherlands, Warsaw.
+- If relocation is explicitly offered but its destinations are not stated or
+  are described only as a broad unspecified set, use unknown. Never guess that
+  the set excludes suitable destinations, and never write YES.
 - Treat visa sponsorship, relocation package, relocation support, and paid move
   assistance as relocation signals.
 - Do not mark relocation just because the office location is listed.

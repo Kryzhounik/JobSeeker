@@ -34,6 +34,7 @@ LANGUAGE_RANKS = {
     "fluent": 6,
 }
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
+UNKNOWN_RELOCATION_VALUES = {"yes", "unknown", "unspecified", "not specified"}
 PROGRAMMING_LANGUAGE_ALIASES = {
     "c": "c",
     "c sharp": "c#",
@@ -421,6 +422,13 @@ def evaluate_relocation(
         return FilterResult(True, 100, "ok", "relocation filter disabled")
 
     destination = str(relocation or "").strip()
+    if normalized(destination) in UNKNOWN_RELOCATION_VALUES:
+        return FilterResult(
+            True,
+            100,
+            "ok",
+            "relocation destination is unknown; hard reject skipped",
+        )
     if normalized(destination) in NO_VALUES:
         return FilterResult(False, 0, "loc", "relocation filter failed: NO")
 

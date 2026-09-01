@@ -100,6 +100,28 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
+    def test_unspecified_relocation_does_not_hard_reject(self) -> None:
+        result = filter_job_json(
+            base_job(
+                remote_type="remote",
+                remote_scope="Kazakhstan",
+                relocation="YES",
+            )
+        )
+        self.assertTrue(result.passed)
+        self.assertEqual(result.reason_code, "ok")
+
+    def test_explicit_disallowed_relocation_still_fails_location(self) -> None:
+        result = filter_job_json(
+            base_job(
+                remote_type="remote",
+                remote_scope="Kazakhstan",
+                relocation="United States",
+            )
+        )
+        self.assertFalse(result.passed)
+        self.assertEqual(result.reason_code, "loc")
+
     def test_unknown_remote_scope_does_not_hard_reject(self) -> None:
         result = filter_job_json(
             base_job(remote_type="remote", remote_scope="unknown", location="Lithuania")
