@@ -23,8 +23,11 @@ operation live in `analyzer/config/resume.ini`.
 
 Evaluation isolation:
 - Do not query existing scores from SQLite or inspect an existing scored JSON.
-- The vacancy input is the analyzed JSON only. Run this stage as a separate
-  blind agent without inherited analyzer output beyond that JSON.
+- The current vacancy input is its analyzed JSON only. Run this stage in the
+  run's dedicated blind candidate-fit agent without inherited job-facts
+  reasoning or outer analyzer context. That same agent may retain analyzed
+  inputs and fit results it previously handled in the current run so it can
+  preserve one scoring scale.
 
 Current stage: fast deterministic filtering plus mandatory agent
 candidate-fit scoring for all jobs that pass the fast filter.

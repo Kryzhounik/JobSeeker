@@ -19,9 +19,9 @@ otherwise.
 ```text
 collector/source adapter
 -> readable vacancy text in SQLite (raw HTML remains persisted)
--> analyzer/analyze_job.md (executed by the current Desktop agent)
-   -> analyzer/job_facts/extract.md
-   -> analyzer/candidate_fit/evaluate.md
+-> analyzer/analyze_job.md over the explicit scope
+   -> parallel grouped analyzer/job_facts/extract.md
+   -> one persistent analyzer/candidate_fit/evaluate.md agent for the run
    -> analyzer/job_interest/calculate.py
 -> fully scored JSON
 -> db/save.py
@@ -206,16 +206,18 @@ Current MVP scopes:
   filters in that batch. Content-filtered raw HTML and stored readable text stay
   available for calibration but are not part of the analyzer scope.
 
-For any multi-file scope, iterate all files in that scope and run the main
-pipeline for each file:
+For any multi-file scope, prepare readable text for every vacancy, then invoke
+the analyzer once with that explicit ordered scope:
 
 ```text
 for each raw HTML file in the explicit scope:
     source adapter stores readable vacancy text in SQLite
-    -> analyzer/analyze_job.md (executed by the current Desktop agent)
-       -> job facts
-       -> candidate fit
-       -> job interest
+analyzer/analyze_job.md processes the complete explicit scope
+    -> grouped parallel job facts using analyzer/config/execution.ini
+    -> deterministic candidate-fit gates
+    -> one persistent blind candidate-fit agent for all passed vacancies
+    -> job interest for every scored JSON
+for each fully scored JSON in scope order:
     -> SQLite save
 ```
 
@@ -240,8 +242,8 @@ scope.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
-- The current Desktop agent executes `analyzer/analyze_job.md` as the
-  top-level analysis orchestrator.
+- The current Desktop agent executes `analyzer/analyze_job.md` once as the
+  top-level orchestrator for the complete explicit analysis scope.
 - Every agent operation inside that orchestrator must use
   `agent_execution.md`. Its `Execution mode` is the single switch between
   direct Desktop execution and the metered Codex CLI proxy.
@@ -253,10 +255,11 @@ scope.
   fast filter is not a final positive candidate-fit score.
 - Positive candidate fit must come from the semantic agent step in
   `analyzer/candidate_fit/evaluate.md`.
-- Candidate-fit evaluation must be isolated. Run it as
-  a separate agent that receives only `analyzer/candidate_fit/evaluate.md`, the
-  analyzed JSON, and `analyzer/config/resume.ini`. Do not pass
-  analyzer context or read an existing score.
+- Candidate-fit evaluation must be isolated from job-facts reasoning and the
+  outer analyzer context. Use one persistent blind evaluator for all semantic
+  fit operations in the run. It receives `analyzer/candidate_fit/evaluate.md`,
+  `analyzer/config/resume.ini`, the analyzed JSON sequence, and its own prior
+  results from that run. Do not read an existing scored JSON or database score.
 - `../Data/analyzed/<source>/` contains analysis facts only. It must not contain
   candidate-fit or job-interest fields in the main workflow.
 - Candidate-fit scoring reads analyzed JSON and writes scored JSON under

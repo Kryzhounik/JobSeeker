@@ -22,6 +22,11 @@ Design rationale belongs here. CLI-specific packaging, invocation, and metrics
 belong to `codex_proxy`; analyzer result validation, merge, and persistence stay
 with the analyzer.
 
+Analyzer worker counts and group size live in
+`analyzer/config/execution.ini`. Job facts use bounded parallel groups because
+they extract independent DTOs. Candidate fit deliberately uses one persistent
+blind evaluator per run so all vacancies share one scoring scale.
+
 ## LinkedIn Collection
 
 LinkedIn starts with the browser-only AccountRemote priority pass described in
