@@ -31,7 +31,6 @@ from collector.logging.linkedin_logger import record_collection_event
 from collector.save_raw_page import save_content
 from db.companies import get_priority_linkedin_ids
 from db.filter_rejections import save_content_filter_rejection
-from db.migrate import migrate_database
 from db.readable_text import save_readable_text
 
 
@@ -53,8 +52,6 @@ def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
     database = Path(db_path).resolve()
     raw = Path(raw_dir).resolve()
     preview_config_path = root / "collector/filtering/linkedin_preview_filter.ini"
-    with redirect_stdout(sys.stderr):
-        migrate_database(database)
     _session = Session(
         driver_root=root,
         db_path=database,

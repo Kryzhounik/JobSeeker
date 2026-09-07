@@ -23,10 +23,8 @@ class JpyPythonGatewayIntegrationTest {
         Path database = temporaryDirectory.resolve("jobs.sqlite");
         Path rawDirectory = temporaryDirectory.resolve("raw/linkedin");
         ProjectPaths paths = new ProjectPaths(
-                projectRoot,
                 projectRoot.resolve("Driver"),
                 projectRoot.resolve("Driver/collector"),
-                temporaryDirectory,
                 projectRoot.resolve("Driver/collector/config/linkedin.properties"),
                 database,
                 rawDirectory,

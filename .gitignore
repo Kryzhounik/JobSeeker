@@ -11,6 +11,7 @@ Data/scored/*
 Data/scored/linkedin/*
 !Data/scored/linkedin/.gitkeep
 Data/_tmp_collect/
+Data/java_linkedin_sandbox/
 Data/logs/
 Data/browser_profiles/
 

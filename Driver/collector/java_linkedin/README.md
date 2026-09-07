@@ -31,15 +31,18 @@ cases without command-line request wrappers.
 - `AccountRemote` is seeded from the first configured country and collected
   first. Each country then gets a priority-company pass and a general pass.
 - Collection is intentionally single-threaded.
-- The browser profile lives at `Data/browser_profiles/linkedin` by default.
+- During prototype validation, `runtime.properties` points the Java collector
+  to a copied database at `Data/java_linkedin_sandbox/jobs.sqlite` and raw pages
+  under `Data/java_linkedin_sandbox/raw/linkedin`.
+- Playwright uses its one persistent profile at `Data/browser_profiles/linkedin`.
   This is only a separate local Chrome data directory; it needs neither a new
   LinkedIn account nor any purchase. Run `login` once and sign in with the
   existing account.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
   decision JSON, scope files, or checkpoints are created.
-- For compatibility, Python still saves canonical raw HTML under
-  `Data/raw/linkedin/pages`, writes readable text and lifecycle data to SQLite,
-  applies the current filters, and records collection events.
+- For compatibility, Python still saves canonical raw HTML, writes readable
+  text and lifecycle data to SQLite, applies the current filters, and records
+  collection events, but currently does so inside the sandbox directory.
 - A successful command writes one final JSON result to stdout. Unhandled errors
   retain their normal Java stack trace. Analysis and scoring remain the caller's
   next stages and are never run by this module.
