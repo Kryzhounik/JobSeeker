@@ -45,65 +45,13 @@ analysis.
 
 ## LinkedIn Batch Contract
 
-Before creating the `run_id` or starting any `batch linkedin` collection step,
-complete the Chrome connection and LinkedIn login preflight defined in
-`collector/browser.md`. If that preflight fails, do not start the guest pass or
-any other batch stage; report the failed check and wait for the user.
+For `batch linkedin`, read and execute `collector/linkedin_collection.md`.
+That instruction selects exactly one configured collection implementation and
+returns its `run_id` and ordered `scope`. Do not inspect or combine collector
+implementations outside that instruction.
 
-`batch linkedin` means:
-
-```text
-read LinkedIn collector settings
--> if AccountRemote is configured, run its browser-only priority pass first
-   using collector/scan_linkedin.md (including its remote seed)
--> recalculate remaining = global limit - combined run scope size
--> if remaining is zero, stop collection immediately
--> for each configured country in order (excluding AccountRemote):
-   -> run collector/scan_linkedin.py batch --location <location> --limit <remaining>
-   -> fetch guest-search pages in steps of 9
-   -> save accepted guest raw/readable data with collection_method=script
-   -> recalculate remaining = global limit - combined run scope size
-   -> if remaining is zero, stop collection immediately
-   -> otherwise run the logged-in browser collector for that same location
-   -> skip guest-prefetched IDs through normal preview deduplication
-   -> save browser-only raw/readable data with collection_method=browser
-   -> merge both location scopes into the explicit run scope
-   -> recalculate remaining = global limit - combined run scope size
-   -> if remaining is zero, stop collection immediately
-   -> only then move to the next location
--> continue the main pipeline for the explicit run scope
-```
-
-The guest prefetch command is:
-
-```text
-python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>
-```
-
-During a workflow batch, consume this command's JSON result directly from
-stdout. Do not pass `--output`, create a scope file, or invent a temporary
-directory for the result. The returned `scope` list is the in-memory list of
-source-job IDs that the caller merges into the current run scope.
-
-For diagnostics, use its `search-page` and `job` commands. The guest prefetch
-does not replace the browser coverage pass. Do not replace a failing guest or
-browser operation with an undocumented alternative during the batch.
-
-The global limit applies to the combined scope. The caller tracks the remaining
-limit across AccountRemote, both country passes, and all locations; neither
-collector may independently restart the limit for the next location.
-The browser pass is only a gap-fill up to that limit after a country's guest
-pass; AccountRemote is the initial browser-only priority pass, not a guest
-location. Never pass AccountRemote to
-the guest command in this workflow. If the guest pass reaches the global limit,
-do not invoke the browser collector, inspect browser coverage, or continue to
-another location.
-
-LinkedIn guest responses are not stable snapshots. If adjacent `start` pages
-have no overlapping job ID, `scan_linkedin.py` logs a pagination warning and
-continues. This warning is not a batch failure or a Strict Batch Policy stop
-condition. Deduplication and two consecutive pages without new IDs remain the
-exhaustion safeguards.
+Continue the main pipeline only for the returned explicit scope. Collection
+does not run analysis or scoring.
 
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.

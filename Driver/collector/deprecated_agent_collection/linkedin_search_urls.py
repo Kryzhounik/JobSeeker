@@ -6,11 +6,12 @@ from pathlib import Path
 from urllib.parse import urlencode
 
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 # /jobs/search/ is the primary browser search. /jobs/search-results/ is NOT
 # equivalent: the same Moldova query showed 173 vs 3 results on 2026-08-27.
 # Switch to the alternative only after confirming that the primary fails,
-# not merely because its layout or selectors changed. See collector/README.md.
+# not merely because its layout or selectors changed. See
+# collector/deprecated_agent_collection/README.md.
 SEARCH_URL = "https://www.linkedin.com/jobs/search/"
 EXPERIENCE = {"associate": "3", "mid_senior": "4"}
 WORKPLACE = {"office": "1", "remote": "2", "hybrid": "3"}

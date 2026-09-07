@@ -1,38 +1,79 @@
 ---
-name: scan-linkedin
-description: Browser-based LinkedIn collector for JobSeeker. Use this when collecting LinkedIn jobs, saving LinkedIn raw pages, or calibrating a LinkedIn job URL through the logged-in browser.
+name: linkedin-agent-scan
+description: Legacy agent-driven LinkedIn collection selected by linkedin_collection.md.
 ---
 
-# Scan LinkedIn
+# Agent LinkedIn Scan
 
-Purpose: LinkedIn collection skill. It collects raw pages through the logged-in
-browser and must hand saved source-job IDs to the common workflow.
+Purpose: the complete agent implementation of LinkedIn collection. Read and
+execute this file only when `collectorMode=agent` was selected by
+`collector/linkedin_collection.md`.
 
 Use this as the LinkedIn counterpart of `collector/scan_justjoin.py`.
 LinkedIn collection is browser-driven because direct Python HTTP requests get
 rate-limited and do not use the logged-in session.
 
-For browser mechanics, follow `collector/browser.md`. In particular, LinkedIn
-collection currently uses the Chrome extension browser and saves the
-right-side details pane from the search UI.
+For browser mechanics, follow `collector/deprecated_agent_collection/browser.md`. In
+particular, LinkedIn collection currently uses the Chrome extension browser
+and saves the right-side details pane from the search UI.
 
 For left-panel card materialization and page-count verification, follow
-`collector/linkedin_scroll_results.md`.
+`collector/deprecated_agent_collection/linkedin_scroll_results.md`.
 
-## Workflow
+## Agent Collection Contract
 
-This browser collector has two calls: the initial browser-only `AccountRemote`
-priority pass, and a country's gap-fill after its guest pass. The country call
-follows:
+Before creating the `run_id` or starting collection, complete the Chrome
+connection and LinkedIn login preflight defined in
+`collector/deprecated_agent_collection/browser.md`. If that preflight fails, stop and
+report the failed check.
+
+After the preflight, create one `run_id` and execute:
 
 ```text
-python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>
+read LinkedIn collector settings
+-> if AccountRemote is configured, run its browser-only priority pass first
+   using the browser procedure below, including its remote seed
+-> recalculate remaining = global limit - combined run scope size
+-> if remaining is zero, stop collection immediately
+-> for each configured country in order (excluding AccountRemote):
+   -> run collector/deprecated_agent_collection/scan_linkedin.py batch --location <location> --limit <remaining>
+   -> fetch guest-search pages in steps of 9
+   -> save accepted guest raw/readable data with collection_method=script
+   -> recalculate remaining = global limit - combined run scope size
+   -> if remaining is zero, stop collection immediately
+   -> otherwise run the logged-in browser procedure below for that location
+   -> skip guest-prefetched IDs through normal preview deduplication
+   -> save browser-only raw/readable data with collection_method=browser
+   -> merge both location scopes into the explicit run scope
+   -> recalculate remaining = global limit - combined run scope size
+   -> if remaining is zero, stop collection immediately
+   -> only then move to the next location
+-> return run_id and the ordered explicit scope
 ```
 
-Process only the caller-supplied label and return its browser-only scope to the
-caller. Do not move to the next configured location inside this browser call.
-The caller merges guest and browser scopes, updates the remaining global limit,
-and then starts the guest pass for the next location.
+Consume the guest command's JSON result directly from stdout. Do not pass
+`--output`, create a scope file, or invent a temporary directory for the
+result. Its `scope` list is merged into the in-memory run scope.
+
+The global limit applies to the combined scope across AccountRemote, guest and
+browser country passes, and all locations. If a guest pass reaches that limit,
+do not invoke the browser gap-fill or continue to another location.
+
+Missing overlap between adjacent guest pages is diagnostic only. Log the
+pagination warning and continue; deduplication and two consecutive pages
+without new IDs remain the exhaustion safeguards.
+
+For guest diagnostics, use the `search-page` and `job` commands. Never replace
+a failing guest or browser operation with an undocumented alternative during a
+batch.
+
+## Browser Pass
+
+This browser procedure has two uses: the initial browser-only `AccountRemote`
+priority pass, and a country's gap-fill after its guest pass. Process only the
+current label and remaining limit supplied by the agent collection loop. Do not
+move to the next configured location inside this browser procedure. The loop
+merges guest and browser scopes before continuing.
 
 AccountRemote runs before any guest collection. Its seed is the first real
 country from `locations`, with `remoteBroadWorkplace=remote`; the seed is not
@@ -47,7 +88,7 @@ remaining limit is zero, do not open Chrome, inspect the browser result set, or
 invoke this collector at all. During the browser pass, stop immediately when
 the combined run scope reaches the global limit.
 
-1. Run `python collector/linkedin_search_urls.py`.
+1. Run `python collector/deprecated_agent_collection/linkedin_search_urls.py`.
 2. For AccountRemote only, open its printed `seed:<location>` URL. Wait until
    the anchor country is shown in the search field and remote-only is applied.
    Click the exact `button` named `Search` once and wait for the search to
@@ -72,16 +113,16 @@ the combined run scope reaches the global limit.
    state/accessible label, not a requirement that every chip be visible.
    Wait for loading before treating a missing label as a mismatch.
    `/jobs/search-results/` is not an equivalent replacement: follow the endpoint
-   policy in `collector/README.md` and the Strict Batch Policy on failure.
+   policy in `collector/deprecated_agent_collection/README.md` and the Strict Batch Policy on failure.
 6. For each location, keep collecting pages until one of these happens:
    the global `limit` is reached, the location is exhausted by the rules below,
-   or a critical blocker defined in `collector/browser.md` appears. A slow or
+   or a critical blocker defined in `collector/deprecated_agent_collection/browser.md` appears. A slow or
    temporarily unresponsive browser/plugin is not a critical blocker.
 7. Do not sample a few pages from every location. If the first location has
    enough jobs to reach the global limit, stop there and do not move to the
    next location.
 8. On each LinkedIn search page, materialize and verify the complete result
-   page with `collector/linkedin_scroll_results.md`, then extract
+   page with `collector/deprecated_agent_collection/linkedin_scroll_results.md`, then extract
    previews from that verified card set.
 9. After the current page is exhausted, navigate to the same generated URL with
    `start += 25` (`0`, `25`, `50`, ...). Preserve all its filter parameters;
@@ -146,7 +187,7 @@ the combined run scope reaches the global limit.
     content from the job page instead.
 21. Save each verified pane HTML as a UTF-8 temporary file under
    `../Data/_tmp_collect`. Then run the stable command for that pane:
-   `python collector/process_linkedin_panes.py --job-id <job-id> --source-url <canonical-url> --title <title> --company <company> --pane-html <absolute-pane-html-path> --label <location-label> --start <start> --index <index>`.
+   `python collector/deprecated_agent_collection/process_linkedin_panes.py --job-id <job-id> --source-url <canonical-url> --title <title> --company <company> --pane-html <absolute-pane-html-path> --label <location-label> --start <start> --index <index>`.
    This command performs the already-defined deterministic sequence through
    `save_raw_page.py`, `extract_linkedin_readable_text_v2.py`, the content
    filter, and the collection logger. Read its JSON result from stdout. Add the
@@ -226,7 +267,7 @@ delay window.
 ## Search Page Exhaustion
 
 A search page is processed only after its left-panel cards have been
-materialized and verified by `collector/linkedin_scroll_results.md`.
+materialized and verified by `collector/deprecated_agent_collection/linkedin_scroll_results.md`.
 
 For every page, record:
 

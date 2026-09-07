@@ -72,7 +72,7 @@ Require the raw container count to equal the unique expected-ID count. Treat
 duplicate or missing container IDs as a partial page.
 
 A page with fewer than 25 expected containers may be accepted only when
-[`scan_linkedin.md`](scan_linkedin.md) independently proves that it is a
+[`agent_scan.md`](agent_scan.md) independently proves that it is a
 terminal page. Do not infer terminal state from the short count itself.
 
 ## Forbidden Substitutions

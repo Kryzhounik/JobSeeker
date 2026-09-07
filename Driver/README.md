@@ -29,41 +29,16 @@ blind evaluator per run so all vacancies share one scoring scale.
 
 ## LinkedIn Collection
 
-LinkedIn starts with the browser-only AccountRemote priority pass described in
-`collector/scan_linkedin.md`: remote jobs first, before country hybrid/office
-results. It shares the global limit and is not sent to the guest collector.
+`collector/linkedin_collection.md` is the single LinkedIn collection entry
+point. It reads `collectorMode` from `collector/config/linkedin.properties`
+before opening an implementation-specific instruction.
 
-After that, collection is hybrid and location-by-location. For each configured
-country, `collector/scan_linkedin.py` uses the public guest endpoints as a
-cheap deterministic first pass. It saves reachable raw HTML and readable text
-and stores source job IDs without spending model tokens on browser interaction.
+`playwright` is the primary mode. The Java collector owns the complete search,
+filtering, persistence, and collection scope without agent-driven browser work.
 
-The guest collector is not the sole LinkedIn collector. Measured guest and
-logged-in browser searches returned different terminal job sets, and repeated
-guest requests returned different counts. This can be caused by different
-authenticated search inventory, personalization, ranking, caching, or guest
-endpoint behavior; completing guest pagination therefore does not guarantee
-the same inventory as the browser.
+`agent` preserves the deprecated guest plus logged-in Chrome workflow in
+`collector/deprecated_agent_collection/`. It is a rollback path being retired,
+and that directory is read only when this mode is explicitly required.
 
-Missing ID overlap between adjacent guest pages is therefore diagnostic only:
-the script records a warning and continues. It does not treat overlap as a
-pagination requirement.
-
-After one location's guest pass, recalculate the remaining global limit. If it
-is zero, collection ends immediately without a browser gap-fill.
-Otherwise, run the browser collector for that same location only as a gap-fill
-for the remaining count. Its preview filter checks title and company first,
-then checks `(source, source_job_id)` in `source_jobs`. Jobs already stored by
-the guest pass are skipped before a details pane is opened. Move to the next
-configured location only if the combined scope is still below the global
-limit. Never run a coverage-only browser pass after the limit has been reached.
-
-`source_jobs.collection_method` records which collector first persisted valid
-raw data: `script` for the guest collector and `browser` for the logged-in
-browser collector. Existing pre-migration rows use `unknown`. Later processing
-stages do not overwrite the first collection method.
-
-Do not remove the browser collector or describe `scan_linkedin.py` as a full
-replacement for it. The guest script may also be run independently through
-its `search-page` and `job` diagnostic commands. The workflow invokes its batch
-mode as `python collector/scan_linkedin.py batch --location <Name[:geoId]> --limit <remaining>`.
+Both modes return the same `run_id` and ordered `scope`; analysis and database
+scoring continue independently of the selected collector.

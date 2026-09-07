@@ -12,14 +12,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from collector.scan_linkedin import collect_batch
-from collector.scan_linkedin import parse_location
-from collector.scan_linkedin import parse_search_page
-from collector.scan_linkedin import search_page_url
-from collector.scan_linkedin import should_stop_location
-from collector.scan_linkedin import page_overlap_missing
+from collector.deprecated_agent_collection.scan_linkedin import collect_batch
+from collector.deprecated_agent_collection.scan_linkedin import parse_location
+from collector.deprecated_agent_collection.scan_linkedin import parse_search_page
+from collector.deprecated_agent_collection.scan_linkedin import search_page_url
+from collector.deprecated_agent_collection.scan_linkedin import should_stop_location
+from collector.deprecated_agent_collection.scan_linkedin import page_overlap_missing
 from collector.save_raw_page import validate_content
-from collector.linkedin_search_urls import build_urls
+from collector.deprecated_agent_collection.linkedin_search_urls import build_urls
 
 
 class ScanLinkedInTest(unittest.TestCase):
@@ -172,7 +172,7 @@ class ScanLinkedInTest(unittest.TestCase):
             db_path = Path(directory) / "jobs.sqlite"
             db_path.touch()
             with patch(
-                "collector.scan_linkedin.get_priority_linkedin_ids",
+                "collector.deprecated_agent_collection.scan_linkedin.get_priority_linkedin_ids",
                 return_value=["1069110", "250774"],
             ):
                 result = collect_batch(

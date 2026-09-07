@@ -134,7 +134,8 @@ def main() -> None:
     else:
         if args.source.lower() == "linkedin":
             raise SystemExit(
-                "LinkedIn raw pages are fetched by collector/scan_linkedin.py. "
+                "LinkedIn guest pages are fetched by "
+                "collector/deprecated_agent_collection/scan_linkedin.py. "
                 "Use that command, --content-file, or --stdin."
             )
         content = fetch(args.url)

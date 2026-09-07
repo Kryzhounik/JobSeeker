@@ -44,7 +44,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 
-COLLECTOR_ROOT = Path(__file__).resolve().parent
+COLLECTOR_ROOT = Path(__file__).resolve().parents[1]
 DRIVER_ROOT = COLLECTOR_ROOT.parent
 for import_root in (DRIVER_ROOT, COLLECTOR_ROOT):
     if str(import_root) not in sys.path:
