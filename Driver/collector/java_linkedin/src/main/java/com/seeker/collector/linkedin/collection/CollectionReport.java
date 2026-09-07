@@ -63,16 +63,4 @@ public record CollectionReport(
         );
     }
 
-    public static CollectionReport failure(String runId, String status, String message) {
-        return new CollectionReport(
-                "linkedin",
-                runId,
-                status,
-                0,
-                List.of(),
-                Map.of(),
-                List.of(),
-                message
-        );
-    }
 }

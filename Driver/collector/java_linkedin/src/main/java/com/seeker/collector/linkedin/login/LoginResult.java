@@ -6,7 +6,4 @@ public record LoginResult(
         String profile,
         String message
 ) {
-    public boolean ready() {
-        return "ready".equals(status);
-    }
 }

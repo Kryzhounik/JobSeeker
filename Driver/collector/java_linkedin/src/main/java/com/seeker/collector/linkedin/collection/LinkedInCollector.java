@@ -35,11 +35,10 @@ final class LinkedInCollector {
         this.runId = runId;
     }
 
-    CollectionReport runBatch(String locationOverride) {
+    CollectionReport runBatch() {
         try {
             List<SearchPlan.Target> plan = SearchPlan.build(
                     config,
-                    locationOverride,
                     python.priorityCompanyIds()
             );
             for (SearchPlan.Target target : plan) {

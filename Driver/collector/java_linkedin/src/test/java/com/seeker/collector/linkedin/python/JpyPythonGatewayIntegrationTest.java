@@ -22,9 +22,16 @@ class JpyPythonGatewayIntegrationTest {
         Path projectRoot = Path.of(required("seeker.project.root"));
         Path database = temporaryDirectory.resolve("jobs.sqlite");
         Path rawDirectory = temporaryDirectory.resolve("raw/linkedin");
-        ProjectPaths paths = ProjectPaths
-                .discover(projectRoot, projectRoot)
-                .withOverrides(null, database, rawDirectory, null);
+        ProjectPaths paths = new ProjectPaths(
+                projectRoot,
+                projectRoot.resolve("Driver"),
+                projectRoot.resolve("Driver/collector"),
+                temporaryDirectory,
+                projectRoot.resolve("Driver/collector/config/linkedin.properties"),
+                database,
+                rawDirectory,
+                temporaryDirectory.resolve("browser-profile")
+        );
         PythonRuntime runtime = new PythonRuntime(
                 Path.of(required("seeker.python.library")),
                 Path.of(required("seeker.jpy.library")),

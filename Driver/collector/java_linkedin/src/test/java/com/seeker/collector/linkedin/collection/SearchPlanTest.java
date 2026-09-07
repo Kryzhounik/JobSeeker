@@ -25,7 +25,6 @@ class SearchPlanTest {
 
         List<SearchPlan.Target> plan = SearchPlan.build(
                 config,
-                null,
                 List.of("101", "202")
         );
 
@@ -64,25 +63,6 @@ class SearchPlanTest {
     }
 
     @Test
-    void locationOverrideDoesNotRunOtherConfiguredLocations() {
-        CollectorConfig config = config(List.of(
-                "AccountRemote",
-                "Moldova:106178099",
-                "Ukraine:102264497"
-        ));
-
-        List<SearchPlan.Target> plan = SearchPlan.build(
-                config,
-                "Ukraine:102264497",
-                List.of("101")
-        );
-
-        assertEquals(2, plan.size());
-        assertEquals(List.of("Ukraine:priority", "Ukraine"),
-                plan.stream().map(SearchPlan.Target::label).toList());
-    }
-
-    @Test
     void accountRemoteAlwaysPrecedesConfiguredCountries() {
         CollectorConfig config = config(List.of(
                 "Moldova:106178099",
@@ -90,7 +70,7 @@ class SearchPlanTest {
                 "Ukraine:102264497"
         ));
 
-        List<SearchPlan.Target> plan = SearchPlan.build(config, null, List.of());
+        List<SearchPlan.Target> plan = SearchPlan.build(config, List.of());
 
         assertEquals(
                 List.of(

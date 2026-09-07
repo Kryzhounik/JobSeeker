@@ -67,7 +67,6 @@ final class SearchPlan {
 
     static List<Target> build(
             CollectorConfig config,
-            String locationOverride,
             List<String> priorityCompanyIds
     ) {
         List<String> configured = config.locations();
@@ -76,15 +75,11 @@ final class SearchPlan {
                 .findFirst()
                 .orElse("");
         List<String> locations = new ArrayList<>();
-        if (locationOverride != null) {
-            locations.add(locationOverride);
-        } else {
-            // AccountRemote owns the first pass even if somebody later moves it
-            // in the properties file. Preserve configured order within the
-            // locationless and real-country groups.
-            configured.stream().filter(SearchPlan::isLocationless).forEach(locations::add);
-            configured.stream().filter(item -> !isLocationless(item)).forEach(locations::add);
-        }
+        // AccountRemote owns the first pass even if somebody later moves it
+        // in the properties file. Preserve configured order within the
+        // locationless and real-country groups.
+        configured.stream().filter(SearchPlan::isLocationless).forEach(locations::add);
+        configured.stream().filter(item -> !isLocationless(item)).forEach(locations::add);
         List<Target> targets = new ArrayList<>();
 
         for (String rawLocation : locations) {

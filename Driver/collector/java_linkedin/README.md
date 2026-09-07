@@ -14,17 +14,15 @@ available to agents, tests, and the GUI.
 
 The Java code is split by responsibility:
 
-- `Main` only delegates process execution to `cli.CliController`;
-- `cli` parses command-line input, maps it to requests, and serializes results;
+- `Main` chooses between the two supported commands: `login` and `batch`;
 - `login` owns the one-time browser authentication bootstrap;
 - `collection` owns search planning, pagination, cards, limits, and run reports;
 - `browser` owns only the shared Playwright persistent-context lifecycle;
 - `python` owns the Java-to-Python gateway;
 - `config` resolves project paths and collector settings.
 
-`LinkedInLoginService` and `LinkedInCollectionService` are public use cases and
-do not depend on CLI classes. A future GUI or API controller can call them
-directly with `LoginRequest` or `CollectionRequest`.
+`LinkedInLoginService` and `LinkedInCollectionService` contain the two use
+cases without command-line request wrappers.
 
 ## Runtime behavior
 
@@ -42,9 +40,9 @@ directly with `LoginRequest` or `CollectionRequest`.
 - For compatibility, Python still saves canonical raw HTML under
   `Data/raw/linkedin/pages`, writes readable text and lifecycle data to SQLite,
   applies the current filters, and records collection events.
-- The command writes exactly one final JSON result to stdout. Diagnostics go to
-  stderr. Analysis and scoring remain the caller's next stages and are never
-  run by this module.
+- A successful command writes one final JSON result to stdout. Unhandled errors
+  retain their normal Java stack trace. Analysis and scoring remain the caller's
+  next stages and are never run by this module.
 
 ## Requirements
 
@@ -77,19 +75,7 @@ mvn -f Driver/collector/java_linkedin/pom.xml package
 java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar login
 
 # Configured batch; JSON scope is returned on stdout
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch --run-id 20260907T120000Z-batch-linkedin
-
-# Optional one-location diagnostic batch
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch --location Moldova:106178099 --limit 10
-
-# One explicit vacancy
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar from-url --url https://www.linkedin.com/jobs/view/1234567890/
-```
-
-The complete CLI is:
-
-```powershell
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar --help
+java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch
 ```
 
 ## Tests

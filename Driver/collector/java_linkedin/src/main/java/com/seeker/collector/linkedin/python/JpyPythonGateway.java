@@ -142,7 +142,7 @@ public final class JpyPythonGateway implements PythonGateway {
     private static Path requiredFile(Path value, String label) {
         if (value == null) {
             throw new IllegalArgumentException(
-                    label + " is required; use Driver/collector/java_linkedin/run.ps1"
+                    label + " is required; check Driver/collector/java_linkedin/runtime.properties"
             );
         }
         Path resolved = absolute(value);

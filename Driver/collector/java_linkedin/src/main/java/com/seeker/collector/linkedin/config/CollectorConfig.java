@@ -50,28 +50,6 @@ public record CollectorConfig(
         );
     }
 
-    public CollectorConfig withLimit(Integer limitOverride) {
-        int resolvedLimit = limitOverride == null ? limit : limitOverride;
-        if (resolvedLimit <= 0) {
-            throw new IllegalArgumentException("LinkedIn collector limit must be positive");
-        }
-        return new CollectorConfig(
-                keywords,
-                locations,
-                experience,
-                remoteBroadWorkplace,
-                workplace,
-                jobTypes,
-                datePosted,
-                sort,
-                resolvedLimit,
-                delaySeconds,
-                browserChannel,
-                pageTimeoutSeconds,
-                detailsTimeoutSeconds
-        );
-    }
-
     private static List<String> csv(String value) {
         return Arrays.stream(value.split(","))
                 .map(String::trim)
