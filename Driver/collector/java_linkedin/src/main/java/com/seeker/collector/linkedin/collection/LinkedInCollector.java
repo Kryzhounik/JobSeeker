@@ -52,37 +52,11 @@ final class LinkedInCollector {
                 }
                 collectTarget(target);
             }
-            return CollectionReport.complete(
-                    runId,
-                    scope,
-                    outcomes.snapshot(),
-                    pages
-            );
+            return report("complete", "");
         } catch (AuthenticationRequiredException error) {
-            return CollectionReport.halted(
-                    runId,
-                    "login_required",
-                    scope,
-                    outcomes.snapshot(),
-                    pages,
-                    message(error)
-            );
-        } catch (CollectionBlockedException error) {
-            return CollectionReport.blocked(
-                    runId,
-                    scope,
-                    outcomes.snapshot(),
-                    pages,
-                    message(error)
-            );
+            return report("login_required", message(error));
         } catch (RuntimeException error) {
-            return CollectionReport.blocked(
-                    runId,
-                    scope,
-                    outcomes.snapshot(),
-                    pages,
-                    message(error)
-            );
+            return report("blocked", message(error));
         }
     }
 
@@ -115,30 +89,11 @@ final class LinkedInCollector {
                     1
             );
             processHtml(preview, direct.html());
-            return CollectionReport.complete(
-                    runId,
-                    scope,
-                    outcomes.snapshot(),
-                    pages
-            );
+            return report("complete", "");
         } catch (AuthenticationRequiredException error) {
-            return CollectionReport.halted(
-                    runId,
-                    "login_required",
-                    scope,
-                    outcomes.snapshot(),
-                    pages,
-                    message(error)
-            );
+            return report("login_required", message(error));
         } catch (RuntimeException error) {
-            logOutcome(preview, "open_failed", message(error));
-            return CollectionReport.blocked(
-                    runId,
-                    scope,
-                    outcomes.snapshot(),
-                    pages,
-                    message(error)
-            );
+            return failedDirectCollection(preview, error);
         }
     }
 
@@ -164,27 +119,8 @@ final class LinkedInCollector {
                 }
             }
             noNewPages = newForTarget == 0 ? noNewPages + 1 : 0;
-            pages.add(new PageReport(
-                    target.label(),
-                    target.kind().name().toLowerCase(Locale.ROOT),
-                    start,
-                    pageUrl,
-                    materialized.expectedCount(),
-                    materialized.materializedCount(),
-                    newCards.size(),
-                    materialized.terminal()
-            ));
-            System.err.printf(
-                    Locale.ROOT,
-                    "%s %s start=%d cards=%d new=%d accepted=%d/%d%n",
-                    target.label(),
-                    target.kind().name().toLowerCase(Locale.ROOT),
-                    start,
-                    materialized.materializedCount(),
-                    newCards.size(),
-                    scope.size(),
-                    config.limit()
-            );
+            recordPage(target, start, pageUrl, materialized, newCards.size());
+            printProgress(target, start, materialized, newCards.size());
 
             int index = 0;
             for (LinkedInPageClient.CardData card : newCards) {
@@ -285,6 +221,65 @@ final class LinkedInCollector {
             );
         }
         outcomes.add(status);
+    }
+
+    private void recordPage(
+            SearchPlan.Target target,
+            int start,
+            String pageUrl,
+            LinkedInPageClient.MaterializedPage materialized,
+            int newCards
+    ) {
+        pages.add(new PageReport(
+                target.label(),
+                target.kind().name().toLowerCase(Locale.ROOT),
+                start,
+                pageUrl,
+                materialized.expectedCount(),
+                materialized.materializedCount(),
+                newCards,
+                materialized.terminal()
+        ));
+    }
+
+    private void printProgress(
+            SearchPlan.Target target,
+            int start,
+            LinkedInPageClient.MaterializedPage materialized,
+            int newCards
+    ) {
+        System.err.printf(
+                Locale.ROOT,
+                "%s %s start=%d cards=%d new=%d accepted=%d/%d%n",
+                target.label(),
+                target.kind().name().toLowerCase(Locale.ROOT),
+                start,
+                materialized.materializedCount(),
+                newCards,
+                scope.size(),
+                config.limit()
+        );
+    }
+
+    private CollectionReport report(String status, String message) {
+        return new CollectionReport(
+                "linkedin",
+                runId,
+                status,
+                scope.size(),
+                List.copyOf(scope),
+                outcomes.snapshot(),
+                List.copyOf(pages),
+                message
+        );
+    }
+
+    private CollectionReport failedDirectCollection(
+            Preview preview,
+            RuntimeException error
+    ) {
+        logOutcome(preview, "open_failed", message(error));
+        return report("blocked", message(error));
     }
 
     private String message(Throwable error) {
