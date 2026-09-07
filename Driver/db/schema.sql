@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     source_job_id TEXT NOT NULL,
     processing_status TEXT NOT NULL REFERENCES processing_statuses(code),
     collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
-        collection_method IN ('unknown', 'script', 'browser')
+        collection_method IN ('unknown', 'script', 'browser', 'playwright')
     ),
     UNIQUE(source, source_job_id)
 );

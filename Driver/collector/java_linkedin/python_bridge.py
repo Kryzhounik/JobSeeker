@@ -103,7 +103,7 @@ def process_html(preview_json: str, html: str) -> str:
             ext="html",
             force=False,
             db_path=session.db_path,
-            collection_method="browser",
+            collection_method="playwright",
         )
         text = readable_text("linkedin", raw_path)
 

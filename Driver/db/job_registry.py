@@ -24,7 +24,7 @@ from common.paths import DATA_ROOT
 SOURCE_CODES = ("justjoin", "linkedin")
 PROCESSING_STATUSES = ("RAW", "CLEANED", "ANALYZED", "SCORED", "SAVED")
 STATUS_ORDER = {status: index for index, status in enumerate(PROCESSING_STATUSES)}
-COLLECTION_METHODS = ("unknown", "script", "browser")
+COLLECTION_METHODS = ("unknown", "script", "browser", "playwright")
 
 
 def source_job_id(source: str, source_url: str) -> str:

@@ -122,7 +122,7 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument(
         "--collection-method",
-        choices=("script", "browser"),
+        choices=("script", "browser", "playwright"),
     )
     args = parser.parse_args()
 
