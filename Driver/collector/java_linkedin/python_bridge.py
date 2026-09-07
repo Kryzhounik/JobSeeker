@@ -87,6 +87,7 @@ def decide_preview(preview_json: str) -> str:
 def process_html(preview_json: str, html: str) -> str:
     session = _require_session()
     preview = _object(preview_json)
+    html = _normalize_unicode(html)
     job_id = str(preview.get("job_id") or "").strip()
     source_url = str(preview.get("source_url") or "").strip()
     title = str(preview.get("title") or "").strip()
@@ -174,3 +175,7 @@ def _object(value: str) -> dict[str, Any]:
 
 def _json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+
+
+def _normalize_unicode(value: str) -> str:
+    return value.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace")

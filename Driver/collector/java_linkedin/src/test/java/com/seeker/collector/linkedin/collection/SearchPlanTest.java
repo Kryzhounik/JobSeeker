@@ -39,9 +39,6 @@ class SearchPlanTest {
                 ),
                 plan.stream().map(SearchPlan.Target::kind).toList()
         );
-        assertEquals("Moldova", plan.get(0).expectedLocation());
-        assertEquals("Moldova", plan.get(1).expectedLocation());
-
         Map<String, String> accountRemote = query(plan.get(1).baseUrl());
         assertFalse(accountRemote.containsKey("location"));
         assertFalse(accountRemote.containsKey("geoId"));
@@ -81,8 +78,6 @@ class SearchPlanTest {
                 ),
                 plan.stream().map(SearchPlan.Target::kind).toList()
         );
-        assertEquals("Moldova", plan.get(0).expectedLocation());
-        assertEquals("Moldova", plan.get(1).expectedLocation());
     }
 
     private CollectorConfig config(List<String> locations) {

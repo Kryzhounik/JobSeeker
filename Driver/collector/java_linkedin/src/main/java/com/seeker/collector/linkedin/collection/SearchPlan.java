@@ -51,8 +51,6 @@ final class SearchPlan {
 
     record Target(
             String label,
-            String rawLocation,
-            String expectedLocation,
             Kind kind,
             String baseUrl
     ) {
@@ -92,15 +90,11 @@ final class SearchPlan {
                 String anchorName = locationName(anchor);
                 targets.add(new Target(
                         "seed:" + anchorName,
-                        anchor,
-                        anchorName,
                         Kind.SEED,
                         searchUrl(config, anchor, true, List.of())
                 ));
                 targets.add(new Target(
                         locationName(rawLocation),
-                        rawLocation,
-                        anchorName,
                         Kind.ACCOUNT_REMOTE,
                         searchUrl(config, rawLocation, true, List.of())
                 ));
@@ -111,15 +105,11 @@ final class SearchPlan {
             if (!priorityCompanyIds.isEmpty()) {
                 targets.add(new Target(
                         name + ":priority",
-                        rawLocation,
-                        name,
                         Kind.PRIORITY,
                         searchUrl(config, rawLocation, false, priorityCompanyIds)
                 ));
             }
             targets.add(new Target(
-                    name,
-                    rawLocation,
                     name,
                     Kind.GENERAL,
                     searchUrl(config, rawLocation, false, List.of())

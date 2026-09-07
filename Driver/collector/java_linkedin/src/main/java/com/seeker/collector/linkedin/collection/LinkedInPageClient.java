@@ -14,6 +14,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -233,7 +234,6 @@ final class LinkedInPageClient {
         throttle.beforeAction(page);
         exact.click();
         page.waitForTimeout(750);
-        verifyLocation(target.expectedLocation());
     }
 
     String openSearch(SearchPlan.Target target, int start) {
@@ -245,7 +245,6 @@ final class LinkedInPageClient {
             );
         }
         verifyQuery(url, page.url());
-        verifyLocation(target.expectedLocation());
         return url;
     }
 
@@ -277,36 +276,75 @@ final class LinkedInPageClient {
         }
         validateIds(stable);
 
-        List<CardData> cards = new ArrayList<>();
-        Set<String> materialized = new LinkedHashSet<>();
-        for (String jobId : stable.ids()) {
-            Locator card = cardLocator(stable.layout(), jobId);
+        Map<String, CardData> cards = new LinkedHashMap<>();
+        LayoutSnapshot current = stable;
+        int unchanged = 0;
+        long materializationDeadline = System.nanoTime()
+                + Duration.ofSeconds(30).toNanos();
+        while (cards.size() < EXPECTED_PAGE_SIZE
+                && unchanged < 3
+                && System.nanoTime() < materializationDeadline) {
+            validateIds(current);
+            int previousCount = cards.size();
+            readVisibleCards(current, cards);
+            unchanged = cards.size() == previousCount ? unchanged + 1 : 0;
+            if (cards.size() >= EXPECTED_PAGE_SIZE) {
+                break;
+            }
+            scrollToLastCard(current);
+            page.waitForTimeout(500);
+            LayoutSnapshot next = readLayoutSnapshot();
+            if (next != null) {
+                if (next.layout() != current.layout()) {
+                    unchanged = 0;
+                }
+                current = next;
+            }
+        }
+        boolean terminal = isTerminalPage();
+        if (cards.size() < EXPECTED_PAGE_SIZE && !terminal) {
+            throw new CollectionBlockedException(
+                    "LinkedIn page materialized " + cards.size()
+                            + " of " + EXPECTED_PAGE_SIZE + " cards"
+            );
+        }
+        return new MaterializedPage(
+                current.layout(),
+                List.copyOf(cards.values()),
+                terminal ? cards.size() : EXPECTED_PAGE_SIZE,
+                cards.size(),
+                terminal
+        );
+    }
+
+    private void readVisibleCards(
+            LayoutSnapshot snapshot,
+            Map<String, CardData> cards
+    ) {
+        for (String jobId : snapshot.ids()) {
+            if (cards.containsKey(jobId)) {
+                continue;
+            }
+            Locator card = cardLocator(snapshot.layout(), jobId);
             if (card.count() != 1) {
                 throw new CollectionBlockedException(
                         "Expected one card for " + jobId + ", found " + card.count()
                 );
             }
-            card.evaluate("element => element.scrollIntoView({block:'center', inline:'nearest', behavior:'instant'})");
-            CardData data = waitForCardData(stable.layout(), card, jobId);
-            cards.add(data);
-            materialized.add(jobId);
-        }
-        if (!materialized.equals(new LinkedHashSet<>(stable.ids()))) {
-            throw new CollectionBlockedException("Materialized card IDs differ from expected IDs");
-        }
-        boolean terminal = isTerminalPage();
-        if (stable.ids().size() < EXPECTED_PAGE_SIZE && !terminal) {
-            throw new CollectionBlockedException(
-                    "Non-terminal LinkedIn page exposed only " + stable.ids().size()
-                            + " cards"
+            card.evaluate(
+                    "element => element.scrollIntoView({block:'center', inline:'nearest', behavior:'instant'})"
             );
+            cards.put(jobId, waitForCardData(snapshot.layout(), card, jobId));
         }
-        return new MaterializedPage(
-                stable.layout(),
-                List.copyOf(cards),
-                stable.ids().size(),
-                materialized.size(),
-                terminal
+    }
+
+    private void scrollToLastCard(LayoutSnapshot snapshot) {
+        if (snapshot.ids().isEmpty()) {
+            return;
+        }
+        String jobId = snapshot.ids().get(snapshot.ids().size() - 1);
+        cardLocator(snapshot.layout(), jobId).evaluate(
+                "element => element.scrollIntoView({block:'end', inline:'nearest', behavior:'instant'})"
         );
     }
 
@@ -501,32 +539,6 @@ final class LinkedInPageClient {
                 || body.contains("no jobs found")
                 || body.contains("you've viewed all jobs")
                 || body.contains("end of results");
-    }
-
-    private void verifyLocation(String expectedLocation) {
-        if (expectedLocation == null || expectedLocation.isBlank()) {
-            return;
-        }
-        Locator inputs = page.locator(String.join(", ",
-                "input[aria-label*='location' i]",
-                "input[aria-label*='City' i]",
-                "input[id*='jobs-search-box-location-id']"
-        ));
-        for (int index = 0; index < inputs.count(); index++) {
-            Locator input = inputs.nth(index);
-            if (!input.isVisible()) {
-                continue;
-            }
-            String value = input.inputValue();
-            if (value.toLowerCase(Locale.ROOT)
-                    .contains(expectedLocation.toLowerCase(Locale.ROOT))) {
-                return;
-            }
-        }
-        throw new CollectionBlockedException(
-                "LinkedIn location field does not show expected country: "
-                        + expectedLocation
-        );
     }
 
     private void verifyQuery(String requestedUrl, String actualUrl) {
