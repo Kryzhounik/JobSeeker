@@ -166,6 +166,11 @@ TECHNOLOGY_VERSION_QUALIFIER = re.compile(
     r"\(\s*or\s+(?:later|newer|higher)\s*\)",
     re.IGNORECASE,
 )
+OPTIONAL_SECTION_HEADING = re.compile(
+    r"(?:preferred|optional)(?:\s+(?:skills?|qualifications?|requirements?))?"
+    r"|nice\s+to\s+have",
+    re.IGNORECASE,
+)
 
 
 def technology_expression(name: str) -> str:
@@ -247,7 +252,12 @@ def content_units(text: str) -> list[tuple[str, str]]:
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     units = []
     for index, line in enumerate(lines):
-        context = " ".join(lines[max(0, index - 1) : index + 2])
+        context_lines = lines[max(0, index - 1) : index + 1]
+        if index + 1 < len(lines):
+            next_line = lines[index + 1].strip(" :-\u2013\u2014")
+            if OPTIONAL_SECTION_HEADING.fullmatch(next_line) is None:
+                context_lines.append(lines[index + 1])
+        context = " ".join(context_lines)
         units.append((line, context))
     for index in range(len(lines) - 1):
         unit = f"{lines[index]} {lines[index + 1]}"

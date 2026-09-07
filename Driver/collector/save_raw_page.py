@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import re
 import sqlite3
 import sys
@@ -96,7 +97,7 @@ def save_content(
 
     database = db_path or DATA_ROOT / "jobs.sqlite"
     migrate_database(database)
-    with sqlite3.connect(database) as connection:
+    with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         mark_url_status(
             connection,

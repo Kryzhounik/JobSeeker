@@ -166,8 +166,7 @@ Senior Machine Learning
 
 Manufacturing Specialist
 
-PHP Developer
-PHP Engineer
+PHP
 Symfony
 Magento
 Laravel
@@ -648,3 +647,10 @@ DevSecOps Engineer
 Engineering Lab Technician
 Supply Chain Leader
 Фахівець по роботі з госпітальним
+EIS Developer
+Senior Storage Engineer
+Cybersecurity Content Engineer
+Senior Business Central
+Network Technical Architect
+E-Commerce Developer
+Mobile SDK Engineer

@@ -12,6 +12,10 @@ Data/scored/linkedin/*
 !Data/scored/linkedin/.gitkeep
 Data/_tmp_collect/
 Data/logs/
+Data/browser_profiles/
+
+# Java collector build artifacts
+**/target/
 
 # Local transfer archives and tool dumps
 Seeker_Data_*.zip

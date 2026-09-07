@@ -492,6 +492,17 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Nice to have:\nAdvanced C programming skills")
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_following_preferred_heading_does_not_make_requirement_optional(
+        self,
+    ) -> None:
+        result = decide_content(
+            "10-14 years of experience building commercial software in C++\n"
+            "Preferred Skills\n"
+            "Familiar with Parallel C++ Design Patterns"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C++"])
+
     def test_requirement_split_across_adjacent_lines_is_blocked(self) -> None:
         result = decide_content("Deep expertise in\nCamunda 8")
         self.assertEqual(result["content_decision"], "skip")
@@ -525,6 +536,12 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = filter_vacancy(Vacancy(title="Senior Python Developer"))
         self.assertTrue(result.rejected)
         self.assertEqual(result.rule, "title_blocked")
+
+    def test_php_title_is_blocked_with_intervening_role_words(self) -> None:
+        result = filter_vacancy(Vacancy(title="Senior PHP Backend Engineer"))
+        self.assertTrue(result.rejected)
+        self.assertEqual(result.rule, "title_blocked")
+        self.assertEqual(result.terms, ("PHP",))
 
 
 if __name__ == "__main__":
