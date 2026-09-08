@@ -163,7 +163,11 @@ def log_outcome(preview_json: str, status: str, reason: str) -> None:
     preview = _object(preview_json)
     with redirect_stdout(sys.stderr):
         record_collection_event(
-            {**preview, "status": status, "reason": reason},
+            {
+                **preview,
+                "status": _normalize_unicode(status),
+                "reason": _normalize_unicode(reason),
+            },
             session.db_path,
         )
 
@@ -183,7 +187,7 @@ def _object(value: str) -> dict[str, Any]:
     result = json.loads(value)
     if not isinstance(result, dict):
         raise ValueError("Expected a JSON object")
-    return result
+    return _normalize_strings(result)
 
 
 def _json(value: Any) -> str:
@@ -192,3 +196,13 @@ def _json(value: Any) -> str:
 
 def _normalize_unicode(value: str) -> str:
     return value.encode("utf-16-le", "surrogatepass").decode("utf-16-le", "replace")
+
+
+def _normalize_strings(value: Any) -> Any:
+    if isinstance(value, str):
+        return _normalize_unicode(value)
+    if isinstance(value, dict):
+        return {key: _normalize_strings(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_normalize_strings(item) for item in value]
+    return value
