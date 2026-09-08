@@ -18,6 +18,14 @@ Purpose: the single LinkedIn batch-collection entry point.
    <java.executable> -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch
    ```
 
+   Start this command exactly once as a foreground process and wait for that
+   same process to exit. While it runs, do not inspect the browser, database,
+   files, logs, metrics, or intermediate stderr, and do not send progress
+   reports. If a terminal wait interval ends while the process is still
+   running, wait on the same process handle again for five minutes; do not
+   restart it or perform diagnostics. Resume the workflow only after process
+   exit and receipt of its final JSON.
+
    Consume the command's JSON result directly from stdout. Continue only when
    `status` is `complete`; use its `run_id` and ordered `scope` as the collection
    result. On any other status, stop and report it. Never fall back to the agent
