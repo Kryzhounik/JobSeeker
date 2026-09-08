@@ -38,9 +38,9 @@ cases without command-line request wrappers.
   existing account.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
   decision JSON, scope files, or checkpoints are created.
-- For compatibility, Python still saves canonical raw HTML, writes readable
-  text and lifecycle data to SQLite, applies the current filters, and records
-  collection events.
+- For compatibility, Python still saves canonical raw HTML, writes collector
+  metadata, readable text, and lifecycle data to SQLite, applies the current
+  filters, and records collection events.
 - A successful command writes one final JSON result to stdout. Unhandled errors
   retain their normal Java stack trace. Analysis and scoring remain the caller's
   next stages and are never run by this module.

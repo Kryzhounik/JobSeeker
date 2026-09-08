@@ -31,7 +31,8 @@ from collector.logging.linkedin_logger import record_collection_event
 from collector.save_raw_page import save_content
 from db.companies import get_priority_linkedin_ids
 from db.filter_rejections import save_content_filter_rejection
-from db.readable_text import save_readable_text
+from db.migrate import migrate_database
+from db.readable_text import save_collected_job
 
 
 @dataclass
@@ -51,6 +52,7 @@ def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
     root = Path(driver_root).resolve()
     database = Path(db_path).resolve()
     raw = Path(raw_dir).resolve()
+    migrate_database(database)
     preview_config_path = root / "collector/filtering/linkedin_preview_filter.ini"
     _session = Session(
         driver_root=root,
@@ -109,7 +111,18 @@ def process_html(preview_json: str, html: str) -> str:
 
         with closing(sqlite3.connect(session.db_path)) as connection:
             connection.execute("PRAGMA foreign_keys = ON")
-            save_readable_text(connection, "linkedin", job_id, text)
+            save_collected_job(
+                connection,
+                "linkedin",
+                job_id,
+                text,
+                source_url=source_url,
+                title=title,
+                company=preview.get("company"),
+                location=preview.get("location"),
+                workplace=preview.get("workplace"),
+                salary=preview.get("salary"),
+            )
             filter_result = session.vacancy_filter.filter_text(title, text)
             if filter_result.rejected:
                 save_content_filter_rejection(

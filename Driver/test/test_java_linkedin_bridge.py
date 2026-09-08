@@ -75,11 +75,19 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             self.assertTrue((raw_dir / "pages" / "4444444444.html").is_file())
             self.assertFalse((root / "_tmp_collect").exists())
             with closing(sqlite3.connect(database)) as connection:
-                readable = connection.execute(
+                collected = connection.execute(
                     """
-                    SELECT readable_text
+                    SELECT
+                        text.readable_text,
+                        text.source_url,
+                        text.title,
+                        company.name,
+                        text.collected_location,
+                        text.collected_workplace,
+                        text.collected_salary
                     FROM source_job_texts text
                     JOIN source_jobs job ON job.id = text.source_job_ref
+                    LEFT JOIN companies company ON company.id = text.company_id
                     WHERE job.source = 'linkedin' AND job.source_job_id = '4444444444'
                     """
                 ).fetchone()
@@ -92,8 +100,19 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                     LIMIT 1
                     """
                 ).fetchone()
-            self.assertIsNotNone(readable)
-            self.assertIn("Build backend services in Java.", readable[0])
+            self.assertIsNotNone(collected)
+            self.assertIn("Build backend services in Java.", collected[0])
+            self.assertEqual(
+                collected[1:],
+                (
+                    "https://www.linkedin.com/jobs/view/4444444444/",
+                    "Java Developer",
+                    "Example Company",
+                    "Moldova",
+                    "remote",
+                    "",
+                ),
+            )
             self.assertEqual(event, ("raw_saved",))
 
             duplicate = json.loads(

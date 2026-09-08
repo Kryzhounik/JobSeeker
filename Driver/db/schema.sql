@@ -83,7 +83,15 @@ CREATE TABLE IF NOT EXISTS source_jobs (
 
 CREATE TABLE IF NOT EXISTS source_job_texts (
     source_job_ref INTEGER PRIMARY KEY REFERENCES source_jobs(id) ON DELETE CASCADE,
-    readable_text TEXT NOT NULL CHECK (length(trim(readable_text)) > 0)
+    readable_text TEXT NOT NULL CHECK (length(trim(readable_text)) > 0),
+    source_url TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL DEFAULT '',
+    company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
+    collected_location TEXT NOT NULL DEFAULT '',
+    collected_workplace TEXT NOT NULL DEFAULT 'unknown' CHECK (
+        collected_workplace IN ('remote', 'hybrid', 'office', 'unknown')
+    ),
+    collected_salary TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS content_filter_rejections (
