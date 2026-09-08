@@ -213,11 +213,7 @@ final class LinkedInPageClient {
 
     void preflight() {
         navigate(page, LINKEDIN_JOBS);
-        if (!session.isAuthenticated(page)) {
-            throw new AuthenticationRequiredException(
-                    "The persistent browser profile is not logged in to LinkedIn"
-            );
-        }
+        requireAuthenticated("The persistent browser profile is not logged in to LinkedIn");
     }
 
     void openSeed(SearchPlan.Target target) {
@@ -230,11 +226,7 @@ final class LinkedInPageClient {
     String openSearch(SearchPlan.Target target, int start) {
         String url = target.pageUrl(start);
         navigate(page, url);
-        if (!session.isAuthenticated(page)) {
-            throw new AuthenticationRequiredException(
-                    "LinkedIn session is no longer authenticated"
-            );
-        }
+        requireAuthenticated("LinkedIn session is no longer authenticated");
         verifyQuery(url, page.url());
         return url;
     }
@@ -573,6 +565,21 @@ final class LinkedInPageClient {
                         .setTimeout(config.pageTimeoutSeconds() * 1000.0)
         );
         targetPage.waitForTimeout(500);
+    }
+
+    private void requireAuthenticated(String message) {
+        long deadline = System.nanoTime()
+                + Duration.ofSeconds(config.pageTimeoutSeconds()).toNanos();
+        while (System.nanoTime() < deadline) {
+            if (session.isAuthenticated(page)) {
+                return;
+            }
+            if (session.isLoginWall(page)) {
+                break;
+            }
+            page.waitForTimeout(250);
+        }
+        throw new AuthenticationRequiredException(message);
     }
 
     private String outerHtml(Locator locator) {
