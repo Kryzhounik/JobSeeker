@@ -11,8 +11,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
-from db.companies import get_or_create_company
 from db.job_registry import mark_url_status
+from db.job_registry import source_job_id
 
 
 JOB_COLUMNS = (
@@ -124,7 +124,13 @@ def apply_schema(connection: sqlite3.Connection, schema_path: Path) -> None:
 def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
     return {
         row[0]
-        for row in connection.execute("SELECT source_url FROM jobs").fetchall()
+        for row in connection.execute(
+            """
+            SELECT source_url
+            FROM source_job_texts
+            WHERE length(trim(source_url)) > 0
+            """
+        ).fetchall()
     }
 
 
@@ -375,21 +381,31 @@ def get_or_create_id(
 def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
     source = required_text(record, "source")
     source_url = required_text(record, "source_url")
-    title = required_text(record, "title")
+    required_text(record, "title")
+    collected = connection.execute(
+        """
+        SELECT source_job.id
+        FROM source_jobs source_job
+        JOIN source_job_texts text ON text.source_job_ref = source_job.id
+        WHERE source_job.source = ? AND source_job.source_job_id = ?
+        """,
+        (source, source_job_id(source, source_url)),
+    ).fetchone()
+    if collected is None:
+        raise ValueError(
+            "Collected job data is missing for "
+            f"{source}:{source_url}; save collector output before analysis"
+        )
     source_job_ref = mark_url_status(connection, source, source_url, "SAVED")
     salary = clean(record["salary"])
     if salary.lower() == "unknown":
         raise ValueError("salary must be empty when unavailable, not 'unknown'")
-    company_id = get_or_create_company(connection, record["company"])
 
     connection.execute(
         """
         INSERT INTO jobs (
             source_job_ref,
-            source_url,
             status,
-            title,
-            company_id,
             location,
             remote_type,
             remote_scope,
@@ -405,11 +421,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(source_url) DO UPDATE SET
-            source_job_ref = excluded.source_job_ref,
-            title = excluded.title,
-            company_id = excluded.company_id,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(source_job_ref) DO UPDATE SET
             location = excluded.location,
             remote_type = excluded.remote_type,
             remote_scope = excluded.remote_scope,
@@ -427,10 +440,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
         """,
         (
             source_job_ref,
-            source_url,
             job_status(record.get("status")),
-            title,
-            company_id,
             clean(record["location"]),
             required_text(record, "remote_type"),
             clean(record["remote_scope"]),
@@ -449,8 +459,8 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
     )
     job_id = int(
         connection.execute(
-            "SELECT id FROM jobs WHERE source_url = ?",
-            (source_url,),
+            "SELECT id FROM jobs WHERE source_job_ref = ?",
+            (source_job_ref,),
         ).fetchone()[0]
     )
 
@@ -549,7 +559,7 @@ def load_job_json(
     where = "j.id = ?"
     value: Any = job_id
     if source_url:
-        where = "j.source_url = ?"
+        where = "text.source_url = ?"
         value = source_url
 
     row = connection.execute(
@@ -560,12 +570,15 @@ def load_job_json(
             {", ".join(
                 "coalesce(c.name, '') AS company"
                 if column == "company"
+                else f"text.{column}"
+                if column in {"source_url", "title"}
                 else f"j.{column}"
                 for column in JOB_COLUMNS[2:]
             )}
         FROM jobs j
         JOIN source_jobs sj ON sj.id = j.source_job_ref
-        LEFT JOIN companies c ON c.id = j.company_id
+        LEFT JOIN source_job_texts text ON text.source_job_ref = j.source_job_ref
+        LEFT JOIN companies c ON c.id = text.company_id
         WHERE {where}
         """,
         (value,),

@@ -100,10 +100,16 @@ def migration_already_effective(
             "reasoning_effort",
         )
     if version == "006_technology_importance_and_analyzer_fit":
-        return column_exists(connection, "jobs", "company_id")
+        return (
+            column_exists(connection, "job_technologies", "requirement_type")
+            and column_exists(connection, "jobs", "candidate_fit_reason_code")
+        )
     if version == "013_normalize_job_companies":
         return (
-            column_exists(connection, "jobs", "company_id")
+            (
+                column_exists(connection, "jobs", "company_id")
+                or column_exists(connection, "source_job_texts", "company_id")
+            )
             and table_exists(connection, "companies")
         )
     if version == "015_preview_filter_rule":
@@ -123,6 +129,11 @@ def migration_already_effective(
             connection,
             "source_job_texts",
             "collected_workplace",
+        )
+    if version == "023_move_collector_fields_out_of_jobs":
+        return all(
+            not column_exists(connection, "jobs", column)
+            for column in ("source_url", "title", "company_id")
         )
     return False
 

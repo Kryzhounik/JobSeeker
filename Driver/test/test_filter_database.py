@@ -43,19 +43,48 @@ class FilterDatabaseTest(unittest.TestCase):
                     INSERT INTO jobs (
                         id,
                         source_job_ref,
-                        title,
-                        candidate_fit_percent,
-                        source_url,
-                        company_id
+                        candidate_fit_percent
                     ) VALUES
-                        (1, 10, 'Senior Java Developer', 91, 'https://example/1', 100),
-                        (2, 20, 'Backend Engineer', 72, 'https://example/2', 100),
-                        (3, 30, 'Senior Python Developer', 43, 'https://example/3', 100),
-                        (4, 40, 'Senior Java Backend Developer', 62, 'https://example/4', 200);
-                    INSERT INTO source_job_texts (source_job_ref, readable_text)
+                        (1, 10, 91),
+                        (2, 20, 72),
+                        (3, 30, 43),
+                        (4, 40, 62);
+                    INSERT INTO source_job_texts (
+                        source_job_ref,
+                        readable_text,
+                        source_url,
+                        title,
+                        company_id
+                    )
                     VALUES
-                        (10, 'Deep expertise in Camunda 8 is required'),
-                        (20, 'Deep expertise in Camunda 8 is required');
+                        (
+                            10,
+                            'Deep expertise in Camunda 8 is required',
+                            'https://example/1',
+                            'Senior Java Developer',
+                            100
+                        ),
+                        (
+                            20,
+                            'Deep expertise in Camunda 8 is required',
+                            'https://example/2',
+                            'Backend Engineer',
+                            100
+                        ),
+                        (
+                            30,
+                            'Python development',
+                            'https://example/3',
+                            'Senior Python Developer',
+                            100
+                        ),
+                        (
+                            40,
+                            'Java development',
+                            'https://example/4',
+                            'Senior Java Backend Developer',
+                            200
+                        );
                     """
                 )
                 connection.commit()

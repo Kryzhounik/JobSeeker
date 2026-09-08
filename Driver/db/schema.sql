@@ -128,10 +128,7 @@ CREATE TABLE IF NOT EXISTS preview_filter_rejections (
 CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source_job_ref INTEGER NOT NULL UNIQUE REFERENCES source_jobs(id),
-    source_url TEXT NOT NULL UNIQUE,
     status TEXT NOT NULL DEFAULT 'New' REFERENCES job_statuses(code),
-    title TEXT NOT NULL,
-    company_id INTEGER REFERENCES companies(id) ON DELETE SET NULL,
     location TEXT NOT NULL DEFAULT '',
     remote_type TEXT NOT NULL DEFAULT 'unknown' CHECK (
         remote_type IN ('remote', 'hybrid', 'office', 'unknown')
@@ -321,7 +318,11 @@ CREATE TABLE IF NOT EXISTS codex_run_operations (
     PRIMARY KEY (run_id, operation)
 );
 
-CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company_id);
+CREATE INDEX IF NOT EXISTS idx_source_job_texts_company
+    ON source_job_texts(company_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_source_job_texts_source_url
+    ON source_job_texts(source_url)
+    WHERE length(trim(source_url)) > 0;
 CREATE INDEX IF NOT EXISTS idx_companies_blacklisted
     ON companies(blacklisted);
 CREATE INDEX IF NOT EXISTS idx_companies_priority
@@ -480,13 +481,15 @@ SELECT
     coalesce(nullif(j.salary, 'unknown'), '') AS salary,
     coalesce(j.seniority, '') AS seniority,
     coalesce(j.role, '') AS role,
-    coalesce(j.title, '') AS title,
-    coalesce(j.source_url, '') AS source_url,
+    coalesce(text.title, '') AS title,
+    coalesce(text.source_url, '') AS source_url,
     coalesce(c.name, '') AS company,
     coalesce(j.added_at, '') AS added_at,
-    coalesce(j.summary, '') AS summary
+    coalesce(j.summary, '') AS summary,
+    j.id AS job_id
 FROM jobs j
-LEFT JOIN companies c ON c.id = j.company_id
+LEFT JOIN source_job_texts text ON text.source_job_ref = j.source_job_ref
+LEFT JOIN companies c ON c.id = text.company_id
 ORDER BY
     CAST((
         j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
@@ -513,7 +516,7 @@ WITH ordered AS (
                 t.name COLLATE NOCASE
         ) AS row_in_job,
         j.id AS job_id_sort,
-        j.title,
+        text.title,
         coalesce(c.name, '') AS company,
         j.location,
         j.remote_type,
@@ -587,12 +590,13 @@ WITH ordered AS (
                     ELSE ''
                 END
         END AS level,
-        j.source_url,
+        text.source_url,
         j.summary,
         j.added_at
     FROM job_technologies jt
     JOIN jobs j ON j.id = jt.job_id
-    LEFT JOIN companies c ON c.id = j.company_id
+    LEFT JOIN source_job_texts text ON text.source_job_ref = j.source_job_ref
+    LEFT JOIN companies c ON c.id = text.company_id
     JOIN technologies t ON t.id = jt.technology_id
     LEFT JOIN languages pl ON pl.id = j.primary_language_id
 )

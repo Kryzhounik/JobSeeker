@@ -32,26 +32,28 @@ def collect_rejected_jobs(
             """
             SELECT
                 job.id,
-                job.title,
+                text.title,
                 job.candidate_fit_percent,
-                job.source_url,
+                text.source_url,
                 coalesce(company.name, ''),
                 text.readable_text
             FROM jobs AS job
-            LEFT JOIN companies AS company
-                ON company.id = job.company_id
             LEFT JOIN source_job_texts AS text
                 ON text.source_job_ref = job.source_job_ref
+            LEFT JOIN companies AS company
+                ON company.id = text.company_id
             ORDER BY job.id
             """
         ).fetchall()
 
         for job_id, title, fit, source_url, company, readable_text in jobs:
+            title = str(title or "")
+            company = str(company or "")
             result = vacancy_filter.filter(
                 Vacancy(
-                    title=str(title),
+                    title=title,
                     text=None if readable_text is None else str(readable_text),
-                    company=str(company),
+                    company=company,
                 )
             )
             if not result.rejected:
@@ -60,10 +62,10 @@ def collect_rejected_jobs(
             rejected.append(
                 {
                     "id": int(job_id),
-                    "title": str(title),
+                    "title": title,
                     "fit": int(fit or 0),
                     "source_url": str(source_url or ""),
-                    "original": result.match or str(title),
+                    "original": result.match or title,
                     "matched": ", ".join(
                         result.terms or result.technologies or result.languages
                     ),

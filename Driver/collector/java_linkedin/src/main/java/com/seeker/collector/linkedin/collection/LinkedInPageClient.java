@@ -3,6 +3,7 @@ package com.seeker.collector.linkedin.collection;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
@@ -222,17 +223,11 @@ final class LinkedInPageClient {
 
     void openSeed(SearchPlan.Target target) {
         openSearch(target, 0);
-        Locator search = page.locator("button").filter(
-                new Locator.FilterOptions().setHasText("Search")
-        );
-        Locator exact = firstExactText(search, "Search");
-        if (exact == null) {
-            throw new CollectionBlockedException(
-                    "Seed page has no exact Search button: " + target.label()
-            );
-        }
         throttle.beforeAction(page);
-        exact.click();
+        page.getByRole(
+                AriaRole.BUTTON,
+                new Page.GetByRoleOptions().setName("Search")
+        ).first().click();
         page.waitForTimeout(750);
     }
 
@@ -582,16 +577,6 @@ final class LinkedInPageClient {
                         .setTimeout(config.pageTimeoutSeconds() * 1000.0)
         );
         targetPage.waitForTimeout(500);
-    }
-
-    private Locator firstExactText(Locator locator, String expected) {
-        for (int index = 0; index < locator.count(); index++) {
-            Locator candidate = locator.nth(index);
-            if (candidate.isVisible() && expected.equals(candidate.innerText().trim())) {
-                return candidate;
-            }
-        }
-        return null;
     }
 
     private String outerHtml(Locator locator) {

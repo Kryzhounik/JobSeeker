@@ -314,14 +314,16 @@ def update_job_interest(
         rows = connection.execute(
             """
             SELECT
-                id,
-                title,
-                remote_type,
-                remote_scope,
-                relocation,
-                candidate_fit_percent
-            FROM jobs
-            ORDER BY id
+                job.id,
+                coalesce(text.title, '') AS title,
+                job.remote_type,
+                job.remote_scope,
+                job.relocation,
+                job.candidate_fit_percent
+            FROM jobs job
+            LEFT JOIN source_job_texts text
+                ON text.source_job_ref = job.source_job_ref
+            ORDER BY job.id
             """
         ).fetchall()
 

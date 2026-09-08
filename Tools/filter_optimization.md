@@ -24,7 +24,8 @@ company -> companies.blacklisted in Data/jobs.sqlite
 ```
 
 Company matching is an exact, case-insensitive name match. Companies are stored
-once in `companies`; saved jobs reference them through `jobs.company_id`.
+once in `companies`; collected vacancies reference them through
+`source_job_texts.company_id`.
 `companies.blacklisted` defaults to `0`, and deleting a job does not delete its
 company entry or blacklist setting.
 
@@ -163,7 +164,7 @@ top-level filter used by the GUI and review the rejected jobs:
 python Tools/filter_database.py
 ```
 
-The utility reads the normalized company name, `jobs.title`, and stored
+The utility reads the normalized company name, `source_job_texts.title`, and stored
 `source_job_texts.readable_text`, then calls `VacancyFilter.filter(Vacancy)`.
 It prints a JSON list with each rejected job's ID, title, and reason and does
 not change the database. Deletion is a separate database-layer operation used

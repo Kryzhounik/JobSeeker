@@ -2601,7 +2601,8 @@ class JobsViewer(tk.Tk):
                         c.blacklisted,
                         count(a.id) AS application_count
                     FROM companies c
-                    LEFT JOIN jobs j ON j.company_id = c.id
+                    LEFT JOIN source_job_texts text ON text.company_id = c.id
+                    LEFT JOIN jobs j ON j.source_job_ref = text.source_job_ref
                     LEFT JOIN applications a ON a.job_id = j.id
                     GROUP BY
                         c.id,
@@ -3353,7 +3354,13 @@ class JobsViewer(tk.Tk):
         try:
             with self.connect() as connection:
                 row = connection.execute(
-                    "SELECT id, status FROM jobs WHERE source_url = ?",
+                    """
+                    SELECT job.id, job.status
+                    FROM jobs job
+                    JOIN source_job_texts text
+                        ON text.source_job_ref = job.source_job_ref
+                    WHERE text.source_url = ?
+                    """,
                     (source_url,),
                 ).fetchone()
         except Exception as error:
@@ -3443,16 +3450,10 @@ class JobsViewer(tk.Tk):
         if id_query:
             where_parts.append(
                 """
-                EXISTS (
-                    SELECT 1
-                    FROM jobs j
-                    JOIN source_jobs sj ON sj.id = j.source_job_ref
-                    WHERE j.source_url = jl.source_url
-                        AND (
-                            CAST(j.id AS TEXT) = ?
-                            OR sj.source_job_id = ?
-                            OR j.source_url LIKE ?
-                        )
+                (
+                    CAST(j.id AS TEXT) = ?
+                    OR sj.source_job_id = ?
+                    OR text.source_url LIKE ?
                 )
                 """
             )
@@ -3500,7 +3501,7 @@ class JobsViewer(tk.Tk):
                         jl.salary,
                         jl.added_at,
                         jl.source_url,
-                        j.company_id,
+                        text.company_id,
                         a.id AS application_id,
                         coalesce(company_apps.application_count, 0)
                             AS company_application_count,
@@ -3509,18 +3510,23 @@ class JobsViewer(tk.Tk):
                         coalesce(j.candidate_fit_reason, '')
                             AS candidate_fit_reason
                     FROM job_list jl
-                    JOIN jobs j ON j.source_url = jl.source_url
+                    JOIN jobs j ON j.id = jl.job_id
+                    JOIN source_jobs sj ON sj.id = j.source_job_ref
+                    LEFT JOIN source_job_texts text
+                        ON text.source_job_ref = j.source_job_ref
                     LEFT JOIN applications a ON a.job_id = j.id
                     LEFT JOIN (
                         SELECT
-                            company_jobs.company_id,
+                            company_text.company_id,
                             count(company_applications.id) AS application_count
                         FROM jobs company_jobs
+                        JOIN source_job_texts company_text
+                            ON company_text.source_job_ref = company_jobs.source_job_ref
                         JOIN applications company_applications
                             ON company_applications.job_id = company_jobs.id
-                        WHERE company_jobs.company_id IS NOT NULL
-                        GROUP BY company_jobs.company_id
-                    ) company_apps ON company_apps.company_id = j.company_id
+                        WHERE company_text.company_id IS NOT NULL
+                        GROUP BY company_text.company_id
+                    ) company_apps ON company_apps.company_id = text.company_id
                     {where_sql}
                     """,
                     parameters,
@@ -3562,7 +3568,7 @@ class JobsViewer(tk.Tk):
                 SELECT
                     j.id,
                     sj.source_job_id,
-                    j.title,
+                    text.title,
                     coalesce(c.name, '') AS company,
                     j.location,
                     j.remote_type,
@@ -3579,16 +3585,16 @@ class JobsViewer(tk.Tk):
                         + 9999
                     ) / 10000 AS INTEGER)
                         AS score,
-                    j.source_url,
+                    text.source_url,
                     j.summary,
                     coalesce(text.readable_text, '') AS readable_text,
                     j.added_at
                 FROM jobs j
                 JOIN source_jobs sj ON sj.id = j.source_job_ref
-                LEFT JOIN companies c ON c.id = j.company_id
-                LEFT JOIN source_job_texts text
+                JOIN source_job_texts text
                     ON text.source_job_ref = j.source_job_ref
-                WHERE j.source_url = ?
+                LEFT JOIN companies c ON c.id = text.company_id
+                WHERE text.source_url = ?
                 """,
                 (source_url,),
             ).fetchone()
@@ -4407,15 +4413,17 @@ class JobsViewer(tk.Tk):
             rows = connection.execute(
                 f"""
                 SELECT
-                    j.source_url,
-                    j.title,
+                    text.source_url,
+                    text.title,
                     coalesce(c.name, '') AS company,
                     {score_sql} AS score
                 FROM jobs j
-                LEFT JOIN companies c ON c.id = j.company_id
+                JOIN source_job_texts text
+                    ON text.source_job_ref = j.source_job_ref
+                LEFT JOIN companies c ON c.id = text.company_id
                 WHERE j.status = ?
                     AND {score_sql} > 0
-                    AND j.source_url LIKE ?
+                    AND text.source_url LIKE ?
                 ORDER BY
                     score DESC,
                     j.added_at DESC,
@@ -4632,7 +4640,11 @@ class JobsViewer(tk.Tk):
                 SET status = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE status = ?
-                    AND source_url IN ({placeholders})
+                    AND source_job_ref IN (
+                        SELECT source_job_ref
+                        FROM source_job_texts
+                        WHERE source_url IN ({placeholders})
+                    )
                 """,
                 [closed_status, "New", *source_urls],
             )
@@ -4742,7 +4754,11 @@ class JobsViewer(tk.Tk):
                     UPDATE jobs
                     SET status = ?,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE source_url IN ({placeholders})
+                    WHERE source_job_ref IN (
+                        SELECT source_job_ref
+                        FROM source_job_texts
+                        WHERE source_url IN ({placeholders})
+                    )
                     """,
                     [status, *source_urls],
                 )
@@ -4758,10 +4774,12 @@ class JobsViewer(tk.Tk):
                         clean(row["source_url"]): str(row["application_id"])
                         for row in connection.execute(
                             f"""
-                            SELECT j.source_url, a.id AS application_id
+                            SELECT text.source_url, a.id AS application_id
                             FROM jobs j
+                            JOIN source_job_texts text
+                                ON text.source_job_ref = j.source_job_ref
                             JOIN applications a ON a.job_id = j.id
-                            WHERE j.source_url IN ({placeholders})
+                            WHERE text.source_url IN ({placeholders})
                             """,
                             source_urls,
                         )
@@ -4771,19 +4789,21 @@ class JobsViewer(tk.Tk):
                         for row in connection.execute(
                             f"""
                             SELECT
-                                company_jobs.company_id,
+                                company_text.company_id,
                                 count(company_applications.id)
                                     AS application_count
                             FROM jobs company_jobs
+                            JOIN source_job_texts company_text
+                                ON company_text.source_job_ref = company_jobs.source_job_ref
                             JOIN applications company_applications
                                 ON company_applications.job_id = company_jobs.id
-                            WHERE company_jobs.company_id IN (
+                            WHERE company_text.company_id IN (
                                 SELECT company_id
-                                FROM jobs
+                                FROM source_job_texts
                                 WHERE source_url IN ({placeholders})
                                     AND company_id IS NOT NULL
                             )
-                            GROUP BY company_jobs.company_id
+                            GROUP BY company_text.company_id
                             """,
                             source_urls,
                         )
@@ -4849,7 +4869,11 @@ class JobsViewer(tk.Tk):
                     SET candidate_fit_percent = ?,
                         job_interest = ?,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE source_url = ?
+                    WHERE source_job_ref = (
+                        SELECT source_job_ref
+                        FROM source_job_texts
+                        WHERE source_url = ?
+                    )
                     """,
                     (fit, interest, self.current_source_url),
                 )

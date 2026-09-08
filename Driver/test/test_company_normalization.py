@@ -18,6 +18,7 @@ from collector.filtering.linkedin_filter import decide_preview
 from db.job_mapper import load_job_json
 from db.job_mapper import save_job_json
 from db.migrate import migrate_database
+from db.readable_text import save_collected_job
 
 
 class CompanyNormalizationTest(unittest.TestCase):
@@ -58,20 +59,50 @@ class CompanyNormalizationTest(unittest.TestCase):
         }
 
         with closing(self.connect()) as connection:
+            save_collected_job(
+                connection,
+                "linkedin",
+                "123",
+                "Collected vacancy text",
+                source_url=record["source_url"],
+                title=record["title"],
+                company=record["company"],
+                location="Remote",
+                workplace="remote",
+                salary="",
+            )
             job_id = save_job_json(connection, record)
             connection.commit()
             company = connection.execute(
                 "SELECT name, blacklisted FROM companies"
             ).fetchone()
             job_company_id = connection.execute(
-                "SELECT company_id FROM jobs WHERE id = ?",
+                """
+                SELECT text.company_id
+                FROM jobs job
+                JOIN source_job_texts text
+                    ON text.source_job_ref = job.source_job_ref
+                WHERE job.id = ?
+                """,
                 (job_id,),
             ).fetchone()[0]
+            job_columns = {
+                row[1]
+                for row in connection.execute("PRAGMA table_info(jobs)")
+            }
             loaded = load_job_json(connection, job_id=job_id)
+            loaded_by_url = load_job_json(
+                connection,
+                source_url=record["source_url"],
+            )
 
         self.assertEqual(company, ("Example Company", 0))
         self.assertIsNotNone(job_company_id)
+        self.assertTrue(
+            {"source_url", "title", "company_id"}.isdisjoint(job_columns)
+        )
         self.assertEqual(loaded["company"], "Example Company")
+        self.assertEqual(loaded_by_url, loaded)
 
     def test_preview_rejects_blacklisted_company_case_insensitively(self) -> None:
         with closing(self.connect()) as connection:

@@ -23,9 +23,10 @@ def create_for_source_urls(
     connection.execute(
         f"""
         INSERT OR IGNORE INTO applications (job_id, applied_at, status)
-        SELECT id, ?, 'Applied'
-        FROM jobs
-        WHERE source_url IN ({placeholders})
+        SELECT job.id, ?, 'Applied'
+        FROM jobs job
+        JOIN source_job_texts text ON text.source_job_ref = job.source_job_ref
+        WHERE text.source_url IN ({placeholders})
         """,
         [applied_at, *urls],
     )
@@ -53,13 +54,15 @@ def list_applications(connection: sqlite3.Connection) -> list[sqlite3.Row]:
                 a.job_id,
                 a.applied_at,
                 a.status,
-                j.source_url,
-                j.title,
+                text.source_url,
+                text.title,
                 c.id AS company_id,
                 coalesce(c.name, '') AS company
             FROM applications a
             JOIN jobs j ON j.id = a.job_id
-            LEFT JOIN companies c ON c.id = j.company_id
+            LEFT JOIN source_job_texts text
+                ON text.source_job_ref = j.source_job_ref
+            LEFT JOIN companies c ON c.id = text.company_id
             ORDER BY date(a.applied_at) DESC, a.id DESC
             """
         )
