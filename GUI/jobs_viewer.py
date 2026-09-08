@@ -86,6 +86,18 @@ JOB_COLUMNS = (
     ("candidate_fit_reason", "Reason", 360, "w"),
 )
 
+COLLECTED_JOB_COLUMNS = (
+    ("source_job_id", "Source ID", 110, "w"),
+    ("processing_status", "Stage", 90, "center"),
+    ("collection_method", "Collector", 90, "center"),
+    ("title", "Title", 300, "w"),
+    ("company", "Company", 180, "w"),
+    ("collected_location", "Location", 170, "w"),
+    ("collected_workplace", "Workplace", 100, "center"),
+    ("collected_salary", "Salary", 170, "w"),
+    ("source_url", "URL", 300, "w"),
+)
+
 DETAIL_FIELDS = (
     ("title", "Title"),
     ("company", "Company"),
@@ -267,6 +279,33 @@ def parse_display_date(value: Any) -> datetime:
 
 def calculate_score(fit: int, interest: int) -> int:
     return (interest * fit * fit + 5000) // 10000
+
+
+def load_collected_jobs(connection: sqlite3.Connection) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            sj.id AS source_job_ref,
+            sj.source,
+            sj.source_job_id,
+            sj.processing_status,
+            sj.collection_method,
+            text.source_url,
+            text.title,
+            coalesce(company.name, '') AS company,
+            text.collected_location,
+            text.collected_workplace,
+            text.collected_salary,
+            text.readable_text
+        FROM source_job_texts text
+        JOIN source_jobs sj ON sj.id = text.source_job_ref
+        LEFT JOIN companies company ON company.id = text.company_id
+        WHERE
+            length(trim(text.source_url)) > 0
+            OR length(trim(text.title)) > 0
+        ORDER BY sj.id DESC
+        """
+    ).fetchall()
 
 
 class CopyableText(tk.Text):
@@ -762,6 +801,15 @@ class JobsViewer(tk.Tk):
         self.company_sort_column = self._saved_company_sort_column()
         self.company_sort_descending = self._saved_company_sort_descending()
         self.selected_company_id: int | None = None
+        self.collected_window: tk.Toplevel | None = None
+        self.collected_tree: SortableTreeview | None = None
+        self.collected_text: CopyableText | None = None
+        self.collected_count_var: tk.StringVar | None = None
+        self.collected_rows: list[dict[str, Any]] = []
+        self.collected_rows_by_item: dict[str, dict[str, Any]] = {}
+        self.current_collected_url = ""
+        self.collected_sort_column = self._saved_collected_sort_column()
+        self.collected_sort_descending = self._saved_collected_sort_descending()
         self.applications_window: tk.Toplevel | None = None
         self.application_rows: list[dict[str, Any]] = []
         self.application_rows_by_item: dict[str, dict[str, Any]] = {}
@@ -838,7 +886,7 @@ class JobsViewer(tk.Tk):
 
         toolbar = ttk.Frame(self, padding=(10, 8))
         toolbar.grid(row=0, column=0, sticky="ew")
-        toolbar.columnconfigure(6, weight=1)
+        toolbar.columnconfigure(7, weight=1)
 
         self.collect_button = ttk.Button(
             toolbar,
@@ -848,37 +896,43 @@ class JobsViewer(tk.Tk):
         )
         self.collect_button.grid(row=0, column=0, sticky="w")
 
+        ttk.Button(
+            toolbar,
+            text="Collected",
+            command=self._open_collected_jobs_window,
+        ).grid(row=0, column=1, sticky="w", padx=(6, 0))
+
         refresh_button = ttk.Button(toolbar, text="Refresh", command=self.refresh_jobs)
-        refresh_button.grid(row=0, column=1, sticky="w", padx=(6, 0))
+        refresh_button.grid(row=0, column=2, sticky="w", padx=(6, 0))
 
         self.availability_button = ttk.Button(
             toolbar,
             text="Check LinkedIn",
             command=self._start_linkedin_availability_check,
         )
-        self.availability_button.grid(row=0, column=2, sticky="w", padx=(6, 0))
+        self.availability_button.grid(row=0, column=3, sticky="w", padx=(6, 0))
 
         self.refilter_button = ttk.Button(
             toolbar,
             text="Refilter",
             command=self._start_refilter_database,
         )
-        self.refilter_button.grid(row=0, column=3, sticky="w", padx=(6, 0))
+        self.refilter_button.grid(row=0, column=4, sticky="w", padx=(6, 0))
 
         ttk.Button(
             toolbar,
             text="Companies",
             command=self._open_companies_window,
-        ).grid(row=0, column=4, sticky="w", padx=(6, 0))
+        ).grid(row=0, column=5, sticky="w", padx=(6, 0))
 
         ttk.Button(
             toolbar,
             text="Applications",
             command=self._open_applications_window,
-        ).grid(row=0, column=5, sticky="w", padx=(6, 0))
+        ).grid(row=0, column=6, sticky="w", padx=(6, 0))
 
         filters = ttk.Frame(toolbar)
-        filters.grid(row=0, column=6, sticky="w", padx=(8, 8))
+        filters.grid(row=0, column=7, sticky="w", padx=(8, 8))
 
         ttk.Label(filters, text="Status", style="Muted.TLabel").grid(
             row=0,
@@ -902,7 +956,7 @@ class JobsViewer(tk.Tk):
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
 
         search_filters = ttk.Frame(toolbar)
-        search_filters.grid(row=0, column=7, sticky="e")
+        search_filters.grid(row=0, column=8, sticky="e")
 
         ttk.Label(search_filters, text="ID", style="Muted.TLabel").grid(
             row=0,
@@ -1438,6 +1492,26 @@ class JobsViewer(tk.Tk):
             return bool(company_sort.get("descending", False))
         return False
 
+    def _saved_collected_sort_column(self) -> str:
+        collected_sort = self.settings.get("collected_sort")
+        column = (
+            collected_sort.get("column")
+            if isinstance(collected_sort, dict)
+            else None
+        )
+        valid_columns = {
+            name for name, _label, _width, _anchor in COLLECTED_JOB_COLUMNS
+        }
+        if isinstance(column, str) and column in valid_columns:
+            return column
+        return "source_job_id"
+
+    def _saved_collected_sort_descending(self) -> bool:
+        collected_sort = self.settings.get("collected_sort")
+        if isinstance(collected_sort, dict):
+            return bool(collected_sort.get("descending", True))
+        return True
+
     def _saved_application_sort_column(self) -> str | None:
         application_sort = self.settings.get("application_sort")
         column = (
@@ -1474,6 +1548,10 @@ class JobsViewer(tk.Tk):
             "company_sort": {
                 "column": self.company_sort_column,
                 "descending": bool(self.company_sort_descending),
+            },
+            "collected_sort": {
+                "column": self.collected_sort_column,
+                "descending": bool(self.collected_sort_descending),
             },
             "application_sort": {
                 "column": self.application_sort_column,
@@ -2121,6 +2199,232 @@ class JobsViewer(tk.Tk):
         self.reason_filter_entry.selection_clear()
         self.reason_filter_entry.icursor(tk.END)
         self.status_var.set(f"Reason: {', '.join(reasons)}")
+
+    def _open_collected_jobs_window(self) -> None:
+        window = self.collected_window
+        if window is not None and window.winfo_exists():
+            self._refresh_collected_jobs()
+            window.deiconify()
+            window.lift()
+            window.focus_force()
+            return
+
+        window = tk.Toplevel(self)
+        self.collected_window = window
+        window.title("Collected jobs")
+        window.geometry(self._saved_window_size("collected", "1180x720", 820, 480))
+        window.minsize(820, 480)
+        window.transient(self)
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(1, weight=1)
+
+        size_save_after_id: str | None = None
+
+        def save_size() -> None:
+            nonlocal size_save_after_id
+            size_save_after_id = None
+            self._remember_window_size("collected", window)
+
+        def schedule_size_save(event: tk.Event[tk.Misc]) -> None:
+            nonlocal size_save_after_id
+            if event.widget is not window or clean(window.state()) != "normal":
+                return
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+            size_save_after_id = window.after(300, save_size)
+
+        def close_window() -> None:
+            nonlocal size_save_after_id
+            if size_save_after_id is not None:
+                window.after_cancel(size_save_after_id)
+                size_save_after_id = None
+            self._remember_window_size("collected", window)
+            self.collected_rows.clear()
+            self.collected_rows_by_item.clear()
+            self.current_collected_url = ""
+            self.collected_tree = None
+            self.collected_text = None
+            self.collected_count_var = None
+            self.collected_window = None
+            window.destroy()
+
+        window.bind("<Configure>", schedule_size_save)
+        window.protocol("WM_DELETE_WINDOW", close_window)
+
+        actions = ttk.Frame(window, padding=(10, 10, 10, 0))
+        actions.grid(row=0, column=0, sticky="ew")
+        actions.columnconfigure(2, weight=1)
+        ttk.Button(
+            actions,
+            text="Refresh",
+            command=self._refresh_collected_jobs,
+        ).grid(row=0, column=0, sticky="w")
+        ttk.Button(
+            actions,
+            text="Open",
+            command=self._open_collected_link,
+        ).grid(row=0, column=1, sticky="w", padx=(6, 0))
+        self.collected_count_var = tk.StringVar(value="0 collected jobs")
+        ttk.Label(
+            actions,
+            textvariable=self.collected_count_var,
+            style="Muted.TLabel",
+        ).grid(row=0, column=2, sticky="e")
+
+        pane = ttk.PanedWindow(window, orient=tk.VERTICAL)
+        pane.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
+
+        table = ttk.Frame(pane)
+        table.columnconfigure(0, weight=1)
+        table.rowconfigure(0, weight=1)
+        self.collected_tree = SortableTreeview(
+            table,
+            COLLECTED_JOB_COLUMNS,
+            numeric_columns={"source_job_id"},
+            sort_column=self.collected_sort_column,
+            sort_descending=self.collected_sort_descending,
+            on_sorted=self._collected_jobs_sorted,
+            selectmode="browse",
+        )
+        self.collected_tree.grid(row=0, column=0, sticky="nsew")
+        self.collected_tree.tag_configure("odd", background="#f7f9fb")
+        vertical = ttk.Scrollbar(
+            table,
+            orient=tk.VERTICAL,
+            command=self.collected_tree.yview,
+        )
+        vertical.grid(row=0, column=1, sticky="ns")
+        horizontal = ttk.Scrollbar(
+            table,
+            orient=tk.HORIZONTAL,
+            command=self.collected_tree.xview,
+        )
+        horizontal.grid(row=1, column=0, sticky="ew")
+        self.collected_tree.configure(
+            yscrollcommand=vertical.set,
+            xscrollcommand=horizontal.set,
+        )
+        self.collected_tree.bind("<<TreeviewSelect>>", self._show_collected_detail)
+        self.collected_tree.bind("<Double-Button-1>", self._open_collected_link)
+        self.collected_tree.bind("<Control-c>", self._copy_tree_selection)
+        self.collected_tree.bind("<Control-C>", self._copy_tree_selection)
+        self.collected_tree.bind("<Control-Insert>", self._copy_tree_selection)
+        self.collected_tree.bind("<<Copy>>", self._copy_tree_selection)
+        self.collected_tree.bind("<Button-3>", self._show_copy_menu)
+
+        text_frame = ttk.Frame(pane)
+        text_frame.columnconfigure(0, weight=1)
+        text_frame.rowconfigure(1, weight=1)
+        ttk.Label(text_frame, text="Readable text", style="Muted.TLabel").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            pady=(0, 4),
+        )
+        self.collected_text = CopyableText(
+            text_frame,
+            readonly=True,
+            wrap="word",
+            borderwidth=1,
+            relief="solid",
+            background=READONLY_FIELD_COLORS["background"],
+            foreground=READONLY_FIELD_COLORS["foreground"],
+            font=("Consolas", 10),
+            padx=8,
+            pady=6,
+        )
+        self.collected_text.grid(row=1, column=0, sticky="nsew")
+        text_scroll = ttk.Scrollbar(
+            text_frame,
+            orient=tk.VERTICAL,
+            command=self.collected_text.yview,
+        )
+        text_scroll.grid(row=1, column=1, sticky="ns")
+        self.collected_text.configure(yscrollcommand=text_scroll.set)
+
+        pane.add(table, weight=3)
+        pane.add(text_frame, weight=2)
+        self._refresh_collected_jobs()
+
+    def _refresh_collected_jobs(self) -> None:
+        window = self.collected_window
+        tree = self.collected_tree
+        if window is None or not window.winfo_exists() or tree is None:
+            return
+        try:
+            with self.connect() as connection:
+                rows = load_collected_jobs(connection)
+        except Exception as error:
+            messagebox.showerror("Collected jobs load failed", str(error))
+            self.status_var.set("Collected jobs load failed")
+            return
+
+        self.collected_rows = [dict(row) for row in rows]
+        self._render_collected_jobs()
+        if self.collected_count_var is not None:
+            self.collected_count_var.set(
+                f"{len(self.collected_rows)} collected jobs"
+            )
+
+    def _render_collected_jobs(self) -> None:
+        tree = self.collected_tree
+        if tree is None:
+            return
+        selected = tree.selection()
+        selected_id = selected[0] if selected else ""
+        tree.delete(*tree.get_children(""))
+        self.collected_rows_by_item.clear()
+
+        for row_index, row in enumerate(self.collected_rows):
+            item = str(row["source_job_ref"])
+            tree.insert(
+                "",
+                tk.END,
+                iid=item,
+                values=tuple(
+                    clean(row.get(name))
+                    for name, _label, _width, _anchor in COLLECTED_JOB_COLUMNS
+                ),
+                tags=("odd",) if row_index % 2 else (),
+            )
+            self.collected_rows_by_item[item] = row
+
+        tree.reapply_sort()
+        if selected_id in self.collected_rows_by_item:
+            selected_item = selected_id
+        else:
+            children = tree.get_children("")
+            selected_item = children[0] if children else ""
+        if selected_item:
+            tree.selection_set(selected_item)
+            tree.focus(selected_item)
+            tree.see(selected_item)
+        self._show_collected_detail()
+
+    def _show_collected_detail(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        tree = self.collected_tree
+        text_widget = self.collected_text
+        if tree is None or text_widget is None:
+            return
+        selected = tree.selection()
+        row = self.collected_rows_by_item.get(selected[0]) if selected else None
+        self.current_collected_url = clean(row.get("source_url")) if row else ""
+        text_widget.set_value(row.get("readable_text", "") if row else "")
+
+    def _collected_jobs_sorted(self, column: str, descending: bool) -> None:
+        self.collected_sort_column = column
+        self.collected_sort_descending = descending
+        self._save_settings()
+
+    def _open_collected_link(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        if self.current_collected_url:
+            webbrowser.open_new_tab(self.current_collected_url)
 
     def _open_companies_window(self, company_id: int | None = None) -> None:
         window = self.companies_window
@@ -3583,6 +3887,7 @@ class JobsViewer(tk.Tk):
             self.status_var.set(
                 f"LinkedIn collector complete; accepted {accepted}"
             )
+            self._refresh_collected_jobs()
             return
 
         detail = clean(result.get("message", "")).strip() or status

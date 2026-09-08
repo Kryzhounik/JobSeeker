@@ -33,7 +33,7 @@ GUI-specific problem.
 ## Settings
 
 Filters, table sorting, and the last sizes of the main, `Refilter detail`,
-`Companies`, `Applications`, and config windows are stored in
+`Collected`, `Companies`, `Applications`, and config windows are stored in
 `GUI/jobs_viewer_settings.json`. Resizing is saved after a short pause and
 restored the next time the corresponding window opens. The settings file is
 ignored by git.
@@ -41,7 +41,7 @@ ignored by git.
 All table headers are sortable. Repeated clicks on the active header toggle
 ascending and descending order; the header shows `^` or `v`. Native tables and
 copyable text grids share the same sortable-table base behavior. Main,
-Companies, and Applications sorting is restored from GUI settings.
+Collected, Companies, and Applications sorting is restored from GUI settings.
 
 In the main table, double-click a `Title` cell to open title-selection mode.
 Drag across any title fragment and right-click it to use `Copy` or
@@ -139,6 +139,20 @@ The GUI waits for that exact Java process and reads its final JSON report. A
 exit, or malformed output produces an error popup. Collection outcomes continue
 to use the collector's existing `linkedin_collection_events` database table;
 the GUI does not create another collection log or a login button.
+
+## Collected jobs
+
+The `Collected` button opens the data saved by the collector before analysis.
+The table shows source ID, processing stage, collection method, title, normalized
+company, collected location, workplace, salary, and source URL. Selecting a row
+shows its full cleaned text below the table; `Open` or a double-click opens the
+source URL. The window has its own `Refresh` button and also refreshes after a
+successful GUI collection run.
+
+The list reads `source_jobs`, `source_job_texts`, and `companies`. It includes
+only rows whose collector metadata has been saved, so older text-only rows with
+blank stage-one metadata do not fill the window. It does not require a `jobs`
+row and therefore exposes collected vacancies before the analyzer starts.
 
 ## LinkedIn availability check
 
