@@ -3,7 +3,6 @@ package com.seeker.collector.linkedin.collection;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
-import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
@@ -224,10 +223,7 @@ final class LinkedInPageClient {
     void openSeed(SearchPlan.Target target) {
         openSearch(target, 0);
         throttle.beforeAction(page);
-        page.getByRole(
-                AriaRole.BUTTON,
-                new Page.GetByRoleOptions().setName("Search")
-        ).first().click();
+        page.locator("button.jobs-search-box__submit-button").click();
         page.waitForTimeout(750);
     }
 
