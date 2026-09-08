@@ -63,7 +63,10 @@ footer.
 The small gear button in the upper-right corner opens the database-backed
 configuration switches from the `config` table. Every row is rendered as a
 checkbox; toggling it immediately writes text value `0` or `1` without an Apply
-button. The config window size is stored with the other GUI settings.
+button. The same window contains `LinkedIn collection limit`; Enter or moving
+focus away writes the positive integer directly to `limit` in
+`Driver/collector/config/linkedin.properties`. The config window size is stored
+with the other GUI settings.
 
 ## Vacancy detail
 
@@ -121,6 +124,21 @@ Application status is changed immediately by the row selector and supports
 table and shows a single in-cell status selector for the selected row, so the
 window does not create a separate set of controls for every stored application.
 Every column header sorts the list, and the selected sorting is preserved.
+
+## LinkedIn collection
+
+The green `Collect` button is the first toolbar action. It starts the existing
+Java collector with `linkedin-collector.jar batch` in a background thread, with
+the project root as its working directory. The Java process has no console
+window, while its Playwright browser remains visible. During collection the GUI
+shows the collector's post-page `accepted X/Y` count and prevents overlapping
+Collect, Check LinkedIn, and Refilter operations.
+
+The GUI waits for that exact Java process and reads its final JSON report. A
+`complete` result remains in the footer; `login_required`, `blocked`, a nonzero
+exit, or malformed output produces an error popup. Collection outcomes continue
+to use the collector's existing `linkedin_collection_events` database table;
+the GUI does not create another collection log or a login button.
 
 ## LinkedIn availability check
 

@@ -31,6 +31,20 @@ BLOCKED_TITLES_PATH = (
     / "filtering"
     / "linkedin_preview_blocked_titles.txt"
 )
+LINKEDIN_COLLECTOR_CONFIG_PATH = (
+    ROOT / "Driver" / "collector" / "config" / "linkedin.properties"
+)
+LINKEDIN_COLLECTOR_RUNTIME_PATH = (
+    ROOT / "Driver" / "collector" / "java_linkedin" / "runtime.properties"
+)
+LINKEDIN_COLLECTOR_JAR_PATH = (
+    ROOT
+    / "Driver"
+    / "collector"
+    / "java_linkedin"
+    / "target"
+    / "linkedin-collector.jar"
+)
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 DRIVER_ROOT = ROOT / "Driver"
@@ -109,6 +123,9 @@ LINKEDIN_CLOSED_MARKER = "no longer accepting applications"
 LINKEDIN_JOB_ID_PATTERN = re.compile(
     r"(?:/jobs/view/|/jobPosting/|currentJobId=)(\d+)"
 )
+LINKEDIN_COLLECTOR_PROGRESS_PATTERN = re.compile(
+    r"\baccepted=(\d+)/(\d+)\b"
+)
 READONLY_FIELD_COLORS = {
     "background": "#f4f4f0",
     "foreground": "#303030",
@@ -179,6 +196,53 @@ def append_unique_blacklist_term(path: Path, value: Any) -> bool:
             blacklist_file.write("\n")
         blacklist_file.write(term + "\n")
     return True
+
+
+def read_properties_value(path: Path, key: str) -> str:
+    pattern = re.compile(rf"^\s*{re.escape(key)}\s*[=:]\s*(.*?)\s*$")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.lstrip().startswith(("#", "!")):
+            continue
+        match = pattern.match(line)
+        if match is not None:
+            return match.group(1)
+    raise KeyError(f"Property not found: {key}")
+
+
+def write_properties_value(path: Path, key: str, value: Any) -> None:
+    text = path.read_text(encoding="utf-8")
+    pattern = re.compile(
+        rf"^(\s*{re.escape(key)}\s*[=:]\s*).*?$",
+        re.MULTILINE,
+    )
+    updated, replacements = pattern.subn(
+        lambda match: match.group(1) + clean(value),
+        text,
+        count=1,
+    )
+    if replacements != 1:
+        raise KeyError(f"Property not found: {key}")
+    temporary_path = path.with_name(path.name + ".tmp")
+    temporary_path.write_text(updated, encoding="utf-8")
+    temporary_path.replace(path)
+
+
+def parse_linkedin_collector_progress(line: Any) -> tuple[int, int] | None:
+    match = LINKEDIN_COLLECTOR_PROGRESS_PATTERN.search(clean(line))
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def parse_linkedin_collector_result(output: Any) -> dict[str, Any]:
+    for line in reversed(clean(output).splitlines()):
+        try:
+            result = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(result, dict):
+            return result
+    raise ValueError("LinkedIn collector did not return a JSON result.")
 
 
 def format_display_date(value: Any) -> str:
@@ -680,6 +744,9 @@ class JobsViewer(tk.Tk):
         self.current_interest = ""
         self.detail_fields: dict[str, CopyableText] = {}
         self.status_buttons: list[ttk.Button] = []
+        self.collect_button: ttk.Button | None = None
+        self.collector_running = False
+        self.collector_queue: queue.SimpleQueue[tuple[str, Any]] = queue.SimpleQueue()
         self.availability_button: ttk.Button | None = None
         self.refilter_button: ttk.Button | None = None
         self.refilter_detail_button: ttk.Button | None = None
@@ -725,6 +792,8 @@ class JobsViewer(tk.Tk):
         self.id_search_var = tk.StringVar(value="")
         self.added_from_var = tk.StringVar(value="")
         self.reason_filter_var = tk.StringVar(value="")
+        self.collector_limit_var = tk.StringVar(value="")
+        self.current_collector_limit = ""
         self.job_sort_column = self._saved_job_sort_column()
         self.job_sort_descending = self._saved_job_sort_descending()
         self.tech_rows: list[dict[str, str]] = []
@@ -746,6 +815,21 @@ class JobsViewer(tk.Tk):
         style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"))
         style.configure("Muted.TLabel", foreground="#606a76")
         style.configure("Title.TLabel", font=("Segoe UI", 13, "bold"))
+        style.configure(
+            "Collect.TButton",
+            background="#2f7d4a",
+            foreground="#ffffff",
+            font=("Segoe UI", 9, "bold"),
+        )
+        style.map(
+            "Collect.TButton",
+            background=[
+                ("active", "#39945a"),
+                ("pressed", "#25663c"),
+                ("disabled", "#9aa89e"),
+            ],
+            foreground=[("disabled", "#e4e8e5")],
+        )
 
     def _build_ui(self) -> None:
         self.columnconfigure(0, weight=1)
@@ -754,39 +838,47 @@ class JobsViewer(tk.Tk):
 
         toolbar = ttk.Frame(self, padding=(10, 8))
         toolbar.grid(row=0, column=0, sticky="ew")
-        toolbar.columnconfigure(5, weight=1)
+        toolbar.columnconfigure(6, weight=1)
+
+        self.collect_button = ttk.Button(
+            toolbar,
+            text="Collect",
+            style="Collect.TButton",
+            command=self._start_linkedin_collection,
+        )
+        self.collect_button.grid(row=0, column=0, sticky="w")
 
         refresh_button = ttk.Button(toolbar, text="Refresh", command=self.refresh_jobs)
-        refresh_button.grid(row=0, column=0, sticky="w")
+        refresh_button.grid(row=0, column=1, sticky="w", padx=(6, 0))
 
         self.availability_button = ttk.Button(
             toolbar,
             text="Check LinkedIn",
             command=self._start_linkedin_availability_check,
         )
-        self.availability_button.grid(row=0, column=1, sticky="w", padx=(6, 0))
+        self.availability_button.grid(row=0, column=2, sticky="w", padx=(6, 0))
 
         self.refilter_button = ttk.Button(
             toolbar,
             text="Refilter",
             command=self._start_refilter_database,
         )
-        self.refilter_button.grid(row=0, column=2, sticky="w", padx=(6, 0))
+        self.refilter_button.grid(row=0, column=3, sticky="w", padx=(6, 0))
 
         ttk.Button(
             toolbar,
             text="Companies",
             command=self._open_companies_window,
-        ).grid(row=0, column=3, sticky="w", padx=(6, 0))
+        ).grid(row=0, column=4, sticky="w", padx=(6, 0))
 
         ttk.Button(
             toolbar,
             text="Applications",
             command=self._open_applications_window,
-        ).grid(row=0, column=4, sticky="w", padx=(6, 0))
+        ).grid(row=0, column=5, sticky="w", padx=(6, 0))
 
         filters = ttk.Frame(toolbar)
-        filters.grid(row=0, column=5, sticky="w", padx=(8, 8))
+        filters.grid(row=0, column=6, sticky="w", padx=(8, 8))
 
         ttk.Label(filters, text="Status", style="Muted.TLabel").grid(
             row=0,
@@ -810,7 +902,7 @@ class JobsViewer(tk.Tk):
         ).grid(row=0, column=len(self.status_values) + 1, sticky="w", padx=(8, 0))
 
         search_filters = ttk.Frame(toolbar)
-        search_filters.grid(row=0, column=6, sticky="e")
+        search_filters.grid(row=0, column=7, sticky="e")
 
         ttk.Label(search_filters, text="ID", style="Muted.TLabel").grid(
             row=0,
@@ -1295,6 +1387,12 @@ class JobsViewer(tk.Tk):
         self._main_size_save_after_id = None
 
     def _close_app(self) -> None:
+        if self.collector_running:
+            messagebox.showwarning(
+                "LinkedIn collector",
+                "LinkedIn collector is still running.",
+            )
+            return
         if self._main_size_save_after_id is not None:
             self.after_cancel(self._main_size_save_after_id)
             self._main_size_save_after_id = None
@@ -1527,6 +1625,12 @@ class JobsViewer(tk.Tk):
                     ORDER BY "key"
                     """
                 ).fetchall()
+            collector_limit = read_properties_value(
+                LINKEDIN_COLLECTOR_CONFIG_PATH,
+                "limit",
+            )
+            if int(collector_limit) <= 0:
+                raise ValueError("LinkedIn collector limit must be positive.")
         except Exception as error:
             messagebox.showerror("Config load failed", str(error))
             self.status_var.set("Config load failed")
@@ -1550,6 +1654,71 @@ class JobsViewer(tk.Tk):
             )
             checkbox.grid(row=row_index, column=0, sticky="w", pady=4)
             self.config_vars[config_key] = variable
+
+        self.current_collector_limit = collector_limit
+        self.collector_limit_var.set(collector_limit)
+        limit_row = len(rows)
+        ttk.Separator(
+            self.config_rows_frame,
+            orient=tk.HORIZONTAL,
+        ).grid(row=limit_row, column=0, sticky="ew", pady=(10, 10))
+
+        limit_frame = ttk.Frame(self.config_rows_frame)
+        limit_frame.grid(row=limit_row + 1, column=0, sticky="ew")
+        ttk.Label(
+            limit_frame,
+            text="LinkedIn collection limit",
+            style="Muted.TLabel",
+        ).grid(row=0, column=0, sticky="w", padx=(0, 8))
+        limit_entry = ttk.Entry(
+            limit_frame,
+            textvariable=self.collector_limit_var,
+            width=10,
+        )
+        limit_entry.grid(row=0, column=1, sticky="w")
+        self._bind_editable_entry(limit_entry)
+        limit_entry.bind("<Return>", self._save_collector_limit)
+        limit_entry.bind("<KP_Enter>", self._save_collector_limit)
+        limit_entry.bind("<FocusOut>", self._save_collector_limit)
+
+    def _save_collector_limit(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> str:
+        value = self.collector_limit_var.get().strip()
+        try:
+            limit = int(value)
+            if limit <= 0:
+                raise ValueError
+        except ValueError:
+            self.collector_limit_var.set(self.current_collector_limit)
+            messagebox.showerror(
+                "Config update failed",
+                "LinkedIn collection limit must be a positive integer.",
+            )
+            self.status_var.set("Config update failed")
+            return "break"
+
+        normalized = str(limit)
+        self.collector_limit_var.set(normalized)
+        if normalized == self.current_collector_limit:
+            return "break"
+
+        try:
+            write_properties_value(
+                LINKEDIN_COLLECTOR_CONFIG_PATH,
+                "limit",
+                normalized,
+            )
+        except (OSError, KeyError) as error:
+            self.collector_limit_var.set(self.current_collector_limit)
+            messagebox.showerror("Config update failed", str(error))
+            self.status_var.set("Config update failed")
+            return "break"
+
+        self.current_collector_limit = normalized
+        self.status_var.set(f"LinkedIn collection limit = {normalized}")
+        return "break"
 
     def _set_config_value(
         self,
@@ -3260,8 +3429,177 @@ class JobsViewer(tk.Tk):
         if self.current_source_url:
             webbrowser.open_new_tab(self.current_source_url)
 
+    def _start_linkedin_collection(self) -> None:
+        if self.collector_running:
+            return
+        if self.availability_check_running:
+            self.status_var.set("LinkedIn check is running")
+            return
+        if self.refilter_running:
+            self.status_var.set("Refilter is running")
+            return
+
+        try:
+            java_executable = Path(
+                read_properties_value(
+                    LINKEDIN_COLLECTOR_RUNTIME_PATH,
+                    "java.executable",
+                )
+            )
+            configured_limit = int(
+                read_properties_value(
+                    LINKEDIN_COLLECTOR_CONFIG_PATH,
+                    "limit",
+                )
+            )
+            if configured_limit <= 0:
+                raise ValueError("LinkedIn collector limit must be positive.")
+            if not java_executable.is_file():
+                raise FileNotFoundError(f"Java not found: {java_executable}")
+            if not LINKEDIN_COLLECTOR_JAR_PATH.is_file():
+                raise FileNotFoundError(
+                    f"Collector jar not found: {LINKEDIN_COLLECTOR_JAR_PATH}"
+                )
+        except (OSError, KeyError, ValueError) as error:
+            messagebox.showerror("LinkedIn collector failed", str(error))
+            self.status_var.set("LinkedIn collector failed")
+            return
+
+        command = [
+            str(java_executable),
+            "-jar",
+            str(LINKEDIN_COLLECTOR_JAR_PATH),
+            "batch",
+        ]
+        self.collector_running = True
+        self.collector_queue = queue.SimpleQueue()
+        self._set_collect_button_state(False)
+        if self.availability_button is not None:
+            self.availability_button.configure(state=tk.DISABLED)
+        self._set_refilter_buttons_state(False)
+        self.status_var.set(f"LinkedIn collector accepted 0/{configured_limit}")
+
+        thread = threading.Thread(
+            target=self._linkedin_collection_worker,
+            args=(command,),
+            daemon=True,
+        )
+        thread.start()
+        self.after(200, self._poll_linkedin_collection_queue)
+
+    def _linkedin_collection_worker(self, command: list[str]) -> None:
+        stderr_tail: list[str] = []
+        stdout_parts: list[str] = []
+        try:
+            process = subprocess.Popen(
+                command,
+                cwd=ROOT,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                bufsize=1,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if process.stdout is None or process.stderr is None:
+                raise RuntimeError("Could not capture LinkedIn collector output.")
+
+            def read_stdout() -> None:
+                stdout_parts.extend(process.stdout)
+
+            stdout_thread = threading.Thread(target=read_stdout, daemon=True)
+            stdout_thread.start()
+
+            for line in process.stderr:
+                message = line.strip()
+                if message:
+                    stderr_tail.append(message)
+                    del stderr_tail[:-30]
+                progress = parse_linkedin_collector_progress(line)
+                if progress is not None:
+                    self.collector_queue.put(("progress", *progress))
+
+            return_code = process.wait()
+            stdout_thread.join()
+            output = "".join(stdout_parts)
+            if return_code != 0:
+                detail = "\n".join(stderr_tail[-10:]).strip()
+                if not detail:
+                    detail = f"Java exited with code {return_code}."
+                self.collector_queue.put(("error", detail))
+                return
+
+            result = parse_linkedin_collector_result(output)
+            self.collector_queue.put(("done", result))
+        except Exception as error:
+            self.collector_queue.put(("error", str(error)))
+
+    def _poll_linkedin_collection_queue(self) -> None:
+        while True:
+            try:
+                message = self.collector_queue.get_nowait()
+            except queue.Empty:
+                break
+
+            kind = message[0]
+            if kind == "progress":
+                _kind, accepted, limit = message
+                self.status_var.set(
+                    f"LinkedIn collector accepted {accepted}/{limit}"
+                )
+            elif kind == "done":
+                _kind, result = message
+                self._finish_linkedin_collection(result=result)
+            elif kind == "error":
+                _kind, error_message = message
+                self._finish_linkedin_collection(error_message=error_message)
+
+        if self.collector_running:
+            self.after(200, self._poll_linkedin_collection_queue)
+
+    def _finish_linkedin_collection(
+        self,
+        *,
+        result: dict[str, Any] | None = None,
+        error_message: str = "",
+    ) -> None:
+        self.collector_running = False
+        self._set_collect_button_state(True)
+        if not self.refilter_running:
+            self._set_refilter_buttons_state(True)
+        if self.availability_button is not None and not self.refilter_running:
+            self.availability_button.configure(state=tk.NORMAL)
+
+        if error_message:
+            self.status_var.set("LinkedIn collector failed")
+            messagebox.showerror("LinkedIn collector failed", error_message)
+            return
+
+        result = result or {}
+        status = clean(result.get("status", "unknown"))
+        accepted = clean(result.get("accepted_count", "0"))
+        if status == "complete":
+            self.status_var.set(
+                f"LinkedIn collector complete; accepted {accepted}"
+            )
+            return
+
+        detail = clean(result.get("message", "")).strip() or status
+        self.status_var.set(f"LinkedIn collector {status}")
+        messagebox.showerror("LinkedIn collector stopped", detail)
+
+    def _set_collect_button_state(self, enabled: bool) -> None:
+        if self.collect_button is not None:
+            self.collect_button.configure(
+                state=tk.NORMAL if enabled else tk.DISABLED
+            )
+
     def _start_linkedin_availability_check(self) -> None:
         if self.availability_check_running:
+            return
+        if self.collector_running:
+            self.status_var.set("LinkedIn collector is running")
             return
         if self.refilter_running:
             self.status_var.set("Refilter is running")
@@ -3302,6 +3640,7 @@ class JobsViewer(tk.Tk):
         self.availability_queue = queue.SimpleQueue()
         if self.availability_button is not None:
             self.availability_button.configure(state=tk.DISABLED)
+        self._set_collect_button_state(False)
         self._set_refilter_buttons_state(False)
         self.status_var.set(f"LinkedIn check 0/{len(candidates)}")
 
@@ -3321,6 +3660,9 @@ class JobsViewer(tk.Tk):
 
     def _start_refilter_collect(self, *, preview: bool) -> None:
         if self.refilter_running:
+            return
+        if self.collector_running:
+            self.status_var.set("LinkedIn collector is running")
             return
         if self.availability_check_running:
             self.status_var.set("LinkedIn check is running")
@@ -3344,6 +3686,7 @@ class JobsViewer(tk.Tk):
         self._set_refilter_buttons_state(False)
         if self.availability_button is not None:
             self.availability_button.configure(state=tk.DISABLED)
+        self._set_collect_button_state(False)
         self.status_var.set(status)
 
     def _set_refilter_buttons_state(self, enabled: bool) -> None:
@@ -3388,6 +3731,9 @@ class JobsViewer(tk.Tk):
         candidates: list[dict[str, Any]],
     ) -> None:
         if self.refilter_running:
+            return
+        if self.collector_running:
+            self.status_var.set("LinkedIn collector is running")
             return
         if self.availability_check_running:
             self.status_var.set("LinkedIn check is running")
@@ -3443,6 +3789,8 @@ class JobsViewer(tk.Tk):
         self._set_refilter_buttons_state(True)
         if self.availability_button is not None and not self.availability_check_running:
             self.availability_button.configure(state=tk.NORMAL)
+        if not self.availability_check_running:
+            self._set_collect_button_state(True)
 
     def _show_refilter_detail(self, candidates: list[dict[str, Any]]) -> None:
         dialog = tk.Toplevel(self)
@@ -4040,6 +4388,8 @@ class JobsViewer(tk.Tk):
         self.availability_check_running = False
         if self.availability_button is not None:
             self.availability_button.configure(state=tk.NORMAL)
+        if not self.refilter_running:
+            self._set_collect_button_state(True)
         if not self.refilter_running:
             self._set_refilter_buttons_state(True)
 
