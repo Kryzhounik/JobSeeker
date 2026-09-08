@@ -9,6 +9,13 @@ import sys
 from typing import Any, TextIO
 
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from contracts.validate_json import validate_json
+
+
 FIT_FIELDS = {
     "candidate_fit_percent",
     "candidate_fit_reason_code",
@@ -38,6 +45,10 @@ def add_fit_score(source_path: Path, fit_result: dict[str, Any], output_path: Pa
     source = json.loads(source_path.read_text(encoding="utf-8"))
     if not isinstance(source, dict):
         raise ValueError("analyzed JSON must contain an object")
+    validate_json(
+        fit_result,
+        ROOT / "contracts" / "candidate_fit_result.schema.json",
+    )
     if set(fit_result) != FIT_FIELDS:
         raise ValueError(f"candidate-fit result must contain exactly: {sorted(FIT_FIELDS)}")
 

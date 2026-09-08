@@ -42,8 +42,10 @@ For each assigned vacancy:
    `python collector/filtering/language_requirements.py`.
 3. Send the readable text plus the returned deterministic language facts to
    the group's existing target. Label those facts authoritative.
-4. Validate the returned object against `contracts/job_analysis.schema.json`
-   and write `<analyzed-json>`.
+4. Send the returned object directly as UTF-8 JSON on standard input to:
+   `python contracts/validate_json.py --schema contracts/job_analysis.schema.json --output <analyzed-json>`.
+   This command validates and writes the analyzed JSON. Do not choose another
+   validation library or create a temporary transport file.
 5. After successful persistence, run:
    `python db/job_registry.py ANALYZED --source <source> --job-id <job-id>`.
 
@@ -87,13 +89,12 @@ experimental analyzer scores, existing scored JSON, and database scores. Its
 allowed history consists only of its instruction, candidate profile, analyzed
 JSON inputs already evaluated in this run, and its own returned fit results.
 
-For every returned result:
-
-1. Validate the three-field object against
-   `contracts/candidate_fit_result.schema.json`.
-2. Start the following command and send that object directly to its UTF-8
-   standard input as JSON:
+For every returned result, start the following command and send the three-field
+object directly to its UTF-8 standard input as JSON:
    `python analyzer/candidate_fit/add_fit_score.py --input <analyzed-json> --output <scored-json>`.
+
+`add_fit_score.py` validates the object against
+`contracts/candidate_fit_result.schema.json` before writing the scored JSON.
 
 Do not create a temporary fit-result file, pass JSON through command arguments,
 or read or rewrite analyzed JSON through PowerShell. `add_fit_score.py` owns
