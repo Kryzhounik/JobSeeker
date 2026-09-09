@@ -522,6 +522,29 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("5+ years of C preferred")
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_preferably_terraform_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Experience with Infrastructure as Code, preferably Terraform "
+            "Experience working with multiple cloud environments "
+            "(at least one deeply)"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_backend_language_preference_for_go_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Proficiency in at least one backend language with strong "
+            "preferences towards Go."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_willingness_to_expand_into_go_is_not_a_hard_requirement(self) -> None:
+        result = decide_content(
+            "Senior-level expertise in at least one core language: Go or a JVM "
+            "language (Java/Kotlin). High proficiency in one stack is required, "
+            "with a willingness to expand technical knowledge into Go."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_optional_heading_in_adjacent_line_prevents_rejection(self) -> None:
         result = decide_content("Nice to have:\nAdvanced C programming skills")
         self.assertEqual(result["content_decision"], "analyze")

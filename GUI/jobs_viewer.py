@@ -4261,6 +4261,50 @@ class JobsViewer(tk.Tk):
             ("original", "Original", 74, "left"),
             ("matched", "Match", 24, "left"),
         )
+        select_all_var = tk.BooleanVar(value=True)
+        selected_vars = {
+            id(candidate): tk.BooleanVar(value=True) for candidate in candidates
+        }
+        confirm_button: ttk.Button | None = None
+
+        def update_confirm_state() -> None:
+            if confirm_button is None:
+                return
+            has_selected = any(variable.get() for variable in selected_vars.values())
+            confirm_button.configure(
+                state=tk.NORMAL if has_selected else tk.DISABLED
+            )
+
+        def update_select_all_state() -> None:
+            select_all_var.set(
+                bool(selected_vars)
+                and all(variable.get() for variable in selected_vars.values())
+            )
+            update_confirm_state()
+
+        def set_all_selected() -> None:
+            selected = select_all_var.get()
+            for variable in selected_vars.values():
+                variable.set(selected)
+            update_confirm_state()
+
+        select_all = tk.Checkbutton(
+            rows_frame,
+            text="All",
+            variable=select_all_var,
+            command=set_all_selected,
+            anchor="center",
+            background="#e7e9e7",
+            foreground="#202020",
+            font=("Segoe UI", 9, "bold"),
+            borderwidth=1,
+            relief="solid",
+            padx=4,
+            pady=2,
+        )
+        select_all.grid(row=0, column=0, sticky="nsew")
+        bind_canvas_wheel(select_all)
+
         headers: dict[str, tk.Label] = {}
         for column_index, (name, label, width, justify) in enumerate(columns):
             header = tk.Label(
@@ -4276,19 +4320,40 @@ class JobsViewer(tk.Tk):
                 padx=4,
                 pady=3,
             )
-            header.grid(row=0, column=column_index, sticky="nsew")
+            header.grid(row=0, column=column_index + 1, sticky="nsew")
             bind_canvas_wheel(header)
             headers[name] = header
 
-        row_cells: list[CopyableText] = []
+        row_widgets: list[tk.Widget] = []
 
         def render_candidates(displayed: list[dict[str, Any]]) -> None:
-            for cell in row_cells:
-                cell.destroy()
-            row_cells.clear()
+            for widget in row_widgets:
+                widget.destroy()
+            row_widgets.clear()
 
             for index, candidate in enumerate(displayed):
                 background = "#f7f9fb" if index % 2 else "#ffffff"
+                selected = tk.Checkbutton(
+                    rows_frame,
+                    variable=selected_vars[id(candidate)],
+                    command=update_select_all_state,
+                    anchor="center",
+                    background=background,
+                    activebackground=background,
+                    borderwidth=0,
+                    highlightthickness=0,
+                    padx=5,
+                    pady=3,
+                )
+                selected.grid(
+                    row=index + 1,
+                    column=0,
+                    sticky="nsew",
+                    padx=1,
+                    pady=1,
+                )
+                bind_canvas_wheel(selected)
+                row_widgets.append(selected)
                 values = tuple(
                     one_line(value)
                     for value in (
@@ -4328,7 +4393,7 @@ class JobsViewer(tk.Tk):
                     cell.insert("1.0", value, "value")
                     cell.grid(
                         row=index + 1,
-                        column=column_index,
+                        column=column_index + 1,
                         sticky="nsew",
                         padx=1,
                         pady=1,
@@ -4340,7 +4405,7 @@ class JobsViewer(tk.Tk):
                             cell,
                             clean(candidate.get("source_url", "")),
                         )
-                    row_cells.append(cell)
+                    row_widgets.append(cell)
 
         sorter = SortableRows(
             tuple(
@@ -4376,9 +4441,16 @@ class JobsViewer(tk.Tk):
             self.status_var.set("Refilter detail cancelled")
 
         def confirm() -> None:
+            selected_candidates = [
+                candidate
+                for candidate in candidates
+                if selected_vars[id(candidate)].get()
+            ]
+            if not selected_candidates:
+                return
             flush_detail_size()
             dialog.destroy()
-            self._start_confirmed_refilter_delete(candidates)
+            self._start_confirmed_refilter_delete(selected_candidates)
 
         ttk.Button(actions, text="Cancel", command=cancel).grid(
             row=0,

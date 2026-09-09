@@ -326,6 +326,9 @@ class VacancyFilter:
         self.content_optional_signals = tuple(
             configured_patterns(self.content_config, "optional_signals")
         )
+        self.optional_technology_templates = tuple(
+            configured_values(self.content_config, "optional_technology_templates")
+        )
         self.language_extractor = load_language_requirement_extractor(
             language_config_path
         )
@@ -423,6 +426,7 @@ class VacancyFilter:
                     for name in unit_technologies
                     for template in self.hard_requirement_templates
                     if requirement_pattern(template, name).search(unit)
+                    and not self.technology_is_optional(context, name)
                 ]
                 matched_technologies = list(dict.fromkeys(name for name, _ in matches))
                 matched_signals = list(dict.fromkeys(template for _, template in matches))
@@ -458,6 +462,12 @@ class VacancyFilter:
             return FilterResult(False, "technology content filter disabled")
         return FilterResult(False, "no content skip signals")
 
+    def technology_is_optional(self, context: str, technology: str) -> bool:
+        return any(
+            requirement_pattern(template, technology).search(context)
+            for template in self.optional_technology_templates
+        )
+
     def filter_technology_lists(
         self,
         unit: str,
@@ -486,7 +496,14 @@ class VacancyFilter:
                     return True, None
 
                 matches_by_item = [
-                    technology_matches(item, self.blocked_technology_patterns)
+                    [
+                        name
+                        for name in technology_matches(
+                            item,
+                            self.blocked_technology_patterns,
+                        )
+                        if not self.technology_is_optional(context, name)
+                    ]
                     for item in items
                 ]
                 alternative = always_alternative or example_list or bool(
