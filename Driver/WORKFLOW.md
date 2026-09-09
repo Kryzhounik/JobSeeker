@@ -169,6 +169,15 @@ for each fully scored JSON in scope order:
     -> SQLite save
 ```
 
+Save the exact completed scope in one call:
+
+```text
+python db/save.py --input ../Data/scored/<source> --source <source> --job-ids <comma-separated-source-job-ids>
+```
+
+Do not pass the whole scored directory without `--job-ids` during a scoped
+run.
+
 Do not pick one arbitrary raw file, readable DB row, or analyzed file from a batch unless the
 user explicitly asks for a single-id debug run.
 

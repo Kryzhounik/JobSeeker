@@ -21,9 +21,17 @@ from db.job_mapper import save_job_json
 from db.migrate import migrate_database
 
 
-def json_paths(input_path: Path) -> list[Path]:
+def json_paths(input_path: Path, job_ids: list[str] | None = None) -> list[Path]:
     if input_path.is_file():
+        if job_ids:
+            raise ValueError("--job-ids requires a scored JSON directory")
         return [input_path]
+    if job_ids:
+        paths = [input_path / f"{job_id}.json" for job_id in job_ids]
+        missing = [path.name for path in paths if not path.is_file()]
+        if missing:
+            raise ValueError(f"missing scored JSON files: {', '.join(missing)}")
+        return paths
     return sorted(input_path.glob("*.json"))
 
 
@@ -146,6 +154,7 @@ def save_records(
     schema_path: Path,
     source: str,
     force: bool,
+    job_ids: list[str] | None = None,
 ) -> list[tuple[str, str]]:
     results: list[tuple[str, str]] = []
 
@@ -167,7 +176,7 @@ def save_records(
             except Exception as error:
                 results.append(("error", f"stdin :: {error}"))
         else:
-            for path in json_paths(Path(input_value)):
+            for path in json_paths(Path(input_value), job_ids):
                 try:
                     result = save_one_record(
                         connection,
@@ -196,7 +205,17 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--schema", default=str(ROOT / "db" / "schema.sql"))
     parser.add_argument("--force", action="store_true")
+    parser.add_argument(
+        "--job-ids",
+        help="Comma-separated source-job IDs to select from the input directory.",
+    )
     args = parser.parse_args()
+
+    job_ids = None
+    if args.job_ids:
+        job_ids = [value.strip() for value in args.job_ids.split(",") if value.strip()]
+        if len(job_ids) != len(set(job_ids)):
+            parser.error("--job-ids contains duplicate values")
 
     results = save_records(
         input_value=args.input,
@@ -204,6 +223,7 @@ def main() -> None:
         schema_path=Path(args.schema),
         source=args.source,
         force=args.force,
+        job_ids=job_ids,
     )
     for status, value in results:
         print(f"{status}: {value}")

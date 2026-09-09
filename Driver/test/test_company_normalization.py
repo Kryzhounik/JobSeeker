@@ -15,6 +15,7 @@ if str(DRIVER_ROOT) not in sys.path:
 from collector.filtering.linkedin_filter import Vacancy
 from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import decide_preview
+from db.job_mapper import existing_source_urls
 from db.job_mapper import load_job_json
 from db.job_mapper import save_job_json
 from db.migrate import migrate_database
@@ -71,7 +72,9 @@ class CompanyNormalizationTest(unittest.TestCase):
                 workplace="remote",
                 salary="",
             )
+            self.assertNotIn(record["source_url"], existing_source_urls(connection))
             job_id = save_job_json(connection, record)
+            self.assertIn(record["source_url"], existing_source_urls(connection))
             connection.commit()
             company = connection.execute(
                 "SELECT name, blacklisted FROM companies"

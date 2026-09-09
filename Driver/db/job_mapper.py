@@ -126,9 +126,11 @@ def existing_source_urls(connection: sqlite3.Connection) -> set[str]:
         row[0]
         for row in connection.execute(
             """
-            SELECT source_url
-            FROM source_job_texts
-            WHERE length(trim(source_url)) > 0
+            SELECT text.source_url
+            FROM jobs job
+            JOIN source_job_texts text
+                ON text.source_job_ref = job.source_job_ref
+            WHERE length(trim(text.source_url)) > 0
             """
         ).fetchall()
     }
