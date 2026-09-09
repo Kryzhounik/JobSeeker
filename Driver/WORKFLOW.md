@@ -19,7 +19,7 @@ otherwise.
 ```text
 collector/source adapter
 -> readable vacancy text in SQLite (raw HTML remains persisted)
--> one batch title relevance filter over the collected scope
+-> one batch agent relevance filter over the collected scope
 -> analyzer/analyze_job.md over the explicit scope
    -> parallel grouped analyzer/job_facts/extract.md
    -> one persistent analyzer/candidate_fit/evaluate.md agent for the run
@@ -57,9 +57,9 @@ does not run analysis or scoring.
 Before detailed analysis, send the complete returned scope to one agent
 operation through `agent_execution.md`:
 
-- operation: `title_filter`;
-- instruction: `analyzer/title_filter.md`;
-- output schema: `contracts/title_filter_result.schema.json`;
+- operation: `agent_filter`;
+- instruction: `analyzer/agent_filter.md`;
+- output schema: `contracts/agent_filter_result.schema.json`;
 - run ID from the current run;
 - one target and one request for the complete scope.
 
@@ -169,8 +169,8 @@ Current MVP scopes:
 - `reprocess-raw linkedin`: process every raw HTML file currently present in
   `../Data/raw/linkedin/pages/`.
 - `batch linkedin`: process the source-job IDs accepted by both collector
-  filters and the title relevance filter in that batch. Content-filtered and
-  title-filtered source data stay available but are not part of the analyzer
+  filters and the agent relevance filter in that batch. Content-filtered and
+  agent-filtered source data stay available but are not part of the analyzer
   scope.
 
 For any multi-file scope, prepare readable text for every vacancy, then invoke
@@ -179,7 +179,7 @@ the analyzer once with that explicit ordered scope:
 ```text
 for each raw HTML file in the explicit scope:
     source adapter stores readable vacancy text in SQLite
-title relevance filter removes explicit nonrelevant IDs from the scope
+agent relevance filter removes explicit nonrelevant IDs from the scope
 analyzer/analyze_job.md processes the complete explicit scope
     -> grouped parallel job facts using analyzer/config/execution.ini
     -> deterministic candidate-fit gates

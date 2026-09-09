@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "contracts/title_filter_result.schema.json",
-  "title": "Title relevance filter result",
+  "$id": "contracts/agent_filter_result.schema.json",
+  "title": "Agent relevance filter result",
   "type": "object",
   "additionalProperties": false,
   "required": ["nonrelevant_job_ids"],
