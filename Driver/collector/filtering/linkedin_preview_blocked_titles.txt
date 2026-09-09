@@ -688,3 +688,24 @@ Product Specialist
 Legal Associate
 Data Privacy Specialist
 Senior NOC Engineer
+Spine Animator
+Lead Vue.js / Nuxt.js
+Head of PSP
+DNA Solutions Engineer
+Technical Artist
+Senior Azure Engineer
+Social Intelligence Engineer
+Продюсер
+Cybersecurity Associate
+Архитектор проектов
+Head of Planning
+HR Specialist
+Маркетолог
+Спеціаліст з підтримки
+Operations Professionals
+Head of Integrated Communications
+Marketing Tech Lead
+R&D Specialist
+Compliance Specialist
+Route Engineer
+Chief Specialist

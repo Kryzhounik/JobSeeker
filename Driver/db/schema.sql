@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS processing_statuses (
 INSERT OR IGNORE INTO processing_statuses (code, sort_order) VALUES
     ('RAW', 10),
     ('CLEANED', 20),
+    ('NONRELEVANT', 25),
     ('ANALYZED', 30),
     ('SCORED', 40),
     ('SAVED', 50);

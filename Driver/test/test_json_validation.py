@@ -18,6 +18,7 @@ from analyzer.candidate_fit.add_fit_score import add_fit_score
 
 ANALYSIS_SCHEMA = DRIVER_ROOT / "contracts" / "job_analysis.schema.json"
 FIT_SCHEMA = DRIVER_ROOT / "contracts" / "candidate_fit_result.schema.json"
+TITLE_FILTER_SCHEMA = DRIVER_ROOT / "contracts" / "title_filter_result.schema.json"
 
 
 def valid_analysis() -> dict:
@@ -113,6 +114,17 @@ class JsonValidationTest(unittest.TestCase):
                 )
 
             self.assertFalse(output_path.exists())
+
+    def test_validates_title_filter_result(self) -> None:
+        validate_json(
+            {"nonrelevant_job_ids": ["123", "456"]},
+            TITLE_FILTER_SCHEMA,
+        )
+        with self.assertRaises(SchemaValidationError):
+            validate_json(
+                {"nonrelevant_job_ids": [""]},
+                TITLE_FILTER_SCHEMA,
+            )
 
 
 if __name__ == "__main__":

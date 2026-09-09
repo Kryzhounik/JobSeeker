@@ -326,6 +326,17 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
+    def test_strong_commercial_vue_and_nuxt_experience_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong commercial experience with Vue.js 3 and Nuxt.js"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Vue.js", "Nuxt.js"])
+
+    def test_strong_commercial_vue_or_java_experience_is_not_blocked(self) -> None:
+        result = decide_content("Strong commercial experience with Vue.js 3 or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_java_does_not_hide_and_list_requirement(self) -> None:
         result = decide_content("Strong experience with Java and Python")
         self.assertEqual(result["content_decision"], "skip")

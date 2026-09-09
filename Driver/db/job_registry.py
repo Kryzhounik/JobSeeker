@@ -22,7 +22,14 @@ from common.paths import DATA_ROOT
 
 
 SOURCE_CODES = ("justjoin", "linkedin")
-PROCESSING_STATUSES = ("RAW", "CLEANED", "ANALYZED", "SCORED", "SAVED")
+PROCESSING_STATUSES = (
+    "RAW",
+    "CLEANED",
+    "NONRELEVANT",
+    "ANALYZED",
+    "SCORED",
+    "SAVED",
+)
 STATUS_ORDER = {status: index for index, status in enumerate(PROCESSING_STATUSES)}
 COLLECTION_METHODS = ("unknown", "script", "browser", "playwright")
 

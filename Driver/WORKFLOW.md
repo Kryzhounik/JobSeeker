@@ -19,6 +19,7 @@ otherwise.
 ```text
 collector/source adapter
 -> readable vacancy text in SQLite (raw HTML remains persisted)
+-> one batch title relevance filter over the collected scope
 -> analyzer/analyze_job.md over the explicit scope
    -> parallel grouped analyzer/job_facts/extract.md
    -> one persistent analyzer/candidate_fit/evaluate.md agent for the run
@@ -52,6 +53,23 @@ implementations outside that instruction.
 
 Continue the main pipeline only for the returned explicit scope. Collection
 does not run analysis or scoring.
+
+Before detailed analysis, send the complete returned scope to one agent
+operation through `agent_execution.md`:
+
+- operation: `title_filter`;
+- instruction: `analyzer/title_filter.md`;
+- output schema: `contracts/title_filter_result.schema.json`;
+- run ID from the current run;
+- one target and one request for the complete scope.
+
+Use the `source`, `job_id`, and `title` values already returned by the
+collector. For each returned `nonrelevant_job_id`, run
+`python db/job_registry.py NONRELEVANT --source <source> --job-id <job-id>`.
+Reject any result containing an ID outside the supplied scope. Remove the
+returned IDs from the ordered scope and pass only the remainder to
+`analyzer/analyze_job.md`. If none remain, the run completes without analysis
+or save.
 
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.
@@ -151,8 +169,9 @@ Current MVP scopes:
 - `reprocess-raw linkedin`: process every raw HTML file currently present in
   `../Data/raw/linkedin/pages/`.
 - `batch linkedin`: process the source-job IDs accepted by both collector
-  filters in that batch. Content-filtered raw HTML and stored readable text stay
-  available for calibration but are not part of the analyzer scope.
+  filters and the title relevance filter in that batch. Content-filtered and
+  title-filtered source data stay available but are not part of the analyzer
+  scope.
 
 For any multi-file scope, prepare readable text for every vacancy, then invoke
 the analyzer once with that explicit ordered scope:
@@ -160,6 +179,7 @@ the analyzer once with that explicit ordered scope:
 ```text
 for each raw HTML file in the explicit scope:
     source adapter stores readable vacancy text in SQLite
+title relevance filter removes explicit nonrelevant IDs from the scope
 analyzer/analyze_job.md processes the complete explicit scope
     -> grouped parallel job facts using analyzer/config/execution.ini
     -> deterministic candidate-fit gates

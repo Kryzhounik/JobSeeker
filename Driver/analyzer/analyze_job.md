@@ -1,7 +1,9 @@
 Purpose: orchestrate all analysis operations for one explicit vacancy scope.
 
 Input:
-- Source and ordered source-job IDs whose readable text exists in SQLite.
+- Source and ordered source-job IDs left after the title relevance filter and
+  whose readable text exists in SQLite. Never include a source job with
+  processing status `NONRELEVANT`.
 
 Output:
 - One fully scored JSON file per input under `../Data/scored/<source>/`.
