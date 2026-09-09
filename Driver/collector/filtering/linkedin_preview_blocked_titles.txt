@@ -686,3 +686,5 @@ Lawyer
 Catalog Operations Assistant
 Product Specialist
 Legal Associate
+Data Privacy Specialist
+Senior NOC Engineer

@@ -34,6 +34,15 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C"])
 
+    def test_advanced_and_list_is_blocked_by_python(self) -> None:
+        result = decide_content("Advanced SQL and Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_advanced_or_list_keeps_java_alternative(self) -> None:
+        result = decide_content("Advanced Python or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_cpp_matches_only_cpp_technology(self) -> None:
         result = decide_content("Advanced C++ programming skills with industry experience")
         self.assertEqual(result["content_decision"], "skip")
@@ -256,6 +265,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Strong C++; Linux and embedded software.")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++"])
+
+    def test_strong_single_technology_is_blocked(self) -> None:
+        result = decide_content("Strong Python.")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_short_strong_or_list_keeps_unblocked_option(self) -> None:
         result = decide_content("Strong Python or Java")
