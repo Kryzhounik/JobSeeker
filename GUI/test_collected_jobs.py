@@ -63,6 +63,33 @@ class CollectedJobsTest(unittest.TestCase):
         self.assertEqual(rows[0]["collected_workplace"], "remote")
         self.assertEqual(rows[0]["readable_text"], "Full collected text")
 
+    def test_filters_collected_jobs_by_processing_status(self) -> None:
+        rows = [
+            {"source_job_ref": 1, "processing_status": "CLEANED"},
+            {"source_job_ref": 2, "processing_status": "NONRELEVANT"},
+            {"source_job_ref": 3, "processing_status": "CLEANED"},
+        ]
+
+        filtered = jobs_viewer.filter_collected_jobs(rows, "CLEANED")
+
+        self.assertEqual(
+            [row["source_job_ref"] for row in filtered],
+            [1, 3],
+        )
+
+    def test_all_processing_statuses_returns_every_collected_job(self) -> None:
+        rows = [
+            {"source_job_ref": 1, "processing_status": "CLEANED"},
+            {"source_job_ref": 2, "processing_status": "NONRELEVANT"},
+        ]
+
+        filtered = jobs_viewer.filter_collected_jobs(
+            rows,
+            jobs_viewer.ALL_COLLECTED_STAGES,
+        )
+
+        self.assertEqual(filtered, rows)
+
 
 if __name__ == "__main__":
     unittest.main()

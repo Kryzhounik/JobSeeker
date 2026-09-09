@@ -43,11 +43,13 @@ ascending and descending order; the header shows `^` or `v`. Native tables and
 copyable text grids share the same sortable-table base behavior. Main,
 Collected, Companies, and Applications sorting is restored from GUI settings.
 
-In the main table, double-click a `Title` cell to open title-selection mode.
-Drag across any title fragment and right-click it to use `Copy` or
-`To blacklist`. `To blacklist` appends the selected fragment to the active
-LinkedIn title blacklist file. Blank selections and case-insensitive duplicates
-are not added. This selection mode is available only in the `Title` column.
+In the main and Collected tables, double-click a `Title` cell to open
+title-selection mode. Drag across any title fragment and right-click it to use
+`Copy`, `Selection to blacklist`, or `Title to blacklist`. The selection action
+appends only the selected fragment; the title action appends the complete title.
+For the shorter path, right-click a `Title` cell directly and choose
+`Title to blacklist`. Blank values and case-insensitive duplicates are not
+added. These blacklist actions are available only in the `Title` column.
 
 ## Filters
 
@@ -146,8 +148,11 @@ The `Collected` button opens the data saved by the collector before analysis.
 The table shows source ID, processing stage, collection method, title, normalized
 company, collected location, workplace, salary, and source URL. Selecting a row
 shows its full cleaned text below the table; `Open` or a double-click opens the
-source URL. The window has its own `Refresh` button and also refreshes after a
-successful GUI collection run.
+source URL, except that a double-click on `Title` opens title-selection mode.
+The `Stage` selector filters by one of the processing statuses present in the
+loaded rows, or `All`; the selection is stored in GUI settings. The window has
+its own `Refresh` button and also refreshes after a successful GUI collection
+run.
 
 The list reads `source_jobs`, `source_job_texts`, and `companies`. It includes
 only rows whose collector metadata has been saved, so older text-only rows with

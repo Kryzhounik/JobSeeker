@@ -97,6 +97,7 @@ COLLECTED_JOB_COLUMNS = (
     ("collected_salary", "Salary", 170, "w"),
     ("source_url", "URL", 300, "w"),
 )
+ALL_COLLECTED_STAGES = "All"
 
 DETAIL_FIELDS = (
     ("title", "Title"),
@@ -306,6 +307,20 @@ def load_collected_jobs(connection: sqlite3.Connection) -> list[sqlite3.Row]:
         ORDER BY sj.id DESC
         """
     ).fetchall()
+
+
+def filter_collected_jobs(
+    rows: list[dict[str, Any]],
+    processing_status: Any,
+) -> list[dict[str, Any]]:
+    selected_status = clean(processing_status).strip()
+    if not selected_status or selected_status == ALL_COLLECTED_STAGES:
+        return list(rows)
+    return [
+        row
+        for row in rows
+        if clean(row.get("processing_status")).strip() == selected_status
+    ]
 
 
 class CopyableText(tk.Text):
@@ -805,6 +820,16 @@ class JobsViewer(tk.Tk):
         self.collected_tree: SortableTreeview | None = None
         self.collected_text: CopyableText | None = None
         self.collected_count_var: tk.StringVar | None = None
+        self.collected_stage_filter_var = tk.StringVar(
+            value=clean(
+                self.settings.get(
+                    "collected_stage_filter",
+                    ALL_COLLECTED_STAGES,
+                )
+            )
+            or ALL_COLLECTED_STAGES
+        )
+        self.collected_stage_filter: ttk.Combobox | None = None
         self.collected_rows: list[dict[str, Any]] = []
         self.collected_rows_by_item: dict[str, dict[str, Any]] = {}
         self.current_collected_url = ""
@@ -822,6 +847,7 @@ class JobsViewer(tk.Tk):
         self.job_links_after_id: str | None = None
         self.job_column_resize_active = False
         self.title_selection_entry: tk.Entry | None = None
+        self.title_selection_tree: ttk.Treeview | None = None
         self.title_selection_item = ""
         self.title_selection_menu_open = False
         self.availability_check_running = False
@@ -1553,6 +1579,7 @@ class JobsViewer(tk.Tk):
                 "column": self.collected_sort_column,
                 "descending": bool(self.collected_sort_descending),
             },
+            "collected_stage_filter": self.collected_stage_filter_var.get(),
             "application_sort": {
                 "column": self.application_sort_column,
                 "descending": bool(self.application_sort_descending),
@@ -1865,11 +1892,49 @@ class JobsViewer(tk.Tk):
         self,
         event: tk.Event[tk.Misc],
     ) -> str | None:
-        if self.jobs_tree.identify_region(event.x, event.y) != "cell":
+        return self._start_tree_title_selection(
+            event,
+            self.jobs_tree,
+            self.job_rows,
+            self._scroll_jobs_from_title_selection,
+        )
+
+    def _start_collected_title_selection(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        tree = self.collected_tree
+        if tree is None:
             return None
-        item = self.jobs_tree.identify_row(event.y)
-        column_ref = self.jobs_tree.identify_column(event.x)
-        columns = tuple(self.jobs_tree["columns"])
+        return self._start_tree_title_selection(
+            event,
+            tree,
+            self.collected_rows_by_item,
+            self._scroll_collected_from_title_selection,
+        )
+
+    def _collected_tree_double_click(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        result = self._start_collected_title_selection(event)
+        if result == "break":
+            return result
+        self._open_collected_link()
+        return None
+
+    def _start_tree_title_selection(
+        self,
+        event: tk.Event[tk.Misc],
+        tree: ttk.Treeview,
+        rows_by_item: dict[str, dict[str, Any]],
+        scroll_handler: Any,
+    ) -> str | None:
+        if tree.identify_region(event.x, event.y) != "cell":
+            return None
+        item = tree.identify_row(event.y)
+        column_ref = tree.identify_column(event.x)
+        columns = tuple(tree["columns"])
         try:
             column = columns[int(column_ref.removeprefix("#")) - 1]
         except (ValueError, IndexError):
@@ -1878,14 +1943,14 @@ class JobsViewer(tk.Tk):
             return None
 
         self._close_title_selection()
-        bounds = self.jobs_tree.bbox(item, column)
-        row = self.job_rows.get(item)
+        bounds = tree.bbox(item, column)
+        row = rows_by_item.get(item)
         if not bounds or row is None:
             return "break"
 
         x, y, width, height = bounds
         entry = tk.Entry(
-            self.jobs_tree,
+            tree,
             borderwidth=1,
             relief="solid",
             background="#fff2a8",
@@ -1906,12 +1971,13 @@ class JobsViewer(tk.Tk):
         entry.bind("<Button-3>", self._show_title_selection_menu)
         entry.bind("<Escape>", self._close_title_selection_from_event)
         entry.bind("<FocusOut>", self._title_selection_focus_out)
-        entry.bind("<MouseWheel>", self._scroll_jobs_from_title_selection)
+        entry.bind("<MouseWheel>", scroll_handler)
         entry.bind(
             "<Shift-MouseWheel>",
-            self._scroll_jobs_from_title_selection,
+            scroll_handler,
         )
         self.title_selection_entry = entry
+        self.title_selection_tree = tree
         self.title_selection_item = item
         entry.focus_set()
         entry.selection_range(0, tk.END)
@@ -1963,11 +2029,16 @@ class JobsViewer(tk.Tk):
             state=tk.NORMAL if fragment else tk.DISABLED,
         )
         menu.add_command(
-            label="To blacklist",
+            label="Selection to blacklist",
             command=lambda widget=entry: self._add_title_selection_to_blacklist(
                 widget
             ),
             state=tk.NORMAL if fragment.strip() else tk.DISABLED,
+        )
+        menu.add_command(
+            label="Title to blacklist",
+            command=lambda value=entry.get(): self._add_title_to_blacklist(value),
+            state=tk.NORMAL if entry.get().strip() else tk.DISABLED,
         )
         self.title_selection_menu_open = True
         try:
@@ -1980,14 +2051,17 @@ class JobsViewer(tk.Tk):
 
     def _add_title_selection_to_blacklist(self, entry: tk.Entry) -> None:
         fragment = self._selected_title_fragment(entry)
+        self._add_title_to_blacklist(fragment)
+
+    def _add_title_to_blacklist(self, value: Any) -> None:
         try:
-            added = append_unique_blacklist_term(BLOCKED_TITLES_PATH, fragment)
+            added = append_unique_blacklist_term(BLOCKED_TITLES_PATH, value)
         except (OSError, ValueError) as error:
             messagebox.showerror("Title blacklist", str(error))
             self.status_var.set("Could not update title blacklist")
             return
 
-        term = " ".join(fragment.split())
+        term = " ".join(clean(value).split())
         if added:
             self.status_var.set(f"Added to title blacklist: {term}")
         else:
@@ -2011,13 +2085,16 @@ class JobsViewer(tk.Tk):
         self,
         _event: tk.Event[tk.Misc] | None = None,
     ) -> str:
+        tree = self.title_selection_tree
         self._close_title_selection()
-        self.jobs_tree.focus_set()
+        if tree is not None and tree.winfo_exists():
+            tree.focus_set()
         return "break"
 
     def _close_title_selection(self) -> None:
         entry = self.title_selection_entry
         self.title_selection_entry = None
+        self.title_selection_tree = None
         self.title_selection_item = ""
         if entry is not None and entry.winfo_exists():
             entry.destroy()
@@ -2035,6 +2112,22 @@ class JobsViewer(tk.Tk):
         else:
             self.jobs_tree.yview_scroll(direction, "units")
         self._schedule_job_link_labels()
+        return "break"
+
+    def _scroll_collected_from_title_selection(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str:
+        delta = int(getattr(event, "delta", 0) or 0)
+        direction = -1 if delta > 0 else 1
+        horizontal = bool(event.state & 0x1)
+        self._close_title_selection()
+        tree = self.collected_tree
+        if tree is not None:
+            if horizontal:
+                tree.xview_scroll(direction, "units")
+            else:
+                tree.yview_scroll(direction, "units")
         return "break"
 
     def _schedule_job_link_labels(self) -> None:
@@ -2239,12 +2332,15 @@ class JobsViewer(tk.Tk):
                 window.after_cancel(size_save_after_id)
                 size_save_after_id = None
             self._remember_window_size("collected", window)
+            if self.title_selection_tree is self.collected_tree:
+                self._close_title_selection()
             self.collected_rows.clear()
             self.collected_rows_by_item.clear()
             self.current_collected_url = ""
             self.collected_tree = None
             self.collected_text = None
             self.collected_count_var = None
+            self.collected_stage_filter = None
             self.collected_window = None
             window.destroy()
 
@@ -2253,7 +2349,7 @@ class JobsViewer(tk.Tk):
 
         actions = ttk.Frame(window, padding=(10, 10, 10, 0))
         actions.grid(row=0, column=0, sticky="ew")
-        actions.columnconfigure(2, weight=1)
+        actions.columnconfigure(4, weight=1)
         ttk.Button(
             actions,
             text="Refresh",
@@ -2264,12 +2360,30 @@ class JobsViewer(tk.Tk):
             text="Open",
             command=self._open_collected_link,
         ).grid(row=0, column=1, sticky="w", padx=(6, 0))
+        ttk.Label(actions, text="Stage", style="Muted.TLabel").grid(
+            row=0,
+            column=2,
+            sticky="w",
+            padx=(14, 5),
+        )
+        self.collected_stage_filter = ttk.Combobox(
+            actions,
+            textvariable=self.collected_stage_filter_var,
+            values=(ALL_COLLECTED_STAGES,),
+            state="readonly",
+            width=18,
+        )
+        self.collected_stage_filter.grid(row=0, column=3, sticky="w")
+        self.collected_stage_filter.bind(
+            "<<ComboboxSelected>>",
+            self._collected_stage_filter_changed,
+        )
         self.collected_count_var = tk.StringVar(value="0 collected jobs")
         ttk.Label(
             actions,
             textvariable=self.collected_count_var,
             style="Muted.TLabel",
-        ).grid(row=0, column=2, sticky="e")
+        ).grid(row=0, column=4, sticky="e")
 
         pane = ttk.PanedWindow(window, orient=tk.VERTICAL)
         pane.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
@@ -2291,13 +2405,13 @@ class JobsViewer(tk.Tk):
         vertical = ttk.Scrollbar(
             table,
             orient=tk.VERTICAL,
-            command=self.collected_tree.yview,
+            command=self._collected_tree_yview,
         )
         vertical.grid(row=0, column=1, sticky="ns")
         horizontal = ttk.Scrollbar(
             table,
             orient=tk.HORIZONTAL,
-            command=self.collected_tree.xview,
+            command=self._collected_tree_xview,
         )
         horizontal.grid(row=1, column=0, sticky="ew")
         self.collected_tree.configure(
@@ -2305,12 +2419,25 @@ class JobsViewer(tk.Tk):
             xscrollcommand=horizontal.set,
         )
         self.collected_tree.bind("<<TreeviewSelect>>", self._show_collected_detail)
-        self.collected_tree.bind("<Double-Button-1>", self._open_collected_link)
+        self.collected_tree.bind(
+            "<Double-Button-1>",
+            self._collected_tree_double_click,
+        )
         self.collected_tree.bind("<Control-c>", self._copy_tree_selection)
         self.collected_tree.bind("<Control-C>", self._copy_tree_selection)
         self.collected_tree.bind("<Control-Insert>", self._copy_tree_selection)
         self.collected_tree.bind("<<Copy>>", self._copy_tree_selection)
         self.collected_tree.bind("<Button-3>", self._show_copy_menu)
+        self.collected_tree.bind(
+            "<Configure>",
+            self._close_title_selection_from_collected_event,
+            add="+",
+        )
+        self.collected_tree.bind(
+            "<MouseWheel>",
+            self._close_title_selection_from_collected_event,
+            add="+",
+        )
 
         text_frame = ttk.Frame(pane)
         text_frame.columnconfigure(0, weight=1)
@@ -2360,11 +2487,21 @@ class JobsViewer(tk.Tk):
             return
 
         self.collected_rows = [dict(row) for row in rows]
+        stages = sorted(
+            {
+                clean(row.get("processing_status")).strip()
+                for row in self.collected_rows
+                if clean(row.get("processing_status")).strip()
+            },
+            key=str.casefold,
+        )
+        available_stages = (ALL_COLLECTED_STAGES, *stages)
+        if self.collected_stage_filter is not None:
+            self.collected_stage_filter.configure(values=available_stages)
+        if self.collected_stage_filter_var.get() not in available_stages:
+            self.collected_stage_filter_var.set(ALL_COLLECTED_STAGES)
+            self._save_settings()
         self._render_collected_jobs()
-        if self.collected_count_var is not None:
-            self.collected_count_var.set(
-                f"{len(self.collected_rows)} collected jobs"
-            )
 
     def _render_collected_jobs(self) -> None:
         tree = self.collected_tree
@@ -2375,7 +2512,11 @@ class JobsViewer(tk.Tk):
         tree.delete(*tree.get_children(""))
         self.collected_rows_by_item.clear()
 
-        for row_index, row in enumerate(self.collected_rows):
+        displayed_rows = filter_collected_jobs(
+            self.collected_rows,
+            self.collected_stage_filter_var.get(),
+        )
+        for row_index, row in enumerate(displayed_rows):
             item = str(row["source_job_ref"])
             tree.insert(
                 "",
@@ -2400,6 +2541,39 @@ class JobsViewer(tk.Tk):
             tree.focus(selected_item)
             tree.see(selected_item)
         self._show_collected_detail()
+        if self.collected_count_var is not None:
+            if len(displayed_rows) == len(self.collected_rows):
+                count_text = f"{len(displayed_rows)} collected jobs"
+            else:
+                count_text = (
+                    f"{len(displayed_rows)}/{len(self.collected_rows)} collected jobs"
+                )
+            self.collected_count_var.set(count_text)
+
+    def _collected_stage_filter_changed(
+        self,
+        _event: tk.Event[tk.Misc] | None = None,
+    ) -> None:
+        self._close_title_selection()
+        self._save_settings()
+        self._render_collected_jobs()
+
+    def _collected_tree_yview(self, *args: Any) -> None:
+        self._close_title_selection()
+        if self.collected_tree is not None:
+            self.collected_tree.yview(*args)
+
+    def _collected_tree_xview(self, *args: Any) -> None:
+        self._close_title_selection()
+        if self.collected_tree is not None:
+            self.collected_tree.xview(*args)
+
+    def _close_title_selection_from_collected_event(
+        self,
+        _event: tk.Event[tk.Misc],
+    ) -> None:
+        if self.title_selection_tree is self.collected_tree:
+            self._close_title_selection()
 
     def _show_collected_detail(
         self,
@@ -2415,6 +2589,7 @@ class JobsViewer(tk.Tk):
         text_widget.set_value(row.get("readable_text", "") if row else "")
 
     def _collected_jobs_sorted(self, column: str, descending: bool) -> None:
+        self._close_title_selection()
         self.collected_sort_column = column
         self.collected_sort_descending = descending
         self._save_settings()
@@ -5346,17 +5521,34 @@ class JobsViewer(tk.Tk):
 
     def _show_copy_menu(self, event: tk.Event[tk.Misc]) -> str:
         widget = event.widget
+        title = ""
         if hasattr(widget, "identify_row") and hasattr(widget, "selection_set"):
             item = widget.identify_row(event.y)
             if item:
                 widget.selection_set(item)
                 widget.focus(item)
+                if widget is self.jobs_tree or widget is self.collected_tree:
+                    column_ref = widget.identify_column(event.x)
+                    columns = tuple(widget["columns"])
+                    try:
+                        column = columns[
+                            int(column_ref.removeprefix("#")) - 1
+                        ]
+                    except (ValueError, IndexError):
+                        column = ""
+                    if column == "title":
+                        title = clean(widget.set(item, "title")).strip()
 
         menu = tk.Menu(self, tearoff=False)
         menu.add_command(
             label="Copy",
             command=lambda widget=widget: self._copy_widget_selection(widget),
         )
+        if title:
+            menu.add_command(
+                label="Title to blacklist",
+                command=lambda value=title: self._add_title_to_blacklist(value),
+            )
         if not hasattr(widget, "selection") or not hasattr(widget, "set"):
             menu.add_command(
                 label="Select all",
