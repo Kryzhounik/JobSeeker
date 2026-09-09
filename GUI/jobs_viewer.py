@@ -62,7 +62,7 @@ from db.companies import (
     update_company_linkedin_id,
     update_company_priority,
 )
-from db.job_mapper import delete_jobs
+from db.job_mapper import delete_source_jobs
 from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
 
@@ -4200,9 +4200,9 @@ class JobsViewer(tk.Tk):
         connection = sqlite3.connect(DB_PATH)
         try:
             connection.execute("PRAGMA foreign_keys = ON")
-            deleted_ids = delete_jobs(
+            deleted_ids = delete_source_jobs(
                 connection,
-                [int(candidate["id"]) for candidate in candidates],
+                [int(candidate["source_job_ref"]) for candidate in candidates],
             )
             connection.commit()
         except Exception:
@@ -4321,9 +4321,14 @@ class JobsViewer(tk.Tk):
         dialog.bind("<Configure>", schedule_detail_size_save)
         dialog.bind("<Destroy>", cancel_pending_detail_size_save, add="+")
 
+        job_count = sum(candidate.get("scope") == "Job" for candidate in candidates)
+        collected_count = len(candidates) - job_count
         ttk.Label(
             dialog,
-            text=f"Rejected jobs: {len(candidates)}",
+            text=(
+                f"Rejected: {len(candidates)} "
+                f"({job_count} jobs, {collected_count} collected)"
+            ),
             style="Title.TLabel",
             padding=(10, 10, 10, 6),
         ).grid(row=0, column=0, sticky="w")
@@ -4430,7 +4435,8 @@ class JobsViewer(tk.Tk):
             cell.bind("<ButtonRelease-1>", open_without_drag, add="+")
 
         columns = (
-            ("id", "ID", 9, "center"),
+            ("scope", "Scope", 10, "center"),
+            ("source_job_id", "Source ID", 14, "center"),
             ("title", "Title", 30, "left"),
             ("fit", "Fit", 7, "center"),
             ("original", "Original", 74, "left"),
@@ -4532,7 +4538,8 @@ class JobsViewer(tk.Tk):
                 values = tuple(
                     one_line(value)
                     for value in (
-                        candidate.get("id", ""),
+                        candidate.get("scope", ""),
+                        candidate.get("source_job_id", ""),
                         candidate.get("title", ""),
                         candidate.get("fit", ""),
                         candidate.get("original", ""),
@@ -4574,7 +4581,7 @@ class JobsViewer(tk.Tk):
                         pady=1,
                     )
                     bind_canvas_wheel(cell)
-                    if column_index == 1:
+                    if column_index == 2:
                         cell.configure(foreground="#005a9c")
                         bind_source_link(
                             cell,
@@ -4587,7 +4594,7 @@ class JobsViewer(tk.Tk):
                 (name, label, width, justify)
                 for name, label, width, justify in columns
             ),
-            {"id", "fit"},
+            {"fit"},
         )
 
         def sort_candidates(column: str) -> None:

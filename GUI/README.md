@@ -197,19 +197,21 @@ The refilter workflow uses:
 
 `python Tools/filter_database.py`
 
-The utility loads each collected title and readable text from
-`source_job_texts`, passes them to the collector filter's top-level
-`filter(Vacancy)` method, and returns a JSON list containing each rejected
-job's ID, title, and filter reason. It never changes the database itself.
+The utility loads every title and readable text from `source_job_texts`,
+including records that have not reached `jobs`, passes them to the collector
+filter's top-level `filter(Vacancy)` method, and returns a JSON list containing
+each rejected source-job ID, title, storage scope, and filter reason. It never
+changes the database itself.
 
-The top `Refilter` button collects rejected jobs and immediately deletes them
-through the database layer. The bottom `Refilter detail` button only collects
-them and opens a confirmation window with a selection checkbox plus `ID`,
-`Title`, `Fit`, `Original`, and `Match` columns. Every row is selected by
-default; the `All` checkbox selects or clears the whole list. Its contents are
-read-only text, so any substring can be selected with the mouse and copied
-with `Ctrl+C`. Clicking a title without dragging opens the vacancy `source_url`;
-every header toggles ascending/descending sorting. The mouse wheel scrolls
-rows, and `Shift` plus the mouse wheel scrolls horizontally. `Confirm` deletes
-only the selected jobs; `Cancel` or closing the window leaves the database
-unchanged.
+The top `Refilter` button collects rejected records and immediately deletes
+them through the database layer. The bottom `Refilter detail` button only
+collects them and opens a confirmation window with a selection checkbox plus
+`Scope`, `Source ID`, `Title`, `Fit`, `Original`, and `Match` columns. `Scope`
+distinguishes analyzed `Job` rows from pre-analysis `Collected` rows. Every row
+is selected by default; the `All` checkbox selects or clears the whole list.
+Its contents are read-only text, so any substring can be selected with the
+mouse and copied with `Ctrl+C`. Clicking a title without dragging opens the
+vacancy `source_url`; every header toggles ascending/descending sorting. The
+mouse wheel scrolls rows, and `Shift` plus the mouse wheel scrolls horizontally.
+`Confirm` deletes only the selected source jobs and their related analyzed or
+collected data; `Cancel` or closing the window leaves the database unchanged.

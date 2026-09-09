@@ -1,6 +1,10 @@
 Purpose: dispatch every agent operation through one execution-mode switch.
 
-Execution mode: `desktop`
+Default execution mode: `desktop`
+
+The caller may explicitly choose `desktop` or `cli` for a particular agent
+operation. An explicit per-operation choice overrides the default for that
+operation only. If the caller does not specify a mode, use the default above.
 
 When creating a target, the caller supplies the operation name, instruction,
 static contexts, output schema, run ID, and target. A continued target keeps

@@ -162,6 +162,32 @@ def delete_jobs(
     return [job_id for job_id, _source_job_ref in existing]
 
 
+def delete_source_jobs(
+    connection: sqlite3.Connection,
+    source_job_refs: Iterable[int],
+) -> list[int]:
+    """Delete collected vacancies and any analyzed rows derived from them."""
+    requested_refs = list(dict.fromkeys(int(ref) for ref in source_job_refs))
+    existing_refs: list[int] = []
+    for source_job_ref in requested_refs:
+        row = connection.execute(
+            "SELECT id FROM source_jobs WHERE id = ?",
+            (source_job_ref,),
+        ).fetchone()
+        if row is not None:
+            existing_refs.append(int(row[0]))
+
+    connection.executemany(
+        "DELETE FROM jobs WHERE source_job_ref = ?",
+        [(source_job_ref,) for source_job_ref in existing_refs],
+    )
+    connection.executemany(
+        "DELETE FROM source_jobs WHERE id = ?",
+        [(source_job_ref,) for source_job_ref in existing_refs],
+    )
+    return existing_refs
+
+
 def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> None:
     jobs_exists = connection.execute(
         """

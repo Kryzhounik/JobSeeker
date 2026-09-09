@@ -15,6 +15,7 @@ for path in (ROOT, DRIVER_ROOT):
         sys.path.insert(0, str(path))
 
 from db.job_mapper import delete_jobs
+from db.job_mapper import delete_source_jobs
 from db.migrate import migrate_database
 from Tools.filter_database import collect_rejected_jobs
 
@@ -36,7 +37,8 @@ class FilterDatabaseTest(unittest.TestCase):
                         (10, 'linkedin', '10', 'SAVED'),
                         (20, 'linkedin', '20', 'SAVED'),
                         (30, 'linkedin', '30', 'SAVED'),
-                        (40, 'linkedin', '40', 'SAVED');
+                        (40, 'linkedin', '40', 'SAVED'),
+                        (50, 'linkedin', '50', 'CLEANED');
                     INSERT INTO companies (id, name, blacklisted) VALUES
                         (100, 'Ordinary Corp', 0),
                         (200, 'Blocked Corp', 1);
@@ -84,6 +86,13 @@ class FilterDatabaseTest(unittest.TestCase):
                             'https://example/4',
                             'Senior Java Backend Developer',
                             200
+                        ),
+                        (
+                            50,
+                            'Python development',
+                            'https://example/5',
+                            'Senior Python Developer',
+                            100
                         );
                     """
                 )
@@ -95,6 +104,11 @@ class FilterDatabaseTest(unittest.TestCase):
                 rejected,
                 [
                     {
+                        "source_job_ref": 20,
+                        "source": "linkedin",
+                        "source_job_id": "20",
+                        "scope": "Job",
+                        "stage": "SAVED",
                         "id": 2,
                         "title": "Backend Engineer",
                         "fit": 72,
@@ -105,6 +119,11 @@ class FilterDatabaseTest(unittest.TestCase):
                         "reason": "hard requirement for blocked technology: Camunda",
                     },
                     {
+                        "source_job_ref": 30,
+                        "source": "linkedin",
+                        "source_job_id": "30",
+                        "scope": "Job",
+                        "stage": "SAVED",
                         "id": 3,
                         "title": "Senior Python Developer",
                         "fit": 43,
@@ -115,6 +134,11 @@ class FilterDatabaseTest(unittest.TestCase):
                         "reason": "title blocked: Python",
                     },
                     {
+                        "source_job_ref": 40,
+                        "source": "linkedin",
+                        "source_job_id": "40",
+                        "scope": "Job",
+                        "stage": "SAVED",
                         "id": 4,
                         "title": "Senior Java Backend Developer",
                         "fit": 62,
@@ -123,6 +147,21 @@ class FilterDatabaseTest(unittest.TestCase):
                         "matched": "Blocked Corp",
                         "rule": "company_blacklisted",
                         "reason": "company blacklisted: Blocked Corp",
+                    },
+                    {
+                        "source_job_ref": 50,
+                        "source": "linkedin",
+                        "source_job_id": "50",
+                        "scope": "Collected",
+                        "stage": "CLEANED",
+                        "id": None,
+                        "title": "Senior Python Developer",
+                        "fit": None,
+                        "source_url": "https://example/5",
+                        "original": "Senior Python Developer",
+                        "matched": "Python",
+                        "rule": "title_blocked",
+                        "reason": "title blocked: Python",
                     },
                 ],
             )
@@ -176,6 +215,49 @@ class FilterDatabaseTest(unittest.TestCase):
         self.assertEqual(
             connection.execute("SELECT source_job_ref FROM source_job_texts").fetchall(),
             [(20,)],
+        )
+
+    def test_delete_source_jobs_removes_analyzed_and_collected_rows(self) -> None:
+        connection = sqlite3.connect(":memory:")
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.executescript(
+            """
+            CREATE TABLE source_jobs (
+                id INTEGER PRIMARY KEY
+            );
+            CREATE TABLE jobs (
+                id INTEGER PRIMARY KEY,
+                source_job_ref INTEGER NOT NULL UNIQUE
+                    REFERENCES source_jobs(id)
+            );
+            CREATE TABLE job_details (
+                job_id INTEGER PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE
+            );
+            CREATE TABLE source_job_texts (
+                source_job_ref INTEGER PRIMARY KEY
+                    REFERENCES source_jobs(id) ON DELETE CASCADE
+            );
+            INSERT INTO source_jobs (id) VALUES (10), (20), (30);
+            INSERT INTO jobs (id, source_job_ref) VALUES (1, 10);
+            INSERT INTO job_details (job_id) VALUES (1);
+            INSERT INTO source_job_texts (source_job_ref) VALUES (10), (20), (30);
+            """
+        )
+        self.addCleanup(connection.close)
+
+        deleted_refs = delete_source_jobs(connection, [10, 20, 999, 10])
+        connection.commit()
+
+        self.assertEqual(deleted_refs, [10, 20])
+        self.assertEqual(connection.execute("SELECT id FROM jobs").fetchall(), [])
+        self.assertEqual(connection.execute("SELECT job_id FROM job_details").fetchall(), [])
+        self.assertEqual(
+            connection.execute("SELECT id FROM source_jobs").fetchall(),
+            [(30,)],
+        )
+        self.assertEqual(
+            connection.execute("SELECT source_job_ref FROM source_job_texts").fetchall(),
+            [(30,)],
         )
 
 
