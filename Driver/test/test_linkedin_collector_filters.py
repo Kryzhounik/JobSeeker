@@ -190,6 +190,40 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["ElectronJS"])
 
+    def test_proven_experience_with_pulumi_is_blocked(self) -> None:
+        result = decide_content("Proven experience with Pulumi (TypeScript).")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["TypeScript", "Pulumi"])
+
+    def test_proficiency_list_is_blocked_by_pyspark(self) -> None:
+        result = decide_content(
+            "Proficiency in Amazon Web Services (AWS), Apache Kafka, PySpark, "
+            "Snowflake, and dbt"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["PySpark"])
+
+    def test_example_technology_list_keeps_java_alternative(self) -> None:
+        result = decide_content(
+            "Proficiency in data engineering tools and languages "
+            "(e.g., Python, Java, Go)."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_example_technology_list_blocks_when_all_examples_are_blocked(
+        self,
+    ) -> None:
+        result = decide_content(
+            "Proficiency in data engineering languages (e.g., Python, Go)."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python", "Go"])
+
+    def test_proficiency_with_terraform_is_blocked(self) -> None:
+        result = decide_content("Proficiency with Terraform")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Terraform"])
+
     def test_deep_hands_on_expertise_is_blocked(self) -> None:
         result = decide_content("Deep hands-on expertise with Node.js — must-have.")
         self.assertEqual(result["content_decision"], "skip")

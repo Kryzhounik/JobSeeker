@@ -166,6 +166,10 @@ TECHNOLOGY_VERSION_QUALIFIER = re.compile(
     r"\(\s*or\s+(?:later|newer|higher)\s*\)",
     re.IGNORECASE,
 )
+TECHNOLOGY_EXAMPLE_MARKER = re.compile(
+    r"(?:\be\s*\.\s*g\s*\.|\bfor\s+example\b)",
+    re.IGNORECASE,
+)
 OPTIONAL_SECTION_HEADING = re.compile(
     r"(?:preferred|optional)(?:\s+(?:skills?|qualifications?|requirements?))?"
     r"|nice\s+to\s+have",
@@ -238,12 +242,18 @@ def technology_list_pattern(template: str) -> re.Pattern[str]:
     )
 
 
+def prepare_technology_list(value: str) -> tuple[str, bool]:
+    prepared = TECHNOLOGY_VERSION_QUALIFIER.sub("", value)
+    example = TECHNOLOGY_EXAMPLE_MARKER.search(prepared)
+    if example is None:
+        return prepared, False
+    return prepared[example.end() :].lstrip(" \t,;:([{\"'"), True
+
+
 def split_technology_list(value: str) -> list[str]:
     return [
         item.strip()
-        for item in TECHNOLOGY_LIST_SEPARATOR.split(
-            TECHNOLOGY_VERSION_QUALIFIER.sub("", value)
-        )
+        for item in TECHNOLOGY_LIST_SEPARATOR.split(value)
         if item.strip()
     ]
 
@@ -468,7 +478,9 @@ class VacancyFilter:
                 ):
                     return True, None
 
-                list_text = match.group(TECHNOLOGY_LIST_GROUP)
+                list_text, example_list = prepare_technology_list(
+                    match.group(TECHNOLOGY_LIST_GROUP)
+                )
                 items = split_technology_list(list_text)
                 if not items:
                     return True, None
@@ -477,9 +489,8 @@ class VacancyFilter:
                     technology_matches(item, self.blocked_technology_patterns)
                     for item in items
                 ]
-                alternative_text = TECHNOLOGY_VERSION_QUALIFIER.sub("", list_text)
-                alternative = always_alternative or bool(
-                    TECHNOLOGY_LIST_OR.search(alternative_text)
+                alternative = always_alternative or example_list or bool(
+                    TECHNOLOGY_LIST_OR.search(list_text)
                 )
                 if alternative and any(not names for names in matches_by_item):
                     return True, None

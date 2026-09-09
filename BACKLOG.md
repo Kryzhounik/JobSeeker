@@ -36,35 +36,41 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 
 ## Next
 
-- Investigate dedup for near-identical LinkedIn jobs:
+- **HIGH: CLI-вызов оценщиков и скриптовая оркестрация**
+  Вынести вызов candidate-fit оценщиков в CLI, чтобы оркестратор мог работать
+  скриптово, а расход токенов и результаты каждого вызова считались точно.
+- **HIGH: Предварительный агентный фильтр**
+  Добавить агентный фильтр после скриптовых фильтров и до детального разбора
+  вакансии. Нерелевантные вакансии сохранять в отдельный список, не тратя на
+  них ресурсы полного анализа.
+
+- **LOW: Дедупликация вакансий**
+  Investigate dedup for near-identical LinkedIn jobs:
   - compare raw/card/analyzed data for 4441196528, 4441182950,
     4441197535, and 4441183936;
   - decide which fields can identify the same underlying vacancy safely.
-- Investigate recruiter/aggregator dedup by Apply destination:
+- **LOW: Дедупликация по Apply**
+  Investigate recruiter/aggregator dedup by Apply destination:
   - check Hired, micro1, Hire Feed, Quik Hire Staffing, and Crossing Hurdles;
   - compare where LinkedIn Apply redirects and whether they point to the same
     external vacancy/applicant system.
-- Add `Mistaken` to the allowed job statuses for vacancies where analysis or
+- **MEDIUM: Статус `Mistaken`**
+  Add `Mistaken` to the allowed job statuses for vacancies where analysis or
   collection produced a wrong result.
-- Add staged analysis:
+- **MEDIUM: Поэтапный анализ**
+  Add staged analysis:
   - raw: vacancy downloaded but not analyzed.
   - tech_checked: technology requirements extracted and checked.
   - logistics_checked: remote scope, relocation, language, and location checked.
   - fully_analyzed: factual summary and notes completed.
-- Add filtering fields:
+- **LOW: Отдельные причины отказа**
+  Add filtering fields:
   - `analysis_stage`
   - `reject_reason`
-- Granulate `candidate_fit_percent` beyond the first language filter.
-- Add tech score rules for `job_interest`, up to 99 points.
-- Keep `remote_scope` in Codex analysis for now:
-  - `worldwide` only for explicit work-anywhere/global wording.
-  - country/region only for fully remote roles.
-  - empty for hybrid/office unless fully remote is also explicitly allowed.
-  - keep `EU` and `Europe` distinct.
-- Keep `relocation` in Codex analysis for now:
-  - `NO` when relocation is absent or not mentioned.
-  - country/place list when relocation is offered.
-
+- **MEDIUM: Улучшение оценки соответствия**
+  Granulate `candidate_fit_percent` beyond the first language filter.
+- **MEDIUM: Расширение оценки интереса**
+  Add tech score rules for `job_interest`, up to 99 points.
 ## Later
 
 - Revisit the archived Codex App Server transport experiment in

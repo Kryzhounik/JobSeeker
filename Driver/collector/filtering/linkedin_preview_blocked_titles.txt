@@ -654,3 +654,35 @@ Senior Business Central
 Network Technical Architect
 E-Commerce Developer
 Mobile SDK Engineer
+MuleSoft Engineer
+SRE/Platform Engineer
+EDI Specialist
+Lead Azure Engineer
+1С Розробник
+Gitops Engineer
+AWS Developer
+AWS Solutions Architect
+Multicloud Systems Architect
+Auditor
+Material Master Data Specialist
+Requirement Engineer
+Фахівець відділу моніторингу кібербезпеки
+Senior Atlassian
+Delivery Competence Lead
+Chain Lead
+Head of DevOps
+Начальник отдела продаж
+Head of Loyalty
+Head of digital marketing
+Technician
+Лектор
+MS 365 Developer
+P2P Specialist
+Onboarding Specialist
+Експерт з безпеки
+Керівник продукту
+Lawyer
+Директор з маркетингу
+Catalog Operations Assistant
+Product Specialist
+Legal Associate
