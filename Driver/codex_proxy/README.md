@@ -22,13 +22,26 @@ python codex_proxy/metrics_proxy.py
   --operation <operation>
   --target <target>
   --instruction <instruction-file>
-  --input <input-file>
+  --input <input-file-or->          # - reads UTF-8 input from stdin
   --context <context-file>          # repeat when needed
   --output-schema <schema-file>
 ```
 
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
+
+When `agent_execution.md` enables comparison mode, the outer Desktop
+orchestrator runs both transports and stores their raw responses with:
+
+```text
+python codex_proxy/comparison.py
+  --operation-id <unique-logical-operation-id>
+  --operation-type <operation>
+```
+
+The command reads `desktop_response` and `cli_response` from one UTF-8 JSON
+object on stdin. Comparison storage does not choose or alter the response used
+by the workflow.
 
 `app_server_experiment/` contains a postponed alternative transport and is not
 part of the active workflow.

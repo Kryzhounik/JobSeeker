@@ -319,6 +319,14 @@ CREATE TABLE IF NOT EXISTS codex_run_operations (
     PRIMARY KEY (run_id, operation)
 );
 
+CREATE TABLE IF NOT EXISTS agent_operation_comparisons (
+    operation_id TEXT PRIMARY KEY,
+    operation_type TEXT NOT NULL CHECK (length(trim(operation_type)) > 0),
+    desktop_response TEXT NOT NULL,
+    cli_response TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_source_job_texts_company
     ON source_job_texts(company_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_source_job_texts_source_url
@@ -348,6 +356,8 @@ CREATE INDEX IF NOT EXISTS idx_jobs_job_interest ON jobs(job_interest);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit ON jobs(candidate_fit_percent);
 CREATE INDEX IF NOT EXISTS idx_jobs_candidate_fit_reason_code
     ON jobs(candidate_fit_reason_code);
+CREATE INDEX IF NOT EXISTS idx_agent_operation_comparisons_type
+    ON agent_operation_comparisons(operation_type);
 CREATE INDEX IF NOT EXISTS idx_jobs_role ON jobs(role);
 CREATE INDEX IF NOT EXISTS idx_jobs_remote_scope ON jobs(remote_scope);
 CREATE INDEX IF NOT EXISTS idx_jobs_relocation ON jobs(relocation);

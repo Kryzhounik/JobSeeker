@@ -13,6 +13,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from codex_proxy.backend import Result
+from codex_proxy.comparison import save_comparison
 from codex_proxy.metrics_proxy import cli_prompt
 from codex_proxy.metrics import save
 from codex_proxy.output_schema import codex_schema
@@ -31,17 +32,47 @@ class CodexProxyTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             instruction = root / "instruction.md"
-            input_path = root / "input.json"
             context = root / "context.ini"
             instruction.write_text("FIT RULES", encoding="utf-8")
-            input_path.write_text('{"title":"Backend"}', encoding="utf-8")
             context.write_text("CANDIDATE PROFILE", encoding="utf-8")
 
-            prompt = cli_prompt(instruction, input_path, (context,))
+            prompt = cli_prompt(
+                instruction,
+                '{"title":"Backend"}',
+                "stdin",
+                (context,),
+            )
 
             self.assertIn("FIT RULES", prompt)
             self.assertIn('{"title":"Backend"}', prompt)
             self.assertIn("CANDIDATE PROFILE", prompt)
+
+    def test_comparison_stores_both_raw_responses(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "jobs.sqlite"
+            save_comparison(
+                db_path=db_path,
+                operation_id="operation-1",
+                operation_type="agent_filter",
+                desktop_response={"nonrelevant_job_ids": ["1"]},
+                cli_response={"nonrelevant_job_ids": ["2"]},
+            )
+
+            with closing(sqlite3.connect(db_path)) as connection:
+                row = connection.execute(
+                    """
+                    SELECT operation_type, desktop_response, cli_response
+                    FROM agent_operation_comparisons
+                    WHERE operation_id = ?
+                    """,
+                    ("operation-1",),
+                ).fetchone()
+
+            self.assertEqual(row, (
+                "agent_filter",
+                '{"nonrelevant_job_ids":["1"]}',
+                '{"nonrelevant_job_ids":["2"]}',
+            ))
 
     def test_metrics_are_aggregated_by_operation_inside_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
