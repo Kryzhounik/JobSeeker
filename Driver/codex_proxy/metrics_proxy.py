@@ -58,9 +58,14 @@ def run(
     context_paths: tuple[Path, ...],
     output_schema: Path,
     db_path: Path = DATA_ROOT / "jobs.sqlite",
+    model: str | None = None,
+    reasoning_effort: str | None = None,
 ) -> Result:
     """Invoke one CLI instruction and persist only its usage metrics."""
-    settings = load()
+    settings = load(
+        model_override=model,
+        reasoning_effort_override=reasoning_effort,
+    )
     started_at = metrics.now()
     started = time.monotonic()
     result = codex_cli.call(
@@ -107,6 +112,8 @@ def main() -> None:
     parser.add_argument("--context", action="append", default=[])
     parser.add_argument("--output-schema", required=True)
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
+    parser.add_argument("--model")
+    parser.add_argument("--reasoning-effort")
     args = parser.parse_args()
 
     if args.input == "-":
@@ -129,6 +136,8 @@ def main() -> None:
         context_paths=tuple(Path(path) for path in args.context),
         output_schema=Path(args.output_schema),
         db_path=Path(args.db),
+        model=args.model,
+        reasoning_effort=args.reasoning_effort,
     )
     if result.final_message:
         print(result.final_message)

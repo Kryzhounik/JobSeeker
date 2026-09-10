@@ -17,9 +17,27 @@ from codex_proxy.comparison import save_comparison
 from codex_proxy.metrics_proxy import cli_prompt
 from codex_proxy.metrics import save
 from codex_proxy.output_schema import codex_schema
+from codex_proxy.settings import load
 
 
 class CodexProxyTest(unittest.TestCase):
+    def test_operation_model_settings_override_shared_defaults_independently(self) -> None:
+        settings = load(
+            model_override="gpt-5.6-luna",
+            reasoning_effort_override="max",
+        )
+
+        self.assertEqual(settings.model, "gpt-5.6-luna")
+        self.assertEqual(settings.reasoning_effort, "max")
+
+        default_settings = load()
+        model_only = load(model_override="gpt-5.6-terra")
+        self.assertEqual(model_only.model, "gpt-5.6-terra")
+        self.assertEqual(
+            model_only.reasoning_effort,
+            default_settings.reasoning_effort,
+        )
+
     def test_job_analysis_schema_is_adapted_for_structured_output(self) -> None:
         schema = codex_schema(DRIVER_ROOT / "contracts" / "job_analysis.schema.json")
 

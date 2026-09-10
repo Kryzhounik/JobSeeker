@@ -17,13 +17,22 @@ class Settings(NamedTuple):
     rates: tuple[float, float, float]
 
 
-def load() -> Settings:
+def load(
+    *,
+    model_override: str | None = None,
+    reasoning_effort_override: str | None = None,
+) -> Settings:
     config = ConfigParser()
     if not config.read(CONFIG_PATH, encoding="utf-8"):
         raise RuntimeError(f"Missing Codex proxy config: {CONFIG_PATH}")
 
-    model = config.get("proxy", "model")
-    reasoning_effort = config.get("proxy", "reasoning_effort").strip()
+    model = (model_override or config.get("proxy", "model")).strip()
+    reasoning_effort = (
+        reasoning_effort_override
+        or config.get("proxy", "reasoning_effort")
+    ).strip()
+    if not model:
+        raise RuntimeError("Missing Codex proxy model.")
     if not reasoning_effort:
         raise RuntimeError("Missing Codex proxy reasoning_effort.")
 

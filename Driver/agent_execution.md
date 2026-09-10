@@ -9,6 +9,11 @@ subagent must be spawned with both values explicitly; do not inherit the
 orchestrator's model or reasoning effort. The CLI proxy reads the same values
 programmatically.
 
+A particular operation may explicitly override `model`, `reasoning_effort`, or
+both. Resolve each omitted value independently from `codex_proxy/config.ini`,
+then use the same resolved values for either execution mode. An override
+applies only to that operation and must not modify the shared config.
+
 The caller may explicitly choose `desktop` or `cli` for a particular agent
 operation. An explicit per-operation choice overrides the default for that
 operation only. If the caller does not specify a mode, use the default above.
