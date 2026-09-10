@@ -9,6 +9,11 @@ The proxy boundary is transport-only:
 - invoke Codex CLI and return its final response;
 - record CLI usage metrics in SQLite.
 
+`config.ini` is the shared model configuration for both CLI calls and Desktop
+subagents dispatched through `../agent_execution.md`. Desktop callers pass its
+`model` and `reasoning_effort` explicitly instead of inheriting the
+orchestrator's settings.
+
 The proxy must never choose analyzer operations or contain vacancy logic. It
 must not interpret, merge, or persist analyzed/scored JSON; run filters or
 scoring; update vacancy lifecycle state; or save jobs. Those responsibilities
