@@ -27,6 +27,13 @@ Analyzer worker counts and group size live in
 they extract independent DTOs. Candidate fit deliberately uses one persistent
 blind evaluator per run so all vacancies share one scoring scale.
 
+## Agent Relevance Filter
+
+`analyzer/agent_filter.md` filters clearly irrelevant vacancies that passed the
+scripted collector filters. It runs before detailed analysis so those vacancies
+remain in the database with status `NONRELEVANT` without consuming full
+analysis resources.
+
 ## LinkedIn Collection
 
 `collector/linkedin_collection.md` is the single LinkedIn collection entry
