@@ -356,6 +356,10 @@ class VacancyFilter:
         if not enabled(config):
             return FilterResult(False, "title filter disabled")
 
+        pass_result = self.title_pass_result(title)
+        if pass_result is not None:
+            return pass_result
+
         matches = [
             term
             for term in self.title_blocked_terms
@@ -389,22 +393,25 @@ class VacancyFilter:
             )
         return FilterResult(False, "no company skip signals")
 
-    def filter_text(self, title: str, text: str) -> FilterResult:
-        technology_filter_enabled = self.database_filter_enabled(TECHNOLOGY_FILTER)
-        config = self.content_config
+    def title_pass_result(self, title: str) -> FilterResult | None:
         pass_words = [
             name
             for name, pattern in self.pass_word_patterns
             if pattern.search(title)
         ]
-        pass_result = None
         if pass_words:
-            pass_result = FilterResult(
+            return FilterResult(
                 False,
                 "title pass word: " + ", ".join(pass_words),
                 rule="title_pass_word",
                 match=title,
             )
+        return None
+
+    def filter_text(self, title: str, text: str) -> FilterResult:
+        technology_filter_enabled = self.database_filter_enabled(TECHNOLOGY_FILTER)
+        config = self.content_config
+        pass_result = self.title_pass_result(title)
 
         if not pass_result and technology_filter_enabled and enabled(config):
             for unit, context in content_units(text):

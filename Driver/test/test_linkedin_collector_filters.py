@@ -597,6 +597,25 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
         self.assertEqual(result["content_rule"], "title_pass_word")
 
+    def test_java_title_bypasses_title_and_technology_blocks(self) -> None:
+        for title in (
+            "Java Developer (Python is a plus)",
+            "JAVA / React Full-Stack Developer",
+            "Java Consultant",
+        ):
+            with self.subTest(title=title):
+                result = filter_vacancy(Vacancy(
+                    title=title,
+                    text="Proficiency in Python is required",
+                ))
+                self.assertFalse(result.rejected)
+                self.assertEqual(result.rule, "title_pass_word")
+
+    def test_javascript_title_still_hits_title_block(self) -> None:
+        result = filter_vacancy(Vacancy(title="JavaScript Python Developer"))
+        self.assertTrue(result.rejected)
+        self.assertEqual(result.rule, "title_blocked")
+
     def test_javascript_title_does_not_match_java_pass_word(self) -> None:
         result = decide_content(
             "Advanced C programming skills are required",

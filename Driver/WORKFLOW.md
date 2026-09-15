@@ -10,6 +10,10 @@ Each stage owns its own rules in its own files.
 Run driver commands from this `Driver` folder unless a command says
 otherwise.
 
+For Python commands documented below, use `python` from PATH. Do not reuse
+an absolute Python path from an earlier session. The Java collector owns its
+separate Python runtime settings in `collector/java_linkedin/runtime.properties`.
+
 - Project root: parent folder of `Driver`.
 - Data root: `../Data`.
 - GUI root: `../GUI`.

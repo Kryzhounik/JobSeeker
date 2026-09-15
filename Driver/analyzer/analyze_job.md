@@ -16,6 +16,10 @@ Both values must be positive integers. Do not silently substitute defaults.
 
 Run these phases in this exact order for the whole scope.
 
+For every PowerShell-to-Python stdin transfer below, read and use the fixed
+transport stanza in `common/utf8_stdin.md`. Keep the payload in memory and use
+the existing owning command; never embed JSON in an ordinary shell string.
+
 ## 1. Job facts
 
 Partition the ordered scope into consecutive groups of at most
@@ -38,10 +42,15 @@ a new agent per vacancy. Close the target after its group is complete.
 
 For each assigned vacancy:
 
-1. Load its readable text with:
-   `python db/readable_text.py --source <source> --job-id <job-id>`.
-2. Pass that text as UTF-8 standard input to:
-   `python collector/filtering/language_requirements.py`.
+1. Load the input with the stable command:
+   `python analyzer/job_facts/load_input.py --source <source> --job-id <job-id>`.
+   This transport command executes `db/readable_text.py --source <source>
+   --job-id <job-id>`, then passes its unchanged stdout as UTF-8 stdin to
+   `collector/filtering/language_requirements.py`. It returns both results in
+   memory, does not extract job facts, and creates no transport files.
+2. Use its `readable_text` and `authoritative_language_facts` fields as the
+   vacancy input and deterministic language result. Do not copy the readable
+   text into an inline shell or JavaScript command.
 3. Send the readable text plus the returned deterministic language facts to
    the group's existing target. Label those facts authoritative.
 4. Send the returned object directly as UTF-8 JSON on standard input to:
@@ -57,6 +66,13 @@ separated by source-job ID. Never copy a fact from a previous vacancy merely
 because the jobs look similar.
 
 Do not begin candidate fit until job facts have completed for the entire scope.
+
+Input-transport recovery after an explicitly authorized stopped-batch repair:
+if a tool request never reached the language command and the readable stdout
+was not retained in the tool session, run `load_input.py` for that same source
+and ID in the existing group target. This repeats the two documented input
+commands and replaces only their transport. Keep the run ID, group target and
+scope; do not repeat completed extraction or analysis persistence.
 
 ## 2. Deterministic candidate-fit gate
 

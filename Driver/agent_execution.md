@@ -57,3 +57,7 @@ The caller owns result handling and persistence. Do not bypass this dispatcher
 for agent operations. If the selected execution mode cannot preserve a target
 that the owning orchestrator requires to be reused, stop instead of silently
 creating a replacement agent.
+
+When PowerShell supplies an in-memory payload on Python stdin, use
+`common/utf8_stdin.md` for its UTF-8 transport. This does not change the selected
+execution mode or the owning command.
