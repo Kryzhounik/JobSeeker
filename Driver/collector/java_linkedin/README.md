@@ -45,6 +45,10 @@ cases without command-line request wrappers.
   retain their normal Java stack trace. Analysis and scoring remain the caller's
   next stages and are never run by this module.
 
+The normal `batch linkedin` workflow now enters through the Java workflow
+orchestrator. The direct collector commands below remain available for collector
+development, login, and testing.
+
 ## Requirements
 
 - JDK 21 or newer;

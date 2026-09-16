@@ -55,6 +55,10 @@ That instruction selects exactly one configured collection implementation and
 returns its `run_id` and ordered `scope`. Do not inspect or combine collector
 implementations outside that instruction.
 
+In `playwright` mode, the workflow command starts the Java workflow
+orchestrator. At the current implementation stage it only delegates to the
+existing Java collector and returns the collector report unchanged.
+
 Continue the main pipeline only for the returned explicit scope. Collection
 does not run analysis or scoring.
 

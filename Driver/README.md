@@ -4,6 +4,16 @@
 scoring, database mapping, and persistence. The top-level execution contract is
 `WORKFLOW.md`; individual modules own their internal rules.
 
+## Java Workflow Orchestrator
+
+`orchestrator` is the Java entry point for the workflow. In its first stage it
+only calls the existing LinkedIn collector and returns the collector report
+unchanged. Build the collector and orchestrator together with:
+
+```powershell
+mvn -f Driver/pom.xml package
+```
+
 ## Agent Execution Boundary
 
 `agent_execution.md` is the single decorator and mode switch for agent
