@@ -18,7 +18,7 @@ class JpyPythonGatewayIntegrationTest {
     Path temporaryDirectory;
 
     @Test
-    void callsExistingPythonPipelineInsideJvm() throws Exception {
+    void callsExistingPythonPipelineAndReusesItsRuntimeInsideJvm() throws Exception {
         Path projectRoot = Path.of(required("seeker.project.root"));
         Path database = temporaryDirectory.resolve("jobs.sqlite");
         Path rawDirectory = temporaryDirectory.resolve("raw/linkedin");
@@ -60,6 +60,9 @@ class JpyPythonGatewayIntegrationTest {
             assertTrue(python.priorityCompanyIds().isEmpty());
             assertTrue(python.decidePreview(preview).shouldOpen());
             assertEquals("raw_saved", python.processHtml(preview, html).status());
+        }
+        try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+            assertTrue(python.priorityCompanyIds().isEmpty());
         }
 
         assertTrue(Files.isRegularFile(

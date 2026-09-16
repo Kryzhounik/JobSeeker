@@ -6,15 +6,12 @@ import com.seeker.collector.linkedin.collection.PreviewDecision;
 import com.seeker.collector.linkedin.collection.ProcessResult;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.python.JpyRuntime;
 import org.jpy.PyInputMode;
-import org.jpy.PyLib;
-import org.jpy.PyLibInitializer;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
 import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 
 public final class JpyPythonGateway implements PythonGateway {
@@ -25,31 +22,14 @@ public final class JpyPythonGateway implements PythonGateway {
     private boolean closed;
 
     public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime) {
-        Path pythonLibrary = requiredFile(runtime.pythonLibrary(), "CPython library");
-        Path jpyLibrary = requiredFile(runtime.jpyLibrary(), "jpy library");
-        Path jdlLibrary = requiredFile(runtime.jdlLibrary(), "jdl library");
-
-        PyLibInitializer.initPyLib(
-                pythonLibrary.toString(),
-                jpyLibrary.toString(),
-                jdlLibrary.toString()
-        );
-        if (runtime.pythonExecutable() != null
-                && !PyLib.setProgramName(absolute(runtime.pythonExecutable()).toString())) {
-            throw new IllegalStateException(
-                    "jpy rejected Python executable: " + runtime.pythonExecutable()
-            );
-        }
-        if (runtime.pythonHome() != null
-                && !PyLib.setPythonHome(absolute(runtime.pythonHome()).toString())) {
-            throw new IllegalStateException(
-                    "jpy rejected Python home: " + runtime.pythonHome()
-            );
-        }
-
-        PyLib.startPython(
-                paths.driverRoot().toString(),
-                paths.collectorRoot().toString()
+        JpyRuntime.ensureStarted(
+                runtime.pythonLibrary(),
+                runtime.jpyLibrary(),
+                runtime.jdlLibrary(),
+                runtime.pythonHome(),
+                runtime.pythonExecutable(),
+                paths.driverRoot(),
+                paths.collectorRoot()
         );
         try (PyObject ignored = PyObject.executeCode(
                 "import sys\nsys.stdout = sys.stderr",
@@ -116,8 +96,6 @@ public final class JpyPythonGateway implements PythonGateway {
             callVoid("close_session");
         } finally {
             bridge.close();
-            PyObject.cleanup();
-            PyLib.stopPython();
         }
     }
 
@@ -139,20 +117,4 @@ public final class JpyPythonGateway implements PythonGateway {
         }
     }
 
-    private static Path requiredFile(Path value, String label) {
-        if (value == null) {
-            throw new IllegalArgumentException(
-                    label + " is required; check Driver/collector/java_linkedin/runtime.properties"
-            );
-        }
-        Path resolved = absolute(value);
-        if (!Files.isRegularFile(resolved)) {
-            throw new IllegalArgumentException(label + " not found: " + resolved);
-        }
-        return resolved;
-    }
-
-    private static Path absolute(Path value) {
-        return value.toAbsolutePath().normalize();
-    }
 }
