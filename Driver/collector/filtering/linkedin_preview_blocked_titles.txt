@@ -744,3 +744,9 @@ Nurse
 ICT Associate
 HR Coordinator
 Siebel Developer
+Полевой специалист
+Reporting Specialist
+Executive Human Resources
+Начальник відділу управління
+Payroll Expert
+Trauma Specialist
