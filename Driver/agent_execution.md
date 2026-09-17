@@ -52,6 +52,11 @@ that setup and receives only the next input plus any input-specific context.
 - `cli`: invoke `codex_proxy/metrics_proxy.py` with the supplied values as
   documented in `codex_proxy/README.md`, then return its response to the caller.
 
+  For a continued target, retain the thread ID returned by its first CLI turn
+  and pass it as `--thread-id` on every later turn. This resumes the same
+  persisted CLI session. Do not resend the static instruction and contexts;
+  the proxy retains them in the target history and packages only the new input.
+
   Invoke the proxy once through a finite, non-interactive UTF-8 stdin pipe.
   Do not use an interactive PTY and do not create a temporary input file. Codex
   CLI requires network access, so from Desktop request network-capable execution

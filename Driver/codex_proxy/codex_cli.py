@@ -33,35 +33,42 @@ def call(
     reasoning_effort: str,
     cwd: Path,
     output_schema: Path,
+    thread_id: str | None = None,
 ) -> Result:
     executable = shutil.which("codex.cmd") or shutil.which("codex")
     if not executable:
         raise RuntimeError("Codex CLI was not found on PATH.")
 
+    thread_id = (thread_id or "").strip()
+    ephemeral = config.getboolean("proxy", "ephemeral", fallback=True)
+    if thread_id and ephemeral:
+        raise ValueError("Cannot resume a Codex session while ephemeral mode is enabled.")
+
     configured_args: list[str] = []
     if config.getboolean("proxy", "ignore_user_config", fallback=True):
         configured_args.append("--ignore-user-config")
-    if config.getboolean("proxy", "ephemeral", fallback=True):
+    if ephemeral:
         configured_args.append("--ephemeral")
     configured_args.extend((
         "--config",
         f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ))
 
-    sandbox = config.get("proxy", "sandbox", fallback="").strip()
-    sandbox = {
-        "workspaceWrite": "workspace-write",
-        "readOnly": "read-only",
-        "dangerFullAccess": "danger-full-access",
-    }.get(sandbox, sandbox)
-    if sandbox:
-        configured_args.extend(("--sandbox", sandbox))
-    for path in config.get("proxy", "add_dirs", fallback="").split(","):
-        if path := path.strip():
-            configured_args.extend(("--add-dir", path))
+    if not thread_id:
+        sandbox = config.get("proxy", "sandbox", fallback="").strip()
+        sandbox = {
+            "workspaceWrite": "workspace-write",
+            "readOnly": "read-only",
+            "dangerFullAccess": "danger-full-access",
+        }.get(sandbox, sandbox)
+        if sandbox:
+            configured_args.extend(("--sandbox", sandbox))
+        for path in config.get("proxy", "add_dirs", fallback="").split(","):
+            if path := path.strip():
+                configured_args.extend(("--add-dir", path))
 
     usage = dict.fromkeys(USAGE_KEYS, 0)
-    thread_id = ""
+    result_thread_id = thread_id
     final_message = ""
     errors: list[str] = []
 
@@ -69,12 +76,14 @@ def call(
         command = [
             executable,
             "exec",
+            *(["resume"] if thread_id else []),
             "--json",
             "--model",
             model,
             *configured_args,
             "--output-schema",
             str(schema_path),
+            *([thread_id] if thread_id else []),
             "-",
         ]
         process = subprocess.run(
@@ -98,7 +107,9 @@ def call(
 
         event_type = event.get("type")
         if event_type == "thread.started":
-            thread_id = str(event.get("thread_id") or "")
+            started_thread_id = str(event.get("thread_id") or "")
+            if started_thread_id:
+                result_thread_id = started_thread_id
         elif event_type == "turn.completed":
             values = event.get("usage") or {}
             usage = {key: int(values.get(key) or 0) for key in USAGE_KEYS}
@@ -114,7 +125,7 @@ def call(
     return Result(
         command,
         process.returncode,
-        thread_id,
+        result_thread_id,
         final_message,
         usage,
         errors,

@@ -392,6 +392,17 @@ final class LinkedInPageClient {
             return;
         }
         String jobId = snapshot.ids().get(snapshot.ids().size() - 1);
+        if (snapshot.layout() == Layout.CLASSIC) {
+            Locator card = cardLocator(snapshot.layout(), jobId);
+            if (card.count() != 1) {
+                throw new CollectionBlockedException(
+                        "Expected one classic job card for scrolling, found " + card.count()
+                );
+            }
+            card.hover();
+            page.mouse().wheel(0, 800);
+            return;
+        }
         cardLocator(snapshot.layout(), jobId).evaluate(
                 "element => element.scrollIntoView({block:'end', inline:'nearest', behavior:'instant'})"
         );

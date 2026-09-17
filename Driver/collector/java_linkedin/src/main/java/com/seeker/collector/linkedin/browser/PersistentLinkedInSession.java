@@ -27,7 +27,8 @@ public final class PersistentLinkedInSession implements AutoCloseable {
         BrowserType.LaunchPersistentContextOptions launch =
                 new BrowserType.LaunchPersistentContextOptions()
                         .setHeadless(settings.headless())
-                        .setViewportSize(1440, 1000)
+                        .setViewportSize(null)
+                        .setArgs(List.of("--window-size=1440,1000"))
                         .setTimeout(settings.launchTimeoutSeconds() * 1000.0)
                         .setIgnoreDefaultArgs(List.of("--disable-extensions"));
         if (settings.channel() != null && !settings.channel().isBlank()) {

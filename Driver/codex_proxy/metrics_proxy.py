@@ -1,9 +1,10 @@
-"""Thin metered transport for isolated Codex CLI instructions.
+"""Thin metered transport for Codex CLI operation targets.
 
 This module may only adapt an explicit agent-operation request to ``codex
-exec``, return the final agent response, and store transport usage metrics. It
-must not choose analyzer operations, interpret or merge business JSON, write
-analyzed/scored files, run filters or scoring, or save vacancies.
+exec`` or resume its persisted target, return the final agent response, and
+store transport usage metrics. It must not choose analyzer operations,
+interpret or merge business JSON, write analyzed/scored files, run filters or
+scoring, or save vacancies.
 """
 
 from __future__ import annotations
@@ -47,6 +48,17 @@ def cli_prompt(
     return "\n".join(sections)
 
 
+def cli_continuation_prompt(input_text: str, input_name: str) -> str:
+    """Materialize the next input for an existing operation target."""
+    return "\n".join((
+        "Perform exactly one additional operation in the current target.",
+        "Keep using the instruction and contexts established for this target.",
+        "Do not use tools, inspect other files, run commands, or write files.",
+        "Return only the JSON object required by the output schema.",
+        f"\nINPUT ({input_name}):\n" + input_text,
+    ))
+
+
 def run(
     *,
     run_id: str,
@@ -60,6 +72,7 @@ def run(
     db_path: Path = DATA_ROOT / "jobs.sqlite",
     model: str | None = None,
     reasoning_effort: str | None = None,
+    thread_id: str | None = None,
 ) -> Result:
     """Invoke one CLI instruction and persist only its usage metrics."""
     settings = load(
@@ -70,16 +83,21 @@ def run(
     started = time.monotonic()
     result = codex_cli.call(
         config=settings.config,
-        prompt=cli_prompt(
-            instruction_path.resolve(),
-            input_text,
-            input_name,
-            tuple(path.resolve() for path in context_paths),
+        prompt=(
+            cli_continuation_prompt(input_text, input_name)
+            if thread_id
+            else cli_prompt(
+                instruction_path.resolve(),
+                input_text,
+                input_name,
+                tuple(path.resolve() for path in context_paths),
+            )
         ),
         model=settings.model,
         reasoning_effort=settings.reasoning_effort,
         cwd=ROOT,
         output_schema=output_schema.resolve(),
+        thread_id=thread_id,
     )
     finished_at = metrics.now()
     metrics.save(
@@ -114,6 +132,10 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--model")
     parser.add_argument("--reasoning-effort")
+    parser.add_argument(
+        "--thread-id",
+        help="Resume this persisted Codex CLI session for the next target input.",
+    )
     args = parser.parse_args()
 
     if args.input == "-":
@@ -138,6 +160,7 @@ def main() -> None:
         db_path=Path(args.db),
         model=args.model,
         reasoning_effort=args.reasoning_effort,
+        thread_id=args.thread_id,
     )
     if result.final_message:
         print(result.final_message)

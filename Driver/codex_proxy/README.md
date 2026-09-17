@@ -30,6 +30,7 @@ python codex_proxy/metrics_proxy.py
   --input <input-file-or->          # - reads UTF-8 input from stdin
   --context <context-file>          # repeat when needed
   --output-schema <schema-file>
+  --thread-id <persisted-thread-id> # omit for the first target input
   --model <model>                   # optional operation override
   --reasoning-effort <effort>       # optional operation override
 ```
@@ -39,6 +40,14 @@ Overrides apply only to the current invocation and do not change the file.
 
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
+
+CLI sessions are persisted because `config.ini` sets `ephemeral = false`.
+The first target input omits `--thread-id`; the programmatic `run(...)` result
+contains the new thread ID. A caller that owns a continued target passes that
+ID on every later input. The proxy then uses `codex exec resume`; it sends the
+instruction and static contexts only on the first turn and sends only the new
+input on continued turns. Target grouping, thread lifetime, result validation,
+and persistence remain caller responsibilities.
 
 When `agent_execution.md` enables comparison mode, the outer Desktop
 orchestrator runs both transports and stores their raw responses with:

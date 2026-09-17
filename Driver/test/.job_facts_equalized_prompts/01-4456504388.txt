@@ -1,0 +1,432 @@
+Perform exactly one isolated agent operation.
+Do not use tools, inspect other files, run commands, or write files.
+Return only the JSON object required by the output schema.
+
+INSTRUCTION (extract.md):
+Purpose: extract structured vacancy facts from one readable vacancy.
+
+Task: perform only the job-facts operation for one stored readable vacancy.
+
+Job-facts call:
+- Input: one readable vacancy text loaded from SQLite, plus source/source_url when
+  available.
+- Do not run search or collection here.
+- Do not reopen the vacancy in the browser unless the user explicitly asks.
+- Return one analyzed JSON object matching
+  `contracts/job_analysis.schema.json`.
+- The analyzed JSON contains vacancy facts only. Never put candidate fit or
+  job interest into it.
+- Do not write files or update the database. The analyzer orchestrator owns
+  output persistence and lifecycle updates after this operation succeeds.
+- Direct URLs from the user must first be saved as raw HTML by the collection
+  side, converted to readable text in SQLite, then analyzed through this same call.
+
+Do not implement this analysis as Python string matching or regex extraction.
+The source collector/adapter stores the readable vacancy text before
+this prompt runs. Codex/this prompt produces structured analysis JSON. Keep
+this facts layer out of Python string heuristics unless we explicitly decide
+otherwise later.
+
+Return structured factual JSON for later evaluation. The analysis DTO contract is
+`contracts/job_analysis.schema.json`; use exactly those field names and shapes.
+Do not invent aliases such as `language` instead of `name`, or
+`requirement_type` instead of `requirement`. Prefer visible facts from the
+vacancy. Use expert judgment only for fields that explicitly require text
+interpretation.
+
+Job fields:
+- added_at: current date in YYYY-MM-DD format.
+- source_url: original vacancy URL.
+- title: job title.
+- company: company name.
+- location: one or more places from which the candidate may perform the role;
+  separate multiple locations with ` / `.
+- remote_type: remote, hybrid, office, unknown.
+- remote_scope: actual allowed remote geography, for example worldwide, EU,
+  Europe, Poland, Germany, US time zones, EMEA, unknown.
+- relocation: NO, unknown, or a concise list of relocation destination
+  countries/places. Never use YES.
+- seniority: intern, junior, middle, senior, lead, unknown.
+- role: backend, frontend, fullstack, devops, data, ml_ai, qa, product, other.
+- salary: salary range/currency if available, otherwise empty string.
+- summary: one short sentence about the vacancy.
+- notes: anything uncertain or worth checking.
+
+Languages:
+- Extract human languages only.
+- Store each language separately with its level when stated.
+- Use this JSON shape for each language:
+  `{"name": "English", "level": "B2", "level_rank": 4, "raw_value": "..."}`
+- The caller supplies authoritative deterministic language facts when exact or
+  reviewed wording was recognized before this operation. Copy those facts into
+  `languages` without changing their `name`, `level`, `level_rank`, or
+  `raw_value`. Do not reinterpret a language already present in that context.
+  Semantically evaluate only language requirements not already resolved there.
+- Normalize human-language proficiency using the supplied
+  `language_levels.md` context.
+- Normalize semantic equivalents to the CEFR label; keep the vacancy's original
+  wording only in `raw_value`.
+- When that context gives an allowed range for ambiguous wording, choose one
+  level inside the range using the role's stated communication demands. Use the
+  listed default when the vacancy provides no useful signal for choosing.
+- Requirement status and proficiency are independent. Never infer proficiency
+  from `required`, `mandatory`, a must-have section, generic seniority, or the
+  mere fact that the language will be used. If a language is required but the
+  text gives no proficiency signal, do not create a ranked language row; record
+  in `notes` that the language is required with level unspecified.
+- Pick primary_language as the language with the highest required level.
+- If a language is unclear, do not confuse it with a programming language.
+
+Technology requirements:
+- Store technologies separately.
+- Use this JSON shape for each technology:
+  `{"name": "Java", "requirement": "core", "level": "advanced", "level_rank": 4, "raw_value": "..."}`
+- `level` must be the normalized label matching `level_rank`, not raw wording.
+  Put raw wording such as "3+ years" or "hands-on experience" into `raw_value`.
+- requirement:
+  - 1, core: role-defining technical track or primary implementation stack.
+    Missing it fundamentally changes the technical work of the role. A
+    junior-level core technology is still core. For example, C++ is core for a
+    Junior C++ Developer vacancy.
+  - 2, required: explicit must-have that is not itself the defining core of the
+    role.
+  - 3, important: strongly emphasized and materially important for doing the job,
+    but not a strict or role-defining gate.
+  - 4, desired: preferred and useful, but the vacancy remains realistic without
+    it.
+  - 5, nice_to_have: explicitly optional, bonus, plus, or nice to have.
+- Do not mark every visible technology as `core` or `required`.
+  - Use `core` only for the primary technical track or implementation stack:
+    the technologies that define how the role's central work is performed.
+  - Use `required` for explicit must-have requirements that are not themselves
+    the defining core of the role.
+  - Use `important` for supporting skills, tools, platforms, or practices that
+    materially affect daily work but are not stated or implied as strict gates.
+  - Decide importance from the requirement's role in this vacancy, not from the
+    technology name. A technology is not automatically core/required just
+    because it is named; it is core/required only when the job would stop being
+    the same job, or the candidate would be rejected, without it.
+  - Determine `core` from the technical work the person will actually perform,
+    separately from how flexible the employer is about prior experience. A
+    technology that defines the actual implementation stack remains `core` when
+    prior experience with it is preferred rather than mandatory or the candidate
+    may learn it. Represent that flexibility through the required level and
+    notes, not by automatically lowering the technology to `desired`.
+  - Keep the `core` set minimal. Include the primary technical track and the
+    technologies that define how its central work is implemented. Do not make
+    every component of a named stack `core`: supporting infrastructure,
+    platforms, services, and tools remain `important` or lower unless the role
+    is centered on them. Do not add a generic umbrella `core` row that merely
+    restates the role or duplicates more specific core technologies.
+  - For an engineering role with a named primary implementation stack, do not
+    classify architectural qualities, scale or performance characteristics,
+    responsibilities, or general engineering capabilities as `core`. Mark them
+    `required` when they are explicit must-haves and `important` or lower
+    otherwise, even when they materially affect the work. A technical
+    specialization may be `core` only when that specialization is itself the
+    primary track of the role, rather than a characteristic of work performed
+    in a more specific named stack.
+  - Distinguish a technical track from the business or industry context of the
+    product. For an engineering role, do not classify its business domain as
+    `core`, including when the domain appears in the title or shapes the product
+    being built. Mark previous experience in that domain as `required` only when
+    the vacancy explicitly makes it a must-have. Without an explicit gate, use
+    at most `important`; use `desired` or `nice_to_have` when it is presented as
+    preferred or optional. The title, industry context, and frequency of domain
+    mentions must not raise it to `core` or `required` by themselves.
+  - Generic workflow, collaboration, delivery, or tooling mentions are usually
+    supporting requirements unless the vacancy explicitly makes ownership or
+    deep expertise in that area a must-have.
+  - Do not turn broad personality traits, generic engineering virtues, or
+    process slogans into separate technology rows. They are not stack
+    requirements. If the vacancy makes them materially relevant, keep them in
+    `notes` or combine them into one supporting low-importance capability.
+  - Do not create many separate rows from a list of generic practices. Multiple
+    supporting practices must not outnumber or obscure the role-defining stack
+    and explicit must-have requirements.
+- level_rank:
+  - 1: nice to have / optional / will be a plus.
+  - 2: junior, basic, beginner, or required/listed/mentioned without depth.
+  - 3: regular, intermediate, hands-on experience, commercial experience,
+    production experience, solid experience, strong practical experience.
+  - 4: advanced, senior.
+  - 5: master, expert.
+- Explicit JustJoinIT levels win when visible in the vacancy header.
+- If a technology is only mentioned in text, infer the level from wording.
+- If wording is too vague but the technology is required, use level_rank 2.
+- If wording is too vague and the technology is optional, use level_rank 1.
+- Use a slash-separated name for interchangeable peer technologies at the same
+  level of abstraction when any one of them satisfies the requirement. Keep the
+  original sentence in `raw_value` and let candidate-fit evaluation choose the
+  best matching peer.
+- When a named technology is an implementation or member of a broader accepted
+  capability, extract the broader capability at its stated importance and depth,
+  and extract the named technology as a separate `nice_to_have` item at the
+  same depth using the same `raw_value`.
+- Split AND requirements into separate technology rows when each part is a
+  distinct skill or technology that should stay in the candidate-fit
+  denominator. Use one capability row only when the text describes one
+  indivisible capability rather than independently required parts.
+- Do not expand example tool lists into many required rows when the real
+  requirement is a capability. For example, `CI/CD pipelines using AWS
+  CodePipeline, CodeBuild, and CodeDeploy` should usually be one required
+  `AWS CI/CD pipelines` item, unless the vacancy clearly requires each service
+  independently.
+
+Location and remote-work rules:
+- Treat the listed location or locations as confirmed candidate locations. Add
+  any additional candidate locations explicitly offered in the vacancy text;
+  never narrow or replace the listed set.
+- Use a geographic reference only when it answers: "Where may the candidate
+  perform this role?"
+- Determine `remote_type` from whether physical presence is mandatory, not from
+  the header label. If office attendance is entirely optional, use `remote`;
+  use `hybrid` only when office presence is required or regularly expected.
+  For `remote_type`, explicit attendance requirements in the full text override
+  the header label.
+- `remote_scope` means the geography from which a fully remote worker may be
+  located. Set it from explicitly stated candidate eligibility; if remote work
+  is available but its exact geography is not stated, use `unknown`.
+- For hybrid or office vacancies, leave `remote_scope` empty unless the vacancy
+  explicitly allows fully remote work.
+- If exact remote geography is explicitly stated as worldwide, global, any
+  country, work anywhere, or equivalent wording, use `worldwide`.
+- If exact remote geography is explicitly limited to a named region, timezone
+  range, or country, preserve that scope exactly. Examples: EMEA, Europe, EU,
+  APAC, US time zones, Poland, Germany. Do not expand regions into countries
+  and do not treat EU, Europe, and EMEA as interchangeable.
+
+Relocation rules:
+- Use NO when relocation is not offered or not mentioned.
+- If relocation is offered, write the destination countries/places, for example
+  Poland, Germany, Netherlands, Warsaw.
+- If relocation is explicitly offered but its destinations are not stated or
+  are described only as a broad unspecified set, use unknown. Never guess that
+  the set excludes suitable destinations, and never write YES.
+- Treat visa sponsorship, relocation package, relocation support, and paid move
+  assistance as relocation signals.
+- Do not mark relocation just because the office location is listed.
+
+Default behavior:
+- Keep objective extraction and expert inference separate in notes when useful.
+- Do not invent company facts, salary, or benefits that are not visible.
+- Use unknown for unclear factual fields.
+- Keep text concise and single-line where possible.
+- Do not assign candidate fit or job interest here.
+
+
+INPUT (linkedin-4456504388.json):
+{"source": "linkedin", "job_id": "4456504388", "readable_text": "source: linkedin\r\nraw_file: C:/Users/user/Documents/Job Seeker/Data/raw/linkedin/pages/4456504388.html\r\nsource_url: https://www.linkedin.com/jobs/view/4456504388/\r\n\r\nDeel\r\nShare\r\nShow more options\r\nStaff Engineer\r\nBelarus · Reposted 1 day ago · 11 people clicked apply\r\nPromoted by hirer · Responses managed off LinkedIn\r\nRemote\r\nFull-time\r\nSave Staff Engineer at Deel\r\nStaff Engineer\r\nDeel · Belarus (Remote)\r\nSave Staff Engineer at Deel\r\nShow more options\r\nYour profile is missing required qualifications\r\nBETA\r\nIs this information helpful?\r\nAbout the job\r\nWho We Are Is What We Do.\r\nDeel is the all-in-one payroll and HR platform for global teams. Our vision is to unlock global opportunity for every person, team, and business. Built for the way the world works today, Deel combines HRIS, payroll, compliance, benefits, performance, and equipment management into one seamless platform. With AI-powered tools and a fully owned payroll infrastructure, Deel supports every worker type in 150+ countries—helping businesses scale smarter, faster, and more compliantly.\r\nAmong the largest globally distributed companies in the world, our team of 7,000 spans more than 100 countries, speaks 74 languages, and brings a connected and dynamic culture that drives continuous learning and innovation for our customers.\r\nWhy should you be part of our success story?\r\nAs the fastest-growing Software as a Service (SaaS) company in history, Deel is transforming how global talent connects with world-class companies – breaking down borders that have traditionally limited both hiring and career opportunities. We're not just building software; we're creating the infrastructure for the future of work, enabling a more diverse and inclusive global economy. In 2024 alone, we paid $11.2 billion to workers in nearly 100 currencies and provided healthcare and benefits to workers in 109 countries—ensuring people get paid and protected, no matter where they are.\r\nOur momentum is reflected in our achievements and customer satisfaction: CNBC Disruptor 50, Forbes Cloud 100, Deloitte Fast 500, and repeated recognition on Y Combinator's top companies list – all while maintaining a 4.83 average rating from 15,000 reviews across G2, Trustpilot, Captera, Apple and Google.\r\nYour experience at Deel will be a career accelerator. At the forefront of the global work revolution, you'll tackle complex challenges that impact millions of people's working lives. With our momentum—backed by a $17.3 billion valuation and $1 B in Annual Recurring Revenue (ARR) in just over five years—you'll drive meaningful impact while building expertise that makes you a sought-after leader in the transformation of global work.\r\nStaff Engineer\r\nThis Staff Engineer for the US Payroll team is expected to step into a pivotal role as a main technical advisor, guiding the exciting strategic evolution of one of our most essential engines. It provides technical leadership across the engineering organization, partnering closely with the Director of Engineering to shape architecture, technical decisions and engineering excellence.\r\nToday, our US Payroll vertical is a reliable partner for our SMB customers. Your mission is to architect and scale this platform to support giant enterprise clients and our entire EOR and PEO community. It's a thrilling step-change in both throughput and architectural complexity that will define our next chapter.\r\nBuilding the Future: Architectural Leadership\r\nYou'll Be The Driving Force Behind The Essential Rearchitectures And Migrations That Make This Growth Possible. We're Looking For Someone Who Loves\r\nHunting down bottlenecks and turning inefficiencies into smooth, elegant solutions.\r\nDesigning the robust frameworks that will unlock global, enterprise-level scale.\r\nSetting the high technical standards that keep our systems manageable and healthy as we grow.\r\nEmpowering the Team: Mentorship & Excellence\r\nYour Impact Goes Far Beyond The Code. You'll Be a Champion For Our Engineering Culture, Helping Our Teams Reach New Heights By\r\nSimplifying the complex and clearing the path so our engineers can do their best work without friction.\r\nBoosting our collective velocity and quality through smart, systematic improvements.\r\nInvesting in our people: mentoring senior engineers and fellow tech leads to raise the bar for everyone.\r\nActing as a collaborative partner, bridging the gap between engineering and the wider leadership team.\r\nWho You Are\r\nYou bring a holistic perspective: you know how to keep today's systems rock-solid while building the ambitious infrastructure of tomorrow. If you're a leader who thrives on high-impact challenges and has a heart for transforming complex environments, we can't wait to meet you!\r\nPrimary Responsibilities\r\nStrategic Technical Leadership\r\nPrincipal Advisor & Architect: Serve as a principal technical advisor to the Director of Engineering, leading technical design and architecture for critical initiatives that align with business objectives.\r\nInformed Decision Making: Drive the technical decision-making process and architecture reviews, identifying and resolving technical risks while balancing short-term delivery with long-term health.\r\nCross-functional Bridge: Represent engineering leadership in planning sessions, building strong partnerships with product and design to drive alignment across product lines.\r\nOperational & Team Excellence\r\nStandardizing Excellence: Implement engineering best practices and design processes that increase team effectiveness, velocity, and technical quality across the organization.\r\nData-Driven Improvement: Establish metrics and KPIs to measure effectiveness, leading post-mortems and driving systematic improvements to reduce organizational friction.\r\nMentorship & Growth: Mentor senior engineers and tech leads, fostering a culture of knowledge sharing and helping establish career development frameworks and hiring standards.\r\nWhat This Role Is Not\r\nNot a traditional Tech lead role: Not primarily focused on owning the technical execution of a single engineering team or day to day delivery\r\nNot limited to one product or team This role will operate across multiple teams and product areas identifying opportunities to improve\r\nNot just an architectural role: Success requires more than designing systems. This person will influence technical strategy.\r\nNot a purely advisory position While this role operates at a strategic level, the expectation is to remain technically credible and close enough to the work to guide complex decisions\r\nWhat You Bring\r\nYour Background And Expertise\r\nExtensive Engineering Foundation: 10+ years of software engineering experience, ideally within fast-growing organizations and across multiple technical domains.\r\nProven Leadership: A track record of technical leadership in organizations of 30+ engineers, with a history of driving initiatives across multiple teams.\r\nArchitecture Mastery: Strong system design and architecture skills, with the ability to implement engineering processes at scale.\r\nCommunication & Mentorship: Excellence in technical communication and documentation, with a dedicated history of mentoring senior engineers and contributing to technical communities.\r\nTotal Rewards\r\nOur workforce deserves fair and competitive pay that meets them where they are. With scalable benefits, rewards, and perks, our total rewards programs reflect our commitment to inclusivity and access for all.\r\nOur salary range reflects gross base salary. For commercial roles with commission eligibility, this figure represents On-Target Earnings (OTE), inclusive of base salary and target commission.\r\nSalary ranges are quoted in USD as a consistent global reference. Your offer will be localized to your country's currency using a market-aligned conversion.\r\nFinal pay is based on objective, job-related criteria including experience, skills, and location.\r\nWe don't ask about salary history. Offers are based on the role and what you bring to it.\r\nSome things you'll enjoy\r\nStock grant opportunities dependent on your role, employment status and location\r\nAdditional perks and benefits based on your employment status and country\r\nOptional flexible working office membership, with IWG\r\nAt Deel, we're an equal-opportunity employer that values diversity and positively encourage applications from suitably qualified and eligible candidates regardless of race, religion, sex, national origin, gender, sexual orientation, age, marital status, veteran status, disability status, pregnancy or maternity or other applicable legally protected characteristics.\r\nUnless otherwise agreed, we will communicate with job applicants using Deel-specific emails, which include @deel.com and other acquired company emails like @payspace.com and @paygroup.com. You can view the most up-to-date job listings at Deel by visiting our careers page.\r\nDeel welcomes persons with disabilities to apply to any of our open roles. We will provide application and/or interview accommodations on request throughout the recruitment, selection and assessment process for applicants with disabilities or other needs. If you require application and/or interview accommodations, please inform our Talent Acquisition Team via email (recruiting@deel.com) and a team member will be in touch to ensure your equal participation.\r\nAs part of our hiring process, we primarily rely on interviews and role-related assessments. In limited cases, we may also consider informal background information relevant to the role, in line with our privacy and fairness obligations.\r\nThis application process may utilise Automated Employment Decision Tools (AEDT) and AI systems to assist in evaluating candidates based on experience level, technical skills and qualifications. This processing is conducted in compliance with applicable Data Protection, AI Governance and Labour Laws. We ensure human oversight is maintained in all final hiring decisions. Your personal data is not used to train AI models. For more information on how we process your personal data, please see our Recruitment Privacy Policy.\r\nFor NYC Residents: In accordance with NYC Local Law 144, an independent bias audit has been conducted on AEDT\r\nUnlock hiring insights on Deel\r\n41%\r\nEmployee growth\r\nChart\r\nChart with 13 data points.\r\nThe chart has 1 X axis displaying values. Range: 1753574400000 to 1791417600000.\r\nThe chart has 1 Y axis displaying values. Range: 0 to 15000.\r\nEnd of interactive chart.\r\nApplicant education level\r\n25%\r\nhave a Master of Business Administration\r\nApplicant seniority level\r\n60%\r\nSenior level applicants\r\nHear back more often with Premium\r\nAccess company insights like strategic priorities, headcount trends, and more\r\nMillions of members use Premium\r\nStart Premium for $0\r\n1-month free trial with 24/7 support. We’ll send you a reminder 7 days before your trial ends.\r\nAbout the company\r\nDeel\r\n845,230 followers\r\nFollow\r\nHuman Resources Services\r\n5,001-10,000 employees\r\n9,644 on LinkedIn\r\nDeel is one platform for payroll, HR, benefits, mobility, performance, and device management across 150+ countries. Built on owned infrastructure, powered by AI, and supported by thousands of local experts, Deel helps businesses scale smarter, faster, and more compliantly. Trusted by 40,000+ customers, and created to become a global brand people love. Learn more at deel.com.\r\n…\r\nshow more\r\nInterested in working with us in the future?\r\nMembers who share that they’re interested in a company may be 2x as likely to get a message from a recruiter than those who don’t. Learn more\r\nI’m interested\r\n", "authoritative_language_facts": []}
+
+CONTEXT (language_levels.md):
+# Human-language proficiency normalization
+
+## Stable anchors
+
+| Level | Rank | Semantic anchors |
+| --- | ---: | --- |
+| A1 | 1 | beginner |
+| A2 | 2 | elementary, pre-intermediate |
+| B1 | 3 | intermediate |
+| B2 | 4 | upper-intermediate, professional working proficiency |
+| C1 | 5 | advanced, full professional proficiency |
+| C2 | 6 | native, bilingual, native-level proficiency |
+
+Use the anchors semantically, not as exact string patterns. Normalize equivalent
+word forms and phrasing to the corresponding CEFR level.
+
+## Ambiguous wording
+
+| Wording | Allowed range | Default |
+| --- | --- | --- |
+| communicative English | B1-B2 | B1 |
+| English communication skills | B1-B2 | B1 |
+| good English / good command | B1-B2 | B2 |
+| very good English | B2-C1 | B2 |
+| strong English / strong command | B2-C1 | B2 |
+| proficient / proficiency | B2-C1 | B2 |
+| excellent English / excellent command | B2-C1 | C1 |
+| fluent / fluency | B2-C1 | C1 |
+| near-native | C1-C2 | C2 |
+
+For ambiguous wording, return one level from the allowed range:
+
+- Start from the default when the vacancy provides no useful context.
+- When wording only describes professional activities performed in English,
+  without an explicit proficiency qualifier, use B2.
+- Use C1 from role context only when the vacancy explicitly makes English the
+  regular working language for leading an international or English-speaking
+  team, or for regular client or stakeholder communication in English.
+- Never choose a level outside the wording's allowed range. Explicit CEFR levels
+  always override this table.
+
+Project policy currently keeps `fluent` at C1 by default, although market usage
+is ambiguous and often means B2/B2+. The deterministic pre-agent filter also
+keeps it at C1. See `language_levels_research.txt` before changing this mapping.
+
+
+CONTEXT (job_analysis.schema.json):
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "contracts/job_analysis.schema.json",
+  "title": "JobSeeker analysis job DTO",
+  "description": "Facts extracted from a vacancy. No candidate-fit or interest scores.",
+  "allOf": [
+    {
+      "$ref": "#/$defs/analysisCore"
+    }
+  ],
+  "unevaluatedProperties": false,
+  "$defs": {
+    "analysisCore": {
+      "type": "object",
+      "required": [
+        "source",
+        "added_at",
+        "source_url",
+        "title",
+        "company",
+        "location",
+        "remote_type",
+        "remote_scope",
+        "relocation",
+        "seniority",
+        "role",
+        "salary",
+        "summary",
+        "notes",
+        "languages",
+        "technologies"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["justjoin", "linkedin"]
+        },
+        "added_at": {
+          "type": "string"
+        },
+        "source_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "company": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "remote_type": {
+          "type": "string",
+          "enum": ["remote", "hybrid", "office", "unknown"]
+        },
+        "remote_scope": {
+          "type": "string"
+        },
+        "relocation": {
+          "type": "string"
+        },
+        "seniority": {
+          "type": "string",
+          "enum": ["intern", "junior", "middle", "senior", "lead", "unknown"]
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "backend",
+            "frontend",
+            "fullstack",
+            "devops",
+            "data",
+            "ml_ai",
+            "qa",
+            "product",
+            "mobile",
+            "automation",
+            "support",
+            "artist",
+            "other"
+          ]
+        },
+        "salary": {
+          "type": "string",
+          "not": {
+            "const": "unknown"
+          }
+        },
+        "summary": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "level", "level_rank", "raw_value"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "level": {
+                "type": "string"
+              },
+              "level_rank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 6
+              },
+              "raw_value": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "technologies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "requirement", "level", "level_rank", "raw_value"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requirement": {
+                "type": "string",
+                "enum": [
+                  "core",
+                  "required",
+                  "important",
+                  "desired",
+                  "nice_to_have"
+                ]
+              },
+              "level": {
+                "type": "string",
+                "enum": ["nice to have", "junior", "regular", "advanced", "master"]
+              },
+              "level_rank": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "raw_value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
