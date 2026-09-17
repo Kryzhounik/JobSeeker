@@ -93,7 +93,9 @@ class SearchPlanTest {
                 100,
                 0,
                 "chrome",
-                30,
+                90,
+                60,
+                3,
                 20
         );
     }

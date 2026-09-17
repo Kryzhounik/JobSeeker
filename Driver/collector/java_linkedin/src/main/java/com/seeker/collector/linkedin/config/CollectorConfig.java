@@ -21,7 +21,9 @@ public record CollectorConfig(
         int limit,
         double delaySeconds,
         String browserChannel,
+        int browserLaunchTimeoutSeconds,
         int pageTimeoutSeconds,
+        int navigationRetries,
         int detailsTimeoutSeconds
 ) {
     public static CollectorConfig load(Path path) throws IOException {
@@ -32,6 +34,19 @@ public record CollectorConfig(
         int limit = integer(properties, "limit", 100);
         if (limit <= 0) {
             throw new IllegalArgumentException("LinkedIn collector limit must be positive");
+        }
+        int browserLaunchTimeoutSeconds = integer(
+                properties,
+                "browserLaunchTimeoutSeconds",
+                90
+        );
+        int pageTimeoutSeconds = integer(properties, "pageTimeoutSeconds", 60);
+        int navigationRetries = integer(properties, "navigationRetries", 3);
+        if (browserLaunchTimeoutSeconds <= 0 || pageTimeoutSeconds <= 0) {
+            throw new IllegalArgumentException("LinkedIn timeouts must be positive");
+        }
+        if (navigationRetries < 0) {
+            throw new IllegalArgumentException("LinkedIn navigation retries cannot be negative");
         }
         return new CollectorConfig(
                 properties.getProperty("keywords", "").trim(),
@@ -45,7 +60,9 @@ public record CollectorConfig(
                 limit,
                 decimal(properties, "delaySeconds", 15.0),
                 properties.getProperty("browserChannel", "chrome").trim(),
-                integer(properties, "pageTimeoutSeconds", 30),
+                browserLaunchTimeoutSeconds,
+                pageTimeoutSeconds,
+                navigationRetries,
                 integer(properties, "detailsTimeoutSeconds", 20)
         );
     }

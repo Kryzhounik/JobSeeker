@@ -1,8 +1,14 @@
 # Java workflow orchestrator
 
-This module is the Java entry point for the JobSeeker workflow. At the current
-stage it owns no post-collection behavior: `batch linkedin` calls the existing
-LinkedIn collector and returns its `CollectionReport` unchanged.
+This module is the Java entry point for the JobSeeker workflow. `batch linkedin`
+calls the existing LinkedIn collector, sends its complete ordered scope to the
+existing agent relevance filter through the metered Codex CLI proxy, validates
+the returned IDs, marks them `NONRELEVANT` in one transaction, and returns the
+remaining scope in collection order.
+
+The Python proxy is reached through the process-wide JPy runtime already used
+by the collector. No separate Python process is started for orchestration; the
+proxy itself launches the configured Codex CLI command.
 
 Build the collector and orchestrator together from the project root:
 

@@ -30,6 +30,7 @@ public final class LinkedInApplication {
         BrowserSettings browserSettings = new BrowserSettings(
                 config.browserChannel(),
                 false,
+                config.browserLaunchTimeoutSeconds(),
                 config.pageTimeoutSeconds()
         );
         PythonRuntime pythonRuntime = PythonRuntime.load(

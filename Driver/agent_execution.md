@@ -1,4 +1,10 @@
-Purpose: dispatch every agent operation through one execution-mode switch.
+Purpose: dispatch Desktop-owned agent operations through one execution-mode
+switch.
+
+This dispatcher owns agent operations orchestrated by the Desktop workflow.
+Agent operations moved into the Java workflow orchestrator are no longer
+Desktop-dispatched; Java supplies their explicit operation contract directly to
+`codex_proxy/metrics_proxy.py` through the shared embedded Python runtime.
 
 Default execution mode: `desktop`
 Default comparison mode: `off`
@@ -53,10 +59,10 @@ that setup and receives only the next input plus any input-specific context.
   workspace sandbox. Reuse a previously approved narrow proxy command when one
   is available instead of requesting approval for every operation.
 
-The caller owns result handling and persistence. Do not bypass this dispatcher
-for agent operations. If the selected execution mode cannot preserve a target
-that the owning orchestrator requires to be reused, stop instead of silently
-creating a replacement agent.
+The caller owns result handling and persistence. Desktop-owned operations must
+not bypass this dispatcher. If the selected execution mode cannot preserve a
+target that the owning orchestrator requires to be reused, stop instead of
+silently creating a replacement agent.
 
 When PowerShell supplies an in-memory payload on Python stdin, use
 `common/utf8_stdin.md` for its UTF-8 transport. This does not change the selected

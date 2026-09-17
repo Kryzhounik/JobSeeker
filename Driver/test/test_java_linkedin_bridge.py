@@ -42,6 +42,43 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 ["12345"],
             )
 
+            run_id = "20260917T120000Z-batch-linkedin"
+            python_bridge.start_run(
+                run_id,
+                json.dumps({"locations": ["Poland"], "limit": 30}),
+            )
+            page = {
+                "sequence": 1,
+                "label": "Poland",
+                "search": "location",
+                "start": 0,
+                "requested_url": "https://www.linkedin.com/jobs/search/?location=Poland&start=0",
+                "actual_url": "https://www.linkedin.com/jobs/search/?location=Poland&start=0",
+                "layout": "lazy",
+                "materialized_count": 7,
+                "new_count": 6,
+                "target_new_count": 6,
+                "scroll_iterations": 3,
+                "unchanged_iterations": 3,
+                "card_ids_hash": "abc123",
+                "terminal": True,
+                "terminal_reason": "next_absent",
+                "next_count": 0,
+                "next_visible": False,
+                "next_disabled": False,
+                "next_aria_disabled": "",
+                "next_label": "",
+                "stop_reason": "next_absent",
+            }
+            python_bridge.log_page(run_id, json.dumps(page))
+            python_bridge.finish_run(
+                run_id,
+                "complete",
+                "plan_exhausted",
+                6,
+                "",
+            )
+
             preview = {
                 "job_id": "4444444444",
                 "source_url": "https://www.linkedin.com/jobs/view/4444444444/",
@@ -100,6 +137,27 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                     LIMIT 1
                     """
                 ).fetchone()
+                logged_run = connection.execute(
+                    """
+                    SELECT status, stop_reason, accepted_count, finished_at IS NOT NULL
+                    FROM linkedin_collection_runs
+                    WHERE run_id = ?
+                    """,
+                    (run_id,),
+                ).fetchone()
+                logged_page = connection.execute(
+                    """
+                    SELECT
+                        label,
+                        materialized_count,
+                        terminal_reason,
+                        next_count,
+                        stop_reason
+                    FROM linkedin_collection_pages
+                    WHERE run_id = ? AND sequence_no = 1
+                    """,
+                    (run_id,),
+                ).fetchone()
             self.assertIsNotNone(collected)
             self.assertIn("Build backend services in Java.", collected[0])
             self.assertEqual(
@@ -114,6 +172,14 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 ),
             )
             self.assertEqual(event, ("raw_saved",))
+            self.assertEqual(
+                logged_run,
+                ("complete", "plan_exhausted", 6, 1),
+            )
+            self.assertEqual(
+                logged_page,
+                ("Poland", 7, "next_absent", 0, "next_absent"),
+            )
 
             duplicate = json.loads(
                 python_bridge.decide_preview(json.dumps(preview))

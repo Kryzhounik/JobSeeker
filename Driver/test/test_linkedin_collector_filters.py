@@ -29,6 +29,26 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Camunda"])
 
+    def test_strong_clickup_requirement_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong hands-on experience with ClickUp, including building "
+            "workflows and systems, not just using pre-built templates"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["ClickUp"])
+
+    def test_optional_clickup_experience_is_not_blocked(self) -> None:
+        result = decide_content("Strong hands-on experience with ClickUp is a plus")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_strong_sap_signavio_requirement_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong hands-on experience with SAP Signavio, ideally within "
+            "Process Management\u0020"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["SAP Signavio"])
+
     def test_advanced_c_requirement_is_blocked(self) -> None:
         result = decide_content("Advanced C programming skills with industry experience")
         self.assertEqual(result["content_decision"], "skip")

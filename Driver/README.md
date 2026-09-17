@@ -6,9 +6,11 @@ scoring, database mapping, and persistence. The top-level execution contract is
 
 ## Java Workflow Orchestrator
 
-`orchestrator` is the Java entry point for the workflow. In its first stage it
-only calls the existing LinkedIn collector and returns the collector report
-unchanged. Build the collector and orchestrator together with:
+`orchestrator` is the Java entry point for the workflow. It calls the existing
+LinkedIn collector, sends the complete collected scope to the agent relevance
+filter through the metered Codex CLI proxy, persists validated rejections as
+`NONRELEVANT`, and returns the remaining ordered scope. Build the collector and
+orchestrator together with:
 
 ```powershell
 mvn -f Driver/pom.xml package
@@ -16,16 +18,18 @@ mvn -f Driver/pom.xml package
 
 ## Agent Execution Boundary
 
-`agent_execution.md` is the single decorator and mode switch for agent
-operations. Analyzer modules describe an operation by supplying its
+`agent_execution.md` is the single decorator and mode switch for Desktop-owned
+agent operations. Analyzer modules describe an operation by supplying its
 instruction, input, contexts, output schema, run ID, and target. The decorator
 then either executes it in the current Desktop agent or sends it through the
-metered Codex CLI proxy.
+metered Codex CLI proxy. Operations already owned by the Java orchestrator send
+the same explicit contract directly to the proxy.
 
 This boundary exists so Desktop and CLI execution can be switched without
 changing analyzer instructions, result handling, scoring, or persistence.
-Every future agent operation must use it rather than selecting a transport
-inside its own instruction.
+Every future Desktop-owned agent operation must use it rather than selecting a
+transport inside its own instruction. Java-owned operations select their
+transport in the Java orchestrator.
 
 Keep `agent_execution.md` deliberately short because it is runtime context.
 Design rationale belongs here. CLI-specific packaging, invocation, and metrics
@@ -42,7 +46,8 @@ blind evaluator per run so all vacancies share one scoring scale.
 `analyzer/agent_filter.md` filters clearly irrelevant vacancies that passed the
 scripted collector filters. It runs before detailed analysis so those vacancies
 remain in the database with status `NONRELEVANT` without consuming full
-analysis resources.
+analysis resources. In the primary `playwright` workflow this operation is
+owned by the Java orchestrator and always uses the CLI transport.
 
 ## LinkedIn Collection
 

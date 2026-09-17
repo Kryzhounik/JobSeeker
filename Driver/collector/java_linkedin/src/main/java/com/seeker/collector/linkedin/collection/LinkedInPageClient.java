@@ -3,6 +3,7 @@ package com.seeker.collector.linkedin.collection;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
@@ -11,9 +12,12 @@ import com.seeker.collector.linkedin.config.CollectorConfig;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -186,7 +190,17 @@ final class LinkedInPageClient {
             List<CardData> cards,
             int expectedCount,
             int materializedCount,
-            boolean terminal
+            String actualUrl,
+            int scrollIterations,
+            int unchangedIterations,
+            String cardIdsHash,
+            boolean terminal,
+            String terminalReason,
+            int nextCount,
+            boolean nextVisible,
+            boolean nextDisabled,
+            String nextAriaDisabled,
+            String nextLabel
     ) {
     }
 
@@ -194,6 +208,17 @@ final class LinkedInPageClient {
     }
 
     private record LayoutSnapshot(Layout layout, int rawCount, List<String> ids) {
+    }
+
+    private record TerminalState(
+            boolean terminal,
+            String reason,
+            int nextCount,
+            boolean nextVisible,
+            boolean nextDisabled,
+            String nextAriaDisabled,
+            String nextLabel
+    ) {
     }
 
     private final PersistentLinkedInSession session;
@@ -241,8 +266,16 @@ final class LinkedInPageClient {
                 // A missing Next button is normal while the search UI is still
                 // mounting. Only an explicit empty/end message can prove an
                 // empty terminal page before any card IDs have appeared.
-                if (hasExplicitTerminalText()) {
-                    return new MaterializedPage(null, List.of(), 0, 0, true);
+                TerminalState emptyState = terminalState();
+                if (emptyState.terminal()
+                        && "explicit_end_text".equals(emptyState.reason())) {
+                    return materializedPage(
+                            null,
+                            Map.of(),
+                            0,
+                            0,
+                            emptyState
+                    );
                 }
             } else if (current.ids().equals(previous)) {
                 stable = current;
@@ -262,6 +295,7 @@ final class LinkedInPageClient {
         Map<String, CardData> cards = new LinkedHashMap<>();
         LayoutSnapshot current = stable;
         int unchanged = 0;
+        int scrollIterations = 0;
         long materializationDeadline = System.nanoTime()
                 + Duration.ofSeconds(30).toNanos();
         while (cards.size() < EXPECTED_PAGE_SIZE
@@ -274,6 +308,7 @@ final class LinkedInPageClient {
             if (cards.size() >= EXPECTED_PAGE_SIZE) {
                 break;
             }
+            scrollIterations++;
             scrollToLastCard(current);
             page.waitForTimeout(500);
             LayoutSnapshot next = readLayoutSnapshot();
@@ -284,19 +319,50 @@ final class LinkedInPageClient {
                 current = next;
             }
         }
-        boolean terminal = isTerminalPage();
-        if (cards.size() < EXPECTED_PAGE_SIZE && !terminal) {
-            throw new CollectionBlockedException(
-                    "LinkedIn page materialized " + cards.size()
-                            + " of " + EXPECTED_PAGE_SIZE + " cards"
+        TerminalState terminalState = terminalState();
+        if (cards.size() < EXPECTED_PAGE_SIZE && !terminalState.terminal()) {
+            terminalState = new TerminalState(
+                    false,
+                    "unknown_short_page",
+                    terminalState.nextCount(),
+                    terminalState.nextVisible(),
+                    terminalState.nextDisabled(),
+                    terminalState.nextAriaDisabled(),
+                    terminalState.nextLabel()
             );
         }
-        return new MaterializedPage(
+        return materializedPage(
                 current.layout(),
+                cards,
+                scrollIterations,
+                unchanged,
+                terminalState
+        );
+    }
+
+    private MaterializedPage materializedPage(
+            Layout layout,
+            Map<String, CardData> cards,
+            int scrollIterations,
+            int unchangedIterations,
+            TerminalState terminalState
+    ) {
+        return new MaterializedPage(
+                layout,
                 List.copyOf(cards.values()),
-                terminal ? cards.size() : EXPECTED_PAGE_SIZE,
+                terminalState.terminal() ? cards.size() : EXPECTED_PAGE_SIZE,
                 cards.size(),
-                terminal
+                page.url(),
+                scrollIterations,
+                unchangedIterations,
+                cardIdsHash(cards.keySet()),
+                terminalState.terminal(),
+                terminalState.reason(),
+                terminalState.nextCount(),
+                terminalState.nextVisible(),
+                terminalState.nextDisabled(),
+                terminalState.nextAriaDisabled(),
+                terminalState.nextLabel()
         );
     }
 
@@ -501,19 +567,67 @@ final class LinkedInPageClient {
         }
     }
 
-    private boolean isTerminalPage() {
-        if (hasExplicitTerminalText()) {
-            return true;
-        }
+    private TerminalState terminalState() {
+        boolean explicitEndText = hasExplicitTerminalText();
         Locator next = page.locator(
                 "button[aria-label='View next page'], button:has-text('View next page')"
         );
-        if (next.count() == 0) {
-            return true;
+        int nextCount = next.count();
+        if (nextCount == 0) {
+            return new TerminalState(
+                    true,
+                    explicitEndText ? "explicit_end_text" : "next_absent",
+                    0,
+                    false,
+                    false,
+                    "",
+                    ""
+            );
         }
         Locator button = next.last();
-        return button.isDisabled()
-                || "true".equalsIgnoreCase(button.getAttribute("aria-disabled"));
+        boolean visible = button.isVisible();
+        boolean disabled = button.isDisabled();
+        String ariaDisabled = text(button.getAttribute("aria-disabled"));
+        String label = text(button.getAttribute("aria-label"));
+        if (label.isBlank()) {
+            label = text(button.textContent());
+        }
+        if (label.length() > 160) {
+            label = label.substring(0, 160);
+        }
+        boolean terminal = explicitEndText
+                || disabled
+                || "true".equalsIgnoreCase(ariaDisabled);
+        String reason;
+        if (explicitEndText) {
+            reason = "explicit_end_text";
+        } else if (terminal) {
+            reason = "next_disabled";
+        } else {
+            reason = "";
+        }
+        return new TerminalState(
+                terminal,
+                reason,
+                nextCount,
+                visible,
+                disabled,
+                ariaDisabled,
+                label
+        );
+    }
+
+    private String cardIdsHash(Set<String> ids) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            for (String id : ids) {
+                digest.update(id.getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) '\n');
+            }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException error) {
+            throw new IllegalStateException("SHA-256 is unavailable", error);
+        }
     }
 
     private boolean hasExplicitTerminalText() {
@@ -557,14 +671,34 @@ final class LinkedInPageClient {
     }
 
     private void navigate(Page targetPage, String url) {
-        throttle.beforeAction(targetPage);
-        targetPage.navigate(
-                url,
-                new Page.NavigateOptions()
-                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                        .setTimeout(config.pageTimeoutSeconds() * 1000.0)
-        );
-        targetPage.waitForTimeout(500);
+        int totalAttempts = config.navigationRetries() + 1;
+        for (int attempt = 1; attempt <= totalAttempts; attempt++) {
+            try {
+                throttle.beforeAction(targetPage);
+                targetPage.navigate(
+                        url,
+                        new Page.NavigateOptions()
+                                .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                                .setTimeout(config.pageTimeoutSeconds() * 1000.0)
+                );
+                targetPage.waitForTimeout(500);
+                return;
+            } catch (TimeoutError error) {
+                if (attempt == totalAttempts) {
+                    throw new CollectionBlockedException(
+                            "LinkedIn navigation timed out for " + url
+                                    + " after " + totalAttempts + " attempts ("
+                                    + config.pageTimeoutSeconds() + " seconds each)",
+                            error
+                    );
+                }
+                System.err.println(
+                        "LinkedIn navigation timed out; retrying the same URL ("
+                                + attempt + "/" + config.navigationRetries() + "): "
+                                + url
+                );
+            }
+        }
     }
 
     private void requireAuthenticated(String message) {

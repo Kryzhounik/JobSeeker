@@ -37,12 +37,15 @@ function, including:
   electricians, maintenance, construction, manufacturing, process, route,
   hardware, electronics, automation, or quality engineering;
 - clearly specialised technical roles whose primary occupation is security,
-  cloud/infrastructure administration, technical art, or another non-software
-  discipline.
+  infrastructure administration, technical art, or another non-software
+  discipline. A cloud, platform, infrastructure, or vendor modifier does not
+  establish that by itself. Reject an operations or administration role only
+  when the complete title clearly expresses operations, administration,
+  support, maintenance, or an equally unambiguous non-software function.
 
 Typical clear rejections include the kinds of roles represented by `Head of
 Planning`, `HR Specialist`, `Compliance Specialist`, `Technical Artist`,
-`Cybersecurity Associate`, `Senior Azure Engineer`, `Route Engineer`,
+`Cybersecurity Associate`, `Route Engineer`,
 `Продюсер`, `Маркетолог`, `Архитектор проектов`, and `Спеціаліст з підтримки`.
 These are calibration examples, not a literal blocklist: apply the semantic
 rule to titles in any language and to equivalent wording.
@@ -54,6 +57,12 @@ DevOps, and similarly adjacent technical work when the title alone does not
 prove irrelevance. Also keep unclear titles such as `R&D Developer`, `Member of
 Technical Staff`, or an unfamiliar product-specific developer title. Detailed
 analysis decides those cases later.
+
+Do not infer administration or operations merely from a cloud provider,
+platform, infrastructure, architecture, or solutions modifier. A technical
+title in one of those domains remains ambiguous unless its occupation clearly
+states a non-software function. Domain proximity to cloud infrastructure is
+not enough for rejection.
 
 Interpret common English, Ukrainian, Russian, and Polish occupational wording.
 If a title is empty, malformed, too generic, or uncertain, keep it.

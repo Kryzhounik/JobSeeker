@@ -7,6 +7,7 @@ import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.JpyPythonGateway;
 import com.seeker.collector.linkedin.python.PythonGateway;
 import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.io.IOException;
 
@@ -30,32 +31,57 @@ public final class LinkedInCollectionService {
     }
 
     public CollectionReport collectBatch(String runId) throws IOException {
-        try (PersistentLinkedInSession session = new PersistentLinkedInSession(
-                paths.profileDirectory(),
-                browserSettings
-        )) {
-            LinkedInPageClient browser = new LinkedInPageClient(session, config);
-            browser.preflight();
-
-            try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
+        try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
+            python.startRun(runId, JsonSupport.GSON.toJson(config));
+            try (PersistentLinkedInSession session = new PersistentLinkedInSession(
+                    paths.profileDirectory(),
+                    browserSettings
+            )) {
+                LinkedInPageClient browser = new LinkedInPageClient(session, config);
+                browser.preflight();
                 return new LinkedInCollector(browser, python, config, runId)
                         .runBatch();
+            } catch (IOException | RuntimeException error) {
+                python.finishRun(
+                        runId,
+                        "blocked",
+                        "java_exception",
+                        0,
+                        message(error)
+                );
+                throw error;
             }
         }
     }
 
     public CollectionReport collectFromUrl(String runId, String url) throws IOException {
-        try (PersistentLinkedInSession session = new PersistentLinkedInSession(
-                paths.profileDirectory(),
-                browserSettings
-        )) {
-            LinkedInPageClient browser = new LinkedInPageClient(session, config);
-            browser.preflight();
-
-            try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
+        try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
+            python.startRun(runId, JsonSupport.GSON.toJson(config));
+            try (PersistentLinkedInSession session = new PersistentLinkedInSession(
+                    paths.profileDirectory(),
+                    browserSettings
+            )) {
+                LinkedInPageClient browser = new LinkedInPageClient(session, config);
+                browser.preflight();
                 return new LinkedInCollector(browser, python, config, runId)
                         .runFromUrl(url);
+            } catch (IOException | RuntimeException error) {
+                python.finishRun(
+                        runId,
+                        "blocked",
+                        "java_exception",
+                        0,
+                        message(error)
+                );
+                throw error;
             }
         }
+    }
+
+    private String message(Throwable error) {
+        String value = error.getMessage();
+        return value == null || value.isBlank()
+                ? error.getClass().getSimpleName()
+                : value;
     }
 }

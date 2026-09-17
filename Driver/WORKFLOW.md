@@ -56,28 +56,21 @@ returns its `run_id` and ordered `scope`. Do not inspect or combine collector
 implementations outside that instruction.
 
 In `playwright` mode, the workflow command starts the Java workflow
-orchestrator. At the current implementation stage it only delegates to the
-existing Java collector and returns the collector report unchanged.
+orchestrator. It delegates collection to the existing Java collector, sends the
+complete collected scope through the agent relevance filter using the metered
+Codex CLI proxy, marks validated rejected IDs `NONRELEVANT`, and returns the
+remaining ordered scope.
 
-Continue the main pipeline only for the returned explicit scope. Collection
-does not run analysis or scoring.
-
-Before detailed analysis, send the complete returned scope to one agent
-operation through `agent_execution.md`:
-
-- operation: `agent_filter`;
-- instruction: `analyzer/agent_filter.md`;
-- output schema: `contracts/agent_filter_result.schema.json`;
-- run ID from the current run;
-- one target and one request for the complete scope.
-
-Use the `source`, `job_id`, and `title` values already returned by the
-collector. For each returned `nonrelevant_job_id`, run
-`python db/job_registry.py NONRELEVANT --source <source> --job-id <job-id>`.
-Reject any result containing an ID outside the supplied scope. Remove the
-returned IDs from the ordered scope and pass only the remainder to
+Continue the main pipeline only for the returned explicit scope. In
+`playwright` mode the returned scope is already agent-filtered; do not invoke
+the relevance filter a second time. Pass it directly to
 `analyzer/analyze_job.md`. If none remain, the run completes without analysis
-or save.
+or save. Collection and relevance filtering do not run detailed analysis or
+scoring.
+
+The deprecated `agent` collector mode retains the Desktop-owned relevance
+filter step through `agent_execution.md`; the Java-owned CLI step applies only
+to `playwright` mode.
 
 Every run must have an explicit processing scope. Do not infer scope by picking
 one arbitrary file.
@@ -229,9 +222,10 @@ scope.
   replacing it with an unrelated script.
 - The current Desktop agent executes `analyzer/analyze_job.md` once as the
   top-level orchestrator for the complete explicit analysis scope.
-- Every agent operation inside that orchestrator must use
+- Every Desktop-owned agent operation inside that orchestrator must use
   `agent_execution.md`. Its `Execution mode` is the single switch between
-  direct Desktop execution and the metered Codex CLI proxy.
+  direct Desktop execution and the metered Codex CLI proxy. Agent operations
+  already owned by the Java orchestrator invoke the metered CLI proxy directly.
 - `codex_proxy/metrics_proxy.py` is a CLI transport only. It may package the
   explicitly supplied operation files and record metrics, but it must not
   choose operations, process their business results, or persist analyzed or

@@ -49,6 +49,34 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
+    public void startRun(String runId, String configJson) {
+        callVoid("start_run", runId, configJson);
+    }
+
+    @Override
+    public void logPage(String runId, String pageJson) {
+        callVoid("log_page", runId, pageJson);
+    }
+
+    @Override
+    public void finishRun(
+            String runId,
+            String status,
+            String stopReason,
+            int acceptedCount,
+            String message
+    ) {
+        callVoid(
+                "finish_run",
+                runId,
+                status,
+                stopReason,
+                acceptedCount,
+                message
+        );
+    }
+
+    @Override
     public List<String> priorityCompanyIds() {
         return JsonSupport.GSON.fromJson(
                 callString("priority_company_ids"),

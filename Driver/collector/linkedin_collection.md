@@ -18,8 +18,11 @@ Purpose: the single LinkedIn batch-collection entry point.
    <java.executable> -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
    ```
 
-   The Java workflow orchestrator currently delegates this command to the
-   existing LinkedIn collector and returns its `CollectionReport` unchanged.
+   The Java workflow orchestrator delegates collection to the existing
+   collector, runs the agent relevance filter once through Codex CLI, persists
+   validated rejections as `NONRELEVANT`, and returns the remaining ordered
+   scope. Its `accepted_count` is the remaining scope size and
+   `outcomes.agent_filtered` is the number removed by the agent filter.
 
    Start this command exactly once as a foreground process and wait for that
    same process to exit. While it runs, do not inspect the browser, database,
@@ -38,6 +41,7 @@ Purpose: the single LinkedIn batch-collection entry point.
    ordered `scope` returned by that instruction.
 4. For any other value, stop before collection and report the invalid mode.
 
-Both implementations own collection only. At this stage the Java orchestrator
-does not run analysis; analysis starts afterward from the returned explicit
-scope.
+The Java path owns collection and the agent relevance filter, but not detailed
+analysis. The deprecated agent collector still owns collection only and keeps
+its Desktop-orchestrated relevance-filter step. Analysis starts afterward from
+the returned explicit scope.

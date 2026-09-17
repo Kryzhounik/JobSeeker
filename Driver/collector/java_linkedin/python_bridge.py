@@ -28,6 +28,9 @@ from collector.filtering.linkedin_filter import apply_preview_decision_with_filt
 from collector.filtering.linkedin_filter import content_response
 from collector.filtering.linkedin_filter import load_config
 from collector.logging.linkedin_logger import record_collection_event
+from collector.logging.linkedin_run_logger import finish_collection_run
+from collector.logging.linkedin_run_logger import record_collection_page
+from collector.logging.linkedin_run_logger import start_collection_run
 from collector.save_raw_page import save_content
 from db.companies import get_priority_linkedin_ids
 from db.filter_rejections import save_content_filter_rejection
@@ -71,6 +74,42 @@ def priority_company_ids() -> str:
     with closing(sqlite3.connect(session.db_path)) as connection:
         values = get_priority_linkedin_ids(connection)
     return _json(values)
+
+
+def start_run(run_id: str, config_json: str) -> None:
+    session = _require_session()
+    start_collection_run(
+        _normalize_unicode(run_id),
+        _object(config_json),
+        session.db_path,
+    )
+
+
+def log_page(run_id: str, page_json: str) -> None:
+    session = _require_session()
+    record_collection_page(
+        _normalize_unicode(run_id),
+        _object(page_json),
+        session.db_path,
+    )
+
+
+def finish_run(
+    run_id: str,
+    status: str,
+    stop_reason: str,
+    accepted_count: int,
+    message: str,
+) -> None:
+    session = _require_session()
+    finish_collection_run(
+        _normalize_unicode(run_id),
+        _normalize_unicode(status),
+        _normalize_unicode(stop_reason),
+        int(accepted_count),
+        _normalize_unicode(message),
+        session.db_path,
+    )
 
 
 def decide_preview(preview_json: str) -> str:

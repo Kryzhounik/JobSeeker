@@ -4,6 +4,7 @@ import com.microsoft.playwright.PlaywrightException;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.python.PythonGateway;
+import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -52,11 +53,14 @@ final class LinkedInCollector {
                 }
                 collectTarget(target);
             }
-            return report("complete", "");
+            String stopReason = scope.size() >= config.limit()
+                    ? "limit_reached"
+                    : "plan_exhausted";
+            return finish("complete", stopReason, "");
         } catch (AuthenticationRequiredException error) {
-            return report("login_required", message(error));
+            return finish("login_required", "authentication_required", message(error));
         } catch (RuntimeException error) {
-            return report("blocked", message(error));
+            return finish("blocked", "collection_error", message(error));
         }
     }
 
@@ -89,9 +93,9 @@ final class LinkedInCollector {
                     1
             );
             processHtml(preview, direct.html());
-            return report("complete", "");
+            return finish("complete", "direct_url_processed", "");
         } catch (AuthenticationRequiredException error) {
-            return report("login_required", message(error));
+            return finish("login_required", "authentication_required", message(error));
         } catch (RuntimeException error) {
             return failedDirectCollection(preview, error);
         }
@@ -119,8 +123,25 @@ final class LinkedInCollector {
                 }
             }
             noNewPages = newForTarget == 0 ? noNewPages + 1 : 0;
-            recordPage(target, start, pageUrl, materialized, newCards.size());
+            String stopReason = pageStopReason(materialized, noNewPages);
+            int pageIndex = recordPage(
+                    target,
+                    start,
+                    pageUrl,
+                    materialized,
+                    newCards.size(),
+                    newForTarget,
+                    stopReason
+            );
             printProgress(target, start, materialized, newCards.size());
+            if ("unknown_short_page".equals(materialized.terminalReason())) {
+                throw new CollectionBlockedException(
+                        "LinkedIn page materialized "
+                                + materialized.materializedCount()
+                                + " of " + materialized.expectedCount()
+                                + " cards"
+                );
+            }
 
             int index = 0;
             for (LinkedInPageClient.CardData card : newCards) {
@@ -142,6 +163,10 @@ final class LinkedInCollector {
                 if (scope.size() >= config.limit()) {
                     break;
                 }
+            }
+
+            if (scope.size() >= config.limit()) {
+                updatePageStopReason(pageIndex, "limit_reached");
             }
 
             if (scope.size() >= config.limit()
@@ -223,23 +248,66 @@ final class LinkedInCollector {
         outcomes.add(status);
     }
 
-    private void recordPage(
+    private int recordPage(
             SearchPlan.Target target,
             int start,
             String pageUrl,
             LinkedInPageClient.MaterializedPage materialized,
-            int newCards
+            int newCards,
+            int newForTarget,
+            String stopReason
     ) {
-        pages.add(new PageReport(
+        PageReport report = new PageReport(
+                pages.size() + 1,
                 target.label(),
                 target.kind().name().toLowerCase(Locale.ROOT),
                 start,
                 pageUrl,
+                materialized.actualUrl(),
+                materialized.layout() == null
+                        ? ""
+                        : materialized.layout().name().toLowerCase(Locale.ROOT),
                 materialized.expectedCount(),
                 materialized.materializedCount(),
                 newCards,
-                materialized.terminal()
-        ));
+                newForTarget,
+                materialized.scrollIterations(),
+                materialized.unchangedIterations(),
+                materialized.cardIdsHash(),
+                materialized.terminal(),
+                materialized.terminalReason(),
+                materialized.nextCount(),
+                materialized.nextVisible(),
+                materialized.nextDisabled(),
+                materialized.nextAriaDisabled(),
+                materialized.nextLabel(),
+                stopReason
+        );
+        pages.add(report);
+        python.logPage(runId, JsonSupport.GSON.toJson(report));
+        return pages.size() - 1;
+    }
+
+    private void updatePageStopReason(int pageIndex, String stopReason) {
+        PageReport report = pages.get(pageIndex).withStopReason(stopReason);
+        pages.set(pageIndex, report);
+        python.logPage(runId, JsonSupport.GSON.toJson(report));
+    }
+
+    private String pageStopReason(
+            LinkedInPageClient.MaterializedPage materialized,
+            int noNewPages
+    ) {
+        if (materialized.terminal()) {
+            return materialized.terminalReason();
+        }
+        if ("unknown_short_page".equals(materialized.terminalReason())) {
+            return materialized.terminalReason();
+        }
+        if (noNewPages >= 2) {
+            return "two_pages_without_new_ids";
+        }
+        return "continue";
     }
 
     private void printProgress(
@@ -274,12 +342,24 @@ final class LinkedInCollector {
         );
     }
 
+    private CollectionReport finish(String status, String stopReason, String message) {
+        CollectionReport report = report(status, message);
+        python.finishRun(
+                runId,
+                status,
+                stopReason,
+                report.acceptedCount(),
+                message
+        );
+        return report;
+    }
+
     private CollectionReport failedDirectCollection(
             Preview preview,
             RuntimeException error
     ) {
         logOutcome(preview, "open_failed", message(error));
-        return report("blocked", message(error));
+        return finish("blocked", "direct_url_error", message(error));
     }
 
     private String message(Throwable error) {

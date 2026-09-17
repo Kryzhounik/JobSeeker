@@ -7,6 +7,18 @@ import com.seeker.collector.linkedin.collection.ProcessResult;
 import java.util.List;
 
 public interface PythonGateway extends AutoCloseable {
+    void startRun(String runId, String configJson);
+
+    void logPage(String runId, String pageJson);
+
+    void finishRun(
+            String runId,
+            String status,
+            String stopReason,
+            int acceptedCount,
+            String message
+    );
+
     List<String> priorityCompanyIds();
 
     PreviewDecision decidePreview(Preview preview);
