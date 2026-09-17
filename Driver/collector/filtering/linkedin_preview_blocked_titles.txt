@@ -740,3 +740,7 @@ Infrastruktury Informatycznej w obszarze inżynierii ds. sieci bezprzewodowych
 Inżynier / -ka Procesu Obróbki Cieplnej
 INŻYNIER DS. PROJEKTOWANIA I ZAKUPÓW
 Field Engineering Specialist
+Nurse
+ICT Associate
+HR Coordinator
+Siebel Developer
