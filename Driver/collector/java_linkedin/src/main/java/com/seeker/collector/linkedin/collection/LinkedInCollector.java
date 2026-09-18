@@ -134,7 +134,7 @@ final class LinkedInCollector {
                     stopReason
             );
             printProgress(target, start, materialized, newCards.size());
-            if ("unknown_short_page".equals(materialized.terminalReason())) {
+            if (isIncompletePage(materialized)) {
                 throw new CollectionBlockedException(
                         "LinkedIn page materialized "
                                 + materialized.materializedCount()
@@ -183,14 +183,14 @@ final class LinkedInCollector {
             int start
     ) {
         try {
-            return browser.materializePage();
+            return browser.materializePage(start);
         } catch (CollectionBlockedException | PlaywrightException first) {
             System.err.println(
                     "LinkedIn page materialization failed once; retrying "
                             + target.label() + " start=" + start + ": " + message(first)
             );
             browser.openSearch(target, start);
-            return browser.materializePage();
+            return browser.materializePage(start);
         }
     }
 
@@ -268,6 +268,7 @@ final class LinkedInCollector {
                         ? ""
                         : materialized.layout().name().toLowerCase(Locale.ROOT),
                 materialized.expectedCount(),
+                materialized.totalResults(),
                 materialized.materializedCount(),
                 newCards,
                 newForTarget,
@@ -301,13 +302,18 @@ final class LinkedInCollector {
         if (materialized.terminal()) {
             return materialized.terminalReason();
         }
-        if ("unknown_short_page".equals(materialized.terminalReason())) {
+        if (isIncompletePage(materialized)) {
             return materialized.terminalReason();
         }
         if (noNewPages >= 2) {
             return "two_pages_without_new_ids";
         }
         return "continue";
+    }
+
+    private boolean isIncompletePage(LinkedInPageClient.MaterializedPage materialized) {
+        return "unknown_short_page".equals(materialized.terminalReason())
+                || "incomplete_page".equals(materialized.terminalReason());
     }
 
     private void printProgress(

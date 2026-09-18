@@ -74,6 +74,61 @@ final class LinkedInPageClient {
               };
             }
             """;
+    private static final String PAGINATION_SCRIPT = """
+            () => {
+              const visible = element => !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+              const containers = [...document.querySelectorAll([
+                '.artdeco-pagination',
+                '.jobs-search-pagination',
+                'nav[aria-label*="pagination" i]'
+              ].join(','))].filter(visible);
+              if (!containers.length) {
+                return {present: false, currentPage: 0, lastPage: 0};
+              }
+              const container = containers[containers.length - 1];
+              const controls = [...container.querySelectorAll('button, a')].filter(visible);
+              const pageNumber = element => {
+                const label = String(element.getAttribute('aria-label') || '').trim();
+                const value = String(element.textContent || '').replace(/\s+/g, ' ').trim();
+                const match = label.match(/(\\d+)/) || value.match(/^(\\d+)$/);
+                return match ? Number(match[1]) : 0;
+              };
+              const pages = controls.map(pageNumber).filter(value => Number.isInteger(value) && value > 0);
+              const current = controls.find(element =>
+                element.matches('[aria-current="page"], [aria-current="true"], [aria-pressed="true"]')
+                || element.matches('.active, .selected, [class*="--active"], [class*="--selected"]')
+                || !!element.closest('.active, .selected, [class*="--active"], [class*="--selected"]')
+              );
+              return {
+                present: true,
+                currentPage: current ? pageNumber(current) : 0,
+                lastPage: pages.length ? Math.max(...pages) : 0
+              };
+            }
+            """;
+    private static final String RESULT_COUNT_SCRIPT = """
+            () => {
+              const visible = element => !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
+              const preferred = [...document.querySelectorAll([
+                '.jobs-search-results-list__title-heading',
+                '.jobs-search-results-list__subtitle',
+                '.jobs-search-results-list__text'
+              ].join(','))].filter(visible);
+              const list = [...document.querySelectorAll('.scaffold-layout__list')].find(visible);
+              const fallback = list
+                ? [...list.querySelectorAll('small, span')].filter(visible)
+                : [];
+              for (const element of [...preferred, ...fallback]) {
+                const value = String(element.innerText || element.textContent || '')
+                  .replace(/\\u00a0/g, ' ').trim();
+                const match = value.match(/(?:^|\\n|\\s)([\\d][\\d\\s,.]*)\\s+results?\\b/i);
+                if (!match) continue;
+                const digits = match[1].replace(/\\D/g, '');
+                if (digits) return {present: true, total: Number(digits)};
+              }
+              return {present: false, total: 0};
+            }
+            """;
     private static final String PREVIEW_SCRIPT = """
             (element, jobId) => {
               const clean = value => String(value || '').replace(/\\s+/g, ' ').trim();
@@ -189,6 +244,7 @@ final class LinkedInPageClient {
             Layout layout,
             List<CardData> cards,
             int expectedCount,
+            Integer totalResults,
             int materializedCount,
             String actualUrl,
             int scrollIterations,
@@ -208,6 +264,20 @@ final class LinkedInPageClient {
     }
 
     private record LayoutSnapshot(Layout layout, int rawCount, List<String> ids) {
+    }
+
+    private record PaginationState(boolean present, int currentPage, int lastPage) {
+        boolean isLastPage() {
+            return present && currentPage > 0 && currentPage == lastPage;
+        }
+    }
+
+    private record ResultCountState(
+            boolean present,
+            int total,
+            int expectedCount,
+            boolean lastPage
+    ) {
     }
 
     private record TerminalState(
@@ -256,9 +326,10 @@ final class LinkedInPageClient {
         return url;
     }
 
-    MaterializedPage materializePage() {
+    MaterializedPage materializePage(int start) {
         List<String> previous = List.of();
         LayoutSnapshot stable = null;
+        ResultCountState resultCount = missingResultCount();
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         while (System.nanoTime() < deadline) {
             LayoutSnapshot current = readLayoutSnapshot();
@@ -269,9 +340,12 @@ final class LinkedInPageClient {
                 TerminalState emptyState = terminalState();
                 if (emptyState.terminal()
                         && "explicit_end_text".equals(emptyState.reason())) {
+                    ResultCountState emptyCount = resultCountState(start);
                     return materializedPage(
                             null,
                             Map.of(),
+                            0,
+                            emptyCount.present() ? emptyCount.total() : null,
                             0,
                             0,
                             emptyState
@@ -298,18 +372,34 @@ final class LinkedInPageClient {
         int scrollIterations = 0;
         long materializationDeadline = System.nanoTime()
                 + Duration.ofSeconds(30).toNanos();
-        while (cards.size() < EXPECTED_PAGE_SIZE
-                && unchanged < 3
+        TerminalState observedTerminal = terminalState();
+        while (cards.size() < expectedCount(resultCount)
                 && System.nanoTime() < materializationDeadline) {
             validateIds(current);
             int previousCount = cards.size();
             readVisibleCards(current, cards);
             unchanged = cards.size() == previousCount ? unchanged + 1 : 0;
-            if (cards.size() >= EXPECTED_PAGE_SIZE) {
+            ResultCountState detected = resultCountState(start);
+            if (resultCount.present() && resultCount.total() < start + cards.size()) {
+                resultCount = missingResultCount();
+            }
+            if (detected.present() && detected.total() >= start + cards.size()) {
+                resultCount = detected;
+            }
+            if (cards.size() >= expectedCount(resultCount)) {
                 break;
             }
-            scrollIterations++;
-            scrollToLastCard(current);
+            observedTerminal = terminalState();
+            if (observedTerminal.terminal() && !resultCount.present()) {
+                break;
+            }
+            // Keep giving a slow page time to materialize. Re-scroll only
+            // periodically while nothing changes instead of declaring the
+            // location finished after three 500 ms polls.
+            if (unchanged == 0 || unchanged % 4 == 0) {
+                scrollIterations++;
+                scrollToLastCard(current);
+            }
             page.waitForTimeout(500);
             LayoutSnapshot next = readLayoutSnapshot();
             if (next != null) {
@@ -319,21 +409,30 @@ final class LinkedInPageClient {
                 current = next;
             }
         }
-        TerminalState terminalState = terminalState();
-        if (cards.size() < EXPECTED_PAGE_SIZE && !terminalState.terminal()) {
-            terminalState = new TerminalState(
-                    false,
-                    "unknown_short_page",
-                    terminalState.nextCount(),
-                    terminalState.nextVisible(),
-                    terminalState.nextDisabled(),
-                    terminalState.nextAriaDisabled(),
-                    terminalState.nextLabel()
-            );
+        TerminalState terminalState = observedTerminal.terminal()
+                ? observedTerminal
+                : terminalState();
+        int expectedCount = expectedCount(resultCount);
+        if (resultCount.present()) {
+            if (cards.size() < expectedCount) {
+                terminalState = terminalState(terminalState, false, "incomplete_page");
+            } else if (resultCount.lastPage()) {
+                terminalState = terminalState(
+                        terminalState,
+                        true,
+                        "result_count_exhausted"
+                );
+            } else {
+                terminalState = terminalState(terminalState, false, "");
+            }
+        } else if (cards.size() < EXPECTED_PAGE_SIZE && !terminalState.terminal()) {
+            terminalState = terminalState(terminalState, false, "unknown_short_page");
         }
         return materializedPage(
                 current.layout(),
                 cards,
+                expectedCount,
+                resultCount.present() ? resultCount.total() : null,
                 scrollIterations,
                 unchanged,
                 terminalState
@@ -343,6 +442,8 @@ final class LinkedInPageClient {
     private MaterializedPage materializedPage(
             Layout layout,
             Map<String, CardData> cards,
+            int expectedCount,
+            Integer totalResults,
             int scrollIterations,
             int unchangedIterations,
             TerminalState terminalState
@@ -350,7 +451,8 @@ final class LinkedInPageClient {
         return new MaterializedPage(
                 layout,
                 List.copyOf(cards.values()),
-                terminalState.terminal() ? cards.size() : EXPECTED_PAGE_SIZE,
+                expectedCount,
+                totalResults,
                 cards.size(),
                 page.url(),
                 scrollIterations,
@@ -363,6 +465,22 @@ final class LinkedInPageClient {
                 terminalState.nextDisabled(),
                 terminalState.nextAriaDisabled(),
                 terminalState.nextLabel()
+        );
+    }
+
+    private TerminalState terminalState(
+            TerminalState source,
+            boolean terminal,
+            String reason
+    ) {
+        return new TerminalState(
+                terminal,
+                reason,
+                source.nextCount(),
+                source.nextVisible(),
+                source.nextDisabled(),
+                source.nextAriaDisabled(),
+                source.nextLabel()
         );
     }
 
@@ -580,14 +698,18 @@ final class LinkedInPageClient {
 
     private TerminalState terminalState() {
         boolean explicitEndText = hasExplicitTerminalText();
+        PaginationState pagination = paginationState();
         Locator next = page.locator(
                 "button[aria-label='View next page'], button:has-text('View next page')"
         );
         int nextCount = next.count();
         if (nextCount == 0) {
+            boolean terminal = explicitEndText || pagination.isLastPage();
             return new TerminalState(
-                    true,
-                    explicitEndText ? "explicit_end_text" : "next_absent",
+                    terminal,
+                    explicitEndText
+                            ? "explicit_end_text"
+                            : pagination.isLastPage() ? "pagination_last_page" : "",
                     0,
                     false,
                     false,
@@ -607,13 +729,13 @@ final class LinkedInPageClient {
             label = label.substring(0, 160);
         }
         boolean terminal = explicitEndText
-                || disabled
-                || "true".equalsIgnoreCase(ariaDisabled);
+                || (pagination.isLastPage()
+                && (disabled || "true".equalsIgnoreCase(ariaDisabled)));
         String reason;
         if (explicitEndText) {
             reason = "explicit_end_text";
         } else if (terminal) {
-            reason = "next_disabled";
+            reason = "pagination_last_page";
         } else {
             reason = "";
         }
@@ -626,6 +748,48 @@ final class LinkedInPageClient {
                 ariaDisabled,
                 label
         );
+    }
+
+    private PaginationState paginationState() {
+        Map<String, Object> value = stringObjectMap(page.evaluate(PAGINATION_SCRIPT));
+        boolean present = Boolean.TRUE.equals(value.get("present"));
+        int currentPage = value.get("currentPage") instanceof Number number
+                ? number.intValue()
+                : 0;
+        int lastPage = value.get("lastPage") instanceof Number number
+                ? number.intValue()
+                : 0;
+        return new PaginationState(present, currentPage, lastPage);
+    }
+
+    private ResultCountState resultCountState(int start) {
+        Map<String, Object> value = stringObjectMap(page.evaluate(RESULT_COUNT_SCRIPT));
+        boolean present = Boolean.TRUE.equals(value.get("present"));
+        if (!present || !(value.get("total") instanceof Number number)) {
+            return missingResultCount();
+        }
+        int total = Math.max(0, number.intValue());
+        int expectedCount = expectedPageCount(total, start);
+        return new ResultCountState(
+                true,
+                total,
+                expectedCount,
+                start + expectedCount >= total
+        );
+    }
+
+    private ResultCountState missingResultCount() {
+        return new ResultCountState(false, 0, EXPECTED_PAGE_SIZE, false);
+    }
+
+    private int expectedCount(ResultCountState resultCount) {
+        return resultCount.present()
+                ? resultCount.expectedCount()
+                : EXPECTED_PAGE_SIZE;
+    }
+
+    static int expectedPageCount(int totalResults, int start) {
+        return Math.min(EXPECTED_PAGE_SIZE, Math.max(0, totalResults - start));
     }
 
     private String cardIdsHash(Set<String> ids) {

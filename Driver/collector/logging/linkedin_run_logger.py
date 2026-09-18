@@ -62,6 +62,8 @@ def record_collection_page(
         _text(page, "requested_url"),
         _text(page, "actual_url"),
         _text(page, "layout"),
+        _integer(page, "expected_count"),
+        _nullable_integer(page, "total_results"),
         _integer(page, "materialized_count"),
         _integer(page, "new_count"),
         _integer(page, "target_new_count"),
@@ -90,6 +92,8 @@ def record_collection_page(
                 requested_url,
                 actual_url,
                 layout,
+                expected_count,
+                total_results,
                 materialized_count,
                 new_count,
                 target_new_count,
@@ -105,7 +109,7 @@ def record_collection_page(
                 next_label,
                 stop_reason
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(run_id, sequence_no) DO UPDATE SET
                 label = excluded.label,
                 search = excluded.search,
@@ -113,6 +117,8 @@ def record_collection_page(
                 requested_url = excluded.requested_url,
                 actual_url = excluded.actual_url,
                 layout = excluded.layout,
+                expected_count = excluded.expected_count,
+                total_results = excluded.total_results,
                 materialized_count = excluded.materialized_count,
                 new_count = excluded.new_count,
                 target_new_count = excluded.target_new_count,
@@ -175,6 +181,11 @@ def _text(payload: dict[str, Any], key: str) -> str:
 def _integer(payload: dict[str, Any], key: str) -> int:
     value = payload.get(key)
     return 0 if value is None or value == "" else int(value)
+
+
+def _nullable_integer(payload: dict[str, Any], key: str) -> int | None:
+    value = payload.get(key)
+    return None if value is None or value == "" else int(value)
 
 
 def _boolean(payload: dict[str, Any], key: str) -> int:

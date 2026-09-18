@@ -55,6 +55,8 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 "requested_url": "https://www.linkedin.com/jobs/search/?location=Poland&start=0",
                 "actual_url": "https://www.linkedin.com/jobs/search/?location=Poland&start=0",
                 "layout": "lazy",
+                "expected_count": 25,
+                "total_results": 267,
                 "materialized_count": 7,
                 "new_count": 6,
                 "target_new_count": 6,
@@ -149,6 +151,8 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                     """
                     SELECT
                         label,
+                        expected_count,
+                        total_results,
                         materialized_count,
                         terminal_reason,
                         next_count,
@@ -178,7 +182,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             )
             self.assertEqual(
                 logged_page,
-                ("Poland", 7, "next_absent", 0, "next_absent"),
+                ("Poland", 25, 267, 7, "next_absent", 0, "next_absent"),
             )
 
             duplicate = json.loads(

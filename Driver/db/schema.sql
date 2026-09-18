@@ -260,6 +260,8 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_pages (
     requested_url TEXT NOT NULL DEFAULT '',
     actual_url TEXT NOT NULL DEFAULT '',
     layout TEXT NOT NULL DEFAULT '',
+    expected_count INTEGER NOT NULL DEFAULT 0,
+    total_results INTEGER,
     materialized_count INTEGER NOT NULL DEFAULT 0,
     new_count INTEGER NOT NULL DEFAULT 0,
     target_new_count INTEGER NOT NULL DEFAULT 0,

@@ -135,6 +135,11 @@ def migration_already_effective(
             not column_exists(connection, "jobs", column)
             for column in ("source_url", "title", "company_id")
         )
+    if version == "027_linkedin_result_counts":
+        return (
+            column_exists(connection, "linkedin_collection_pages", "expected_count")
+            and column_exists(connection, "linkedin_collection_pages", "total_results")
+        )
     return False
 
 
