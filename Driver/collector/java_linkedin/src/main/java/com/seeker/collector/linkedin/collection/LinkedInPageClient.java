@@ -23,11 +23,26 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 final class LinkedInPageClient {
     private static final String LINKEDIN_JOBS = "https://www.linkedin.com/jobs/";
     private static final int EXPECTED_PAGE_SIZE = 25;
+    private static final List<String> SEARCH_QUERY_KEYS = List.of(
+            "keywords",
+            "origin",
+            "refresh",
+            "location",
+            "geoId",
+            "f_E",
+            "f_WT",
+            "f_JT",
+            "f_TPR",
+            "sortBy",
+            "f_C",
+            "start"
+    );
     private static final String SEARCH_DETAILS_SELECTOR = String.join(", ",
             "[data-testid='job-details']",
             "[data-view-name='job-details']",
@@ -313,9 +328,6 @@ final class LinkedInPageClient {
 
     void openSeed(SearchPlan.Target target) {
         openSearch(target, 0);
-        throttle.beforeAction(page);
-        page.locator("button.jobs-search-box__submit-button").click();
-        page.waitForTimeout(750);
     }
 
     String openSearch(SearchPlan.Target target, int start) {
@@ -508,18 +520,13 @@ final class LinkedInPageClient {
             return;
         }
         String jobId = snapshot.ids().get(snapshot.ids().size() - 1);
-        if (snapshot.layout() == Layout.CLASSIC) {
-            Locator card = cardLocator(snapshot.layout(), jobId);
-            if (card.count() != 1) {
-                throw new CollectionBlockedException(
-                        "Expected one classic job card for scrolling, found " + card.count()
-                );
-            }
-            card.hover();
-            page.mouse().wheel(0, 800);
-            return;
+        Locator card = cardLocator(snapshot.layout(), jobId);
+        if (card.count() != 1) {
+            throw new CollectionBlockedException(
+                    "Expected one job card for scrolling, found " + card.count()
+            );
         }
-        cardLocator(snapshot.layout(), jobId).evaluate(
+        card.evaluate(
                 "element => element.scrollIntoView({block:'end', inline:'nearest', behavior:'instant'})"
         );
     }
@@ -834,20 +841,36 @@ final class LinkedInPageClient {
     }
 
     private void verifyQuery(String requestedUrl, String actualUrl) {
-        Map<String, String> expected = queryParameters(requestedUrl);
-        Map<String, String> actual = queryParameters(actualUrl);
-        for (String key : List.of("f_E", "f_WT", "f_JT", "f_TPR", "sortBy", "f_C")) {
-            String value = expected.get(key);
-            if (value != null && !value.equals(actual.get(key))) {
-                throw new CollectionBlockedException(
-                        "LinkedIn did not retain " + key + "=" + value
-                                + "; actual URL is " + actualUrl
-                );
-            }
+        String mismatch = searchQueryMismatch(requestedUrl, actualUrl);
+        if (!mismatch.isBlank()) {
+            throw new CollectionBlockedException(
+                    "LinkedIn search URL does not match the requested query: "
+                            + mismatch + "; actual URL is " + actualUrl
+            );
         }
     }
 
-    private Map<String, String> queryParameters(String url) {
+    static String searchQueryMismatch(String requestedUrl, String actualUrl) {
+        Map<String, String> expected = queryParameters(requestedUrl);
+        Map<String, String> actual = queryParameters(actualUrl);
+        for (String key : SEARCH_QUERY_KEYS) {
+            String expectedValue = normalizedQueryValue(key, expected.get(key));
+            String actualValue = normalizedQueryValue(key, actual.get(key));
+            if (!Objects.equals(expectedValue, actualValue)) {
+                return key + " expected=" + expectedValue + " actual=" + actualValue;
+            }
+        }
+        return "";
+    }
+
+    private static String normalizedQueryValue(String key, String value) {
+        if ("start".equals(key) && (value == null || value.isBlank())) {
+            return "0";
+        }
+        return value;
+    }
+
+    private static Map<String, String> queryParameters(String url) {
         Map<String, String> result = new HashMap<>();
         String query = URI.create(url).getRawQuery();
         if (query == null || query.isBlank()) {
@@ -869,6 +892,7 @@ final class LinkedInPageClient {
         int totalAttempts = config.navigationRetries() + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
+                targetPage.bringToFront();
                 throttle.beforeAction(targetPage);
                 targetPage.navigate(
                         url,
@@ -890,7 +914,7 @@ final class LinkedInPageClient {
                 System.err.println(
                         "LinkedIn navigation timed out; retrying the same URL ("
                                 + attempt + "/" + config.navigationRetries() + "): "
-                                + url
+                        + url
                 );
             }
         }
