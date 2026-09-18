@@ -25,6 +25,7 @@ SOURCE_CODES = ("justjoin", "linkedin")
 PROCESSING_STATUSES = (
     "RAW",
     "CLEANED",
+    "CONTENT_REJECTED",
     "NONRELEVANT",
     "ANALYZED",
     "SCORED",

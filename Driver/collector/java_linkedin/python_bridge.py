@@ -34,6 +34,7 @@ from collector.logging.linkedin_run_logger import start_collection_run
 from collector.save_raw_page import save_content
 from db.companies import get_priority_linkedin_ids
 from db.filter_rejections import save_content_filter_rejection
+from db.job_registry import mark_status
 from db.migrate import migrate_database
 from db.readable_text import save_collected_job
 
@@ -172,6 +173,7 @@ def process_html(preview_json: str, html: str) -> str:
                     matched_text=filter_result.match,
                     keyword_patterns=filter_result.keyword_patterns,
                 )
+                mark_status(connection, "linkedin", job_id, "CONTENT_REJECTED")
             connection.commit()
 
         decision = content_response(filter_result)

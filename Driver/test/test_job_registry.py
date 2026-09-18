@@ -28,7 +28,8 @@ class JobRegistryTest(unittest.TestCase):
                 sort_order INTEGER NOT NULL UNIQUE
             );
             INSERT INTO processing_statuses VALUES
-                ('RAW', 10), ('CLEANED', 20), ('NONRELEVANT', 25),
+                ('RAW', 10), ('CLEANED', 20), ('CONTENT_REJECTED', 22),
+                ('NONRELEVANT', 25),
                 ('ANALYZED', 30),
                 ('SCORED', 40), ('SAVED', 50);
             CREATE TABLE source_jobs (
@@ -87,6 +88,15 @@ class JobRegistryTest(unittest.TestCase):
             "SELECT processing_status FROM source_jobs"
         ).fetchone()[0]
         self.assertEqual(status, "NONRELEVANT")
+
+    def test_marks_cleaned_job_content_rejected(self) -> None:
+        mark_status(self.connection, "linkedin", "123", "CLEANED")
+        mark_status(self.connection, "linkedin", "123", "CONTENT_REJECTED")
+
+        status = self.connection.execute(
+            "SELECT processing_status FROM source_jobs"
+        ).fetchone()[0]
+        self.assertEqual(status, "CONTENT_REJECTED")
 
     def test_collection_method_replaces_legacy_unknown(self) -> None:
         mark_status(self.connection, "linkedin", "123", "RAW")

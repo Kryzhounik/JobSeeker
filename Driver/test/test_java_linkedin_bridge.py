@@ -189,6 +189,37 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 python_bridge.decide_preview(json.dumps(preview))
             )
             self.assertEqual(duplicate["preview_rule"], "duplicate_source_job_id")
+
+            rejected_preview = {
+                **preview,
+                "job_id": "5555555555",
+                "source_url": "https://www.linkedin.com/jobs/view/5555555555/",
+                "title": "Backend Engineer",
+            }
+            rejected_html = """<!doctype html>
+            <html><head>
+              <link rel="canonical" href="https://www.linkedin.com/jobs/view/5555555555/">
+            </head><body><main>
+              <h1>Backend Engineer</h1>
+              <h2>About the job</h2>
+              <p>Proficiency in Python is required.</p>
+            </main></body></html>"""
+            rejected = json.loads(
+                python_bridge.process_html(
+                    json.dumps(rejected_preview),
+                    rejected_html,
+                )
+            )
+            self.assertEqual(rejected["status"], "content_filtered")
+            with closing(sqlite3.connect(database)) as connection:
+                rejected_status = connection.execute(
+                    """
+                    SELECT processing_status
+                    FROM source_jobs
+                    WHERE source = 'linkedin' AND source_job_id = '5555555555'
+                    """
+                ).fetchone()
+            self.assertEqual(rejected_status, ("CONTENT_REJECTED",))
             python_bridge.close_session()
             gc.collect()
 
