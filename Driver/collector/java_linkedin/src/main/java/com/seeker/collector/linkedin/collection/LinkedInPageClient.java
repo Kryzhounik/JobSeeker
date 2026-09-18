@@ -330,6 +330,7 @@ final class LinkedInPageClient {
         List<String> previous = List.of();
         LayoutSnapshot stable = null;
         ResultCountState resultCount = missingResultCount();
+        boolean resultCountChecked = false;
         long deadline = System.nanoTime() + Duration.ofSeconds(10).toNanos();
         while (System.nanoTime() < deadline) {
             LayoutSnapshot current = readLayoutSnapshot();
@@ -340,7 +341,7 @@ final class LinkedInPageClient {
                 TerminalState emptyState = terminalState();
                 if (emptyState.terminal()
                         && "explicit_end_text".equals(emptyState.reason())) {
-                    ResultCountState emptyCount = resultCountState(start);
+                    ResultCountState emptyCount = stableResultCountState(start, 0);
                     return materializedPage(
                             null,
                             Map.of(),
@@ -379,12 +380,9 @@ final class LinkedInPageClient {
             int previousCount = cards.size();
             readVisibleCards(current, cards);
             unchanged = cards.size() == previousCount ? unchanged + 1 : 0;
-            ResultCountState detected = resultCountState(start);
-            if (resultCount.present() && resultCount.total() < start + cards.size()) {
-                resultCount = missingResultCount();
-            }
-            if (detected.present() && detected.total() >= start + cards.size()) {
-                resultCount = detected;
+            if (!resultCountChecked) {
+                resultCount = stableResultCountState(start, cards.size());
+                resultCountChecked = true;
             }
             if (cards.size() >= expectedCount(resultCount)) {
                 break;
@@ -567,7 +565,8 @@ final class LinkedInPageClient {
     }
 
     private CardData waitForCardData(Layout layout, Locator card, String jobId) {
-        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        long deadline = System.nanoTime()
+                + Duration.ofSeconds(config.detailsTimeoutSeconds()).toNanos();
         CardData latest = null;
         while (System.nanoTime() < deadline) {
             Map<String, Object> value = stringObjectMap(card.evaluate(PREVIEW_SCRIPT, jobId));
@@ -776,6 +775,27 @@ final class LinkedInPageClient {
                 expectedCount,
                 start + expectedCount >= total
         );
+    }
+
+    private ResultCountState stableResultCountState(int start, int observedCards) {
+        Integer previousTotal = null;
+        long deadline = System.nanoTime() + Duration.ofSeconds(2).toNanos();
+        while (System.nanoTime() < deadline) {
+            ResultCountState current = resultCountState(start);
+            boolean valid = current.present()
+                    && current.total() >= start + observedCards;
+            if (valid) {
+                if (previousTotal != null
+                        && previousTotal.intValue() == current.total()) {
+                    return current;
+                }
+                previousTotal = current.total();
+            } else {
+                previousTotal = null;
+            }
+            page.waitForTimeout(250);
+        }
+        return missingResultCount();
     }
 
     private ResultCountState missingResultCount() {
