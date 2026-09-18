@@ -14,6 +14,16 @@ Before starting, read `analyzer/config/execution.ini`. For job facts,
 `vacancies_per_agent` is the maximum number handled by one agent thread.
 Both values must be positive integers. Do not silently substitute defaults.
 
+The caller may explicitly override either value for the current analysis run.
+Resolve the effective values first: use each explicit override when supplied,
+otherwise use that value from `analyzer/config/execution.ini`. Before starting
+any analysis operation, persist those exact effective values with:
+
+`python analyzer/run_logger.py --run-id <run-id> --parallel-agents <effective-parallel-agents> --vacancies-per-agent <effective-vacancies-per-agent>`
+
+Call this command exactly once for the analysis run. It applies pending database
+migrations itself. Do not record the file defaults when an override is active.
+
 Run these phases in this exact order for the whole scope.
 
 For every PowerShell-to-Python stdin transfer below, read and use the fixed
