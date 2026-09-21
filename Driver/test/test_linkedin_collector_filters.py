@@ -575,6 +575,38 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_ideally_python_is_not_blocked(self) -> None:
+        result = decide_content(
+            "• Strong foundation in probability, statistics and data analysis "
+            "• Excellent programming skills, ideally in Python"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_generic_language_alternative_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Strong Python skills (or another general-purpose programming "
+            "language) and experience applying them across data engineering, "
+            "platform automation, and analytical workloads."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_only_blocked_skills_alternatives_are_blocked(self) -> None:
+        result = decide_content("Strong Python skills (or C++)")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertIn("Python", result["content_technologies"])
+
+    def test_expertise_in_open_language_alternatives_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Have a strong software engineering background with expertise in "
+            "Python, C++, or comparable programming languages."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_expertise_in_only_blocked_alternatives_is_blocked(self) -> None:
+        result = decide_content("Expertise in Python or C++")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python", "C++"])
+
     def test_backend_language_preference_for_go_is_not_blocked(self) -> None:
         result = decide_content(
             "Proficiency in at least one backend language with strong "

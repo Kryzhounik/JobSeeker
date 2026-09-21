@@ -86,7 +86,7 @@ class LanguageRequirementsTest(unittest.TestCase):
     def test_default_config_compiles_each_template_once(self) -> None:
         extractor = load_language_requirement_extractor(DEFAULT_LANGUAGE_CONFIG)
 
-        self.assertEqual(len(extractor.patterns), 9)
+        self.assertEqual(len(extractor.patterns), 10)
 
     def test_default_config_extracts_reviewed_explicit_level(self) -> None:
         requirements = extract_language_requirements(
@@ -128,6 +128,31 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "B2+")
         self.assertEqual(requirements[0].level_rank, 4)
+
+    def test_explicit_level_range_uses_the_lowest_accepted_level(self) -> None:
+        requirements = extract_language_requirements(
+            "Advanced proficiency in English (B2+/C1)",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "B2+")
+        self.assertEqual(requirements[0].level_rank, 4)
+
+    def test_explicit_level_range_overrides_implied_level(self) -> None:
+        requirements = extract_language_requirements(
+            "Advanced proficiency in English (C1/B2)",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].level, "B2")
+
+    def test_explicit_b2_range_passes_content_filter(self) -> None:
+        result = decide_content("Advanced proficiency in English (B2+/C1)")
+
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_programming_language_is_not_a_human_language_match(self) -> None:
         requirements = extract_language_requirements(

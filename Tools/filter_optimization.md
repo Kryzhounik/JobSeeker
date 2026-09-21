@@ -194,8 +194,10 @@ neither of the following appears in the matching line or an adjacent non-empty
 line:
 
 - Java as a whole word
-- optional wording such as `nice to have`, `plus`, `not required`, or
-  `preferred`
+- optional wording such as `nice to have`, `plus`, `not required`,
+  `preferred`, or technology-specific `ideally in <technology>`
+- an explicit generic alternative such as
+  `<technology> skills (or another general-purpose programming language)`
 
 `JavaScript` must not count as `Java`. Java in the requirement line or an
 adjacent non-empty line keeps the vacancy. Generic alternatives such as `or`,
@@ -234,7 +236,10 @@ levels are kept in `[requirement_templates]` and use both `{language}` and
 `{level}`. Phrases that imply a fixed level are kept under that level in
 `[implied_level_templates]` and use `{language}` only. Both lists may remain
 empty. Reviewed explicit templates cover `Language: C1`, `Language C1`, `C1
-level in Language`, `Language (C1 level)`, and `Language at C1 level` forms.
+level in Language`, `Language (C1 level)`, `Language at C1 level`, and explicit
+ranges such as `Language (B2+/C1)`. A range uses its lowest accepted level and
+overrides a conflicting implied level from wording such as `advanced
+proficiency`.
 The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
 `Fluency in`, `Fluent in Language`, and `Fluent Language skills`. Keep
 extraction soft: an unrecognized or ambiguous phrase passes to the agent

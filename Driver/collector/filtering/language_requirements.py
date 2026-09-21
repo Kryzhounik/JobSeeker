@@ -97,6 +97,7 @@ def compile_requirement_pattern(
     template: str,
     language_group: str,
     level_group: str | None,
+    alternative_level_group: str | None = None,
     *,
     implied_level: str = "",
 ) -> CompiledRequirementPattern:
@@ -112,10 +113,20 @@ def compile_requirement_pattern(
         raise ValueError(
             f"Explicit language template must contain {{level}}: {template}"
         )
+    if "{alternative_level}" in template and alternative_level_group is None:
+        raise ValueError(
+            "Language range template requires an alternative level group: "
+            + template
+        )
 
     expression = template.replace("{language}", language_group)
     if level_group is not None:
         expression = expression.replace("{level}", level_group)
+    if alternative_level_group is not None:
+        expression = expression.replace(
+            "{alternative_level}",
+            alternative_level_group,
+        )
     return CompiledRequirementPattern(
         source=template,
         regex=re.compile(expression, re.IGNORECASE),
@@ -155,11 +166,17 @@ class LanguageRequirementExtractor:
             "level",
             optional_plus=True,
         )
+        alternative_level_group = named_alternation(
+            levels,
+            "alternative_level",
+            optional_plus=True,
+        )
         patterns = [
             compile_requirement_pattern(
                 template,
                 language_group,
                 level_group,
+                alternative_level_group,
             )
             for template in configured_values(config, "requirement_templates")
         ]
@@ -187,8 +204,11 @@ class LanguageRequirementExtractor:
         if not self.enabled or not self.patterns:
             return []
 
-        results: list[LanguageRequirement] = []
-        seen: set[tuple[str, str]] = set()
+        results: dict[
+            tuple[str, str],
+            tuple[LanguageRequirement, bool],
+        ] = {}
+        explicit_languages: set[str] = set()
         for unit, context in text_units(text):
             if any(pattern.search(context) for pattern in self.optional_patterns):
                 continue
@@ -203,23 +223,42 @@ class LanguageRequirementExtractor:
                     matched_language,
                 )
                 matched_level = match.groupdict().get("level")
-                level = self.normalize_level(
-                    matched_level or pattern.implied_level
-                )
-                key = (language.casefold(), level.casefold())
-                if key in seen:
+                alternative_level = match.groupdict().get("alternative_level")
+                levels = [
+                    self.normalize_level(value)
+                    for value in (matched_level, alternative_level)
+                    if value
+                ]
+                if levels:
+                    level = min(levels, key=language_rank)
+                else:
+                    level = self.normalize_level(pattern.implied_level)
+                is_implied = bool(pattern.implied_level)
+                language_key = language.casefold()
+                if not is_implied:
+                    explicit_languages.add(language_key)
+                key = (language_key, level.casefold())
+                existing = results.get(key)
+                if existing is not None and (
+                    not existing[1] or is_implied
+                ):
                     continue
-                seen.add(key)
-                results.append(
+                results[key] = (
                     LanguageRequirement(
                         name=language,
                         level=level,
                         level_rank=language_rank(level),
                         original=unit,
                         pattern=pattern.source,
-                    )
+                    ),
+                    is_implied,
                 )
-        return results
+        return [
+            requirement
+            for requirement, is_implied in results.values()
+            if not is_implied
+            or requirement.name.casefold() not in explicit_languages
+        ]
 
     def normalize_level(self, value: str) -> str:
         raw = value.strip()
