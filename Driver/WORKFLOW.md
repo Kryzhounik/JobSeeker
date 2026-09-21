@@ -61,6 +61,22 @@ complete collected scope through the agent relevance filter using the metered
 Codex CLI proxy, marks validated rejected IDs `NONRELEVANT`, and returns the
 remaining ordered scope.
 
+The Java Playwright command must run outside the filesystem sandbox from its
+first attempt. Resolve `java.executable` from the local
+`collector/java_linkedin/runtime.properties`, invoke the command with
+`sandbox_permissions="require_escalated"`, and request a reusable approval for
+this exact prefix:
+
+```text
+[<java.executable>, "-jar", "Driver/orchestrator/target/job-seeker-orchestrator.jar", "batch", "linkedin"]
+```
+
+Do not make a preliminary sandboxed attempt. An `AccessDeniedException` for
+`job-seeker-orchestrator.jar` during Playwright initialization means that this
+launch rule was violated; it is not a LinkedIn login failure. Repeat the same
+command with the required permission instead of retrying it in the sandbox or
+diagnosing Java, the JAR, Playwright, or LinkedIn authentication.
+
 Continue the main pipeline only for the returned explicit scope. In
 `playwright` mode the returned scope is already agent-filtered; do not invoke
 the relevance filter a second time. Pass it directly to
