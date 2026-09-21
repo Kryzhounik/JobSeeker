@@ -64,9 +64,9 @@ Jep 4.3.2 was tested first, but its Windows/Python 3.14 package is source-only
 and this machine has no MSVC C++ toolchain. jpy 2.1.0 provides a compatible
 CPython 3.14 Windows wheel, so it is the active in-process bridge.
 
-The installed Python/jpy paths are stored once in `runtime.properties`. They
-are not exposed as command-line options. Change that file only if the local
-Python installation moves.
+Copy `runtime.properties.example` to the Git-ignored `runtime.properties` and
+set the installed Java, Python, and jpy paths there. They are not exposed as
+command-line options. Change the local file only if an installation moves.
 
 ## Commands
 

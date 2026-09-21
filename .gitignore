@@ -21,6 +21,9 @@ Data/browser_profiles/
 # Java collector build artifacts
 **/target/
 
+# Machine-local Java/Python runtime paths
+/Driver/collector/java_linkedin/runtime.properties
+
 # Local transfer archives and tool dumps
 Seeker_Data_*.zip
 python-*-embed-amd64.zip

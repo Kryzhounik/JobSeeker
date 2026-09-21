@@ -1,0 +1,10 @@
+# Copy this file to runtime.properties and replace the machine-local paths.
+java.executable=C:/path/to/jdk-21-or-newer/bin/java.exe
+python.home=C:/path/to/python
+python.executable=C:/path/to/python/python.exe
+python.library=C:/path/to/python/python3.dll
+jpy.library=C:/path/to/python/Lib/site-packages/jpy.pyd
+jdl.library=C:/path/to/python/Lib/site-packages/jdl.pyd
+database.path=Data/jobs.sqlite
+raw.directory=Data/raw/linkedin
+profile.directory=Data/browser_profiles/linkedin
