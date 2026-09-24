@@ -45,11 +45,11 @@ Collected, Companies, and Applications sorting is restored from GUI settings.
 
 In the main and Collected tables, double-click a `Title` cell to open
 title-selection mode. Drag across any title fragment and right-click it to use
-`Copy`, `Selection to blacklist`, or `Title to blacklist`. The selection action
-appends only the selected fragment; the title action appends the complete title.
-For the shorter path, right-click a `Title` cell directly and choose
-`Title to blacklist`. Blank values and case-insensitive duplicates are not
-added. These blacklist actions are available only in the `Title` column.
+`Copy` or `Selection to blacklist`; the latter appends only the selected
+fragment. For the shorter path, right-click a `Title` cell directly and choose
+`Title to blacklist` to append the complete title. Blank values and
+case-insensitive duplicates are not added. These blacklist actions are
+available only in the `Title` column.
 
 ## Filters
 

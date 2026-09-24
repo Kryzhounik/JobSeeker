@@ -1967,6 +1967,10 @@ class JobsViewer(tk.Tk):
         entry.bind("<Control-c>", self._copy_widget_event)
         entry.bind("<Control-C>", self._copy_widget_event)
         entry.bind("<Control-Insert>", self._copy_widget_event)
+        entry.bind(
+            "<Control-KeyPress>",
+            self._title_selection_shortcut_event,
+        )
         entry.bind("<<Copy>>", self._copy_widget_event)
         entry.bind("<Button-3>", self._show_title_selection_menu)
         entry.bind("<Escape>", self._close_title_selection_from_event)
@@ -1989,7 +1993,10 @@ class JobsViewer(tk.Tk):
         event: tk.Event[tk.Misc],
     ) -> str | None:
         key = event.keysym.lower()
-        if event.state & 0x4 and key in {"a", "c", "insert"}:
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if event.state & 0x4 and (
+            key in {"a", "c", "insert"} or keycode in {45, 65, 67}
+        ):
             return None
         if key in {
             "left",
@@ -2003,6 +2010,20 @@ class JobsViewer(tk.Tk):
             "control_r",
             "escape",
         }:
+            return None
+        return "break"
+
+    def _title_selection_shortcut_event(
+        self,
+        event: tk.Event[tk.Misc],
+    ) -> str | None:
+        key = event.keysym.lower()
+        keycode = int(getattr(event, "keycode", 0) or 0)
+        if key == "a" or keycode == 65:
+            return self._select_entry_text(event)
+        if key in {"c", "insert"} or keycode in {45, 67}:
+            return self._copy_widget_selection(event.widget)
+        if key in {"left", "right", "home", "end"}:
             return None
         return "break"
 
@@ -2034,11 +2055,6 @@ class JobsViewer(tk.Tk):
                 widget
             ),
             state=tk.NORMAL if fragment.strip() else tk.DISABLED,
-        )
-        menu.add_command(
-            label="Title to blacklist",
-            command=lambda value=entry.get(): self._add_title_to_blacklist(value),
-            state=tk.NORMAL if entry.get().strip() else tk.DISABLED,
         )
         self.title_selection_menu_open = True
         try:
