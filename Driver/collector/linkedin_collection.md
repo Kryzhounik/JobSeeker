@@ -27,9 +27,9 @@ Purpose: the single LinkedIn batch-collection entry point.
 
    The Java workflow orchestrator delegates collection to the existing
    collector, runs the agent relevance filter once through Codex CLI, persists
-   validated rejections as `NONRELEVANT`, runs grouped `job_facts`, and returns
-   the remaining ordered scope. Its `accepted_count` is the remaining scope
-   size and `outcomes.agent_filtered` is the number removed by the agent filter.
+   validated rejections as `NONRELEVANT`, and runs the remaining analysis and
+   save stages. Its `accepted_count` is the completed remaining scope size and
+   `outcomes.agent_filtered` is the number removed by the agent filter.
 
    Start this command exactly once as a foreground process and wait for that
    same process to exit. While it runs, do not inspect the browser, database,
@@ -48,6 +48,5 @@ Purpose: the single LinkedIn batch-collection entry point.
    ordered `scope` returned by that instruction.
 4. For any other value, stop before collection and report the invalid mode.
 
-The Java path owns collection, the agent relevance filter, and `job_facts`, but
-not candidate fit or job interest. The deprecated agent collector still owns
-collection only and keeps its Desktop-orchestrated relevance-filter step.
+The Java path owns the complete workflow. The deprecated agent collector still
+owns collection only and keeps its Desktop-orchestrated relevance-filter step.

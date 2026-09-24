@@ -72,7 +72,11 @@ public final class WorkflowOrchestrator {
         List<ScopeItem> remaining = collected.scope().stream()
                 .filter(item -> !rejected.contains(item.jobId()))
                 .toList();
-        runJobFacts(collected.runId(), collected.source(), remaining);
+        if (!remaining.isEmpty()) {
+            agentFilter.startAnalysis(collected.runId(), vacanciesPerAgent);
+            runJobFacts(collected.runId(), collected.source(), remaining);
+            runFinishAnalysis(collected.runId(), collected.source(), remaining);
+        }
         Map<String, Integer> outcomes = new LinkedHashMap<>(collected.outcomes());
         outcomes.put("agent_filtered", nonrelevantIds.size());
 
@@ -89,7 +93,17 @@ public final class WorkflowOrchestrator {
     }
 
     public void jobFacts(String runId, String source, List<ScopeItem> scope) {
+        agentFilter.startAnalysis(runId, vacanciesPerAgent);
         runJobFacts(runId, source, scope);
+    }
+
+    public void finishAnalysis(
+            String runId,
+            String source,
+            List<ScopeItem> scope
+    ) {
+        agentFilter.startAnalysis(runId, vacanciesPerAgent);
+        runFinishAnalysis(runId, source, scope);
     }
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope) {
@@ -108,6 +122,27 @@ public final class WorkflowOrchestrator {
                 );
             }
         }
+    }
+
+    private void runFinishAnalysis(
+            String runId,
+            String source,
+            List<ScopeItem> scope
+    ) {
+        String threadId = null;
+        String target = source + ":candidate_fit";
+        for (ScopeItem item : scope) {
+            threadId = agentFilter.candidateFit(
+                    runId, source, item.jobId(), target, threadId
+            );
+        }
+        for (ScopeItem item : scope) {
+            agentFilter.jobInterest(source, item.jobId());
+        }
+        agentFilter.saveScored(
+                source,
+                scope.stream().map(ScopeItem::jobId).toList()
+        );
     }
 
     private static int vacanciesPerAgent(Path projectRoot) throws IOException {

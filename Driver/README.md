@@ -1,15 +1,16 @@
 # Driver
 
 `Driver` contains the executable vacancy workflow: collection, analysis,
-scoring, database mapping, and persistence. The top-level execution contract is
-`WORKFLOW.md`; individual modules own their internal rules.
+scoring, database mapping, and persistence. The Java orchestrator owns the
+execution order; individual modules own their internal rules.
 
 ## Java Workflow Orchestrator
 
 `orchestrator` is the Java entry point for the workflow. It calls the existing
 LinkedIn collector, sends the complete collected scope to the agent relevance
 filter through the metered Codex CLI proxy, persists validated rejections as
-`NONRELEVANT`, and returns the remaining ordered scope. Build the collector and
+`NONRELEVANT`, then owns `job_facts`, candidate fit, job interest, and final
+database save for the remaining ordered scope. Build the collector and
 orchestrator together with:
 
 ```powershell
@@ -18,18 +19,12 @@ mvn -f Driver/pom.xml package
 
 ## Agent Execution Boundary
 
-`agent_execution.md` is the single decorator and mode switch for Desktop-owned
-agent operations. Analyzer modules describe an operation by supplying its
-instruction, input, contexts, output schema, run ID, and target. The decorator
-then either executes it in the current Desktop agent or sends it through the
-metered Codex CLI proxy. Operations already owned by the Java orchestrator send
-the same explicit contract directly to the proxy.
+`agent_execution.md` remains the boundary for deprecated Desktop-owned agent
+operations. The primary Java workflow sends its explicit agent-operation
+contracts directly through the metered Codex CLI proxy.
 
-This boundary exists so Desktop and CLI execution can be switched without
-changing analyzer instructions, result handling, scoring, or persistence.
-Every future Desktop-owned agent operation must use it rather than selecting a
-transport inside its own instruction. Java-owned operations select their
-transport in the Java orchestrator.
+Java owns the primary workflow order while the existing Python modules keep
+their analysis, scoring, validation, and persistence logic.
 
 Keep `agent_execution.md` deliberately short because it is runtime context.
 Design rationale belongs here. CLI-specific packaging, invocation, and metrics
@@ -62,5 +57,5 @@ filtering, persistence, and collection scope without agent-driven browser work.
 `collector/deprecated_agent_collection/`. It is a rollback path being retired,
 and that directory is read only when this mode is explicitly required.
 
-Both modes return the same `run_id` and ordered `scope`; analysis and database
-scoring continue independently of the selected collector.
+Both modes return the same `run_id` and ordered `scope`. In primary
+`playwright` mode Java continues that scope through analysis and database save.

@@ -147,6 +147,10 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
+        public void startAnalysis(String runId, int vacanciesPerAgent) {
+        }
+
+        @Override
         public String jobFacts(
                 String runId,
                 String source,
@@ -155,6 +159,25 @@ class WorkflowOrchestratorTest {
                 String threadId
         ) {
             return threadId == null ? target : threadId;
+        }
+
+        @Override
+        public String candidateFit(
+                String runId,
+                String source,
+                String jobId,
+                String target,
+                String threadId
+        ) {
+            return threadId == null ? target : threadId;
+        }
+
+        @Override
+        public void jobInterest(String source, String jobId) {
+        }
+
+        @Override
+        public void saveScored(String source, List<String> jobIds) {
         }
     }
 }

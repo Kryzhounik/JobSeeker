@@ -1,15 +1,13 @@
 # JobSeeker Backlog
 
 Purpose: small project backlog and current conventions. This is not an
-execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
+execution contract; the Java orchestrator owns pipeline behavior.
 
 ## Now
 
 - Keep the MVP small: Codex reads vacancy text, extracts structured fields, and
   saves them into SQLite.
 - Use `Data/jobs.sqlite` as the local prototype database.
-- Use `Driver/WORKFLOW.md` as the public run contract: search, direct URL, and
-  reprocess saved raw all converge on the same raw analysis process.
 - Use `job_view` as the main filtered DB Browser view.
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
 - Use `Driver/collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
@@ -19,7 +17,6 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
 - Use `Driver/analyzer/candidate_fit/config/filter.ini` to turn quick checks on and off.
 - Use `Driver/db/job_mapper.py` for canonical JSON <-> SQLite mapping.
 - Use `Driver/db/save.py` only as the CLI wrapper for writing final jobs.
-- Use `Driver/analyzer/analyze_job.md` as the analysis skill/prompt.
 - Put Codex-analyzed job JSON under `Data/analyzed/<source>/`.
 - Run `Driver/analyzer/candidate_fit/evaluate.md` before `Driver/db/save.py`;
   it updates the same analyzed JSON with `candidate_fit_percent` and
@@ -33,6 +30,9 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
   SQLite.
 - Use `Driver/analyzer/config/resume.ini` for candidate languages and the
   single scored maps of available remote/relocation locations.
+- The Java orchestrator owns the primary workflow through candidate fit,
+  job interest, and final database save. Existing Python modules still own the
+  implementation of those stages.
 
 ## Next
 
@@ -52,16 +52,6 @@ execution contract; use `Driver/WORKFLOW.md` for pipeline behavior.
   загрузки. До последней страницы он не дошёл из-за отдельной ошибки содержимого
   карточки. Статус: наблюдаем следующие прогоны и проверяем, не воспроизведётся
   ли преждевременная остановка снова.
-- **HIGH: CLI-вызов оценщиков и скриптовая оркестрация**
-  Вынести вызов candidate-fit оценщиков в CLI, чтобы оркестратор мог работать
-  скриптово, а расход токенов и результаты каждого вызова считались точно.
-- **HIGH: Перенос оркестрации в Java**
-  Продолжить переносить в отдельный Java-оркестратор последовательную
-  оркестрацию workflow, не расширяя ответственность коллектора. Оркестратор уже
-  является точкой входа, делегирует сбор существующему коллектору и владеет
-  агентным фильтром по названиям вакансий. Перенос первой функции анализа —
-  `job_facts` — завершён. Следующие функции переносить отдельно.
-
 - **LOW: Дедупликация вакансий**
   Investigate dedup for near-identical LinkedIn jobs:
   - compare raw/card/analyzed data for 4441196528, 4441182950,

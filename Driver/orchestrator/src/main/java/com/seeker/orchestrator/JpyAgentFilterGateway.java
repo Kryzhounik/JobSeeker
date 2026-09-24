@@ -100,6 +100,80 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
         }
     }
 
+    @Override
+    public void startAnalysis(String runId, int vacanciesPerAgent) {
+        try (PyModule bridge = bridge();
+             PyObject ignored = bridge.callMethod(
+                     "start_analysis",
+                     runId,
+                     vacanciesPerAgent,
+                     paths.databasePath().toString()
+             )) {
+            // Python persists the effective analyzer settings for this run.
+        }
+    }
+
+    @Override
+    public String candidateFit(
+            String runId,
+            String source,
+            String jobId,
+            String target,
+            String threadId
+    ) {
+        try (PyModule bridge = bridge();
+             PyObject response = bridge.callMethod(
+                     "run_candidate_fit",
+                     runId,
+                     source,
+                     jobId,
+                     target,
+                     threadId == null ? "" : threadId,
+                     paths.databasePath().toString()
+             )) {
+            if (!response.isString()) {
+                throw new IllegalStateException(
+                        "Candidate fit bridge returned " + response.repr()
+                                + " instead of String"
+                );
+            }
+            String returnedThreadId = response.getStringValue().strip();
+            if (returnedThreadId.isEmpty()) {
+                return threadId;
+            }
+            if (threadId != null && !threadId.equals(returnedThreadId)) {
+                throw new IllegalStateException("Candidate fit changed thread ID");
+            }
+            return returnedThreadId;
+        }
+    }
+
+    @Override
+    public void jobInterest(String source, String jobId) {
+        try (PyModule bridge = bridge();
+             PyObject ignored = bridge.callMethod(
+                     "run_job_interest",
+                     source,
+                     jobId,
+                     paths.databasePath().toString()
+             )) {
+            // Existing Python code scores the selected JSON file.
+        }
+    }
+
+    @Override
+    public void saveScored(String source, List<String> jobIds) {
+        try (PyModule bridge = bridge();
+             PyObject ignored = bridge.callMethod(
+                     "save_scored",
+                     source,
+                     GSON.toJson(jobIds),
+                     paths.databasePath().toString()
+             )) {
+            // Existing Python code saves the selected scored JSON files.
+        }
+    }
+
     private PyModule bridge() {
         JpyRuntime.ensureStarted(
                 runtime.pythonLibrary(),

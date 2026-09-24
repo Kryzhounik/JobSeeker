@@ -46,16 +46,23 @@ public final class Main {
             System.out.println(GSON.toJson(result));
             return;
         }
-        if (args.length == 4 && "job-facts".equals(args[0])) {
+        if (args.length == 4 && (
+                "job-facts".equals(args[0])
+                        || "finish-analysis".equals(args[0])
+        )) {
             List<ScopeItem> scope = Arrays.stream(args[3].split(","))
                     .map(String::strip)
                     .filter(jobId -> !jobId.isEmpty())
                     .map(jobId -> new ScopeItem(args[2], jobId, ""))
                     .toList();
             if (scope.isEmpty()) {
-                throw new IllegalArgumentException("job-facts scope is empty");
+                throw new IllegalArgumentException(args[0] + " scope is empty");
             }
-            orchestrator.jobFacts(args[1], args[2], scope);
+            if ("job-facts".equals(args[0])) {
+                orchestrator.jobFacts(args[1], args[2], scope);
+            } else {
+                orchestrator.finishAnalysis(args[1], args[2], scope);
+            }
             var result = new com.google.gson.JsonObject();
             result.addProperty("source", args[2]);
             result.addProperty("run_id", args[1]);
@@ -68,7 +75,8 @@ public final class Main {
         }
         throw new IllegalArgumentException(
                 "Expected: batch <source> or "
-                        + "job-facts <run-id> <source> <comma-separated-job-ids>"
+                        + "job-facts|finish-analysis <run-id> <source> "
+                        + "<comma-separated-job-ids>"
         );
     }
 }
