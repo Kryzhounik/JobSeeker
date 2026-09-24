@@ -8,4 +8,12 @@ interface AgentFilterGateway {
     AgentFilterResult filter(String runId, List<ScopeItem> scope);
 
     void markNonrelevant(String source, List<String> jobIds);
+
+    String jobFacts(
+            String runId,
+            String source,
+            String jobId,
+            String target,
+            String threadId
+    );
 }

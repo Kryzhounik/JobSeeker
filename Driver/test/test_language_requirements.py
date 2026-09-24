@@ -86,7 +86,7 @@ class LanguageRequirementsTest(unittest.TestCase):
     def test_default_config_compiles_each_template_once(self) -> None:
         extractor = load_language_requirement_extractor(DEFAULT_LANGUAGE_CONFIG)
 
-        self.assertEqual(len(extractor.patterns), 10)
+        self.assertEqual(len(extractor.patterns), 11)
 
     def test_default_config_extracts_reviewed_explicit_level(self) -> None:
         requirements = extract_language_requirements(
@@ -153,6 +153,26 @@ class LanguageRequirementsTest(unittest.TestCase):
         result = decide_content("Advanced proficiency in English (B2+/C1)")
 
         self.assertEqual(result["content_decision"], "analyze")
+
+    def test_explicit_skills_level_overrides_fluent_wording(self) -> None:
+        text = "Fluent English skills (written and spoken) at a B2+ level or higher"
+
+        requirements = extract_language_requirements(
+            text,
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+        result = decide_content(text)
+
+        self.assertEqual(len(requirements), 1)
+        self.assertEqual(requirements[0].name, "English")
+        self.assertEqual(requirements[0].level, "B2+")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_explicit_c1_skills_level_remains_blocked(self) -> None:
+        result = decide_content("Fluent English skills at a C1 level")
+
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_languages"], ["English C1"])
 
     def test_programming_language_is_not_a_human_language_match(self) -> None:
         requirements = extract_language_requirements(

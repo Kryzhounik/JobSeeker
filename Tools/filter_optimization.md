@@ -239,7 +239,8 @@ empty. Reviewed explicit templates cover `Language: C1`, `Language C1`, `C1
 level in Language`, `Language (C1 level)`, `Language at C1 level`, and explicit
 ranges such as `Language (B2+/C1)`. A range uses its lowest accepted level and
 overrides a conflicting implied level from wording such as `advanced
-proficiency`.
+proficiency`. An explicit construction such as `Fluent English skills (...) at
+a B2+ level` likewise uses B2+ instead of the implied fluent level.
 The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
 `Fluency in`, `Fluent in Language`, and `Fluent Language skills`. Keep
 extraction soft: an unrecognized or ambiguous phrase passes to the agent

@@ -145,5 +145,16 @@ class WorkflowOrchestratorTest {
             markedSource = source;
             markedIds = List.copyOf(jobIds);
         }
+
+        @Override
+        public String jobFacts(
+                String runId,
+                String source,
+                String jobId,
+                String target,
+                String threadId
+        ) {
+            return threadId == null ? target : threadId;
+        }
     }
 }

@@ -65,6 +65,41 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
         }
     }
 
+    @Override
+    public String jobFacts(
+            String runId,
+            String source,
+            String jobId,
+            String target,
+            String threadId
+    ) {
+        try (PyModule bridge = bridge();
+             PyObject response = bridge.callMethod(
+                     "run_job_facts",
+                     runId,
+                     source,
+                     jobId,
+                     target,
+                     threadId == null ? "" : threadId,
+                     paths.databasePath().toString()
+             )) {
+            if (!response.isString()) {
+                throw new IllegalStateException(
+                        "Job facts bridge returned " + response.repr()
+                                + " instead of String"
+                );
+            }
+            String returnedThreadId = response.getStringValue().strip();
+            if (returnedThreadId.isEmpty()) {
+                throw new IllegalStateException("Job facts returned no thread ID");
+            }
+            if (threadId != null && !threadId.equals(returnedThreadId)) {
+                throw new IllegalStateException("Job facts changed thread ID");
+            }
+            return returnedThreadId;
+        }
+    }
+
     private PyModule bridge() {
         JpyRuntime.ensureStarted(
                 runtime.pythonLibrary(),
