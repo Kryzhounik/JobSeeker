@@ -24,8 +24,8 @@ separate Python runtime settings in `collector/java_linkedin/runtime.properties`
 collector/source adapter
 -> readable vacancy text in SQLite (raw HTML remains persisted)
 -> one batch agent relevance filter over the collected scope
+-> sequential grouped analyzer/job_facts/extract.md in Java
 -> analyzer/analyze_job.md over the explicit scope
-   -> parallel grouped analyzer/job_facts/extract.md
    -> one persistent analyzer/candidate_fit/evaluate.md agent for the run
    -> analyzer/job_interest/calculate.py
 -> fully scored JSON
@@ -58,8 +58,8 @@ implementations outside that instruction.
 In `playwright` mode, the workflow command starts the Java workflow
 orchestrator. It delegates collection to the existing Java collector, sends the
 complete collected scope through the agent relevance filter using the metered
-Codex CLI proxy, marks validated rejected IDs `NONRELEVANT`, and returns the
-remaining ordered scope.
+Codex CLI proxy, marks validated rejected IDs `NONRELEVANT`, runs grouped
+`job_facts` for the remaining vacancies, and returns their ordered scope.
 
 The Java Playwright command must run outside the filesystem sandbox from its
 first attempt. Resolve `java.executable` from the local
@@ -79,10 +79,10 @@ diagnosing Java, the JAR, Playwright, or LinkedIn authentication.
 
 Continue the main pipeline only for the returned explicit scope. In
 `playwright` mode the returned scope is already agent-filtered; do not invoke
-the relevance filter a second time. Pass it directly to
-`analyzer/analyze_job.md`. If none remain, the run completes without analysis
-or save. Collection and relevance filtering do not run detailed analysis or
-scoring.
+the relevance filter or `job_facts` a second time. Pass it directly to
+`analyzer/analyze_job.md` for candidate fit and job interest. If none remain,
+the run completes without analysis or save. The Java orchestrator does not run
+candidate fit, job interest, or database save.
 
 The deprecated `agent` collector mode retains the Desktop-owned relevance
 filter step through `agent_execution.md`; the Java-owned CLI step applies only
@@ -196,9 +196,10 @@ the analyzer once with that explicit ordered scope:
 ```text
 for each raw HTML file in the explicit scope:
     source adapter stores readable vacancy text in SQLite
-agent relevance filter removes explicit nonrelevant IDs from the scope
+Java orchestrator:
+    -> agent relevance filter removes explicit nonrelevant IDs from the scope
+    -> sequential grouped job facts using analyzer/config/execution.ini
 analyzer/analyze_job.md processes the complete explicit scope
-    -> grouped parallel job facts using analyzer/config/execution.ini
     -> deterministic candidate-fit gates
     -> one persistent blind candidate-fit agent for all passed vacancies
     -> job interest for every scored JSON
@@ -236,8 +237,8 @@ scope.
 - Before running a stage, use that stage's own file as the source of truth.
 - If a stage is an agent step, Codex must execute that instruction instead of
   replacing it with an unrelated script.
-- The current Desktop agent executes `analyzer/analyze_job.md` once as the
-  top-level orchestrator for the complete explicit analysis scope.
+- The current Desktop agent executes `analyzer/analyze_job.md` once for the
+  complete Java-analyzed scope. It must not repeat Java-owned `job_facts`.
 - Every Desktop-owned agent operation inside that orchestrator must use
   `agent_execution.md`. Its `Execution mode` is the single switch between
   direct Desktop execution and the metered Codex CLI proxy. Agent operations
@@ -291,7 +292,8 @@ Manual URL debug uses the same raw pipeline:
 
 ```text
 URL -> source adapter persists raw HTML and stores readable text in SQLite
-    -> analyzer (job facts -> candidate fit -> job interest)
+    -> Java-owned job facts
+    -> analyzer (candidate fit -> job interest)
     -> save
 ```
 

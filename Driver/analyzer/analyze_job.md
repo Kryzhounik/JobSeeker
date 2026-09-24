@@ -1,28 +1,22 @@
-Purpose: orchestrate all analysis operations for one explicit vacancy scope.
+Purpose: orchestrate post-`job_facts` analysis for one explicit vacancy scope.
 
 Input:
-- Source and ordered source-job IDs left after the agent relevance filter and
-  whose readable text exists in SQLite. Never include a source job with
-  processing status `NONRELEVANT`.
+- Source and ordered source-job IDs already processed by the Java-owned
+  `job_facts` step. Every ID must have an analyzed JSON file. Never include a
+  source job with processing status `NONRELEVANT`.
 
 Output:
 - One fully scored JSON file per input under `../Data/scored/<source>/`.
 - Every output must match `contracts/scored_job.schema.json`.
 
-Before starting, read `analyzer/config/execution.ini`. For job facts,
-`parallel_agents` is the maximum number of simultaneous agents and
-`vacancies_per_agent` is the maximum number handled by one agent thread.
-Both values must be positive integers. Do not silently substitute defaults.
+Before starting, read `vacancies_per_agent` from
+`analyzer/config/execution.ini` and record the current Java execution settings
+once with:
 
-The caller may explicitly override either value for the current analysis run.
-Resolve the effective values first: use each explicit override when supplied,
-otherwise use that value from `analyzer/config/execution.ini`. Before starting
-any analysis operation, persist those exact effective values with:
+`python analyzer/run_logger.py --run-id <run-id> --parallel-agents 1 --vacancies-per-agent <configured-vacancies-per-agent>`
 
-`python analyzer/run_logger.py --run-id <run-id> --parallel-agents <effective-parallel-agents> --vacancies-per-agent <effective-vacancies-per-agent>`
-
-Call this command exactly once for the analysis run. It applies pending database
-migrations itself. Do not record the file defaults when an override is active.
+Java currently processes groups sequentially. Support for configured
+`parallel_agents` is tracked separately in the backlog.
 
 Run these phases in this exact order for the whole scope.
 
@@ -30,61 +24,7 @@ For every PowerShell-to-Python stdin transfer below, read and use the fixed
 transport stanza in `common/utf8_stdin.md`. Keep the payload in memory and use
 the existing owning command; never embed JSON in an ordinary shell string.
 
-## 1. Job facts
-
-Partition the ordered scope into consecutive groups of at most
-`vacancies_per_agent`. Start up to `parallel_agents` groups simultaneously.
-Fill all available slots before waiting when enough groups remain. When a group
-finishes, start the next pending group until the scope is exhausted.
-
-Each group has one job-facts agent target. Start it through
-`agent_execution.md` with:
-
-- operation: `job_facts`;
-- instruction: `analyzer/job_facts/extract.md`;
-- context: `analyzer/job_facts/language_levels.md`;
-- output schema: `contracts/job_analysis.schema.json`;
-- run ID from the current analysis run;
-- one stable target for that group.
-
-Continue the same target for every vacancy assigned to its group. Do not create
-a new agent per vacancy. Close the target after its group is complete.
-
-For each assigned vacancy:
-
-1. Load the input with the stable command:
-   `python analyzer/job_facts/load_input.py --source <source> --job-id <job-id>`.
-   This transport command executes `db/readable_text.py --source <source>
-   --job-id <job-id>`, then passes its unchanged stdout as UTF-8 stdin to
-   `collector/filtering/language_requirements.py`. It returns both results in
-   memory, does not extract job facts, and creates no transport files.
-2. Use its `readable_text` and `authoritative_language_facts` fields as the
-   vacancy input and deterministic language result. Do not copy the readable
-   text into an inline shell or JavaScript command.
-3. Send the readable text plus the returned deterministic language facts to
-   the group's existing target. Label those facts authoritative.
-4. Send the returned object directly as UTF-8 JSON on standard input to:
-   `python contracts/validate_json.py --schema contracts/job_analysis.schema.json --output <analyzed-json>`.
-   This command validates and writes the analyzed JSON. Do not choose another
-   validation library or create a temporary transport file.
-5. After successful persistence, run:
-   `python db/job_registry.py ANALYZED --source <source> --job-id <job-id>`.
-
-The job-facts agent may retain its own preceding results within its assigned
-group, but the current vacancy text and deterministic facts must remain clearly
-separated by source-job ID. Never copy a fact from a previous vacancy merely
-because the jobs look similar.
-
-Do not begin candidate fit until job facts have completed for the entire scope.
-
-Input-transport recovery after an explicitly authorized stopped-batch repair:
-if a tool request never reached the language command and the readable stdout
-was not retained in the tool session, run `load_input.py` for that same source
-and ID in the existing group target. This repeats the two documented input
-commands and replaces only their transport. Keep the run ID, group target and
-scope; do not repeat completed extraction or analysis persistence.
-
-## 2. Deterministic candidate-fit gate
+## 1. Deterministic candidate-fit gate
 
 For every analyzed JSON in scope, run:
 
@@ -95,7 +35,7 @@ For every analyzed JSON in scope, run:
 - If it returns `passed=true`, append the analyzed JSON to the semantic-fit
   queue in original scope order.
 
-## 3. Semantic candidate fit
+## 2. Semantic candidate fit
 
 If the semantic-fit queue is not empty, create exactly one blind candidate-fit
 agent target for the entire analysis run. Start it once through
@@ -131,7 +71,7 @@ the UTF-8-safe scored persistence.
 Close the candidate-fit target only after the complete semantic-fit queue has
 finished or a batch-stopping failure occurs.
 
-## 4. Job interest
+## 3. Job interest
 
 For every scored JSON in the original scope order, run:
 
