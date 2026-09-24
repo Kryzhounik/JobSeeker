@@ -774,3 +774,8 @@ Risk Control Lead
 Verification Engineer
 SIPI Engineer
 Video Creator
+Power Apps Engineer
+Datacenter Infrastructure Specialist
+Knowledge Engineer
+Siebel CRM Developer
+Marketing Developer

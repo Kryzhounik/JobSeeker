@@ -6,7 +6,7 @@ Agent operations moved into the Java workflow orchestrator are no longer
 Desktop-dispatched; Java supplies their explicit operation contract directly to
 `codex_proxy/metrics_proxy.py` through the shared embedded Python runtime.
 
-Default execution mode: `desktop`
+Default execution mode: `cli`
 Default comparison mode: `off`
 
 Shared agent model settings are the `model` and `reasoning_effort` values in

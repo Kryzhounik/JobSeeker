@@ -403,6 +403,20 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Strong proficiency with Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_experience_with_required_technology_list_is_blocked(self) -> None:
+        result = decide_content(
+            "Experience with TypeScript, Node.js, PostgreSQL, and Python"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["TypeScript", "Node.js", "Python"],
+        )
+
+    def test_experience_with_single_technology_remains_soft(self) -> None:
+        result = decide_content("Experience with Python")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_optional_strong_proficiency_list_is_not_blocked(self) -> None:
         result = decide_content(
             "Strong proficiency with Python, REST APIs and Cloud is a plus"
