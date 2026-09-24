@@ -41,6 +41,8 @@ public final class Main {
 
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
         CollectionReport report = orchestrator.batch(args[1]);
-        System.out.println(GSON.toJson(report));
+        var result = GSON.toJsonTree(report).getAsJsonObject();
+        result.remove("pages");
+        System.out.println(GSON.toJson(result));
     }
 }
