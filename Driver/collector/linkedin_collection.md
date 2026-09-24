@@ -11,8 +11,15 @@ Purpose: the single LinkedIn batch-collection entry point.
    opening any implementation-specific instruction.
 2. If `collectorMode=playwright`, do not read, inspect, search, or summarize
    anything under `collector/deprecated_agent_collection/`. Read only
-   `java.executable` from `collector/java_linkedin/runtime.properties`, then
-   from the project root run:
+   `java.executable` from `collector/java_linkedin/runtime.properties`. From
+   the project root, first rebuild the executable JAR every time; `compile`
+   alone is not sufficient:
+
+   ```text
+   mvn -q -f Driver/pom.xml -DskipTests package
+   ```
+
+   Then run:
 
    ```text
    <java.executable> -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin

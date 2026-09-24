@@ -21,3 +21,9 @@ Run the configured LinkedIn batch from the project root:
 ```powershell
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
 ```
+
+Run `job_facts` for an existing explicit scope without collecting again:
+
+```powershell
+java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar job-facts <run-id> <source> <comma-separated-job-ids>
+```

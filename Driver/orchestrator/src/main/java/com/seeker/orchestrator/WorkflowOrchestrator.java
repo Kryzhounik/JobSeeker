@@ -88,6 +88,10 @@ public final class WorkflowOrchestrator {
         );
     }
 
+    public void jobFacts(String runId, String source, List<ScopeItem> scope) {
+        runJobFacts(runId, source, scope);
+    }
+
     private void runJobFacts(String runId, String source, List<ScopeItem> scope) {
         // TODO: process groups in parallel using parallel_agents.
         for (int start = 0, group = 1;

@@ -61,6 +61,13 @@ complete collected scope through the agent relevance filter using the metered
 Codex CLI proxy, marks validated rejected IDs `NONRELEVANT`, runs grouped
 `job_facts` for the remaining vacancies, and returns their ordered scope.
 
+Before every Java workflow launch, rebuild the executable JAR from the project
+root. A successful `compile` is not sufficient:
+
+```text
+mvn -q -f Driver/pom.xml -DskipTests package
+```
+
 The Java Playwright command must run outside the filesystem sandbox from its
 first attempt. Resolve `java.executable` from the local
 `collector/java_linkedin/runtime.properties`, invoke the command with
@@ -83,6 +90,13 @@ the relevance filter or `job_facts` a second time. Pass it directly to
 `analyzer/analyze_job.md` for candidate fit and job interest. If none remain,
 the run completes without analysis or save. The Java orchestrator does not run
 candidate fit, job interest, or database save.
+
+To run Java-owned `job_facts` for an already collected explicit scope without
+collecting again, use:
+
+```text
+<java.executable> -jar Driver/orchestrator/target/job-seeker-orchestrator.jar job-facts <run-id> <source> <comma-separated-job-ids>
+```
 
 The deprecated `agent` collector mode retains the Desktop-owned relevance
 filter step through `agent_execution.md`; the Java-owned CLI step applies only

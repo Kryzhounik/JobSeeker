@@ -215,3 +215,5 @@ vacancy `source_url`; every header toggles ascending/descending sorting. The
 mouse wheel scrolls rows, and `Shift` plus the mouse wheel scrolls horizontally.
 `Confirm` deletes only the selected source jobs and their related analyzed or
 collected data; `Cancel` or closing the window leaves the database unchanged.
+The detail window is non-modal, so minimizing and restoring the main window is
+not blocked by a Tk input grab.

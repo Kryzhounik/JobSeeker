@@ -4662,7 +4662,6 @@ class JobsViewer(tk.Tk):
             confirm_button.configure(state=tk.DISABLED)
 
         dialog.protocol("WM_DELETE_WINDOW", cancel)
-        dialog.grab_set()
         dialog.lift()
         dialog.after_idle(lambda: (canvas.xview_moveto(0), canvas.yview_moveto(0)))
 
