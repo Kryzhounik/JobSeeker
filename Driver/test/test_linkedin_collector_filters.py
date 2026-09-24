@@ -143,9 +143,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Go"])
 
     def test_lowercase_go_as_ordinary_word_is_not_blocked(self) -> None:
-        result = decide_content(
-            "Advanced Python Developer: our solutions go far beyond scripting"
-        )
+        result = decide_content("Our solutions go far beyond basic scripting")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_unrelated_required_word_does_not_bind_python(self) -> None:
@@ -391,6 +389,16 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
+    def test_strong_proficiency_in_go_with_non_technology_requirement_is_blocked(
+        self,
+    ) -> None:
+        result = decide_content(
+            "You have strong proficiency in Go and deep understanding of "
+            "distributed systems and service-oriented architecture"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Go"])
+
     def test_long_technology_name_hides_nested_alias(self) -> None:
         result = decide_content("Strong proficiency with Node.js and TypeScript")
         self.assertEqual(result["content_decision"], "skip")
@@ -416,6 +424,96 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_experience_with_single_technology_remains_soft(self) -> None:
         result = decide_content("Experience with Python")
         self.assertEqual(result["content_decision"], "analyze")
+
+    def test_extensive_experience_with_required_technology_list_is_blocked(
+        self,
+    ) -> None:
+        result = decide_content(
+            "Extensive experience with PHP, and modern frameworks."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["PHP"])
+
+    def test_extensive_experience_with_single_technology_is_blocked(self) -> None:
+        result = decide_content("Extensive experience with PHP")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["PHP"])
+
+    def test_extensive_experience_keeps_unblocked_alternative(self) -> None:
+        result = decide_content("Extensive experience with PHP or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_technology_first_is_blocked(self) -> None:
+        result = decide_content(
+            "6+ years of professional software engineering, TypeScript-first, "
+            "across React/Next.js and Node.js."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["TypeScript"])
+
+    def test_fluency_in_blocked_technology_alternatives_is_blocked(self) -> None:
+        result = decide_content("Fluency in Golang, Python, C, C++, or Rust")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["Golang", "Python", "C", "C++", "Rust"],
+        )
+
+    def test_fluency_keeps_unknown_technology_alternative(self) -> None:
+        result = decide_content("Fluency in Golang, MATLAB or TypeScript")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_hands_on_experience_around_years_with_technology_is_blocked(
+        self,
+    ) -> None:
+        result = decide_content(
+            "Hands-on experience around 5 years with PyTorch and PyTorch "
+            "Lightning for building, training, and extending production pipelines"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["PyTorch"])
+
+    def test_advanced_single_technology_is_blocked(self) -> None:
+        result = decide_content("Advanced Python")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_advanced_technology_keeps_unblocked_alternative(self) -> None:
+        result = decide_content("Advanced Python or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_experience_does_not_cross_into_familiarity_after_bullet(self) -> None:
+        result = decide_content(
+            "\u2022 Experience with cloud platforms (AWS, GCP, Azure) and "
+            "containerization technologies (Docker, Kubernetes) "
+            "\u2022 Familiarity with CI/CD pipelines and infrastructure as code "
+            "(Terraform, Ansible)"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_hard_requirement_after_bullet_is_still_blocked(self) -> None:
+        result = decide_content(
+            "\u2022 Experience with cloud platforms "
+            "\u2022 Proficiency in Terraform"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Terraform"])
+
+    def test_such_as_list_keeps_unblocked_alternative(self) -> None:
+        result = decide_content(
+            "Experience with programming languages such as Python, R, and Java"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_such_as_list_of_only_blocked_alternatives_is_blocked(self) -> None:
+        result = decide_content(
+            "Experience with programming languages such as Python, Go, and PHP"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["Python", "Go", "PHP"],
+        )
 
     def test_optional_strong_proficiency_list_is_not_blocked(self) -> None:
         result = decide_content(
@@ -560,7 +658,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
-            ["JavaScript", "React"],
+            ["React", "JavaScript"],
         )
 
     def test_kotlin_is_not_a_blocked_technology(self) -> None:

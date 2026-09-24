@@ -161,6 +161,7 @@ class LanguageRequirementExtractor:
         self.level_names = {level.casefold(): level.upper() for level in levels}
 
         language_group = named_alternation(languages, "language")
+        self.language_presence_pattern = re.compile(language_group, re.IGNORECASE)
         level_group = named_alternation(
             levels,
             "level",
@@ -202,6 +203,8 @@ class LanguageRequirementExtractor:
 
     def extract(self, text: str) -> list[LanguageRequirement]:
         if not self.enabled or not self.patterns:
+            return []
+        if self.language_presence_pattern.search(text) is None:
             return []
 
         results: dict[

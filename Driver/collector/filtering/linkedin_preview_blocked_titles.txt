@@ -779,3 +779,5 @@ Datacenter Infrastructure Specialist
 Knowledge Engineer
 Siebel CRM Developer
 Marketing Developer
+Керівник підрозділу
+Enterprise Architect

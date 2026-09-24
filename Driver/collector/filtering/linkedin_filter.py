@@ -128,16 +128,29 @@ def blocked_terms(
 
 
 def matches_term(text: str, term: str) -> bool:
-    haystack = text.lower()
+    return matches_prepared_term(text.lower(), prepare_title_term(term))
+
+
+@lru_cache(maxsize=None)
+def prepare_title_term(term: str) -> tuple[str, re.Pattern[str] | None]:
     needle = term.lower().strip()
     if not needle:
-        return False
+        return "", None
     if any(not char.isalnum() for char in needle):
-        return needle in haystack
-    return re.search(
-        rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])",
-        haystack,
-    ) is not None
+        return needle, None
+    return needle, re.compile(
+        rf"(?<![a-z0-9]){re.escape(needle)}(?![a-z0-9])"
+    )
+
+
+def matches_prepared_term(
+    haystack: str,
+    matcher: tuple[str, re.Pattern[str] | None],
+) -> bool:
+    needle, pattern = matcher
+    if not needle or needle not in haystack:
+        return False
+    return pattern is None or pattern.search(haystack) is not None
 
 
 YEARS_COUNT_EXPRESSION = (
@@ -167,7 +180,7 @@ TECHNOLOGY_VERSION_QUALIFIER = re.compile(
     re.IGNORECASE,
 )
 TECHNOLOGY_EXAMPLE_MARKER = re.compile(
-    r"(?:\be\s*\.\s*g\s*\.|\bfor\s+example\b)",
+    r"(?:\be\s*\.\s*g\s*\.|\bfor\s+example\b|\bsuch\s+as\b)",
     re.IGNORECASE,
 )
 OPTIONAL_SECTION_HEADING = re.compile(
@@ -175,6 +188,7 @@ OPTIONAL_SECTION_HEADING = re.compile(
     r"|nice\s+to\s+have",
     re.IGNORECASE,
 )
+CONTENT_BULLET_SEPARATOR = re.compile(r"[\u2022\u25cf\u25aa\u25e6\uf0b7]+")
 
 
 def technology_expression(name: str) -> str:
@@ -259,20 +273,23 @@ def split_technology_list(value: str) -> list[str]:
 
 
 def content_units(text: str) -> list[tuple[str, str]]:
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
     units = []
-    for index, line in enumerate(lines):
-        context_lines = lines[max(0, index - 1) : index + 1]
-        if index + 1 < len(lines):
-            next_line = lines[index + 1].strip(" :-\u2013\u2014")
-            if OPTIONAL_SECTION_HEADING.fullmatch(next_line) is None:
-                context_lines.append(lines[index + 1])
-        context = " ".join(context_lines)
-        units.append((line, context))
-    for index in range(len(lines) - 1):
-        unit = f"{lines[index]} {lines[index + 1]}"
-        context = " ".join(lines[max(0, index - 1) : index + 3])
-        units.append((unit, context))
+    # Bullet-separated requirements are independent. Joining across a bullet can
+    # bind a strict phrase in one item to an optional technology in the next.
+    for section in CONTENT_BULLET_SEPARATOR.split(text):
+        lines = [line.strip() for line in section.splitlines() if line.strip()]
+        for index, line in enumerate(lines):
+            context_lines = lines[max(0, index - 1) : index + 1]
+            if index + 1 < len(lines):
+                next_line = lines[index + 1].strip(" :-\u2013\u2014")
+                if OPTIONAL_SECTION_HEADING.fullmatch(next_line) is None:
+                    context_lines.append(lines[index + 1])
+            context = " ".join(context_lines)
+            units.append((line, context))
+        for index in range(len(lines) - 1):
+            unit = f"{lines[index]} {lines[index + 1]}"
+            context = " ".join(lines[max(0, index - 1) : index + 3])
+            units.append((unit, context))
     return units
 
 
@@ -294,6 +311,9 @@ class VacancyFilter:
         self.content_config = load_config(content_config_path)
         self.title_blocked_terms = tuple(
             blocked_terms(self.preview_config, self.preview_config_path)
+        )
+        self.title_blocked_matchers = tuple(
+            (term, prepare_title_term(term)) for term in self.title_blocked_terms
         )
         self.pass_word_patterns = tuple(
             (name, technology_pattern(name))
@@ -360,10 +380,11 @@ class VacancyFilter:
         if pass_result is not None:
             return pass_result
 
+        haystack = title.lower()
         matches = [
             term
-            for term in self.title_blocked_terms
-            if matches_term(title, term)
+            for term, matcher in self.title_blocked_matchers
+            if matches_prepared_term(haystack, matcher)
         ]
         if matches:
             return FilterResult(
@@ -414,20 +435,28 @@ class VacancyFilter:
         pass_result = self.title_pass_result(title)
 
         if not pass_result and technology_filter_enabled and enabled(config):
+            text_technology_patterns = tuple(
+                (name, pattern)
+                for name, pattern in self.blocked_technology_patterns
+                if pattern.search(text)
+            )
             for unit, context in content_units(text):
+                unit_technologies = technology_matches(
+                    unit,
+                    text_technology_patterns,
+                )
+                if not unit_technologies:
+                    continue
                 list_handled, list_result = self.filter_technology_lists(
                     unit,
                     context,
+                    text_technology_patterns,
                 )
                 if list_result is not None:
                     return list_result
                 if list_handled:
                     continue
 
-                unit_technologies = technology_matches(
-                    unit,
-                    self.blocked_technology_patterns,
-                )
                 matches = [
                     (name, template)
                     for name in unit_technologies
@@ -479,6 +508,7 @@ class VacancyFilter:
         self,
         unit: str,
         context: str,
+        technology_patterns: tuple[tuple[str, re.Pattern[str]], ...],
     ) -> tuple[bool, FilterResult | None]:
         template_groups = (
             (True, self.alternative_technology_list_templates),
@@ -507,7 +537,7 @@ class VacancyFilter:
                         name
                         for name in technology_matches(
                             item,
-                            self.blocked_technology_patterns,
+                            technology_patterns,
                         )
                         if not self.technology_is_optional(context, name)
                     ]
