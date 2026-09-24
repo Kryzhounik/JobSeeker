@@ -16,12 +16,13 @@ for path in (ROOT, DRIVER_ROOT):
 
 from db.job_mapper import delete_jobs
 from db.job_mapper import delete_source_jobs
+from db.job_mapper import apply_refilter_transitions
 from db.migrate import migrate_database
-from Tools.filter_database import collect_rejected_jobs
+from Tools.filter_database import collect_refilter_transitions
 
 
 class FilterDatabaseTest(unittest.TestCase):
-    def test_collect_returns_rejected_jobs_without_deleting_them(self) -> None:
+    def test_collect_returns_only_earlier_rejection_transitions(self) -> None:
         with TemporaryDirectory() as temp_directory:
             db_path = Path(temp_directory) / "jobs.sqlite"
             migrate_database(db_path)
@@ -38,7 +39,10 @@ class FilterDatabaseTest(unittest.TestCase):
                         (20, 'linkedin', '20', 'SAVED'),
                         (30, 'linkedin', '30', 'SAVED'),
                         (40, 'linkedin', '40', 'SAVED'),
-                        (50, 'linkedin', '50', 'CLEANED');
+                        (50, 'linkedin', '50', 'CLEANED'),
+                        (60, 'linkedin', '60', 'CONTENT_REJECTED'),
+                        (70, 'linkedin', '70', 'CONTENT_REJECTED'),
+                        (80, 'linkedin', '80', 'NONRELEVANT');
                     INSERT INTO companies (id, name, blacklisted) VALUES
                         (100, 'Ordinary Corp', 0),
                         (200, 'Blocked Corp', 1);
@@ -93,12 +97,33 @@ class FilterDatabaseTest(unittest.TestCase):
                             'https://example/5',
                             'Senior Python Developer',
                             100
+                        ),
+                        (
+                            60,
+                            'Deep expertise in Camunda 8 is required',
+                            'https://example/6',
+                            'Backend Engineer',
+                            100
+                        ),
+                        (
+                            70,
+                            'Python development',
+                            'https://example/7',
+                            'Senior Python Developer',
+                            100
+                        ),
+                        (
+                            80,
+                            'Deep expertise in Camunda 8 is required',
+                            'https://example/8',
+                            'Backend Engineer',
+                            100
                         );
                     """
                 )
                 connection.commit()
 
-            rejected = collect_rejected_jobs(db_path)
+            rejected = collect_refilter_transitions(db_path)
 
             self.assertEqual(
                 rejected,
@@ -107,8 +132,8 @@ class FilterDatabaseTest(unittest.TestCase):
                         "source_job_ref": 20,
                         "source": "linkedin",
                         "source_job_id": "20",
-                        "scope": "Job",
-                        "stage": "SAVED",
+                        "previous_status": "SAVED",
+                        "action": "CONTENT_REJECTED",
                         "id": 2,
                         "title": "Backend Engineer",
                         "fit": 72,
@@ -122,8 +147,8 @@ class FilterDatabaseTest(unittest.TestCase):
                         "source_job_ref": 30,
                         "source": "linkedin",
                         "source_job_id": "30",
-                        "scope": "Job",
-                        "stage": "SAVED",
+                        "previous_status": "SAVED",
+                        "action": "DELETE",
                         "id": 3,
                         "title": "Senior Python Developer",
                         "fit": 43,
@@ -137,8 +162,8 @@ class FilterDatabaseTest(unittest.TestCase):
                         "source_job_ref": 40,
                         "source": "linkedin",
                         "source_job_id": "40",
-                        "scope": "Job",
-                        "stage": "SAVED",
+                        "previous_status": "SAVED",
+                        "action": "DELETE",
                         "id": 4,
                         "title": "Senior Java Backend Developer",
                         "fit": 62,
@@ -152,8 +177,8 @@ class FilterDatabaseTest(unittest.TestCase):
                         "source_job_ref": 50,
                         "source": "linkedin",
                         "source_job_id": "50",
-                        "scope": "Collected",
-                        "stage": "CLEANED",
+                        "previous_status": "CLEANED",
+                        "action": "DELETE",
                         "id": None,
                         "title": "Senior Python Developer",
                         "fit": None,
@@ -163,12 +188,73 @@ class FilterDatabaseTest(unittest.TestCase):
                         "rule": "title_blocked",
                         "reason": "title blocked: Python",
                     },
+                    {
+                        "source_job_ref": 70,
+                        "source": "linkedin",
+                        "source_job_id": "70",
+                        "previous_status": "CONTENT_REJECTED",
+                        "action": "DELETE",
+                        "id": None,
+                        "title": "Senior Python Developer",
+                        "fit": None,
+                        "source_url": "https://example/7",
+                        "original": "Senior Python Developer",
+                        "matched": "Python",
+                        "rule": "title_blocked",
+                        "reason": "title blocked: Python",
+                    },
+                    {
+                        "source_job_ref": 80,
+                        "source": "linkedin",
+                        "source_job_id": "80",
+                        "previous_status": "NONRELEVANT",
+                        "action": "CONTENT_REJECTED",
+                        "id": None,
+                        "title": "Backend Engineer",
+                        "fit": None,
+                        "source_url": "https://example/8",
+                        "original": "Deep expertise in Camunda 8 is required",
+                        "matched": "Camunda",
+                        "rule": "hard_blocked_technology",
+                        "reason": "hard requirement for blocked technology: Camunda",
+                    },
                 ],
             )
             with closing(sqlite3.connect(db_path)) as connection:
+                connection.execute("PRAGMA foreign_keys = ON")
                 self.assertEqual(
                     connection.execute("SELECT count(*) FROM jobs").fetchone()[0],
                     4,
+                )
+                applied_refs = apply_refilter_transitions(
+                    connection,
+                    [
+                        (
+                            int(candidate["source_job_ref"]),
+                            str(candidate["previous_status"]),
+                            str(candidate["action"]),
+                        )
+                        for candidate in rejected
+                    ],
+                )
+                connection.commit()
+
+            self.assertEqual(applied_refs, [20, 30, 40, 50, 70, 80])
+            self.assertEqual(collect_refilter_transitions(db_path), [])
+            with closing(sqlite3.connect(db_path)) as connection:
+                self.assertEqual(
+                    connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0],
+                    4,
+                )
+                self.assertEqual(
+                    connection.execute(
+                        "SELECT count(*) FROM source_job_texts"
+                    ).fetchone()[0],
+                    4,
+                )
+                self.assertEqual(
+                    connection.execute("SELECT count(*) FROM jobs").fetchone()[0],
+                    1,
                 )
 
     def test_delete_jobs_removes_job_source_and_cascaded_rows(self) -> None:
@@ -258,6 +344,72 @@ class FilterDatabaseTest(unittest.TestCase):
         self.assertEqual(
             connection.execute("SELECT source_job_ref FROM source_job_texts").fetchall(),
             [(30,)],
+        )
+
+    def test_apply_refilter_transitions_matches_collection_persistence(self) -> None:
+        connection = sqlite3.connect(":memory:")
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.executescript(
+            """
+            CREATE TABLE source_jobs (
+                id INTEGER PRIMARY KEY,
+                processing_status TEXT NOT NULL
+            );
+            CREATE TABLE jobs (
+                id INTEGER PRIMARY KEY,
+                source_job_ref INTEGER NOT NULL UNIQUE
+                    REFERENCES source_jobs(id)
+            );
+            CREATE TABLE job_details (
+                job_id INTEGER PRIMARY KEY REFERENCES jobs(id) ON DELETE CASCADE
+            );
+            CREATE TABLE source_job_texts (
+                source_job_ref INTEGER PRIMARY KEY
+                    REFERENCES source_jobs(id) ON DELETE CASCADE
+            );
+            INSERT INTO source_jobs VALUES
+                (10, 'SAVED'),
+                (20, 'NONRELEVANT'),
+                (30, 'SAVED');
+            INSERT INTO jobs (id, source_job_ref) VALUES (1, 10), (3, 30);
+            INSERT INTO job_details (job_id) VALUES (1), (3);
+            INSERT INTO source_job_texts (source_job_ref) VALUES (10), (20), (30);
+            """
+        )
+        self.addCleanup(connection.close)
+
+        applied_refs = apply_refilter_transitions(
+            connection,
+            [
+                (10, "SAVED", "CONTENT_REJECTED"),
+                (20, "NONRELEVANT", "DELETE"),
+            ],
+        )
+        connection.commit()
+
+        self.assertEqual(applied_refs, [10, 20])
+        self.assertEqual(
+            connection.execute(
+                "SELECT id, processing_status FROM source_jobs ORDER BY id"
+            ).fetchall(),
+            [
+                (10, "CONTENT_REJECTED"),
+                (30, "SAVED"),
+            ],
+        )
+        self.assertEqual(
+            connection.execute("SELECT source_job_ref FROM jobs").fetchall(),
+            [(30,)],
+        )
+        self.assertEqual(
+            connection.execute("SELECT job_id FROM job_details").fetchall(),
+            [(3,)],
+        )
+        self.assertEqual(
+            connection.execute(
+                "SELECT source_job_ref FROM source_job_texts ORDER BY source_job_ref"
+            ).fetchall(),
+            [(10,), (30,)],
         )
 
 

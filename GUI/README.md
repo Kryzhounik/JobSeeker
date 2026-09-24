@@ -198,22 +198,29 @@ The refilter workflow uses:
 `python Tools/filter_database.py`
 
 The utility loads every title and readable text from `source_job_texts`,
-including records that have not reached `jobs`, passes them to the collector
-filter's top-level `filter(Vacancy)` method, and returns a JSON list containing
-each rejected source-job ID, title, storage scope, and filter reason. It never
-changes the database itself.
+including records that have not reached `jobs`, and passes them to the
+collector filter's top-level `filter(Vacancy)` method. It compares the current
+rejection stage with `source_jobs.processing_status` and returns only vacancies
+that would now be rejected earlier than before. An unchanged
+`CONTENT_REJECTED` result is therefore omitted, while `CONTENT_REJECTED` to
+`DELETE` and `NONRELEVANT` to `CONTENT_REJECTED` are useful transitions. The
+utility never changes the database itself.
 
-The top `Refilter` button collects rejected records and immediately deletes
-them through the database layer. The bottom `Refilter detail` button only
-collects them and opens a confirmation window with a selection checkbox plus
-`Scope`, `Source ID`, `Title`, `Fit`, `Original`, and `Match` columns. `Scope`
-distinguishes analyzed `Job` rows from pre-analysis `Collected` rows. Every row
-is selected by default; the `All` checkbox selects or clears the whole list.
-Its contents are read-only text, so any substring can be selected with the
-mouse and copied with `Ctrl+C`. Clicking a title without dragging opens the
-vacancy `source_url`; every header toggles ascending/descending sorting. The
-mouse wheel scrolls rows, and `Shift` plus the mouse wheel scrolls horizontally.
-`Confirm` deletes only the selected source jobs and their related analyzed or
-collected data; `Cancel` or closing the window leaves the database unchanged.
+The top `Refilter` button finds and immediately applies every transition. The
+bottom `Refilter detail` button only collects them and opens a confirmation
+window with a selection checkbox plus `Source ID`, `Title`, `Previous`,
+`Action`, `Fit`, `Original`, and `Match` columns. Every row is selected by default; the
+`All` checkbox selects or clears the whole list. Its contents are read-only
+text, so any substring can be selected with the mouse and copied with `Ctrl+C`.
+Clicking a title without dragging opens the vacancy `source_url`; every header
+toggles ascending/descending sorting. The mouse wheel scrolls rows, and `Shift`
+plus the mouse wheel scrolls horizontally.
+
+`Confirm` applies the same persistence rule as normal collection. A `DELETE`
+action from the title or company filter removes the complete source record,
+because that vacancy would never have been collected. A `CONTENT_REJECTED`
+action removes only an existing derived `jobs` row, changes the retained
+`source_jobs` status, and keeps `source_job_texts` for source deduplication.
+`Cancel` or closing the window leaves the database unchanged.
 The detail window is non-modal, so minimizing and restoring the main window is
 not blocked by a Tk input grab.

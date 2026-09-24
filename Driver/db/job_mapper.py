@@ -188,6 +188,71 @@ def delete_source_jobs(
     return existing_refs
 
 
+REFILTER_ACTIONS = frozenset({"DELETE", "CONTENT_REJECTED"})
+
+
+def apply_refilter_transitions(
+    connection: sqlite3.Connection,
+    transitions: Iterable[tuple[int, str, str]],
+) -> list[int]:
+    """Apply confirmed Refilter actions as the collector would have done.
+
+    Title and company filters run before collection, so their DELETE action
+    removes the complete source record and every derived row. Content filters
+    run after readable text is stored; their CONTENT_REJECTED action preserves
+    `source_jobs` and `source_job_texts` for deduplication, removes only the
+    derived analyzed `jobs` row, and updates the source lifecycle.
+
+    The previous status is checked so a stale confirmation cannot overwrite a
+    vacancy whose lifecycle changed after the preview was built.
+    """
+    normalized: list[tuple[int, str, str]] = []
+    seen: set[int] = set()
+    for source_job_ref, previous_status, action in transitions:
+        source_job_ref = int(source_job_ref)
+        previous_status = str(previous_status).strip().upper()
+        action = str(action).strip().upper()
+        if action not in REFILTER_ACTIONS:
+            raise ValueError(f"Unsupported Refilter action: {action!r}")
+        if source_job_ref in seen:
+            continue
+        seen.add(source_job_ref)
+        normalized.append((source_job_ref, previous_status, action))
+
+    applied: list[int] = []
+    for source_job_ref, previous_status, action in normalized:
+        row = connection.execute(
+            "SELECT processing_status FROM source_jobs WHERE id = ?",
+            (source_job_ref,),
+        ).fetchone()
+        if row is None:
+            continue
+        current_status = str(row[0])
+        if current_status != previous_status:
+            raise ValueError(
+                "Stale Refilter transition for source job "
+                f"{source_job_ref}: expected {previous_status}, "
+                f"found {current_status}"
+            )
+
+        connection.execute(
+            "DELETE FROM jobs WHERE source_job_ref = ?",
+            (source_job_ref,),
+        )
+        if action == "DELETE":
+            connection.execute(
+                "DELETE FROM source_jobs WHERE id = ?",
+                (source_job_ref,),
+            )
+        else:
+            connection.execute(
+                "UPDATE source_jobs SET processing_status = ? WHERE id = ?",
+                ("CONTENT_REJECTED", source_job_ref),
+            )
+        applied.append(source_job_ref)
+    return applied
+
+
 def ensure_existing_schema(connection: sqlite3.Connection, schema_sql: str) -> None:
     jobs_exists = connection.execute(
         """

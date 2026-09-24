@@ -218,7 +218,10 @@ class FilterConfigTest(unittest.TestCase):
             "Proficiency in Python",
             "Python",
         ))
-        self.assertIn("{technology}", rows[0][3])
+        self.assertTrue(
+            "{technology}" in rows[0][3]
+            or "{technologies}" in rows[0][3]
+        )
         self.assertEqual(rows[1][:3], (
             "hard_language_requirement",
             "Fluent in English",

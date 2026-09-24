@@ -62,9 +62,9 @@ from db.companies import (
     update_company_linkedin_id,
     update_company_priority,
 )
-from db.job_mapper import delete_source_jobs
+from db.job_mapper import apply_refilter_transitions
 from db.migrate import migrate_database
-from Tools.filter_database import collect_rejected_jobs
+from Tools.filter_database import collect_refilter_transitions
 
 
 JOB_COLUMNS = (
@@ -4199,26 +4199,33 @@ class JobsViewer(tk.Tk):
 
     def _refilter_collect_worker(self, preview: bool) -> None:
         try:
-            candidates = collect_rejected_jobs(DB_PATH)
+            candidates = collect_refilter_transitions(DB_PATH)
             if preview:
                 self.refilter_queue.put(("preview", candidates))
                 return
 
-            removed_total = self._delete_refilter_candidates(candidates)
-            self.refilter_queue.put(("deleted", removed_total))
+            applied_total = self._apply_refilter_candidates(candidates)
+            self.refilter_queue.put(("applied", applied_total))
         except Exception as error:
             self.refilter_queue.put(("error", str(error)))
 
-    def _delete_refilter_candidates(
+    def _apply_refilter_candidates(
         self,
         candidates: list[dict[str, Any]],
     ) -> int:
         connection = sqlite3.connect(DB_PATH)
         try:
             connection.execute("PRAGMA foreign_keys = ON")
-            deleted_ids = delete_source_jobs(
+            applied_refs = apply_refilter_transitions(
                 connection,
-                [int(candidate["source_job_ref"]) for candidate in candidates],
+                [
+                    (
+                        int(candidate["source_job_ref"]),
+                        clean(candidate["previous_status"]),
+                        clean(candidate["action"]),
+                    )
+                    for candidate in candidates
+                ],
             )
             connection.commit()
         except Exception:
@@ -4226,9 +4233,9 @@ class JobsViewer(tk.Tk):
             raise
         finally:
             connection.close()
-        return len(deleted_ids)
+        return len(applied_refs)
 
-    def _start_confirmed_refilter_delete(
+    def _start_confirmed_refilter_apply(
         self,
         candidates: list[dict[str, Any]],
     ) -> None:
@@ -4241,19 +4248,19 @@ class JobsViewer(tk.Tk):
             self.status_var.set("LinkedIn check is running")
             return
 
-        self._begin_refilter_activity("Refilter deleting confirmed jobs")
+        self._begin_refilter_activity("Refilter applying confirmed transitions")
         thread = threading.Thread(
-            target=self._refilter_delete_worker,
+            target=self._refilter_apply_worker,
             args=(candidates,),
             daemon=True,
         )
         thread.start()
         self.after(200, self._poll_refilter_queue)
 
-    def _refilter_delete_worker(self, candidates: list[dict[str, Any]]) -> None:
+    def _refilter_apply_worker(self, candidates: list[dict[str, Any]]) -> None:
         try:
-            removed_total = self._delete_refilter_candidates(candidates)
-            self.refilter_queue.put(("deleted", removed_total))
+            applied_total = self._apply_refilter_candidates(candidates)
+            self.refilter_queue.put(("applied", applied_total))
         except Exception as error:
             self.refilter_queue.put(("error", str(error)))
 
@@ -4265,11 +4272,14 @@ class JobsViewer(tk.Tk):
                 break
 
             kind = message[0]
-            if kind == "deleted":
-                _kind, removed_total = message
+            if kind == "applied":
+                _kind, applied_total = message
                 self._finish_refilter_activity()
                 self.refresh_jobs()
-                self.status_var.set(f"Refilter removed {removed_total} jobs")
+                self._refresh_collected_jobs()
+                self.status_var.set(
+                    f"Refilter applied {applied_total} transitions"
+                )
             elif kind == "preview":
                 _kind, candidates = message
                 self._finish_refilter_activity()
@@ -4337,13 +4347,16 @@ class JobsViewer(tk.Tk):
         dialog.bind("<Configure>", schedule_detail_size_save)
         dialog.bind("<Destroy>", cancel_pending_detail_size_save, add="+")
 
-        job_count = sum(candidate.get("scope") == "Job" for candidate in candidates)
-        collected_count = len(candidates) - job_count
+        delete_count = sum(
+            candidate.get("action") == "DELETE"
+            for candidate in candidates
+        )
+        content_count = len(candidates) - delete_count
         ttk.Label(
             dialog,
             text=(
-                f"Rejected: {len(candidates)} "
-                f"({job_count} jobs, {collected_count} collected)"
+                f"Transitions: {len(candidates)} "
+                f"({delete_count} delete, {content_count} content)"
             ),
             style="Title.TLabel",
             padding=(10, 10, 10, 6),
@@ -4451,9 +4464,10 @@ class JobsViewer(tk.Tk):
             cell.bind("<ButtonRelease-1>", open_without_drag, add="+")
 
         columns = (
-            ("scope", "Scope", 10, "center"),
             ("source_job_id", "Source ID", 14, "center"),
             ("title", "Title", 30, "left"),
+            ("previous_status", "Previous", 18, "center"),
+            ("action", "Action", 18, "center"),
             ("fit", "Fit", 7, "center"),
             ("original", "Original", 74, "left"),
             ("matched", "Match", 24, "left"),
@@ -4554,9 +4568,10 @@ class JobsViewer(tk.Tk):
                 values = tuple(
                     one_line(value)
                     for value in (
-                        candidate.get("scope", ""),
                         candidate.get("source_job_id", ""),
                         candidate.get("title", ""),
+                        candidate.get("previous_status", ""),
+                        candidate.get("action", ""),
                         candidate.get("fit", ""),
                         candidate.get("original", ""),
                         candidate.get("matched", ""),
@@ -4597,7 +4612,7 @@ class JobsViewer(tk.Tk):
                         pady=1,
                     )
                     bind_canvas_wheel(cell)
-                    if column_index == 2:
+                    if column_index == 1:
                         cell.configure(foreground="#005a9c")
                         bind_source_link(
                             cell,
@@ -4648,7 +4663,7 @@ class JobsViewer(tk.Tk):
                 return
             flush_detail_size()
             dialog.destroy()
-            self._start_confirmed_refilter_delete(selected_candidates)
+            self._start_confirmed_refilter_apply(selected_candidates)
 
         ttk.Button(actions, text="Cancel", command=cancel).grid(
             row=0,
