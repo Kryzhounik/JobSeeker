@@ -61,6 +61,3 @@ python codex_proxy/comparison.py
 The command reads `desktop_response` and `cli_response` from one UTF-8 JSON
 object on stdin. Comparison storage does not choose or alter the response used
 by the workflow.
-
-`app_server_experiment/` contains a postponed alternative transport and is not
-part of the active workflow.

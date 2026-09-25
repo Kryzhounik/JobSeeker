@@ -52,6 +52,64 @@ execution contract; the Java orchestrator owns pipeline behavior.
   загрузки. До последней страницы он не дошёл из-за отдельной ошибки содержимого
   карточки. Статус: наблюдаем следующие прогоны и проверяем, не воспроизведётся
   ли преждевременная остановка снова.
+- **HIGH: Гибридное детерминированное извлечение требований**
+  Переиспользовать проверенные technology/language patterns контекстного
+  фильтра для извлечения однозначных требований до запуска `job_facts`.
+  Сохранять найденные факты вместе с исходными evidence-фрагментами, а агенту
+  передавать только необработанный или неоднозначный остаток текста. Простое
+  предварительное заполнение полей без сокращения агентного input токены не
+  экономит. Сначала сравнить результат гибридного и полного агентного разбора
+  на одном scope и не удалять agent fallback для неоднозначных требований.
+- **HIGH: Заменить обязательный semantic candidate-fit детерминированным scoring**
+  Проверить, можно ли убрать отдельный LLM-проход `candidate_fit` для большинства
+  вакансий. Он получает уже формализованные `technologies`, `requirement`,
+  `level_rank`, роль и логистику и в основном выполняет описанный в prompt
+  weighted coverage. Исторически deterministic gate уже дал 390 нулевых
+  результатов (`loc`, `tech`, `lang`), а semantic fit среди следующих 428
+  вакансий добавил только 20 нулей и для остальных 408 преимущественно вычислил
+  ранжирующий процент. В последнем проверенном scope из 39 готовых job-facts 16
+  отсеклись deterministic gate, а 23 потребовали бы отдельных candidate-fit
+  turns. Поэтому удаление или сильное сокращение этой агентной фазы потенциально
+  выгоднее микросокращений prompt и DTO.
+
+  Реализовать объяснимый scoring engine поверх существующего candidate profile:
+  - нормализовать aliases (`RESTful APIs -> REST`, `Postgres -> PostgreSQL`);
+  - явно различать `AND` и `OR`, для настоящих альтернатив брать лучший match;
+  - хранить настраиваемые adjacency/equivalence coefficients, например
+    `NATS -> Kafka` и `AWS -> cloud/GCP/Azure`;
+  - вычислять coverage по разнице candidate и required level: ориентиры
+    `1.0`, `0.75`, `0.5`, `0.25`, `0.0`;
+  - считать основной denominator только по `core` и `required`, с большим весом
+    `core`; `important`, `desired` и `nice_to_have` использовать лишь как
+    ограниченную корректировку, а optional bonus ограничить пятью пунктами;
+  - сохранять missing core в denominator и применять явные score caps;
+  - генерировать `candidate_fit_reason` из покрытых требований и крупнейших gaps,
+    не скрывая нулевые строки.
+
+  Не удалять Sol fallback сразу. Сначала использовать двухконтурный режим:
+  детерминированная формула обслуживает уверенно распознанные случаи, а Sol
+  вызывается только для предложенного нуля, неизвестного `core`/`required`,
+  неоднозначного `AND`/`OR`, пустого denominator или низкой confidence. Это
+  защищает от опасного ложного нуля и одновременно убирает агентный вызов для
+  большинства обычных вакансий. `role_mismatch` по возможности определять
+  раньше; неоднозначный role/track также отправлять в fallback, а не отвергать
+  автоматически.
+
+  Проверить формулу без новых LLM-вызовов на сохранённых analyzed JSON и
+  существующих fit-результатах. Сравнивать не только точный процент, который у
+  LLM псевдоточен, а buckets `0 / 25 / 50 / 75 / 90`, rank correlation, top-N
+  выдачу и критические расхождения около пользовательских порогов. Отдельно
+  контролировать отсутствие ложных нулей. После shadow-проверки сначала включить
+  формулу с Sol fallback, затем решать, можно ли удалить semantic stage целиком.
+- **MEDIUM: Сократить job-facts DTO и agent payload без потери evidence**
+  После определения судьбы semantic candidate-fit измерить выигрыш от
+  сокращения статического job-facts prompt, output DTO и последующих payload.
+  Текущий prompt имеет размер около 12.7 KB, а средний analyzed JSON — около
+  3.6 KB; output-токены дороже input-токенов. Проверить устранение дублирования
+  в `raw_value`, `summary` и `notes`, более компактное представление требований
+  и передачу downstream только реально используемых полей. Не удалять audit
+  evidence вслепую и не оптимизировать candidate-fit input отдельно, если
+  deterministic scoring устранит этот input полностью.
 - **LOW: Дедупликация вакансий**
   Investigate dedup for near-identical LinkedIn jobs:
   - compare raw/card/analyzed data for 4441196528, 4441182950,
@@ -71,36 +129,38 @@ execution contract; the Java orchestrator owns pipeline behavior.
   - tech_checked: technology requirements extracted and checked.
   - logistics_checked: remote scope, relocation, language, and location checked.
   - fully_analyzed: factual summary and notes completed.
-- **LOW: Отдельные причины отказа**
-  Add filtering fields:
-  - `analysis_stage`
-  - `reject_reason`
 - **MEDIUM: Перенести существующий GUI на JavaFX**
   Replace the Python/Tkinter GUI and its C# launcher with a JavaFX application.
   Preserve the existing screens and actions, use the current SQLite schema,
   and call the Java collector/orchestrator directly instead of maintaining a
   second workflow implementation in the GUI.
-- **MEDIUM: Оценка стоимости размера job-facts batch**
+- **MEDIUM: Оценка стоимости размера job-facts batch на естественных прогонах**
   В рамках обычных workflow-прогонов периодически менять
   `vacancies_per_agent` в `Driver/analyzer/config/execution.ini`. После
   накопления прогонов сравнить сохранённые в SQLite метрики расхода для разных
-  размеров batch и выбрать настройку по фактической стоимости. Отдельный
-  синтетический тест для этого не запускать.
+  размеров batch и выбрать настройку по фактической стоимости. Переключать
+  значение между неделями или другими сопоставимыми естественными scope; не
+  тратить токены на отдельный синтетический или пустой эксперимент. Учитывать
+  компромисс между повторной оплатой стартового контекста у коротких групп и
+  накоплением cached history у слишком длинных persistent targets.
 - **MEDIUM: Параллельные группы job-facts в Java**
   После проверки последовательного Java-контура использовать `parallel_agents`
   из `Driver/analyzer/config/execution.ini` для параллельной обработки групп.
+- **MEDIUM: Фоновая проверка закрытых LinkedIn-вакансий**
+  Автоматически запускать существующую проверку сохранённых вакансий в фоне,
+  без ручного нажатия кнопки, с ограничением частоты и защитой от параллельных
+  запусков. До автоматического изменения статусов сравнить ответы LinkedIn
+  guest endpoint с браузерной проверкой на выборке открытых и закрытых вакансий
+  и оценить ложные результаты. Переводить вакансию в `Closed` только по
+  подтверждённо надёжному сигналу; `404`, rate limit, неожиданный HTML и сетевые
+  ошибки считать неопределённым результатом.
 
 ## Later
 
-- Revisit the archived Codex App Server transport experiment in
-  `Driver/codex_proxy/app_server_experiment/` if CLI process overhead becomes
-  a blocking problem. Before enabling it, prove nested orchestration and a
-  complete pipeline run while keeping backend selection behind the proxy.
-- Only add deterministic extraction later if it clearly removes cost without
-  creating a growing pile of fragile wording rules.
 - Add more sources after the JustJoinIT flow is comfortable.
-- Add scheduling only after manual runs are useful.
-- Add stale-vacancy cleanup.
+- Add optional scheduled execution of the complete Java batch only after
+  manual runs are stable, so collection and analysis can start automatically
+  at configured times without opening the GUI.
 
 ## Rules We Agreed On
 
