@@ -323,6 +323,30 @@ def filter_collected_jobs(
     ]
 
 
+def load_reason_code_descriptions(
+    connection: sqlite3.Connection,
+) -> dict[str, str]:
+    rows = connection.execute(
+        """
+        SELECT code, description
+        FROM candidate_fit_reason_codes
+        ORDER BY code COLLATE NOCASE
+        """
+    ).fetchall()
+    return {
+        clean(row[0]).strip(): clean(row[1]).strip()
+        for row in rows
+        if clean(row[0]).strip()
+    }
+
+
+def format_reason_code_reference(descriptions: dict[str, str]) -> str:
+    return "\n".join(
+        f"{code}: {description}"
+        for code, description in descriptions.items()
+    )
+
+
 class CopyableText(tk.Text):
     def __init__(
         self,
@@ -432,6 +456,76 @@ class CopyableText(tk.Text):
 
     def _break_event(self, _event: tk.Event[tk.Misc]) -> str:
         return "break"
+
+
+class DelayedTooltip:
+    def __init__(self, parent: tk.Misc, delay_ms: int = 600) -> None:
+        self.parent = parent
+        self.delay_ms = delay_ms
+        self.after_id: str | None = None
+        self.pending_text = ""
+        self.position = (0, 0)
+        self.window: tk.Toplevel | None = None
+
+    def schedule(self, text: Any, x_root: int, y_root: int) -> None:
+        value = clean(text).strip()
+        if not value:
+            self.hide()
+            return
+        self.position = (x_root, y_root)
+        if value == self.pending_text and (
+            self.after_id is not None or self.window is not None
+        ):
+            return
+        self.hide()
+        self.pending_text = value
+        self.after_id = self.parent.after(self.delay_ms, self._show)
+
+    def hide(self) -> None:
+        if self.after_id is not None:
+            self.parent.after_cancel(self.after_id)
+            self.after_id = None
+        if self.window is not None and self.window.winfo_exists():
+            self.window.destroy()
+        self.window = None
+        self.pending_text = ""
+
+    def _show(self) -> None:
+        self.after_id = None
+        if not self.pending_text:
+            return
+
+        window = tk.Toplevel(self.parent)
+        window.wm_overrideredirect(True)
+        label = tk.Label(
+            window,
+            text=self.pending_text,
+            justify="left",
+            anchor="w",
+            background="#fffbd6",
+            foreground="#202020",
+            borderwidth=1,
+            relief="solid",
+            padx=7,
+            pady=5,
+            wraplength=620,
+            font=("Segoe UI", 9),
+        )
+        label.pack()
+        window.update_idletasks()
+
+        x = self.position[0] + 12
+        y = self.position[1] + 18
+        x = min(
+            x,
+            max(0, window.winfo_screenwidth() - window.winfo_reqwidth() - 8),
+        )
+        y = min(
+            y,
+            max(0, window.winfo_screenheight() - window.winfo_reqheight() - 8),
+        )
+        window.wm_geometry(f"+{x}+{y}")
+        self.window = window
 
 
 class SortableTableMixin:
@@ -846,6 +940,8 @@ class JobsViewer(tk.Tk):
         self.job_link_labels: list[tk.Label] = []
         self.job_links_after_id: str | None = None
         self.job_column_resize_active = False
+        self.reason_code_descriptions: dict[str, str] = {}
+        self.reason_code_tooltip = DelayedTooltip(self)
         self.title_selection_entry: tk.Entry | None = None
         self.title_selection_tree: ttk.Treeview | None = None
         self.title_selection_item = ""
@@ -1144,6 +1240,16 @@ class JobsViewer(tk.Tk):
         self.jobs_tree.bind(
             "<MouseWheel>",
             self._jobs_tree_mousewheel,
+            add="+",
+        )
+        self.jobs_tree.bind(
+            "<Motion>",
+            self._jobs_tree_tooltip_motion,
+            add="+",
+        )
+        self.jobs_tree.bind(
+            "<Leave>",
+            lambda _event: self.reason_code_tooltip.hide(),
             add="+",
         )
 
@@ -1476,6 +1582,7 @@ class JobsViewer(tk.Tk):
         if self._main_size_save_after_id is not None:
             self.after_cancel(self._main_size_save_after_id)
             self._main_size_save_after_id = None
+        self.reason_code_tooltip.hide()
         self._remember_window_size("main", self)
         self.destroy()
 
@@ -1607,10 +1714,14 @@ class JobsViewer(tk.Tk):
         self._close_title_selection()
         try:
             rows = self._load_jobs()
+            with self.connect() as connection:
+                reason_code_descriptions = load_reason_code_descriptions(connection)
         except Exception as error:
             messagebox.showerror("Refresh failed", str(error))
             self.status_var.set("Refresh failed")
             return
+
+        self.reason_code_descriptions = reason_code_descriptions
 
         self.jobs_tree.delete(*self.jobs_tree.get_children())
         self.job_rows.clear()
@@ -1854,24 +1965,29 @@ class JobsViewer(tk.Tk):
         self.status_var.set(f"{config_name} = {value}")
 
     def _jobs_tree_yview(self, *args: Any) -> None:
+        self.reason_code_tooltip.hide()
         self._close_title_selection()
         self.jobs_tree.yview(*args)
         self._schedule_job_link_labels()
 
     def _jobs_tree_xview(self, *args: Any) -> None:
+        self.reason_code_tooltip.hide()
         self._close_title_selection()
         self.jobs_tree.xview(*args)
         self._schedule_job_link_labels()
 
     def _jobs_tree_configured(self, _event: tk.Event[tk.Misc]) -> None:
+        self.reason_code_tooltip.hide()
         self._close_title_selection()
         self._schedule_job_link_labels()
 
     def _jobs_tree_mousewheel(self, _event: tk.Event[tk.Misc]) -> None:
+        self.reason_code_tooltip.hide()
         self._close_title_selection()
         self.after_idle(self._schedule_job_link_labels)
 
     def _jobs_tree_button_press(self, event: tk.Event[tk.Misc]) -> None:
+        self.reason_code_tooltip.hide()
         if self.jobs_tree.identify_region(event.x, event.y) != "separator":
             return
         self.job_column_resize_active = True
@@ -1887,6 +2003,35 @@ class JobsViewer(tk.Tk):
             return
         self.job_column_resize_active = False
         self._schedule_job_link_labels()
+
+    def _jobs_tree_column_at(self, x: int) -> str:
+        column_ref = self.jobs_tree.identify_column(x)
+        try:
+            column_index = int(column_ref.removeprefix("#")) - 1
+            if column_index < 0:
+                return ""
+            return clean(self.jobs_tree["columns"][column_index])
+        except (ValueError, IndexError):
+            return ""
+
+    def _jobs_tree_tooltip_motion(self, event: tk.Event[tk.Misc]) -> None:
+        region = self.jobs_tree.identify_region(event.x, event.y)
+        column = self._jobs_tree_column_at(event.x)
+        if column != "candidate_fit_reason_code":
+            self.reason_code_tooltip.hide()
+            return
+
+        text = ""
+        if region == "heading":
+            text = format_reason_code_reference(self.reason_code_descriptions)
+        elif region == "cell":
+            item = self.jobs_tree.identify_row(event.y)
+            row = self.job_rows.get(item)
+            if row is not None:
+                code = clean(row.get("candidate_fit_reason_code")).strip()
+                text = self.reason_code_descriptions.get(code, "")
+
+        self.reason_code_tooltip.schedule(text, event.x_root, event.y_root)
 
     def _start_title_selection(
         self,
@@ -2154,6 +2299,7 @@ class JobsViewer(tk.Tk):
         self.job_links_after_id = self.after_idle(self._render_job_link_labels)
 
     def _clear_job_link_labels(self) -> None:
+        self.reason_code_tooltip.hide()
         if self.job_links_after_id is not None:
             self.after_cancel(self.job_links_after_id)
             self.job_links_after_id = None
@@ -2177,6 +2323,7 @@ class JobsViewer(tk.Tk):
             command: Any,
             background: str,
             foreground: str,
+            tooltip_text: str = "",
         ) -> None:
             bounds = self.jobs_tree.bbox(item, column)
             if not bounds:
@@ -2208,6 +2355,21 @@ class JobsViewer(tk.Tk):
             )
             label.bind("<MouseWheel>", self._scroll_jobs_from_link)
             label.bind("<Shift-MouseWheel>", self._scroll_jobs_from_link)
+            if tooltip_text:
+                label.bind(
+                    "<Enter>",
+                    lambda event, value=tooltip_text: (
+                        self.reason_code_tooltip.schedule(
+                            value,
+                            event.x_root,
+                            event.y_root,
+                        )
+                    ),
+                )
+                label.bind(
+                    "<Leave>",
+                    lambda _event: self.reason_code_tooltip.hide(),
+                )
             self.job_link_labels.append(label)
 
         for item in self.jobs_tree.get_children(""):
@@ -2270,6 +2432,7 @@ class JobsViewer(tk.Tk):
                     lambda value=reason_code: self._add_reason_filter_from_link(value),
                     background,
                     foreground,
+                    self.reason_code_descriptions.get(reason_code, ""),
                 )
 
     def _scroll_jobs_from_link(self, event: tk.Event[tk.Misc]) -> str:

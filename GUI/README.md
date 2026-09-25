@@ -59,8 +59,10 @@ after that date. `Reason` accepts comma-separated reason codes and filters them
 with an SQL `IN` condition.
 Clicking a blue date link in the main table copies that date into the filter.
 Clicking a blue `Reason code` adds it to the filter without duplicates. `Clear`
-resets all search fields. Runtime status messages are shown in the bottom-right
-footer.
+resets all search fields. Hovering over a `Reason code` cell shows that code's
+description from `candidate_fit_reason_codes`; hovering over the column header
+shows every available code and description. Runtime status messages are shown
+in the bottom-right footer.
 
 The small gear button in the upper-right corner opens the database-backed
 configuration switches from the `config` table. Every row is rendered as a
