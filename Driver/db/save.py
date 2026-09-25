@@ -15,7 +15,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_mapper import CANDIDATE_FIT_REASON_CODES
 from db.job_mapper import existing_source_urls
 from db.job_mapper import save_job_json
 from db.migrate import migrate_database
@@ -94,8 +93,6 @@ def require_candidate_fit_reason_code(record: dict[str, Any]) -> str:
             "candidate_fit_reason_code='undefined' is only for legacy DB rows; "
             "new scored JSON must use a real reason code"
         )
-    if code not in CANDIDATE_FIT_REASON_CODES:
-        raise ValueError(f"Unsupported candidate_fit_reason_code: {code!r}")
     return code
 
 

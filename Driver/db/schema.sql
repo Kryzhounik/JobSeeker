@@ -40,6 +40,22 @@ INSERT OR IGNORE INTO job_statuses (code, sort_order) VALUES
     ('Applied', 40),
     ('Closed', 50);
 
+CREATE TABLE IF NOT EXISTS candidate_fit_reason_codes (
+    code TEXT PRIMARY KEY,
+    description TEXT NOT NULL
+);
+
+INSERT INTO candidate_fit_reason_codes (code, description) VALUES
+    ('undefined', 'Legacy record without a classified fit reason.'),
+    ('ok', 'Semantic-fit agent returned a positive score.'),
+    ('lang', 'Post-analysis script rejected the extracted language requirements.'),
+    ('loc', 'Post-analysis script rejected the extracted location requirements.'),
+    ('tech', 'Post-analysis script rejected the extracted technology requirements.'),
+    ('role_mismatch', 'Semantic-fit agent scored an unrelated role at zero.'),
+    ('skill_mismatch', 'Semantic-fit agent scored required skill coverage at zero.')
+ON CONFLICT(code) DO UPDATE SET
+    description = excluded.description;
+
 CREATE TABLE IF NOT EXISTS application_statuses (
     code TEXT PRIMARY KEY,
     sort_order INTEGER NOT NULL DEFAULT 0
@@ -163,17 +179,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     candidate_fit_percent INTEGER NOT NULL DEFAULT 100 CHECK (
         candidate_fit_percent >= 0 AND candidate_fit_percent <= 100
     ),
-    candidate_fit_reason_code TEXT NOT NULL DEFAULT 'undefined' CHECK (
-        candidate_fit_reason_code IN (
-            'undefined',
-            'ok',
-            'lang',
-            'loc',
-            'tech',
-            'role_mismatch',
-            'skill_mismatch'
-        )
-    ),
+    candidate_fit_reason_code TEXT NOT NULL DEFAULT 'undefined'
+        REFERENCES candidate_fit_reason_codes(code),
     candidate_fit_reason TEXT NOT NULL DEFAULT '',
     summary TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',

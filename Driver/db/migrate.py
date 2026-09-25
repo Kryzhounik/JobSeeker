@@ -140,6 +140,12 @@ def migration_already_effective(
             column_exists(connection, "linkedin_collection_pages", "expected_count")
             and column_exists(connection, "linkedin_collection_pages", "total_results")
         )
+    if version == "033_candidate_fit_reason_descriptions":
+        return column_exists(
+            connection,
+            "candidate_fit_reason_codes",
+            "description",
+        )
     return False
 
 
