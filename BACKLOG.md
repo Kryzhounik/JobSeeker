@@ -75,10 +75,11 @@ execution contract; the Java orchestrator owns pipeline behavior.
   Add filtering fields:
   - `analysis_stage`
   - `reject_reason`
-- **MEDIUM: Улучшение оценки соответствия**
-  Granulate `candidate_fit_percent` beyond the first language filter.
-- **MEDIUM: Расширение оценки интереса**
-  Add tech score rules for `job_interest`, up to 99 points.
+- **MEDIUM: Перенести существующий GUI на JavaFX**
+  Replace the Python/Tkinter GUI and its C# launcher with a JavaFX application.
+  Preserve the existing screens and actions, use the current SQLite schema,
+  and call the Java collector/orchestrator directly instead of maintaining a
+  second workflow implementation in the GUI.
 - **MEDIUM: Оценка стоимости размера job-facts batch**
   В рамках обычных workflow-прогонов периодически менять
   `vacancies_per_agent` в `Driver/analyzer/config/execution.ini`. После
@@ -100,7 +101,6 @@ execution contract; the Java orchestrator owns pipeline behavior.
 - Add more sources after the JustJoinIT flow is comfortable.
 - Add scheduling only after manual runs are useful.
 - Add stale-vacancy cleanup.
-- Consider a small UI only after DB Browser stops being enough.
 
 ## Rules We Agreed On
 
