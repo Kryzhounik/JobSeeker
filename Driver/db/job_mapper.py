@@ -428,7 +428,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
             "Collected job data is missing for "
             f"{source}:{source_url}; save collector output before analysis"
         )
-    source_job_ref = mark_url_status(connection, source, source_url, "SAVED")
+    source_job_ref = int(collected[0])
     salary = clean(record["salary"])
     if salary.lower() == "unknown":
         raise ValueError("salary must be empty when unavailable, not 'unknown'")
@@ -498,6 +498,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
 
     replace_languages(connection, job_id, record["languages"])
     replace_technologies(connection, job_id, record["technologies"])
+    mark_url_status(connection, source, source_url, "SAVED")
     return job_id
 
 

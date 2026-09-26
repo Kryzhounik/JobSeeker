@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import json
 import sqlite3
 import sys
@@ -129,20 +130,28 @@ def save_one_record(
     done: set[str],
     force: bool,
 ) -> tuple[str, str]:
-    source_url = str(record["source_url"] or "").strip()
-    if not source_url:
-        raise ValueError("source_url is empty")
-    if source_url in done and not force:
-        return ("skip", source_url)
-
-    validate_scored_record(record)
-    save_job_json(connection, record)
-    done.add(source_url)
-    return (
-        "save",
-        f"{source_url} interest={record['job_interest']} "
-        f"fit={record['candidate_fit_percent']}",
-    )
+    connection.execute("SAVEPOINT save_one_record")
+    try:
+        source_url = str(record["source_url"] or "").strip()
+        if not source_url:
+            raise ValueError("source_url is empty")
+        if source_url in done and not force:
+            result = ("skip", source_url)
+        else:
+            validate_scored_record(record)
+            save_job_json(connection, record)
+            done.add(source_url)
+            result = (
+                "save",
+                f"{source_url} interest={record['job_interest']} "
+                f"fit={record['candidate_fit_percent']}",
+            )
+    except Exception:
+        connection.execute("ROLLBACK TO save_one_record")
+        connection.execute("RELEASE save_one_record")
+        raise
+    connection.execute("RELEASE save_one_record")
+    return result
 
 
 def save_records(
@@ -157,7 +166,7 @@ def save_records(
 
     migrate_database(db_path=db_path, schema_path=schema_path)
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         done = existing_source_urls(connection)
 
