@@ -781,3 +781,6 @@ Siebel CRM Developer
 Marketing Developer
 Керівник підрозділу
 Enterprise Architect
+Intelligence Engineer
+Product & Engineering Expert
+Stripe Specialist

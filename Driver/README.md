@@ -17,19 +17,8 @@ orchestrator together with:
 mvn -f Driver/pom.xml package
 ```
 
-## Agent Execution Boundary
-
-`agent_execution.md` remains the boundary for deprecated Desktop-owned agent
-operations. The primary Java workflow sends its explicit agent-operation
-contracts directly through the metered Codex CLI proxy.
-
 Java owns the primary workflow order while the existing Python modules keep
 their analysis, scoring, validation, and persistence logic.
-
-Keep `agent_execution.md` deliberately short because it is runtime context.
-Design rationale belongs here. CLI-specific packaging, invocation, and metrics
-belong to `codex_proxy`; analyzer result validation, merge, and persistence stay
-with the analyzer.
 
 Analyzer worker counts and group size live in
 `analyzer/config/execution.ini`. Java currently processes job-facts groups
@@ -55,7 +44,8 @@ filtering, persistence, and collection scope without agent-driven browser work.
 
 `agent` preserves the deprecated guest plus logged-in Chrome workflow in
 `collector/deprecated_agent_collection/`. It is a rollback path being retired,
-and that directory is read only when this mode is explicitly required.
+kept in case a LinkedIn UI change makes the Playwright collector unusable. That
+directory is read only when this mode is explicitly required.
 
 Both modes return the same `run_id` and ordered `scope`. In primary
 `playwright` mode Java continues that scope through analysis and database save.

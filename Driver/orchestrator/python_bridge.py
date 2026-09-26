@@ -66,7 +66,7 @@ def run_job_facts(
     requested_thread_id = str(thread_id or "").strip() or None
     database = Path(db_path)
     schema = DRIVER_ROOT / "contracts" / "job_analysis.schema.json"
-    input_value = load_job_facts_input(source, job_id)
+    input_value = load_job_facts_input(source, job_id, database)
 
     result = run(
         run_id=run_id,

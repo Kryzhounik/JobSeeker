@@ -1,4 +1,4 @@
-"""Common contract implemented by Codex transports."""
+"""Result contract for metered Codex CLI calls."""
 
 from __future__ import annotations
 

@@ -48,5 +48,5 @@ Purpose: the single LinkedIn batch-collection entry point.
    ordered `scope` returned by that instruction.
 4. For any other value, stop before collection and report the invalid mode.
 
-The Java path owns the complete workflow. The deprecated agent collector still
-owns collection only and keeps its Desktop-orchestrated relevance-filter step.
+The Java path owns the complete workflow. The deprecated agent collector owns
+collection only and returns its scope to the caller.

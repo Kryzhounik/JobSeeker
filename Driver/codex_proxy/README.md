@@ -1,7 +1,7 @@
 # Codex Proxy
 
-This module provides optional metered transports for agent instructions. Its
-active implementation is `metrics_proxy.py`, a thin adapter for `codex exec`.
+This module provides the metered Codex CLI adapter used by the Java workflow.
+Its entry point is `metrics_proxy.py`, a thin adapter for `codex exec`.
 
 The proxy boundary is transport-only:
 
@@ -9,10 +9,8 @@ The proxy boundary is transport-only:
 - invoke Codex CLI and return its final response;
 - record CLI usage metrics in SQLite.
 
-`config.ini` is the shared model configuration for both CLI calls and Desktop
-subagents dispatched through `../agent_execution.md`. Desktop callers pass its
-`model` and `reasoning_effort` explicitly instead of inheriting the
-orchestrator's settings.
+`config.ini` contains the CLI model and reasoning defaults, session and sandbox
+settings, and model rates used for usage metrics.
 
 The proxy must never choose analyzer operations or contain vacancy logic. It
 must not interpret, merge, or persist analyzed/scored JSON; run filters or
@@ -48,16 +46,3 @@ ID on every later input. The proxy then uses `codex exec resume`; it sends the
 instruction and static contexts only on the first turn and sends only the new
 input on continued turns. Target grouping, thread lifetime, result validation,
 and persistence remain caller responsibilities.
-
-When `agent_execution.md` enables comparison mode, the outer Desktop
-orchestrator runs both transports and stores their raw responses with:
-
-```text
-python codex_proxy/comparison.py
-  --operation-id <unique-logical-operation-id>
-  --operation-type <operation>
-```
-
-The command reads `desktop_response` and `cli_response` from one UTF-8 JSON
-object on stdin. Comparison storage does not choose or alter the response used
-by the workflow.

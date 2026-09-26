@@ -1,7 +1,8 @@
 # Deprecated Agent Collector
 
 This directory contains the deprecated agent-driven LinkedIn collector kept as
-an explicitly selected rollback path while it is being retired.
+an explicitly selected rollback path in case a LinkedIn UI change makes the
+Playwright collector unusable.
 Read it only after `collector/linkedin_collection.md` selects
 `collectorMode=agent` or when the current task explicitly requires changing
 this implementation.
