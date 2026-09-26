@@ -25,3 +25,6 @@ GUI/~*
 
 # Local temporary artifacts
 tmp/
+
+# Local candidate-fit research
+/Tools/fit_baseline/
