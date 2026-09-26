@@ -26,6 +26,7 @@ from analyzer.candidate_fit.filter import load_resume
 from collector.filtering.language_requirements import (
     load_language_requirement_extractor,
 )
+from collector.filtering.rule_loader import load_rule_module
 from db.companies import normalize_company_name
 from db.config import COMPANY_FILTER
 from db.config import FILTER_DEFAULTS
@@ -43,9 +44,17 @@ from linkedin_logger import record_preview_filter
 DEFAULT_PREVIEW_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
 DEFAULT_CONTENT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
 DEFAULT_LANGUAGE_CONFIG = Path(__file__).with_name("linkedin_language_filter.ini")
+DEFAULT_TECHNOLOGY_RULES = Path(__file__).with_name("technology_rules.py")
 DEFAULT_RESUME_CONFIG = default_resume_path()
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
 MIGRATED_DATABASES: set[Path] = set()
+REQUIRED_TECHNOLOGY_RULE_NAMES = (
+    "HARD_REQUIREMENT_TEMPLATES",
+    "ALTERNATIVE_TECHNOLOGY_LIST_TEMPLATES",
+    "TECHNOLOGY_LIST_TEMPLATES",
+    "OPTIONAL_SIGNALS",
+    "OPTIONAL_TECHNOLOGY_TEMPLATES",
+)
 
 
 @dataclass(frozen=True)
@@ -83,24 +92,9 @@ def enabled(config: configparser.ConfigParser) -> bool:
     }
 
 
-def configured_values(config: configparser.ConfigParser, section: str) -> list[str]:
-    value = config.get(section, "values", fallback="")
-    return [line.strip() for line in value.splitlines() if line.strip()]
-
-
 def configured_names(config: configparser.ConfigParser, section: str) -> list[str]:
     value = config.get(section, "values", fallback="")
     return [name.strip() for name in re.split(r"[,\n]+", value) if name.strip()]
-
-
-def configured_patterns(
-    config: configparser.ConfigParser,
-    section: str,
-) -> list[re.Pattern[str]]:
-    return [
-        re.compile(pattern, re.IGNORECASE)
-        for pattern in configured_values(config, section)
-    ]
 
 
 def blocked_terms(
@@ -299,12 +293,14 @@ class VacancyFilter:
         preview_config_path: Path = DEFAULT_PREVIEW_CONFIG,
         content_config_path: Path = DEFAULT_CONTENT_CONFIG,
         language_config_path: Path = DEFAULT_LANGUAGE_CONFIG,
+        technology_rules_path: Path = DEFAULT_TECHNOLOGY_RULES,
         resume_path: Path = DEFAULT_RESUME_CONFIG,
         db_path: Path = DEFAULT_DB,
     ) -> None:
         self.preview_config_path = preview_config_path
         self.content_config_path = content_config_path
         self.language_config_path = language_config_path
+        self.technology_rules_path = technology_rules_path
         self.resume_path = resume_path
         self.db_path = db_path
         self.preview_config = load_config(preview_config_path)
@@ -326,28 +322,29 @@ class VacancyFilter:
                 "blocked_technologies",
             )
         )
+        technology_rules = load_rule_module(
+            technology_rules_path,
+            REQUIRED_TECHNOLOGY_RULE_NAMES,
+        )
         self.hard_requirement_templates = tuple(
-            configured_values(self.content_config, "hard_requirement_templates")
+            technology_rules["HARD_REQUIREMENT_TEMPLATES"]
         )
         self.alternative_technology_list_templates = tuple(
             (template, technology_list_pattern(template))
-            for template in configured_values(
-                self.content_config,
-                "alternative_technology_list_templates",
-            )
+            for template in technology_rules[
+                "ALTERNATIVE_TECHNOLOGY_LIST_TEMPLATES"
+            ]
         )
         self.technology_list_templates = tuple(
             (template, technology_list_pattern(template))
-            for template in configured_values(
-                self.content_config,
-                "technology_list_templates",
-            )
+            for template in technology_rules["TECHNOLOGY_LIST_TEMPLATES"]
         )
         self.content_optional_signals = tuple(
-            configured_patterns(self.content_config, "optional_signals")
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in technology_rules["OPTIONAL_SIGNALS"]
         )
         self.optional_technology_templates = tuple(
-            configured_values(self.content_config, "optional_technology_templates")
+            technology_rules["OPTIONAL_TECHNOLOGY_TEMPLATES"]
         )
         self.language_extractor = load_language_requirement_extractor(
             language_config_path
@@ -431,10 +428,9 @@ class VacancyFilter:
 
     def filter_text(self, title: str, text: str) -> FilterResult:
         technology_filter_enabled = self.database_filter_enabled(TECHNOLOGY_FILTER)
-        config = self.content_config
         pass_result = self.title_pass_result(title)
 
-        if not pass_result and technology_filter_enabled and enabled(config):
+        if not pass_result and technology_filter_enabled:
             text_technology_patterns = tuple(
                 (name, pattern)
                 for name, pattern in self.blocked_technology_patterns
@@ -494,7 +490,7 @@ class VacancyFilter:
             return language_result
         if pass_result:
             return pass_result
-        if not technology_filter_enabled or not enabled(config):
+        if not technology_filter_enabled:
             return FilterResult(False, "technology content filter disabled")
         return FilterResult(False, "no content skip signals")
 

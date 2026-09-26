@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 
@@ -9,8 +10,10 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from collector.filtering.linkedin_filter import DEFAULT_TECHNOLOGY_RULES
 from collector.filtering.linkedin_filter import DEFAULT_PREVIEW_CONFIG
 from collector.filtering.linkedin_filter import Vacancy
+from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import blocked_terms
 from collector.filtering.linkedin_filter import decide_content
 from collector.filtering.linkedin_filter import filter_vacancy
@@ -19,6 +22,29 @@ from collector.filtering.linkedin_filter import matches_term
 
 
 class LinkedInCollectorFiltersTest(unittest.TestCase):
+    def test_technology_rules_file_is_reloaded_for_each_filter(self) -> None:
+        with TemporaryDirectory() as temp_directory:
+            rules_path = Path(temp_directory) / "technology_rules.py"
+            original_rules = DEFAULT_TECHNOLOGY_RULES.read_text(encoding="utf-8")
+            rules_path.write_text(original_rules, encoding="utf-8")
+
+            before = VacancyFilter(
+                technology_rules_path=rules_path,
+            ).filter_text("", "Advanced Python")
+            rules_path.write_text(
+                original_rules.replace(
+                    r'r"\badvanced\s+{technology}\b"',
+                    r'r"\bmastery\s+of\s+{technology}\b"',
+                ),
+                encoding="utf-8",
+            )
+            after = VacancyFilter(
+                technology_rules_path=rules_path,
+            ).filter_text("", "Advanced Python")
+
+        self.assertTrue(before.rejected)
+        self.assertFalse(after.rejected)
+
     def test_moved_preview_filter_loads_its_blocklist(self) -> None:
         terms = blocked_terms(load_config(DEFAULT_PREVIEW_CONFIG))
         self.assertIn("Python", terms)

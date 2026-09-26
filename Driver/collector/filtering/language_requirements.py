@@ -7,7 +7,6 @@ from dataclasses import dataclass
 import json
 from pathlib import Path
 import re
-import runpy
 import sys
 
 
@@ -16,6 +15,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from analyzer.candidate_fit.filter import language_rank
+from collector.filtering.rule_loader import load_rule_module
 
 
 DEFAULT_LANGUAGE_RULES = Path(__file__).with_name("language_rules.py")
@@ -96,14 +96,6 @@ def configured_level_aliases(
             raise ValueError(f"Invalid CEFR level for {alias}: {raw_level!r}")
         aliases[alias.strip().casefold()] = level
     return aliases
-
-
-def load_rules(path: Path) -> dict[str, object]:
-    rules = runpy.run_path(str(path.resolve()))
-    missing = [name for name in REQUIRED_RULE_NAMES if name not in rules]
-    if missing:
-        raise ValueError(f"Missing language rules: {', '.join(missing)}")
-    return rules
 
 
 def alias_index(vocabulary: dict[str, tuple[str, ...]]) -> dict[str, str]:
@@ -246,7 +238,7 @@ class LanguageRequirementExtractor:
         self.config_path = config_path
         self.rules_path = rules_path
         config = load_config(config_path)
-        rules = load_rules(rules_path)
+        rules = load_rule_module(rules_path, REQUIRED_RULE_NAMES)
 
         levels = tuple(rules["CEFR_LEVELS"])
         language_aliases = dict(rules["LANGUAGE_ALIASES"])

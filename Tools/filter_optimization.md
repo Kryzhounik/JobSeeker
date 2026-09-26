@@ -205,9 +205,9 @@ adjacent non-empty line keeps the vacancy. Generic alternatives such as `or`,
 wording is also present. When the text is ambiguous, keep the vacancy.
 
 Structured technology lists are handled separately through
-`[alternative_technology_list_templates]` and
-`[technology_list_templates]` in `linkedin_content_filter.ini`. A configured
-template captures the complete list through `{technologies}`. For an AND list,
+`ALTERNATIVE_TECHNOLOGY_LIST_TEMPLATES` and `TECHNOLOGY_LIST_TEMPLATES` in
+`Driver/collector/filtering/technology_rules.py`. A rule captures the complete
+list through `{technologies}`. For an AND list,
 each item is an independent requirement and any blocked item rejects the
 vacancy. For an OR list, the vacancy is rejected only when every alternative
 is blocked; any unblocked or unknown alternative keeps it for agent analysis.
@@ -216,11 +216,15 @@ keeps the vacancy. List templates may also use the shared `{years}` expression.
 The parser recognizes English `and/or` and Ukrainian `та/і/або/чи` list
 separators.
 
-Every entry in `[hard_requirement_templates]` must contain `{technology}` so
+Every entry in `HARD_REQUIREMENT_TEMPLATES` must contain `{technology}` so
 that the requirement and technology are matched as one structure. Never add
 standalone words such as `required`, `advanced`, `experience`, or `years` as
 hard signals. Use `{years}` inside a complete template for numeric requirements
-starting at two years.
+starting at two years. Regex rules and optional-context rules belong in
+`technology_rules.py`; `linkedin_content_filter.ini` contains only the
+adjustable `blocked_technologies` and `pass_words` lists. A new Refilter or
+collector operation reloads and compiles `technology_rules.py` once for the
+whole operation.
 
 Human-language requirement extraction is a separate, conservative module:
 
@@ -228,6 +232,7 @@ Human-language requirement extraction is a separate, conservative module:
 Driver/collector/filtering/language_requirements.py
 Driver/collector/filtering/language_rules.py
 Driver/collector/filtering/linkedin_language_filter.ini
+Driver/collector/filtering/rule_loader.py
 ```
 
 `VacancyFilter.filter_text()` calls this module and compares only confidently
