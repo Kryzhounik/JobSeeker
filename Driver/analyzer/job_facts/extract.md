@@ -68,7 +68,10 @@ Languages:
   from `required`, `mandatory`, a must-have section, generic seniority, or the
   mere fact that the language will be used. If a language is required but the
   text gives no proficiency signal, do not create a ranked language row; record
-  in `notes` that the language is required with level unspecified.
+  in `notes` that the language is required with level unspecified. This rule is
+  only for unresolved text: an authoritative deterministic fact supplied by the
+  caller already includes the project's reviewed filtering policy and must be
+  copied unchanged.
 - Pick primary_language as the language with the highest required level.
 - If a language is unclear, do not confuse it with a programming language.
 

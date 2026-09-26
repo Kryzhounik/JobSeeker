@@ -89,7 +89,10 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
 
     def test_fluent_english_does_not_bind_unrelated_technology(self) -> None:
         result = decide_content("Fluent English and some familiarity with C++")
-        self.assertEqual(result["content_decision"], "analyze")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_rule"], "hard_language_requirement")
+        self.assertEqual(result["content_languages"], ["English C1"])
+        self.assertNotIn("content_technologies", result)
 
     def test_camunda_in_non_strict_alternative_list_is_not_blocked(self) -> None:
         result = decide_content(

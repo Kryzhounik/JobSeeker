@@ -42,3 +42,9 @@ For ambiguous wording, return one level from the allowed range:
 Project policy currently keeps `fluent` at C1 by default, although market usage
 is ambiguous and often means B2/B2+. The deterministic pre-agent filter also
 keeps it at C1. See `language_levels_research.txt` before changing this mapping.
+
+The deterministic pre-agent filter also treats an exact mandatory requirement
+for a known language without any proficiency wording, such as `Polish is
+required`, as C2. This is a deliberate product gate, not a linguistic
+equivalence. When the caller supplies that result as an authoritative language
+fact, copy it unchanged.

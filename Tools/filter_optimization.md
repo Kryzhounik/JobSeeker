@@ -226,28 +226,34 @@ Human-language requirement extraction is a separate, conservative module:
 
 ```text
 Driver/collector/filtering/language_requirements.py
+Driver/collector/filtering/language_rules.py
 Driver/collector/filtering/linkedin_language_filter.ini
 ```
 
 `VacancyFilter.filter_text()` calls this module and compares only confidently
 extracted `language + CEFR level` requirements with
-`Driver/analyzer/config/resume.ini`. Templates that contain explicit CEFR
-levels are kept in `[requirement_templates]` and use both `{language}` and
-`{level}`. Phrases that imply a fixed level are kept under that level in
-`[implied_level_templates]` and use `{language}` only. Both lists may remain
-empty. Reviewed explicit templates cover `Language: C1`, `Language C1`, `C1
-level in Language`, `Language (C1 level)`, `Language at C1 level`, and explicit
-ranges such as `Language (B2+/C1)`. A range uses its lowest accepted level and
+`Driver/analyzer/config/resume.ini`. Language names, localized aliases, and all
+regex templates are code-owned rules in `language_rules.py`; they are parser
+logic, not configuration. `linkedin_language_filter.ini` contains only the
+adjustable interpretation table, such as `fluent = C1`, `good = B2`, and
+`required = C2`, plus common textual aliases for CEFR levels. Changing a level
+there recalibrates an already recognized wording class without changing what
+text the parser recognizes. Every new Refilter or collector operation reads
+both files and compiles one extractor for the whole operation. Consequently,
+changes to either file are picked up without restarting the GUI; there is no
+file watcher or cross-operation rule cache.
+
+Reviewed explicit rules cover `Language: C1`, `Language C1`, `C1 level in
+Language`, `Language (C1 level)`, `Language at C1 level`, and explicit ranges
+such as `Language (B2+/C1)`. A range uses its lowest accepted level and
 overrides a conflicting implied level from wording such as `advanced
 proficiency`. An explicit construction such as `Fluent English skills (...) at
-a B2+ level` likewise uses B2+ instead of the implied fluent level.
-The currently reviewed implied-C1 templates cover `Advanced proficiency in`,
-`Fluency in`, `Fluent in Language`, and `Fluent Language skills`. Keep
+a B2+ level` likewise uses B2+ instead of the configured fluent level. Keep
 extraction soft: an unrecognized or ambiguous phrase passes to the agent
 pipeline.
 
-The extractor compiles the configured language vocabulary into one named regex
-group and each requirement template into one regex. A match supplies
+The extractor compiles the built-in language vocabulary into one named regex
+group and each code-owned requirement template into one regex. A match supplies
 `group("language")` and, for explicit templates, `group("level")`; never loop
 over every language and CEFR level for every text unit.
 
