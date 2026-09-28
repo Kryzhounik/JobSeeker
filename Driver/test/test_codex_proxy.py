@@ -157,37 +157,66 @@ class CodexProxyTest(unittest.TestCase):
     def test_metrics_are_aggregated_by_operation_inside_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             db_path = Path(directory) / "jobs.sqlite"
-            common = dict(
-                db_path=db_path,
-                run_id="run-1",
-                model="gpt-test",
-                reasoning_effort="medium",
-                rates=(1.0, 0.1, 6.0),
-                started_at="2026-07-31T00:00:00.000+00:00",
-                finished_at="2026-07-31T00:00:01.000+00:00",
-                result=Result(
+            common = {
+                "db_path": db_path,
+                "run_id": "run-1",
+                "model": "gpt-test",
+                "reasoning_effort": "medium",
+                "rates": (1.0, 0.1, 6.0),
+                "started_at": "2026-07-31T00:00:00.000+00:00",
+                "finished_at": "2026-07-31T00:00:01.000+00:00",
+            }
+
+            def result(
+                thread_id: str,
+                input_tokens: int,
+                cached_input_tokens: int,
+                output_tokens: int,
+                reasoning_output_tokens: int,
+            ) -> Result:
+                return Result(
                     ["codex", "exec"],
                     0,
-                    "thread",
+                    thread_id,
                     "{}",
                     {
-                        "input_tokens": 100,
-                        "cached_input_tokens": 50,
-                        "output_tokens": 10,
-                        "reasoning_output_tokens": 2,
+                        "input_tokens": input_tokens,
+                        "cached_input_tokens": cached_input_tokens,
+                        "output_tokens": output_tokens,
+                        "reasoning_output_tokens": reasoning_output_tokens,
                     },
                     [],
-                ),
+                )
+
+            save(
+                operation="job_facts",
+                target="1",
+                duration_ms=1000,
+                result=result("job-thread", 100, 50, 10, 2),
+                **common,
             )
-            save(operation="job_facts", target="1", duration_ms=1000, **common)
-            save(operation="job_facts", target="2", duration_ms=3000, **common)
-            save(operation="candidate_fit", target="1", duration_ms=2000, **common)
+            save(
+                operation="job_facts",
+                target="2",
+                duration_ms=3000,
+                result=result("job-thread", 220, 130, 16, 3),
+                **common,
+            )
+            save(
+                operation="candidate_fit",
+                target="1",
+                duration_ms=2000,
+                result=result("fit-thread", 80, 20, 8, 1),
+                **common,
+            )
 
             with closing(sqlite3.connect(db_path)) as connection:
                 rows = connection.execute(
                     """
                     SELECT operation, invocation_count, duration_ms_sum,
-                           input_tokens_sum, input_tokens_avg
+                           input_tokens_sum, input_tokens_avg,
+                           cached_input_tokens_sum, output_tokens_sum,
+                           reasoning_output_tokens_sum
                     FROM codex_run_operations
                     WHERE run_id = ?
                     ORDER BY operation
@@ -196,9 +225,31 @@ class CodexProxyTest(unittest.TestCase):
                 ).fetchall()
 
             self.assertEqual(rows, [
-                ("candidate_fit", 1, 2000, 100, 100.0),
-                ("job_facts", 2, 4000, 200, 100.0),
+                ("candidate_fit", 1, 2000, 80, 80.0, 20, 8, 1),
+                ("job_facts", 2, 4000, 220, 110.0, 130, 16, 3),
             ])
+
+            with closing(sqlite3.connect(db_path)) as connection:
+                run = connection.execute(
+                    """
+                    SELECT input_tokens_sum, cached_input_tokens_sum,
+                           output_tokens_sum, reasoning_output_tokens_sum
+                    FROM codex_runs WHERE run_id = ?
+                    """,
+                    ("run-1",),
+                ).fetchone()
+                snapshots = connection.execute(
+                    """
+                    SELECT input_tokens
+                    FROM codex_invocations
+                    WHERE run_id = ? AND operation = 'job_facts'
+                    ORDER BY id
+                    """,
+                    ("run-1",),
+                ).fetchall()
+
+            self.assertEqual(run, (300, 150, 24, 4))
+            self.assertEqual(snapshots, [(100,), (220,)])
 
 
 if __name__ == "__main__":

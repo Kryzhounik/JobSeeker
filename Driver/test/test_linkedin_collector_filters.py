@@ -564,6 +564,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_ukrainian_confident_knowledge_list_is_blocked(self) -> None:
+        result = decide_content("Впевнене знання C/C++, Golang.")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["C", "C++", "Golang"],
+        )
+
     def test_significant_experience_with_technology_is_blocked(self) -> None:
         result = decide_content("You have significant experience with Python")
         self.assertEqual(result["content_decision"], "skip")

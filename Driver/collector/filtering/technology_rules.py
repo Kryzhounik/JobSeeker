@@ -54,6 +54,7 @@ TECHNOLOGY_LIST_TEMPLATES = (
     r"\bhands[-\s]on\s+experience\s+(?:around\s+)?{years}\s+(?:with|in|using)\s+{technologies}",
     r"\bsignificant\s+experience\s+(?:with|in|using)\s+{technologies}",
     r"\b{years}\s+(?:досвіду\s+)?(?:[\w-]+\s+){0,4}(?:з\s+)?використанням\s+{technologies}",
+    r"\bвпевнен(?:е|і)\s+знання\s+{technologies}",
     r"\bstrong\s+(?=[^,.;:\r\n]{1,40},){technologies}",
 )
 
