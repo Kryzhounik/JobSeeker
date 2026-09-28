@@ -13,6 +13,7 @@ HARD_REQUIREMENT_TEMPLATES = (
     r"\bexpertise\s+in\s+{technology}",
     r"\bproven\s+knowledge\s+(?:of|in)\s+{technology}",
     r"\bproven\s+experience\s+in\s+{technology}\s+development\b",
+    r"\bproven\s+hands[-\s]on\s+experience\s+in\s+(?:[\w-]+\s+){0,4}(?:development|engineering)\s+(?:with|in|using)\s+{technology}",
     r"\bsolid\s+{technology}\s+proficiency\b",
     r"\bstrong\s+{technology}\s*(?=[.;:\r\n]|$)",
     r"\bstrong\s+[^.;:\r\n]{0,120}{technology}[^.;:\r\n]{0,120}\bskills?\b",
@@ -42,6 +43,7 @@ TECHNOLOGY_LIST_TEMPLATES = (
     r"\badvanced\s+(?=[^.;:\r\n]{1,100}(?:,|\band/or\b|\band\b|\bor\b|/)){technologies}",
     r"\bexperience\s+with\s+(?=[^.;:\r\n]{1,100}(?:,|\band/or\b|\band\b)){technologies}",
     r"\bextensive\s+experience\s+(?:with|in|using)\s+{technologies}",
+    r"\bexpertise\s+(?:with|in)\b[^.;:\r\n]{0,100}\bincluding\s+{technologies}",
     r"\bexpertise\s+in\s+(?=[^.;:\r\n]{1,100}(?:,|\band/or\b|\band\b|\bor\b|/)){technologies}",
     r"\bfluency\s+in\s+{technologies}",
     r"\bproficiency\s+(?:with|in)\s+{technologies}",
@@ -65,6 +67,12 @@ OPTIONAL_SIGNALS = (
     r"\b(?:is|are)\s+not\s+(?:strictly\s+)?required\b",
     r"\b(?:isn|aren)(?:'|\u2019)t\s+(?:strictly\s+)?required\b",
     r"\bpreferred\b",
+)
+
+# These phrases contain optional wording but qualify a version, not the
+# surrounding technology requirement.
+OPTIONAL_SIGNAL_EXCLUSIONS = (
+    r"\([^\)\r\n]*\b\d+(?:\.\d+)*(?:\+|\s+or\s+(?:later|newer|higher))?\s+preferred\s*\)",
 )
 
 OPTIONAL_TECHNOLOGY_TEMPLATES = (

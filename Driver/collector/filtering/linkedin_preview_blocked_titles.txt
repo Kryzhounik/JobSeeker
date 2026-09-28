@@ -784,3 +784,28 @@ Enterprise Architect
 Intelligence Engineer
 Product & Engineering Expert
 Stripe Specialist
+Avionics Systems Engineer
+UI/UX Artist
+Help Desk Agent
+Директор Департаменту з управління ризиками
+Data Annotator
+SEO
+Video Editor
+People Generalist
+Finance Controller
+Logistic Specialist
+інженер-конструктор
+Senior HRBP
+інженер-електрик
+Academic Coach
+Marketing Associate
+Finance Specialist
+Creative Strategist
+Spécialiste en Planification
+Analytics Specialist
+Onion Specialist
+WMS Architect
+HubSpot Specialist
+Classroom Specialist
+CX Implementation Specialist
+Product Lead

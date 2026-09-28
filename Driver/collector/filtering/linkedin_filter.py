@@ -53,6 +53,7 @@ REQUIRED_TECHNOLOGY_RULE_NAMES = (
     "ALTERNATIVE_TECHNOLOGY_LIST_TEMPLATES",
     "TECHNOLOGY_LIST_TEMPLATES",
     "OPTIONAL_SIGNALS",
+    "OPTIONAL_SIGNAL_EXCLUSIONS",
     "OPTIONAL_TECHNOLOGY_TEMPLATES",
 )
 
@@ -343,6 +344,10 @@ class VacancyFilter:
             re.compile(pattern, re.IGNORECASE)
             for pattern in technology_rules["OPTIONAL_SIGNALS"]
         )
+        self.optional_signal_exclusions = tuple(
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in technology_rules["OPTIONAL_SIGNAL_EXCLUSIONS"]
+        )
         self.optional_technology_templates = tuple(
             technology_rules["OPTIONAL_TECHNOLOGY_TEMPLATES"]
         )
@@ -469,8 +474,9 @@ class VacancyFilter:
                     for _, pattern in self.pass_word_patterns
                 ):
                     continue
+                optional_context = self.without_optional_signal_exclusions(context)
                 if any(
-                    pattern.search(context)
+                    pattern.search(optional_context)
                     for pattern in self.content_optional_signals
                 ):
                     continue
@@ -500,6 +506,11 @@ class VacancyFilter:
             for template in self.optional_technology_templates
         )
 
+    def without_optional_signal_exclusions(self, context: str) -> str:
+        for pattern in self.optional_signal_exclusions:
+            context = pattern.sub("", context)
+        return context
+
     def filter_technology_lists(
         self,
         unit: str,
@@ -515,8 +526,9 @@ class VacancyFilter:
                 match = pattern.search(unit)
                 if match is None:
                     continue
+                optional_context = self.without_optional_signal_exclusions(context)
                 if any(
-                    optional.search(context)
+                    optional.search(optional_context)
                     for optional in self.content_optional_signals
                 ):
                     return True, None

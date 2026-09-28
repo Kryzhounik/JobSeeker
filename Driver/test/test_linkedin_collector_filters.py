@@ -550,6 +550,20 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_preferred_version_does_not_make_whole_list_optional(self) -> None:
+        result = decide_content(
+            "Strong proficiency in Angular and TypeScript "
+            "(Angular 19+ preferred)."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["TypeScript"])
+
+    def test_preferred_technology_still_makes_requirement_optional(self) -> None:
+        result = decide_content(
+            "Strong proficiency in Angular and TypeScript preferred."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_significant_experience_with_technology_is_blocked(self) -> None:
         result = decide_content("You have significant experience with Python")
         self.assertEqual(result["content_decision"], "skip")
@@ -594,6 +608,39 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Proven knowledge of Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_proven_hands_on_development_experience_is_blocked(self) -> None:
+        result = decide_content(
+            "Proven hands-on experience in software development using Python; "
+            "write high-quality, idiomatic Python code to create new features"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_optional_proven_hands_on_development_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Proven hands-on experience in software development using Python "
+            "would be a plus"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_expertise_with_technologies_including_list_is_blocked(self) -> None:
+        result = decide_content(
+            "Expertise with modern frontend technologies including React, "
+            "TypeScript, and JavaScript."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["React", "TypeScript", "JavaScript"],
+        )
+
+    def test_optional_expertise_including_list_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Expertise with modern frontend technologies including React, "
+            "TypeScript, and JavaScript would be a plus."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_professional_proficiency_developing_with_technology_is_blocked(
         self,
