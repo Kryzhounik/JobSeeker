@@ -36,10 +36,21 @@ Run commands from the project root.
 ### Complete workflow
 
 Runs all operations listed above. Currently `linkedin` is the only supported
-source.
+source. Each saved source job records the ID of the collection run that first
+created it.
 
 ```powershell
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
+```
+
+### Resume after collection
+
+If collection completed but the title filter failed, this reads that run's
+unprocessed vacancies from SQLite and performs operations 2–7 without
+collecting again. It requires the collection run ID recorded on the vacancies.
+
+```powershell
+java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar resume <run-id>
 ```
 
 ### Job-facts only
@@ -75,4 +86,4 @@ use the orchestrator's `batch linkedin` command.
 
 There are currently no separate Java console commands for the title filter,
 candidate fit, job interest, or database save. They are exposed only as parts
-of `batch` and `finish-analysis`.
+of `batch`, `resume`, and `finish-analysis`.

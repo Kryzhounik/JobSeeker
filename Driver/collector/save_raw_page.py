@@ -83,6 +83,7 @@ def save_content(
     force: bool,
     db_path: Path | None = None,
     collection_method: str | None = None,
+    collection_run_id: str | None = None,
 ) -> Path:
     validate_content(source, content)
 
@@ -105,6 +106,7 @@ def save_content(
             url,
             "RAW",
             collection_method=collection_method,
+            collection_run_id=collection_run_id,
         )
         connection.commit()
     return path

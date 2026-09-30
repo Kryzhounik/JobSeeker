@@ -54,6 +54,40 @@ def run_agent_filter(run_id: str, scope_json: str, db_path: str) -> str:
     return result.final_message
 
 
+def load_collected_scope(run_id: str, db_path: str) -> str:
+    """Return the exact unprocessed scope of a completed LinkedIn collection."""
+    database = Path(db_path)
+    migrate_database(database)
+    with closing(sqlite3.connect(database)) as connection:
+        run_row = connection.execute(
+            "SELECT status, accepted_count FROM linkedin_collection_runs WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()
+        if run_row is None or run_row[0] != "complete":
+            raise ValueError(f"LinkedIn collection is not complete: {run_id}")
+        rows = connection.execute(
+            """
+            SELECT job.source_job_id, text.title
+            FROM source_jobs job
+            JOIN source_job_texts text ON text.source_job_ref = job.id
+            WHERE job.collection_run_id = ?
+              AND job.source = 'linkedin'
+              AND job.processing_status = 'CLEANED'
+            ORDER BY job.id
+            """,
+            (run_id,),
+        ).fetchall()
+    if len(rows) != run_row[1]:
+        raise ValueError(
+            f"Collected scope for {run_id} has {len(rows)} unprocessed jobs, "
+            f"expected {run_row[1]}"
+        )
+    return _json([
+        {"source": "linkedin", "job_id": job_id, "title": title}
+        for job_id, title in rows
+    ])
+
+
 def run_job_facts(
     run_id: str,
     source: str,

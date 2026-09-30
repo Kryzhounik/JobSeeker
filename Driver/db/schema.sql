@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
         collection_method IN ('unknown', 'script', 'browser', 'playwright')
     ),
+    collection_run_id TEXT REFERENCES linkedin_collection_runs(run_id),
     UNIQUE(source, source_job_id)
 );
 
@@ -396,6 +397,8 @@ CREATE INDEX IF NOT EXISTS idx_source_jobs_processing_status
     ON source_jobs(processing_status);
 CREATE INDEX IF NOT EXISTS idx_source_jobs_collection_method
     ON source_jobs(collection_method);
+CREATE INDEX IF NOT EXISTS idx_source_jobs_collection_run_id
+    ON source_jobs(collection_run_id);
 CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_keyword
     ON content_filter_rejections(matched_keyword);
 CREATE INDEX IF NOT EXISTS idx_content_filter_rejections_pattern

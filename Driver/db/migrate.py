@@ -146,6 +146,8 @@ def migration_already_effective(
             "candidate_fit_reason_codes",
             "description",
         )
+    if version == "036_source_job_collection_run":
+        return column_exists(connection, "source_jobs", "collection_run_id")
     return False
 
 

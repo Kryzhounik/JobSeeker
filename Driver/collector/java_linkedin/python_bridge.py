@@ -46,6 +46,7 @@ class Session:
     raw_dir: Path
     preview_config: Any
     vacancy_filter: VacancyFilter
+    run_id: str | None = None
 
 
 _session: Session | None = None
@@ -79,11 +80,13 @@ def priority_company_ids() -> str:
 
 def start_run(run_id: str, config_json: str) -> None:
     session = _require_session()
+    normalized_run_id = _normalize_unicode(run_id)
     start_collection_run(
-        _normalize_unicode(run_id),
+        normalized_run_id,
         _object(config_json),
         session.db_path,
     )
+    session.run_id = normalized_run_id
 
 
 def log_page(run_id: str, page_json: str) -> None:
@@ -146,6 +149,7 @@ def process_html(preview_json: str, html: str) -> str:
             force=False,
             db_path=session.db_path,
             collection_method="playwright",
+            collection_run_id=session.run_id,
         )
         text = readable_text("linkedin", raw_path)
 

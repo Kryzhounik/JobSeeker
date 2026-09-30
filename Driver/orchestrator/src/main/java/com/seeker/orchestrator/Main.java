@@ -39,8 +39,12 @@ public final class Main {
 
     private static void run(String[] args) throws IOException {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
-        if (args.length == 2 && "batch".equals(args[0])) {
-            CollectionReport report = orchestrator.batch(args[1]);
+        if (args.length == 2 && (
+                "batch".equals(args[0]) || "resume".equals(args[0])
+        )) {
+            CollectionReport report = "batch".equals(args[0])
+                    ? orchestrator.batch(args[1])
+                    : orchestrator.resume(args[1]);
             var result = GSON.toJsonTree(report).getAsJsonObject();
             result.remove("pages");
             System.out.println(GSON.toJson(result));
@@ -74,7 +78,7 @@ public final class Main {
             return;
         }
         throw new IllegalArgumentException(
-                "Expected: batch <source> or "
+                "Expected: batch <source>, resume <run-id>, or "
                         + "job-facts|finish-analysis <run-id> <source> "
                         + "<comma-separated-job-ids>"
         );

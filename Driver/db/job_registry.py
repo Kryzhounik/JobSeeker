@@ -74,6 +74,7 @@ def mark_status(
     status: str,
     *,
     collection_method: str | None = None,
+    collection_run_id: str | None = None,
 ) -> int:
     source, job_id = validate_identity(source, job_id)
     status = status.strip().upper()
@@ -99,11 +100,12 @@ def mark_status(
                 source,
                 source_job_id,
                 processing_status,
-                collection_method
+                collection_method,
+                collection_run_id
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-            (source, job_id, status, collection_method or "unknown"),
+            (source, job_id, status, collection_method or "unknown", collection_run_id),
         )
         return int(cursor.lastrowid)
 
@@ -131,6 +133,7 @@ def mark_url_status(
     status: str,
     *,
     collection_method: str | None = None,
+    collection_run_id: str | None = None,
 ) -> int:
     return mark_status(
         connection,
@@ -138,6 +141,7 @@ def mark_url_status(
         source_job_id(source, source_url),
         status,
         collection_method=collection_method,
+        collection_run_id=collection_run_id,
     )
 
 

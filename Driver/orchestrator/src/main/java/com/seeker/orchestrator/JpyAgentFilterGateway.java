@@ -27,6 +27,28 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
+    public List<ScopeItem> collectedScope(String runId) {
+        try (PyModule bridge = bridge();
+             PyObject response = bridge.callMethod(
+                     "load_collected_scope",
+                     runId,
+                     paths.databasePath().toString()
+             )) {
+            if (!response.isString()) {
+                throw new IllegalStateException(
+                        "Collected scope bridge returned " + response.repr()
+                                + " instead of String"
+                );
+            }
+            ScopeItem[] items = GSON.fromJson(response.getStringValue(), ScopeItem[].class);
+            if (items == null) {
+                throw new IllegalStateException("Collected scope returned null JSON");
+            }
+            return List.of(items);
+        }
+    }
+
+    @Override
     public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(

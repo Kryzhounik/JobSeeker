@@ -51,7 +51,18 @@ public final class WorkflowOrchestrator {
         if (!"linkedin".equals(source)) {
             throw new IllegalArgumentException("Unsupported batch source: " + source);
         }
-        CollectionReport collected = linkedinBatch.collect();
+        return processCollected(linkedinBatch.collect());
+    }
+
+    public CollectionReport resume(String runId) {
+        List<ScopeItem> scope = agentFilter.collectedScope(runId);
+        return processCollected(new CollectionReport(
+                "linkedin", runId, "complete", scope.size(), scope,
+                Map.of(), List.of(), ""
+        ));
+    }
+
+    private CollectionReport processCollected(CollectionReport collected) {
         if (!"complete".equals(collected.status()) || collected.scope().isEmpty()) {
             return collected;
         }

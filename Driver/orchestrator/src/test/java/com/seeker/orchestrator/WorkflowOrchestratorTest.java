@@ -133,6 +133,11 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
+        public List<ScopeItem> collectedScope(String runId) {
+            return List.of();
+        }
+
+        @Override
         public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
             filterInvocations++;
             this.runId = runId;

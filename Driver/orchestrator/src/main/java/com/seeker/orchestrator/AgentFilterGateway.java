@@ -5,6 +5,8 @@ import com.seeker.collector.linkedin.collection.ScopeItem;
 import java.util.List;
 
 interface AgentFilterGateway {
+    List<ScopeItem> collectedScope(String runId);
+
     AgentFilterResult filter(String runId, List<ScopeItem> scope);
 
     void markNonrelevant(String source, List<String> jobIds);
