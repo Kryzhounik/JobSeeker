@@ -892,7 +892,6 @@ final class LinkedInPageClient {
         int totalAttempts = config.navigationRetries() + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
-                targetPage.bringToFront();
                 throttle.beforeAction(targetPage);
                 targetPage.navigate(
                         url,
