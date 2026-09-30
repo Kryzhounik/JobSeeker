@@ -12,6 +12,7 @@ HARD_REQUIREMENT_TEMPLATES = (
     r"\bfluent\s+(?:in\s+)?(?:contest\s+)?{technology}",
     r"\bexpertise\s+in\s+{technology}",
     r"\bproven\s+knowledge\s+(?:of|in)\s+{technology}",
+    r"\bgood\s+understanding\s+of\s+{technology}",
     r"\bproven\s+experience\s+in\s+{technology}\s+development\b",
     r"\bproven\s+hands[-\s]on\s+experience\s+in\s+(?:[\w-]+\s+){0,4}(?:development|engineering)\s+(?:with|in|using)\s+{technology}",
     r"\bsolid\s+{technology}\s+proficiency\b",

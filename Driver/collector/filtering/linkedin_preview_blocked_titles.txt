@@ -809,3 +809,21 @@ HubSpot Specialist
 Classroom Specialist
 CX Implementation Specialist
 Product Lead
+Инженер по строительству
+Presales Engineer
+Health, Safety and Environment (HSE) Engineer
+Project Traffic Engineer
+Traffic Engineer
+Руководитель отдела медиаконтента
+Real-Time Coordinator
+Senior Hardware Verification
+Operations Developer
+Airtable Specialist
+Lead Data Engineer
+Senior tvOS Developer
+Ubuntu Core Software Engineer
+Senior AAA Integration Engineer
+VIP Team Lead
+Packet Core CMM Integration Engineer
+Senior M365 Engineer
+Тестировщик

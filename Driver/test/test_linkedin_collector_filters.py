@@ -599,6 +599,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
                 self.assertEqual(result["content_decision"], "skip")
                 self.assertEqual(result["content_technologies"], [technology])
 
+    def test_strong_hands_on_wordpress_development_is_blocked(self) -> None:
+        result = decide_content(
+            "Strong hands-on experience with WordPress development "
+            "(themes, plugins, performance optimization)"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["WordPress"])
+
     def test_optional_strong_hands_on_experience_is_not_blocked(self) -> None:
         result = decide_content(
             "Nice to have:\n"
@@ -616,6 +624,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Proven knowledge of Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
+
+    def test_good_understanding_of_technology_is_blocked(self) -> None:
+        result = decide_content(
+            "A good understanding of C++ build processes and tooling."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_proven_hands_on_development_experience_is_blocked(self) -> None:
         result = decide_content(
