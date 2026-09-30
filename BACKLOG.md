@@ -3,6 +3,17 @@
 Purpose: small project backlog and current conventions. This is not an
 execution contract; the Java orchestrator owns pipeline behavior.
 
+## Цели
+
+- **HIGH: Увеличить охват вакансий.** Текущая граница охвата — лимит токенов.
+  Снижать расход токенов на агентные фильтры, анализ и оценку, сохраняя
+  прежнюю точность решений.
+- **MEDIUM: Сократить ручную работу.** Автоматизировать проверки и валидации,
+  подачу заявок, отслеживание их статусов через почту и подготовку
+  сопроводительных писем.
+- **LOW: Увеличить скорость.** Ускорять медленные этапы, в том числе
+  распараллеливать независимые процессы.
+
 ## Now
 
 - Keep the MVP small: Codex reads vacancy text, extracts structured fields, and
