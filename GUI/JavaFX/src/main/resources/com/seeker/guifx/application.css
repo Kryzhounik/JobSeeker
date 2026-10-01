@@ -1,18 +1,95 @@
 .root {
     -fx-font-family: "Segoe UI", sans-serif;
-    -fx-font-size: 13px;
-    -fx-background-color: #f4f5f4;
+    -fx-font-size: 12px;
+    -fx-background-color: #deddd9;
 }
 
-.launch-view {
+.toolbar {
+    -fx-background-color: #deddd9;
+    -fx-border-color: transparent transparent #aaa9a5 transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.status-label {
+    -fx-text-fill: #50504c;
+}
+
+.main-split > .split-pane-divider,
+.detail-pane > .split-pane > .split-pane-divider {
+    -fx-padding: 0 3px 0 3px;
+    -fx-background-color: #c6c5c1;
+}
+
+.detail-pane {
+    -fx-background-color: #deddd9;
+}
+
+.detail-content {
+    -fx-background-color: #deddd9;
+}
+
+.metadata-grid {
+    -fx-padding: 2 4 8 0;
+}
+
+.metadata-grid > .label,
+.section-label {
+    -fx-text-fill: #666762;
+}
+
+.metadata-grid .text-field {
+    -fx-background-color: #f7f7f4;
+    -fx-border-color: #a5a5a0;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+    -fx-padding: 3 5 3 5;
+}
+
+.table-view {
+    -fx-background-color: white;
+    -fx-border-color: #aaa9a5;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+}
+
+.table-view .column-header-background {
+    -fx-background-color: #d6d5d1;
+}
+
+.table-view .column-header,
+.table-view .filler {
+    -fx-background-color: #d6d5d1;
+    -fx-border-color: #b8b7b2;
+}
+
+.table-row-cell {
+    -fx-cell-size: 26px;
+}
+
+.table-row-cell:odd {
+    -fx-background-color: #f3f5f6;
+}
+
+.table-row-cell:selected {
+    -fx-background-color: #4b6b84;
+}
+
+.table-row-cell:selected .text {
+    -fx-fill: white;
+}
+
+.text-area {
+    -fx-font-family: Consolas, monospace;
+    -fx-background-color: white;
+    -fx-border-color: #aaa9a5;
+    -fx-border-radius: 0;
+    -fx-background-radius: 0;
+}
+
+.text-area .content {
     -fx-background-color: white;
 }
 
-.app-title {
-    -fx-font-size: 20px;
-    -fx-text-fill: #202820;
-}
-
-.launch-status {
-    -fx-text-fill: #526052;
+.hyperlink {
+    -fx-text-fill: #075da8;
 }

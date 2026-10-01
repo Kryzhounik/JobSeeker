@@ -1,22 +1,133 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextArea?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.ToggleButton?>
 <?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="com.seeker.guifx.MainController"
-            prefWidth="720.0"
-            prefHeight="420.0">
+            prefWidth="1440.0"
+            prefHeight="900.0"
+            styleClass="root">
+    <top>
+        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="toolbar">
+            <padding><Insets top="8.0" right="10.0" bottom="8.0" left="10.0" /></padding>
+            <Button fx:id="refreshButton" text="Refresh" />
+            <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" />
+        </HBox>
+    </top>
     <center>
-        <VBox alignment="CENTER" spacing="8.0" styleClass="launch-view">
-            <padding>
-                <Insets top="24.0" right="24.0" bottom="24.0" left="24.0" />
-            </padding>
-            <Label text="Seeker Jobs" styleClass="app-title" />
-            <Label fx:id="launchStatus" styleClass="launch-status" />
-        </VBox>
+        <SplitPane dividerPositions="0.48" orientation="VERTICAL" styleClass="main-split">
+            <items>
+                <TableView fx:id="jobsTable">
+                    <columns>
+                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="62.0" />
+                        <TableColumn fx:id="fitColumn" text="Fit" prefWidth="52.0" />
+                        <TableColumn fx:id="interestColumn" text="Interest" prefWidth="76.0" />
+                        <TableColumn fx:id="statusColumn" text="Status" prefWidth="82.0" />
+                        <TableColumn fx:id="remoteColumn" text="Remote" prefWidth="90.0" />
+                        <TableColumn fx:id="relocationColumn" text="Reloc" prefWidth="68.0" />
+                        <TableColumn fx:id="locationColumn" text="Location" prefWidth="145.0" />
+                        <TableColumn fx:id="companyColumn" text="Company" prefWidth="155.0" />
+                        <TableColumn fx:id="titleColumn" text="Title" prefWidth="280.0" />
+                        <TableColumn fx:id="roleColumn" text="Role" prefWidth="105.0" />
+                        <TableColumn fx:id="seniorityColumn" text="Seniority" prefWidth="90.0" />
+                        <TableColumn fx:id="languageColumn" text="Language" prefWidth="125.0" />
+                        <TableColumn fx:id="salaryColumn" text="Salary" prefWidth="145.0" />
+                        <TableColumn fx:id="addedColumn" text="Added" prefWidth="94.0" />
+                        <TableColumn fx:id="reasonCodeColumn" text="Reason code" prefWidth="115.0" />
+                        <TableColumn fx:id="reasonColumn" text="Reason" prefWidth="300.0" />
+                    </columns>
+                </TableView>
+                <VBox spacing="8.0" styleClass="detail-pane">
+                    <padding><Insets top="8.0" right="8.0" bottom="8.0" left="8.0" /></padding>
+                    <HBox alignment="CENTER_LEFT" spacing="8.0">
+                        <Hyperlink fx:id="sourceLink" text="" />
+                        <Button fx:id="openButton" text="Open" />
+                    </HBox>
+                    <SplitPane dividerPositions="0.34" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                        <items>
+                            <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
+                                <content>
+                                    <GridPane fx:id="metadataGrid" hgap="8.0" vgap="5.0" styleClass="metadata-grid">
+                                        <columnConstraints>
+                                            <ColumnConstraints minWidth="96.0" prefWidth="112.0" />
+                                            <ColumnConstraints hgrow="ALWAYS" minWidth="120.0" />
+                                        </columnConstraints>
+                                        <Label text="Title" GridPane.rowIndex="0" />
+                                        <TextField fx:id="titleField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="0" />
+                                        <Label text="Company" GridPane.rowIndex="1" />
+                                        <TextField fx:id="companyField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+                                        <Label text="ID" GridPane.rowIndex="2" />
+                                        <TextField fx:id="idField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+                                        <Label text="Source ID" GridPane.rowIndex="3" />
+                                        <TextField fx:id="sourceIdField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+                                        <Label text="Score" GridPane.rowIndex="4" />
+                                        <TextField fx:id="scoreField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="4" />
+                                        <Label text="Fit" GridPane.rowIndex="5" />
+                                        <TextField fx:id="fitField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                                        <Label text="Interest" GridPane.rowIndex="6" />
+                                        <TextField fx:id="interestField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="6" />
+                                        <Label text="Status" GridPane.rowIndex="7" />
+                                        <TextField fx:id="statusField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="7" />
+                                        <Label text="Role" GridPane.rowIndex="8" />
+                                        <TextField fx:id="roleField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="8" />
+                                        <Label text="Seniority" GridPane.rowIndex="9" />
+                                        <TextField fx:id="seniorityField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="9" />
+                                        <Label text="Location" GridPane.rowIndex="10" />
+                                        <TextField fx:id="locationField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="10" />
+                                        <Label text="Remote scope" GridPane.rowIndex="11" />
+                                        <TextField fx:id="remoteScopeField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="11" />
+                                        <Label text="Remote type" GridPane.rowIndex="12" />
+                                        <TextField fx:id="remoteTypeField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="12" />
+                                        <Label text="Relocation" GridPane.rowIndex="13" />
+                                        <TextField fx:id="relocationField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="13" />
+                                        <Label text="Salary" GridPane.rowIndex="14" />
+                                        <TextField fx:id="salaryField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="14" />
+                                        <Label text="Languages" GridPane.rowIndex="15" />
+                                        <TextField fx:id="languagesField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="15" />
+                                        <Label text="Added" GridPane.rowIndex="16" />
+                                        <TextField fx:id="addedField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="16" />
+                                    </GridPane>
+                                </content>
+                            </ScrollPane>
+                            <VBox spacing="6.0" styleClass="detail-content">
+                                <HBox alignment="CENTER_LEFT" spacing="8.0">
+                                    <ToggleButton fx:id="textToggle" text="Text" />
+                                </HBox>
+                                <VBox fx:id="skillsPane" spacing="6.0" VBox.vgrow="ALWAYS">
+                                    <TableView fx:id="skillsTable" VBox.vgrow="ALWAYS">
+                                        <columns>
+                                            <TableColumn fx:id="technologyColumn" text="Technology" prefWidth="220.0" />
+                                            <TableColumn fx:id="requirementColumn" text="Req" prefWidth="70.0" />
+                                            <TableColumn fx:id="levelColumn" text="Level" prefWidth="130.0" />
+                                            <TableColumn fx:id="rawColumn" text="Raw" prefWidth="360.0" />
+                                        </columns>
+                                    </TableView>
+                                    <Label text="Summary" styleClass="section-label" />
+                                    <TextArea fx:id="summaryArea" editable="false" wrapText="true" prefRowCount="5" />
+                                </VBox>
+                                <TextArea fx:id="fullTextArea" editable="false" wrapText="true" visible="false" managed="false" VBox.vgrow="ALWAYS" />
+                            </VBox>
+                        </items>
+                    </SplitPane>
+                </VBox>
+            </items>
+        </SplitPane>
     </center>
 </BorderPane>
