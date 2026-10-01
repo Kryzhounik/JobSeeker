@@ -51,19 +51,7 @@ DRIVER_ROOT = ROOT / "Driver"
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from db.applications import (
-    create_for_source_urls as create_applications_for_source_urls,
-    list_applications as load_applications,
-    list_application_statuses,
-    update_status as update_application_status,
-)
-from db.companies import (
-    create_company,
-    update_company_linkedin_id,
-    update_company_priority,
-)
-from db.job_mapper import apply_refilter_transitions
-from db.migrate import migrate_database
+from GUI import client_data
 from Tools.filter_database import collect_refilter_transitions
 
 
@@ -129,7 +117,7 @@ TECH_COLUMNS = (
 SCORE_EDIT_FIELDS = {"fit", "interest"}
 JOB_NUMERIC_COLUMNS = {"score", "fit", "interest"}
 TECH_NUMERIC_COLUMNS = {"level"}
-DEFAULT_STATUS_VALUES = ("New", "Checked", "Postponed", "Applied", "Closed")
+DEFAULT_STATUS_VALUES = client_data.DEFAULT_STATUS_VALUES
 LINKEDIN_CHECK_DELAY_SECONDS = 5
 LINKEDIN_CHECK_TIMEOUT_SECONDS = 20
 LINKEDIN_CLOSED_MARKER = "no longer accepting applications"
@@ -162,14 +150,6 @@ LEVEL_SORT_VALUES = {
 }
 DATABASE_DATE_FORMAT = "%Y-%m-%d"
 DISPLAY_DATE_FORMAT = "%d.%m.%Y"
-
-
-def db_uri() -> str:
-    return f"{DB_PATH.as_uri()}?mode=ro"
-
-
-def ensure_database_schema() -> None:
-    migrate_database(db_path=DB_PATH)
 
 
 def clean(value: Any) -> str:
@@ -282,31 +262,8 @@ def calculate_score(fit: int, interest: int) -> int:
     return (interest * fit * fit + 5000) // 10000
 
 
-def load_collected_jobs(connection: sqlite3.Connection) -> list[sqlite3.Row]:
-    return connection.execute(
-        """
-        SELECT
-            sj.id AS source_job_ref,
-            sj.source,
-            sj.source_job_id,
-            sj.processing_status,
-            sj.collection_method,
-            text.source_url,
-            text.title,
-            coalesce(company.name, '') AS company,
-            text.collected_location,
-            text.collected_workplace,
-            text.collected_salary,
-            text.readable_text
-        FROM source_job_texts text
-        JOIN source_jobs sj ON sj.id = text.source_job_ref
-        LEFT JOIN companies company ON company.id = text.company_id
-        WHERE
-            length(trim(text.source_url)) > 0
-            OR length(trim(text.title)) > 0
-        ORDER BY sj.id DESC
-        """
-    ).fetchall()
+def load_collected_jobs(connection: sqlite3.Connection) -> list[dict[str, Any]]:
+    return client_data.load_collected_jobs_from_connection(connection)
 
 
 def filter_collected_jobs(
@@ -326,18 +283,7 @@ def filter_collected_jobs(
 def load_reason_code_descriptions(
     connection: sqlite3.Connection,
 ) -> dict[str, str]:
-    rows = connection.execute(
-        """
-        SELECT code, description
-        FROM candidate_fit_reason_codes
-        ORDER BY code COLLATE NOCASE
-        """
-    ).fetchall()
-    return {
-        clean(row[0]).strip(): clean(row[1]).strip()
-        for row in rows
-        if clean(row[0]).strip()
-    }
+    return client_data.load_reason_code_descriptions_from_connection(connection)
 
 
 def format_reason_code_reference(descriptions: dict[str, str]) -> str:
@@ -1470,44 +1416,8 @@ class JobsViewer(tk.Tk):
         self.detail_view_mode = "skills"
         self.detail_view_button.configure(text="Text")
 
-    def connect(self) -> sqlite3.Connection:
-        if not DB_PATH.exists():
-            raise FileNotFoundError(f"Database not found: {DB_PATH}")
-        ensure_database_schema()
-        connection = sqlite3.connect(db_uri(), uri=True)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA query_only = ON")
-        return connection
-
     def _available_status_values(self) -> tuple[str, ...]:
-        values = list(DEFAULT_STATUS_VALUES)
-        if not DB_PATH.exists():
-            return tuple(values)
-
-        try:
-            ensure_database_schema()
-            with sqlite3.connect(db_uri(), uri=True) as connection:
-                rows = connection.execute(
-                    """
-                    SELECT code
-                    FROM job_statuses
-                    ORDER BY sort_order, code COLLATE NOCASE
-                    """
-                ).fetchall()
-        except sqlite3.Error:
-            return tuple(values)
-
-        db_values = []
-        for row in rows:
-            status = clean(row[0])
-            if status and status not in db_values:
-                db_values.append(status)
-        if not db_values:
-            return tuple(values)
-        for status in values:
-            if status not in db_values:
-                db_values.append(status)
-        return tuple(db_values)
+        return tuple(json.loads(client_data.load_status_values(DB_PATH)))
 
     def _load_settings(self) -> dict[str, Any]:
         try:
@@ -1701,21 +1611,13 @@ class JobsViewer(tk.Tk):
         except OSError as error:
             self.status_var.set(f"Settings save failed: {error}")
 
-    def connect_writable(self) -> sqlite3.Connection:
-        if not DB_PATH.exists():
-            raise FileNotFoundError(f"Database not found: {DB_PATH}")
-        ensure_database_schema()
-        connection = sqlite3.connect(DB_PATH)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        return connection
-
     def refresh_jobs(self) -> None:
         self._close_title_selection()
         try:
             rows = self._load_jobs()
-            with self.connect() as connection:
-                reason_code_descriptions = load_reason_code_descriptions(connection)
+            reason_code_descriptions = json.loads(
+                client_data.load_reason_code_descriptions(DB_PATH)
+            )
         except Exception as error:
             messagebox.showerror("Refresh failed", str(error))
             self.status_var.set("Refresh failed")
@@ -1833,14 +1735,7 @@ class JobsViewer(tk.Tk):
 
     def _refresh_config_window(self) -> None:
         try:
-            with self.connect() as connection:
-                rows = connection.execute(
-                    """
-                    SELECT "key", config_name, value
-                    FROM config
-                    ORDER BY "key"
-                    """
-                ).fetchall()
+            rows = json.loads(client_data.load_config_rows(DB_PATH))
             collector_limit = read_properties_value(
                 LINKEDIN_COLLECTOR_CONFIG_PATH,
                 "limit",
@@ -1944,17 +1839,7 @@ class JobsViewer(tk.Tk):
     ) -> None:
         enabled = bool(variable.get())
         try:
-            with self.connect_writable() as connection:
-                result = connection.execute(
-                    """
-                    UPDATE config
-                    SET value = ?
-                    WHERE "key" = ?
-                    """,
-                    ("1" if enabled else "0", config_key),
-                )
-                if result.rowcount != 1:
-                    raise KeyError(f"Config not found: {config_name}")
+            client_data.set_config_value(DB_PATH, config_key, enabled)
         except Exception as error:
             variable.set(not enabled)
             messagebox.showerror("Config update failed", str(error))
@@ -2658,14 +2543,13 @@ class JobsViewer(tk.Tk):
         if window is None or not window.winfo_exists() or tree is None:
             return
         try:
-            with self.connect() as connection:
-                rows = load_collected_jobs(connection)
+            rows = json.loads(client_data.load_collected_jobs(DB_PATH))
         except Exception as error:
             messagebox.showerror("Collected jobs load failed", str(error))
             self.status_var.set("Collected jobs load failed")
             return
 
-        self.collected_rows = [dict(row) for row in rows]
+        self.collected_rows = rows
         stages = sorted(
             {
                 clean(row.get("processing_status")).strip()
@@ -2944,28 +2828,7 @@ class JobsViewer(tk.Tk):
 
     def _refresh_companies(self, focus_company_id: int | None = None) -> None:
         try:
-            with self.connect() as connection:
-                rows = connection.execute(
-                    """
-                    SELECT
-                        c.id,
-                        c.priority,
-                        c.name,
-                        c.linkedin_id,
-                        c.blacklisted,
-                        count(a.id) AS application_count
-                    FROM companies c
-                    LEFT JOIN source_job_texts text ON text.company_id = c.id
-                    LEFT JOIN jobs j ON j.source_job_ref = text.source_job_ref
-                    LEFT JOIN applications a ON a.job_id = j.id
-                    GROUP BY
-                        c.id,
-                        c.priority,
-                        c.name,
-                        c.linkedin_id,
-                        c.blacklisted
-                    """
-                ).fetchall()
+            rows = json.loads(client_data.load_companies(DB_PATH))
         except Exception as error:
             messagebox.showerror("Companies load failed", str(error))
             self.status_var.set("Companies load failed")
@@ -3198,16 +3061,9 @@ class JobsViewer(tk.Tk):
             return "break"
 
         try:
-            with self.connect_writable() as connection:
-                update_company_linkedin_id(connection, int(item), value)
-        except sqlite3.IntegrityError as error:
-            error_text = clean(error).casefold()
-            message = (
-                f"LinkedIn ID already exists: {value}"
-                if "companies.linkedin_id" in error_text
-                else str(error)
-            )
-            messagebox.showerror("Company update failed", message)
+            client_data.set_company_linkedin_id(DB_PATH, int(item), value)
+        except client_data.DataConflictError as error:
+            messagebox.showerror("Company update failed", str(error))
             self.status_var.set("Company update failed")
             self._schedule_company_controls()
             return "break"
@@ -3247,17 +3103,9 @@ class JobsViewer(tk.Tk):
             return
 
         try:
-            with self.connect_writable() as connection:
-                company_id = create_company(connection, name, linkedin_id)
-        except sqlite3.IntegrityError as error:
-            error_text = clean(error).casefold()
-            if "companies.name" in error_text:
-                message = f"Company already exists: {name}"
-            elif "companies.linkedin_id" in error_text:
-                message = f"LinkedIn ID already exists: {linkedin_id}"
-            else:
-                message = str(error)
-            messagebox.showerror("Company add failed", message)
+            company_id = client_data.create_company(DB_PATH, name, linkedin_id)
+        except client_data.DataConflictError as error:
+            messagebox.showerror("Company add failed", str(error))
             self.status_var.set("Company add failed")
             return
         except Exception as error:
@@ -3278,17 +3126,7 @@ class JobsViewer(tk.Tk):
     ) -> None:
         blacklisted = bool(variable.get())
         try:
-            with self.connect_writable() as connection:
-                result = connection.execute(
-                    """
-                    UPDATE companies
-                    SET blacklisted = ?
-                    WHERE id = ?
-                    """,
-                    (int(blacklisted), company_id),
-                )
-                if result.rowcount != 1:
-                    raise KeyError(f"Company not found: {company_id}")
+            client_data.set_company_blacklisted(DB_PATH, company_id, blacklisted)
         except Exception as error:
             variable.set(not blacklisted)
             messagebox.showerror("Company update failed", str(error))
@@ -3319,8 +3157,7 @@ class JobsViewer(tk.Tk):
     ) -> None:
         priority = bool(variable.get())
         try:
-            with self.connect_writable() as connection:
-                update_company_priority(connection, company_id, priority)
+            client_data.set_company_priority(DB_PATH, company_id, priority)
         except Exception as error:
             variable.set(not priority)
             messagebox.showerror("Company update failed", str(error))
@@ -3487,16 +3324,17 @@ class JobsViewer(tk.Tk):
         if window is None or not window.winfo_exists():
             return
         try:
-            with self.connect() as connection:
-                statuses = list_application_statuses(connection)
-                rows = load_applications(connection)
+            statuses = json.loads(
+                client_data.load_application_status_values(DB_PATH)
+            )
+            rows = json.loads(client_data.load_applications(DB_PATH))
         except Exception as error:
             messagebox.showerror("Applications load failed", str(error))
             self.status_var.set("Applications load failed")
             return
 
         self.application_status_values = statuses
-        self.application_rows = [dict(row) for row in rows]
+        self.application_rows = rows
         self._render_application_rows(focus_application_id)
 
     def _render_application_rows(
@@ -3688,8 +3526,11 @@ class JobsViewer(tk.Tk):
             return
 
         try:
-            with self.connect_writable() as connection:
-                update_application_status(connection, application_id, status)
+            client_data.set_application_status(
+                DB_PATH,
+                application_id,
+                status,
+            )
         except Exception as error:
             variable.set(previous)
             messagebox.showerror("Application update failed", str(error))
@@ -3706,17 +3547,9 @@ class JobsViewer(tk.Tk):
         if not source_url:
             return
         try:
-            with self.connect() as connection:
-                row = connection.execute(
-                    """
-                    SELECT job.id, job.status
-                    FROM jobs job
-                    JOIN source_job_texts text
-                        ON text.source_job_ref = job.source_job_ref
-                    WHERE text.source_url = ?
-                    """,
-                    (source_url,),
-                ).fetchone()
+            row = json.loads(
+                client_data.find_job_by_source_url(DB_PATH, source_url)
+            )
         except Exception as error:
             messagebox.showerror("Vacancy navigation failed", str(error))
             return
@@ -3777,115 +3610,40 @@ class JobsViewer(tk.Tk):
         self._schedule_application_controls()
         return "break"
 
-    def _load_jobs(self) -> list[sqlite3.Row]:
+    def _load_jobs(self) -> list[dict[str, Any]]:
         statuses = [
             status
             for status, variable in self.status_filter_vars.items()
             if variable.get()
         ]
-        where_parts: list[str] = []
-        parameters: list[str] = []
-
-        if statuses:
-            placeholders = ", ".join("?" for _status in statuses)
-            where_parts.append(f"jl.status IN ({placeholders})")
-            parameters.extend(statuses)
-        else:
-            where_parts.append("0")
-
-        if not self.show_zero_var.get():
-            where_parts.append(
-                """
-                CAST(jl.score AS INTEGER) <> 0
-                """
-            )
-
         id_query = self.id_search_var.get().strip()
-        if id_query:
-            where_parts.append(
-                """
-                (
-                    CAST(j.id AS TEXT) = ?
-                    OR sj.source_job_id = ?
-                    OR text.source_url LIKE ?
-                )
-                """
-            )
-            parameters.extend([id_query, id_query, f"%{id_query}%"])
-
         added_from = self.added_from_var.get().strip()
+        added_from_iso = ""
         if added_from:
             try:
-                added_from_date = parse_display_date(added_from)
+                added_from_iso = parse_display_date(added_from).strftime(
+                    DATABASE_DATE_FORMAT
+                )
             except ValueError as error:
                 raise ValueError("Added date must use DD.MM.YYYY format.") from error
-            where_parts.append("date(jl.added_at) >= date(?)")
-            parameters.append(added_from_date.strftime(DATABASE_DATE_FORMAT))
-
         reasons = [
             item.strip()
             for item in self.reason_filter_var.get().split(",")
             if item.strip()
         ]
-        if reasons:
-            placeholders = ", ".join("?" for _reason in reasons)
-            where_parts.append(
-                f"coalesce(j.candidate_fit_reason_code, '') IN ({placeholders})"
+        filters = {
+            "statuses": statuses,
+            "show_zero": self.show_zero_var.get(),
+            "id_query": id_query,
+            "added_from": added_from_iso,
+            "reasons": reasons,
+        }
+        return json.loads(
+            client_data.load_jobs(
+                DB_PATH,
+                json.dumps(filters, ensure_ascii=False),
             )
-            parameters.extend(reasons)
-
-        where_sql = "WHERE " + " AND ".join(where_parts)
-        with self.connect() as connection:
-            return list(
-                connection.execute(
-                    f"""
-                    SELECT
-                        jl.score,
-                        jl.fit,
-                        jl.interest,
-                        jl.status,
-                        jl.remote_scope,
-                        jl.relocation,
-                        jl.location,
-                        jl.company,
-                        jl.title,
-                        jl.role,
-                        jl.seniority,
-                        jl.primary_language,
-                        jl.salary,
-                        jl.added_at,
-                        jl.source_url,
-                        text.company_id,
-                        a.id AS application_id,
-                        coalesce(company_apps.application_count, 0)
-                            AS company_application_count,
-                        coalesce(j.candidate_fit_reason_code, '')
-                            AS candidate_fit_reason_code,
-                        coalesce(j.candidate_fit_reason, '')
-                            AS candidate_fit_reason
-                    FROM job_list jl
-                    JOIN jobs j ON j.id = jl.job_id
-                    JOIN source_jobs sj ON sj.id = j.source_job_ref
-                    LEFT JOIN source_job_texts text
-                        ON text.source_job_ref = j.source_job_ref
-                    LEFT JOIN applications a ON a.job_id = j.id
-                    LEFT JOIN (
-                        SELECT
-                            company_text.company_id,
-                            count(company_applications.id) AS application_count
-                        FROM jobs company_jobs
-                        JOIN source_job_texts company_text
-                            ON company_text.source_job_ref = company_jobs.source_job_ref
-                        JOIN applications company_applications
-                            ON company_applications.job_id = company_jobs.id
-                        WHERE company_text.company_id IS NOT NULL
-                        GROUP BY company_text.company_id
-                    ) company_apps ON company_apps.company_id = text.company_id
-                    {where_sql}
-                    """,
-                    parameters,
-                )
-            )
+        )
 
     def _on_job_selected(self, _event: tk.Event[tk.Misc]) -> None:
         self._close_title_selection()
@@ -3915,130 +3673,15 @@ class JobsViewer(tk.Tk):
     def _load_detail(
         self,
         source_url: str,
-    ) -> tuple[dict[str, str], list[str], list[sqlite3.Row]]:
-        with self.connect() as connection:
-            row = connection.execute(
-                """
-                SELECT
-                    j.id,
-                    sj.source_job_id,
-                    text.title,
-                    coalesce(c.name, '') AS company,
-                    j.location,
-                    j.remote_type,
-                    j.remote_scope,
-                    j.status,
-                    j.relocation,
-                    j.seniority,
-                    j.role,
-                    j.salary,
-                    j.job_interest AS interest,
-                    j.candidate_fit_percent AS fit,
-                    CAST((
-                        j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
-                        + 9999
-                    ) / 10000 AS INTEGER)
-                        AS score,
-                    text.source_url,
-                    j.summary,
-                    coalesce(text.readable_text, '') AS readable_text,
-                    j.added_at
-                FROM jobs j
-                JOIN source_jobs sj ON sj.id = j.source_job_ref
-                JOIN source_job_texts text
-                    ON text.source_job_ref = j.source_job_ref
-                LEFT JOIN companies c ON c.id = text.company_id
-                WHERE text.source_url = ?
-                """,
-                (source_url,),
-            ).fetchone()
-            if row is None:
-                raise KeyError(f"Job not found: {source_url}")
-
-            job_id = int(row["id"])
-            languages = [
-                clean(language_row["language"])
-                for language_row in connection.execute(
-                    """
-                    SELECT
-                        l.name
-                        || coalesce(': ' || nullif(jl.level, ''), '') AS language
-                    FROM job_languages jl
-                    JOIN languages l ON l.id = jl.language_id
-                    JOIN jobs j ON j.id = jl.job_id
-                    WHERE jl.job_id = ?
-                    ORDER BY
-                        CASE WHEN jl.language_id = j.primary_language_id THEN 0 ELSE 1 END,
-                        jl.level_rank DESC,
-                        l.name COLLATE NOCASE
-                    """,
-                    (job_id,),
-                )
-            ]
-
-            technologies = list(
-                connection.execute(
-                    """
-                    SELECT
-                        t.name AS technology,
-                        CASE jt.requirement_type
-                            WHEN 'core' THEN 'core'
-                            WHEN 'required' THEN 'req'
-                            WHEN 'important' THEN 'imp'
-                            WHEN 'desired' THEN 'des'
-                            WHEN 'nice_to_have' THEN 'opt'
-                            ELSE jt.requirement_type
-                        END AS req,
-                        CASE
-                            WHEN jt.requirement_type = 'nice_to_have' THEN 'nice to have'
-                            WHEN lower(coalesce(jt.level, '')) IN (
-                                '',
-                                'listed',
-                                'mentioned',
-                                'required',
-                                'required/listed'
-                            ) THEN
-                                CASE jt.level_rank
-                                    WHEN 1 THEN 'nice to have'
-                                    WHEN 2 THEN 'junior'
-                                    WHEN 3 THEN 'regular'
-                                    WHEN 4 THEN 'advanced'
-                                    WHEN 5 THEN 'master'
-                                    ELSE ''
-                                END
-                            WHEN lower(coalesce(jt.level, '')) LIKE '%experience required%'
-                                THEN 'regular'
-                            ELSE jt.level
-                        END AS level,
-                        jt.raw_value
-                    FROM job_technologies jt
-                    JOIN technologies t ON t.id = jt.technology_id
-                    WHERE jt.job_id = ?
-                    ORDER BY
-                        CASE jt.requirement_type
-                            WHEN 'core' THEN 1
-                            WHEN 'required' THEN 2
-                            WHEN 'important' THEN 3
-                            WHEN 'desired' THEN 4
-                            WHEN 'nice_to_have' THEN 5
-                            ELSE 9
-                        END,
-                        jt.level_rank DESC,
-                        t.name COLLATE NOCASE
-                    """,
-                    (job_id,),
-                )
-            )
-
-        detail = {key: clean(row[key]) for key in row.keys()}
-        detail["languages"] = "; ".join(language for language in languages if language)
-        return detail, languages, technologies
+    ) -> tuple[dict[str, Any], list[str], list[dict[str, Any]]]:
+        result = json.loads(client_data.load_job_detail(DB_PATH, source_url))
+        return result["detail"], result["languages"], result["technologies"]
 
     def _show_detail(
         self,
         detail: dict[str, str],
         _languages: list[str],
-        technologies: list[sqlite3.Row],
+        technologies: list[dict[str, Any]],
     ) -> None:
         self.current_source_url = detail.get("source_url", "")
         self.current_status = detail.get("status", "")
@@ -4376,27 +4019,10 @@ class JobsViewer(tk.Tk):
         self,
         candidates: list[dict[str, Any]],
     ) -> int:
-        connection = sqlite3.connect(DB_PATH)
-        try:
-            connection.execute("PRAGMA foreign_keys = ON")
-            applied_refs = apply_refilter_transitions(
-                connection,
-                [
-                    (
-                        int(candidate["source_job_ref"]),
-                        clean(candidate["previous_status"]),
-                        clean(candidate["action"]),
-                    )
-                    for candidate in candidates
-                ],
-            )
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
-        return len(applied_refs)
+        return client_data.apply_refilter_candidates(
+            DB_PATH,
+            json.dumps(candidates, ensure_ascii=False),
+        )
 
     def _start_confirmed_refilter_apply(
         self,
@@ -4850,35 +4476,7 @@ class JobsViewer(tk.Tk):
         return ""
 
     def _load_linkedin_availability_candidates(self) -> list[dict[str, str]]:
-        score_sql = """
-            CAST((
-                j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
-                + 9999
-            ) / 10000 AS INTEGER)
-        """
-        with self.connect() as connection:
-            rows = connection.execute(
-                f"""
-                SELECT
-                    text.source_url,
-                    text.title,
-                    coalesce(c.name, '') AS company,
-                    {score_sql} AS score
-                FROM jobs j
-                JOIN source_job_texts text
-                    ON text.source_job_ref = j.source_job_ref
-                LEFT JOIN companies c ON c.id = text.company_id
-                WHERE j.status = ?
-                    AND {score_sql} > 0
-                    AND text.source_url LIKE ?
-                ORDER BY
-                    score DESC,
-                    j.added_at DESC,
-                    j.id DESC
-                """,
-                ("New", "%linkedin.com/%"),
-            ).fetchall()
-        return [{key: clean(row[key]) for key in row.keys()} for row in rows]
+        return json.loads(client_data.load_linkedin_availability_candidates(DB_PATH))
 
     def _append_availability_log(self, event: str, **fields: Any) -> None:
         record = {
@@ -5078,24 +4676,11 @@ class JobsViewer(tk.Tk):
     def _mark_jobs_closed(self, source_urls: list[str], closed_status: str) -> int:
         if not source_urls:
             return 0
-
-        with self.connect_writable() as connection:
-            placeholders = ", ".join("?" for _source_url in source_urls)
-            result = connection.execute(
-                f"""
-                UPDATE jobs
-                SET status = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE status = ?
-                    AND source_job_ref IN (
-                        SELECT source_job_ref
-                        FROM source_job_texts
-                        WHERE source_url IN ({placeholders})
-                    )
-                """,
-                [closed_status, "New", *source_urls],
-            )
-            return result.rowcount
+        return client_data.mark_jobs_closed(
+            DB_PATH,
+            json.dumps(source_urls, ensure_ascii=False),
+            closed_status,
+        )
 
     def _poll_linkedin_availability_queue(self) -> None:
         while True:
@@ -5194,67 +4779,17 @@ class JobsViewer(tk.Tk):
         application_ids: dict[str, str] = {}
         company_application_counts: dict[str, str] = {}
         try:
-            with self.connect_writable() as connection:
-                placeholders = ", ".join("?" for _source_url in source_urls)
-                result = connection.execute(
-                    f"""
-                    UPDATE jobs
-                    SET status = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE source_job_ref IN (
-                        SELECT source_job_ref
-                        FROM source_job_texts
-                        WHERE source_url IN ({placeholders})
-                    )
-                    """,
-                    [status, *source_urls],
+            result = json.loads(
+                client_data.set_job_status(
+                    DB_PATH,
+                    json.dumps(source_urls, ensure_ascii=False),
+                    status,
+                    datetime.now().strftime(DATABASE_DATE_FORMAT),
                 )
-                if result.rowcount == 0:
-                    raise KeyError("Selected jobs were not found.")
-                if status == "Applied":
-                    created_applications = create_applications_for_source_urls(
-                        connection,
-                        source_urls,
-                        datetime.now().strftime(DATABASE_DATE_FORMAT),
-                    )
-                    application_ids = {
-                        clean(row["source_url"]): str(row["application_id"])
-                        for row in connection.execute(
-                            f"""
-                            SELECT text.source_url, a.id AS application_id
-                            FROM jobs j
-                            JOIN source_job_texts text
-                                ON text.source_job_ref = j.source_job_ref
-                            JOIN applications a ON a.job_id = j.id
-                            WHERE text.source_url IN ({placeholders})
-                            """,
-                            source_urls,
-                        )
-                    }
-                    company_application_counts = {
-                        str(row["company_id"]): str(row["application_count"])
-                        for row in connection.execute(
-                            f"""
-                            SELECT
-                                company_text.company_id,
-                                count(company_applications.id)
-                                    AS application_count
-                            FROM jobs company_jobs
-                            JOIN source_job_texts company_text
-                                ON company_text.source_job_ref = company_jobs.source_job_ref
-                            JOIN applications company_applications
-                                ON company_applications.job_id = company_jobs.id
-                            WHERE company_text.company_id IN (
-                                SELECT company_id
-                                FROM source_job_texts
-                                WHERE source_url IN ({placeholders})
-                                    AND company_id IS NOT NULL
-                            )
-                            GROUP BY company_text.company_id
-                            """,
-                            source_urls,
-                        )
-                    }
+            )
+            created_applications = int(result["created_applications"])
+            application_ids = result["application_ids"]
+            company_application_counts = result["company_application_counts"]
         except Exception as error:
             messagebox.showerror("Status update failed", str(error))
             self.status_var.set("Status update failed")
@@ -5309,23 +4844,7 @@ class JobsViewer(tk.Tk):
 
         score = calculate_score(fit, interest)
         try:
-            with self.connect_writable() as connection:
-                result = connection.execute(
-                    """
-                    UPDATE jobs
-                    SET candidate_fit_percent = ?,
-                        job_interest = ?,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE source_job_ref = (
-                        SELECT source_job_ref
-                        FROM source_job_texts
-                        WHERE source_url = ?
-                    )
-                    """,
-                    (fit, interest, self.current_source_url),
-                )
-                if result.rowcount != 1:
-                    raise KeyError(f"Job not found: {self.current_source_url}")
+            client_data.save_scores(DB_PATH, self.current_source_url, fit, interest)
         except Exception as error:
             messagebox.showerror("Score update failed", str(error))
             self._restore_score_fields()
