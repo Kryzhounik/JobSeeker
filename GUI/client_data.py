@@ -614,7 +614,7 @@ def save_scores(
     source_url: str,
     fit: int,
     interest: int,
-) -> None:
+) -> int:
     with _connection(db_path, readonly=False) as connection:
         result = connection.execute(
             """
@@ -632,6 +632,14 @@ def save_scores(
         )
         if result.rowcount != 1:
             raise KeyError(f"Job not found: {source_url}")
+        score_row = connection.execute(
+            "SELECT score FROM job_list WHERE source_url = ?",
+            (source_url,),
+        ).fetchone()
+        if score_row is None:
+            raise KeyError(f"Job not found in job_list: {source_url}")
+        score = int(score_row["score"])
+    return score
 
 
 def load_linkedin_availability_candidates(db_path: str | Path) -> str:

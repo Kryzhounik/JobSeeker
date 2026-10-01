@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 final class ClientData {
     private final Path projectRoot;
@@ -43,13 +44,9 @@ final class ClientData {
         return statuses;
     }
 
-    synchronized List<JobRecord> loadJobs(List<String> statuses, boolean showZero)
-            throws Exception {
-        String filters = json.writeValueAsString(java.util.Map.of(
-                "statuses", statuses,
-                "show_zero", showZero
-        ));
-        JsonNode rows = readJson(call("load_jobs", databasePath.toString(), filters));
+    synchronized List<JobRecord> loadJobs(Map<String, Object> filters) throws Exception {
+        String filterJson = json.writeValueAsString(filters);
+        JsonNode rows = readJson(call("load_jobs", databasePath.toString(), filterJson));
         List<JobRecord> jobs = new ArrayList<>();
         for (JsonNode row : rows) {
             String company = text(row, "company");
@@ -68,6 +65,14 @@ final class ClientData {
             ));
         }
         return jobs;
+    }
+
+    synchronized int saveScores(String sourceUrl, int fit, int interest) {
+        try (PyObject result = module.call(
+                "save_scores", databasePath.toString(), sourceUrl, fit, interest
+        )) {
+            return result.getIntValue();
+        }
     }
 
     synchronized JobDetail loadDetail(String sourceUrl) throws Exception {
@@ -123,16 +128,37 @@ final class ClientData {
         }
     }
 
-    private static Path findProjectRoot() {
+    static Path findProjectRoot() {
+        try {
+            Path codeLocation = Path.of(
+                    ClientData.class.getProtectionDomain().getCodeSource()
+                            .getLocation().toURI()
+            ).toAbsolutePath();
+            Path candidate = findProjectRootFrom(codeLocation);
+            if (candidate != null) {
+                return candidate;
+            }
+        } catch (Exception ignored) {
+            // Fall back to the launch directory when code source is unavailable.
+        }
         Path directory = Path.of(System.getProperty("user.dir")).toAbsolutePath();
+        Path candidate = findProjectRootFrom(directory);
+        if (candidate != null) {
+            return candidate;
+        }
+        throw new IllegalStateException(
+                "Could not locate repository root containing GUI/client_data.py"
+        );
+    }
+
+    private static Path findProjectRootFrom(Path location) {
+        Path directory = Files.isDirectory(location) ? location : location.getParent();
         while (directory != null) {
             if (Files.isRegularFile(directory.resolve("GUI/client_data.py"))) {
                 return directory;
             }
             directory = directory.getParent();
         }
-        throw new IllegalStateException(
-                "Could not locate repository root containing GUI/client_data.py"
-        );
+        return null;
     }
 }

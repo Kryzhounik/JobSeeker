@@ -26,6 +26,7 @@ public final class SeekerApplication extends Application {
         stage.setMinWidth(900);
         stage.setMinHeight(620);
         stage.setScene(scene);
+        controller.attachStage(stage);
         stage.setOnCloseRequest(event -> controller.shutdown());
         stage.show();
     }

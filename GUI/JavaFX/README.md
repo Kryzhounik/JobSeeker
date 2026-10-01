@@ -19,6 +19,9 @@ directory. Maven downloads the JavaFX platform modules on the first build.
 
 The main window currently loads the vacancy list through the shared data API
 and shows the selected vacancy's fields, source link, skills and full text.
+It also has status/score-zero filters, ID/date/reason search, sortable columns,
+copyable table/detail text, editable Fit and Interest fields, and persists the
+main window size and table sort/filter settings in `gui-settings.json`.
 The API accepts a database path and primitive values, returning structured
 records as JSON strings. JavaFX invokes `GUI.client_data` through `jpy`; it
 does not open SQLite itself or depend on the collector/orchestrator.

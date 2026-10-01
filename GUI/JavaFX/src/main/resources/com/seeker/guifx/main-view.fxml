@@ -2,6 +2,7 @@
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.Hyperlink?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.ScrollPane?>
@@ -15,6 +16,7 @@
 <?import javafx.scene.layout.ColumnConstraints?>
 <?import javafx.scene.layout.GridPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
 
@@ -25,14 +27,31 @@
             prefHeight="900.0"
             styleClass="root">
     <top>
-        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="toolbar">
-            <padding><Insets top="8.0" right="10.0" bottom="8.0" left="10.0" /></padding>
-            <Button fx:id="refreshButton" text="Refresh" />
-            <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" />
-        </HBox>
+        <VBox styleClass="toolbar">
+            <HBox alignment="CENTER_LEFT" spacing="8.0">
+                <padding><Insets top="7.0" right="10.0" bottom="5.0" left="10.0" /></padding>
+                <Button fx:id="refreshButton" text="Refresh" />
+                <Region HBox.hgrow="ALWAYS" />
+                <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" />
+            </HBox>
+            <HBox alignment="CENTER_LEFT" spacing="7.0" styleClass="filter-bar">
+                <padding><Insets top="3.0" right="10.0" bottom="7.0" left="10.0" /></padding>
+                <Label text="Status" styleClass="muted-label" />
+                <HBox fx:id="statusFilters" alignment="CENTER_LEFT" spacing="6.0" />
+                <CheckBox fx:id="showZeroCheck" text="Show zero" />
+                <Label text="ID" styleClass="muted-label" />
+                <TextField fx:id="idFilterField" promptText="ID or URL" prefWidth="115.0" />
+                <Label text="Date &gt;=" styleClass="muted-label" />
+                <TextField fx:id="dateFilterField" promptText="DD.MM.YYYY" prefWidth="110.0" />
+                <Label text="Reason" styleClass="muted-label" />
+                <TextField fx:id="reasonFilterField" promptText="code1, code2" prefWidth="145.0" />
+                <Button fx:id="searchButton" text="Search" />
+                <Button fx:id="clearButton" text="Clear" />
+            </HBox>
+        </VBox>
     </top>
     <center>
-        <SplitPane dividerPositions="0.48" orientation="VERTICAL" styleClass="main-split">
+        <SplitPane fx:id="mainSplit" dividerPositions="0.48" orientation="VERTICAL" styleClass="main-split">
             <items>
                 <TableView fx:id="jobsTable">
                     <columns>
@@ -60,7 +79,7 @@
                         <Hyperlink fx:id="sourceLink" text="" />
                         <Button fx:id="openButton" text="Open" />
                     </HBox>
-                    <SplitPane dividerPositions="0.34" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
+                    <SplitPane fx:id="detailSplit" dividerPositions="0.34" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                         <items>
                             <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
                                 <content>
@@ -80,9 +99,9 @@
                                         <Label text="Score" GridPane.rowIndex="4" />
                                         <TextField fx:id="scoreField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="4" />
                                         <Label text="Fit" GridPane.rowIndex="5" />
-                                        <TextField fx:id="fitField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="5" />
+                                        <TextField fx:id="fitField" editable="true" styleClass="editable-score" GridPane.columnIndex="1" GridPane.rowIndex="5" />
                                         <Label text="Interest" GridPane.rowIndex="6" />
-                                        <TextField fx:id="interestField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="6" />
+                                        <TextField fx:id="interestField" editable="true" styleClass="editable-score" GridPane.columnIndex="1" GridPane.rowIndex="6" />
                                         <Label text="Status" GridPane.rowIndex="7" />
                                         <TextField fx:id="statusField" editable="false" GridPane.columnIndex="1" GridPane.rowIndex="7" />
                                         <Label text="Role" GridPane.rowIndex="8" />
