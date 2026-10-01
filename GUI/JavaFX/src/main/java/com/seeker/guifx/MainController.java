@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
@@ -64,6 +65,10 @@ public final class MainController {
     @FXML private Button refreshButton;
     @FXML private Button searchButton;
     @FXML private Button clearButton;
+    @FXML private Button companiesButton;
+    @FXML private Button applicationsButton;
+    @FXML private Button collectedButton;
+    @FXML private Button configButton;
     @FXML private Label statusLabel;
     @FXML private HBox statusFilters;
     @FXML private CheckBox showZeroCheck;
@@ -104,6 +109,7 @@ public final class MainController {
     @FXML private TextField addedField;
 
     private ClientData clientData;
+    private AuxiliaryWindows auxiliaryWindows;
     private SettingsStore settingsStore;
     private Stage stage;
     private JobRecord selectedJob;
@@ -112,6 +118,7 @@ public final class MainController {
     private final PauseTransition settingsSaveDelay = new PauseTransition(Duration.millis(250));
     private boolean restoringWindowSettings = true;
     private boolean scoreSaveRunning;
+    private String focusAfterRefreshUrl = "";
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -132,6 +139,10 @@ public final class MainController {
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
         searchButton.setOnAction(event -> refreshJobs());
         clearButton.setOnAction(event -> clearTextFilters());
+        companiesButton.setOnAction(event -> showCompanies(null));
+        applicationsButton.setOnAction(event -> showApplications(null));
+        collectedButton.setOnAction(event -> auxiliaryWindows.showCollected());
+        configButton.setOnAction(event -> auxiliaryWindows.showConfig());
         idFilterField.setOnAction(event -> refreshJobs());
         dateFilterField.setOnAction(event -> refreshJobs());
         reasonFilterField.setOnAction(event -> refreshJobs());
@@ -168,6 +179,9 @@ public final class MainController {
         };
         connectionTask.setOnSucceeded(event -> {
             clientData = connectionTask.getValue().clientData();
+            auxiliaryWindows = new AuxiliaryWindows(
+                    clientData, stage, this::focusJobFromAuxiliary
+            );
             loadStatusFilters(connectionTask.getValue().statuses());
             restoreJobSort();
             refreshJobs();
@@ -270,6 +284,8 @@ public final class MainController {
         };
         task.setOnSucceeded(event -> {
             jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
+            String requestedFocusUrl = focusAfterRefreshUrl;
+            focusAfterRefreshUrl = "";
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
             clearButton.setDisable(false);
@@ -279,8 +295,9 @@ public final class MainController {
             dateFilterField.setDisable(false);
             reasonFilterField.setDisable(false);
             statusLabel.setText(task.getValue().size() + " vacancies");
+            String restoreUrl = requestedFocusUrl.isBlank() ? selectedUrl : requestedFocusUrl;
             JobRecord restore = task.getValue().stream()
-                    .filter(row -> row.sourceUrl().equals(selectedUrl))
+                    .filter(row -> row.sourceUrl().equals(restoreUrl))
                     .findFirst()
                     .orElse(null);
             if (restore != null) {
@@ -447,6 +464,23 @@ public final class MainController {
         bind(relocationColumn, JobRecord::relocation);
         bind(locationColumn, JobRecord::location);
         bind(companyColumn, JobRecord::companyDisplay);
+        companyColumn.setCellFactory(column -> new TableCell<>() {
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
+                if (row == null || value == null || value.isBlank() || row.companyId().isBlank()) {
+                    setGraphic(null);
+                    return;
+                }
+                Hyperlink link = new Hyperlink(value);
+                link.setPadding(javafx.geometry.Insets.EMPTY);
+                link.setOnAction(event -> {
+                    try { showCompanies(Integer.parseInt(row.companyId())); }
+                    catch (NumberFormatException ignored) { }
+                });
+                setGraphic(link);
+            }
+        });
         bind(titleColumn, JobRecord::title);
         bind(roleColumn, JobRecord::role);
         bind(seniorityColumn, JobRecord::seniority);
@@ -548,7 +582,8 @@ public final class MainController {
                     Integer.toString(interest), job.status(), job.remoteScope(),
                     job.relocation(), job.location(), job.companyDisplay(), job.title(),
                     job.role(), job.seniority(), job.language(), job.salary(),
-                    job.addedAt(), job.reasonCode(), job.reason(), job.sourceUrl()
+                    job.addedAt(), job.reasonCode(), job.reason(), job.companyId(),
+                    job.sourceUrl()
             );
             for (int index = 0; index < jobsTable.getItems().size(); index++) {
                 if (jobsTable.getItems().get(index).sourceUrl().equals(job.sourceUrl())) {
@@ -733,6 +768,30 @@ public final class MainController {
         }
     }
 
+    private void showCompanies(Integer companyId) {
+        if (auxiliaryWindows != null) auxiliaryWindows.showCompanies(companyId);
+    }
+
+    private void showApplications(Integer applicationId) {
+        if (auxiliaryWindows != null) auxiliaryWindows.showApplications(applicationId);
+    }
+
+    private void focusJobFromAuxiliary(String sourceUrl) {
+        if (sourceUrl == null || sourceUrl.isBlank()) return;
+        for (JobRecord job : jobsTable.getItems()) {
+            if (job.sourceUrl().equals(sourceUrl)) {
+                jobsTable.getSelectionModel().select(job);
+                jobsTable.scrollTo(job);
+                stage.toFront();
+                return;
+            }
+        }
+        idFilterField.setText(sourceUrl);
+        focusAfterRefreshUrl = sourceUrl;
+        refreshJobs();
+        stage.toFront();
+    }
+
     private static void set(TextField field, String value) {
         field.setText(safe(value));
     }
@@ -779,6 +838,7 @@ public final class MainController {
     }
 
     void shutdown() {
+        if (auxiliaryWindows != null) auxiliaryWindows.shutdown();
         settingsSaveDelay.stop();
         saveWindowSettings();
         if (pendingDetailTask != null) {

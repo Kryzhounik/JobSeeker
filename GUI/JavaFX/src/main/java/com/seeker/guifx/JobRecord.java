@@ -17,5 +17,6 @@ record JobRecord(
         String addedAt,
         String reasonCode,
         String reason,
+        String companyId,
         String sourceUrl
 ) { }

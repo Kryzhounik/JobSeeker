@@ -44,6 +44,63 @@ final class ClientData {
         return statuses;
     }
 
+    synchronized JsonNode loadCompanies() throws Exception {
+        return readJson(call("load_companies", databasePath.toString()));
+    }
+
+    synchronized int createCompany(String name, String linkedinId) {
+        try (PyObject result = module.call(
+                "create_company", databasePath.toString(), name, linkedinId
+        )) {
+            return result.getIntValue();
+        }
+    }
+
+    synchronized void setCompanyValue(String method, int companyId, Object value) {
+        try (PyObject ignored = module.call(
+                method, databasePath.toString(), companyId, value
+        )) {
+            // Close the Python result wrapper after the immediate database update.
+        }
+    }
+
+    synchronized JsonNode loadApplications() throws Exception {
+        return readJson(call("load_applications", databasePath.toString()));
+    }
+
+    synchronized List<String> loadApplicationStatuses() throws Exception {
+        JsonNode values = readJson(call(
+                "load_application_status_values", databasePath.toString()
+        ));
+        List<String> statuses = new ArrayList<>();
+        values.forEach(value -> statuses.add(value.asText()));
+        return statuses;
+    }
+
+    synchronized void setApplicationStatus(int applicationId, String status) {
+        try (PyObject ignored = module.call(
+                "set_application_status", databasePath.toString(), applicationId, status
+        )) {
+            // Close the Python result wrapper after the immediate database update.
+        }
+    }
+
+    synchronized JsonNode loadCollectedJobs() throws Exception {
+        return readJson(call("load_collected_jobs", databasePath.toString()));
+    }
+
+    synchronized JsonNode loadConfigRows() throws Exception {
+        return readJson(call("load_config_rows", databasePath.toString()));
+    }
+
+    synchronized void setConfigValue(int key, boolean enabled) {
+        try (PyObject ignored = module.call(
+                "set_config_value", databasePath.toString(), key, enabled
+        )) {
+            // Close the Python result wrapper after the immediate database update.
+        }
+    }
+
     synchronized List<JobRecord> loadJobs(Map<String, Object> filters) throws Exception {
         String filterJson = json.writeValueAsString(filters);
         JsonNode rows = readJson(call("load_jobs", databasePath.toString(), filterJson));
@@ -61,7 +118,8 @@ final class ClientData {
                     text(row, "title"), text(row, "role"), text(row, "seniority"),
                     text(row, "primary_language"), text(row, "salary"),
                     text(row, "added_at"), text(row, "candidate_fit_reason_code"),
-                    text(row, "candidate_fit_reason"), text(row, "source_url")
+                    text(row, "candidate_fit_reason"), text(row, "company_id"),
+                    text(row, "source_url")
             ));
         }
         return jobs;

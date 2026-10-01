@@ -31,6 +31,10 @@
             <HBox alignment="CENTER_LEFT" spacing="8.0">
                 <padding><Insets top="7.0" right="10.0" bottom="5.0" left="10.0" /></padding>
                 <Button fx:id="refreshButton" text="Refresh" />
+                <Button fx:id="companiesButton" text="Companies" />
+                <Button fx:id="applicationsButton" text="Applications" />
+                <Button fx:id="collectedButton" text="Collected" />
+                <Button fx:id="configButton" text="⚙" accessibleText="Config" />
                 <Region HBox.hgrow="ALWAYS" />
                 <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" />
             </HBox>
