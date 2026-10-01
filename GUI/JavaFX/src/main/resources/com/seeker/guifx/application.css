@@ -1,0 +1,18 @@
+.root {
+    -fx-font-family: "Segoe UI", sans-serif;
+    -fx-font-size: 13px;
+    -fx-background-color: #f4f5f4;
+}
+
+.launch-view {
+    -fx-background-color: white;
+}
+
+.app-title {
+    -fx-font-size: 20px;
+    -fx-text-fill: #202820;
+}
+
+.launch-status {
+    -fx-text-fill: #526052;
+}

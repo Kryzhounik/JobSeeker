@@ -1,5 +1,21 @@
 # JavaFX GUI Development Rules
 
+## Migration context
+
+This is a rewrite of the existing GUI in JavaFX. `GUI/REQUIREMENTS.md`
+defines the target user-visible behavior, and `GUI/PLAN.md` describes
+the migration work.
+
+When a user-visible requirement is unclear or incomplete, inspect the
+relevant legacy GUI documentation and code. Run the legacy GUI when
+observing its behavior is needed to answer the question. Use what you
+find to clarify behavior, not to copy its implementation or impose its
+internal structure on JavaFX.
+
+Current user instructions and `GUI/REQUIREMENTS.md` take precedence over
+legacy behavior. Ask the user when the expected behavior still cannot
+be determined.
+
 1. Use a simple MVC approach and keep responsibilities separate.
 
    - FXML/View is responsible for presentation.
