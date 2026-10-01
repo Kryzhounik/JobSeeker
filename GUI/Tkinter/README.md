@@ -5,13 +5,13 @@ job status.
 
 ## Launch
 
-Start the GUI by double-clicking `GUI/JobsViewer.exe`. The launcher uses the
+Start the GUI by double-clicking `GUI/Tkinter/JobsViewer.exe`. The launcher uses the
 embedded Seeker Jobs icon and starts `jobs_viewer.py` through `pythonw.exe`, so
 no console window remains open.
 
 To rebuild the launcher and its multi-size Windows icon, run:
 
-`powershell -ExecutionPolicy Bypass -File GUI/build_launcher.ps1`
+`powershell -ExecutionPolicy Bypass -File GUI/Tkinter/build_launcher.ps1`
 
 The build reads `JobsViewerIcon.png`, writes `JobsViewerIcon.ico`, and embeds
 the icon into `JobsViewer.exe`.
@@ -22,10 +22,10 @@ Agents must not use the GUI to run the pipeline, inspect batch state, validate
 data, or mutate records. Use project files, SQLite queries, and workflow scripts
 instead:
 
-- LinkedIn raw files: `../Data/raw/linkedin/pages/*.html`
-- database: `../Data/jobs.sqlite`
-- views/schema: `../Driver/db/schema.sql`
-- save entrypoint: `../Driver/db/save.py`
+- LinkedIn raw files: `../../Data/raw/linkedin/pages/*.html`
+- database: `../../Data/jobs.sqlite`
+- views/schema: `../../Driver/db/schema.sql`
+- save entrypoint: `../../Driver/db/save.py`
 
 Only open the GUI when the user explicitly asks to view the interface or debug a
 GUI-specific problem.
@@ -34,7 +34,7 @@ GUI-specific problem.
 
 Filters, table sorting, and the last sizes of the main, `Refilter detail`,
 `Collected`, `Companies`, `Applications`, and config windows are stored in
-`GUI/jobs_viewer_settings.json`. Resizing is saved after a short pause and
+`GUI/Tkinter/jobs_viewer_settings.json`. Resizing is saved after a short pause and
 restored the next time the corresponding window opens. The settings file is
 ignored by git.
 
@@ -178,7 +178,7 @@ and sets the job status to `Closed` only when the response contains
 
 The run writes an append-only JSONL log next to the GUI:
 
-`GUI/linkedin_availability_check.log`
+`GUI/Tkinter/linkedin_availability_check.log`
 
 Each line is one JSON object. Useful events are `start`, `request`, `response`,
 `closed`, `skip`, `stop_error`, `popup_error`, and `done`. HTTP `404` leaves the

@@ -4,7 +4,7 @@ import unittest
 from urllib.error import HTTPError
 from unittest.mock import MagicMock, Mock, call, patch
 
-from GUI import jobs_viewer
+from GUI.Tkinter import jobs_viewer
 
 
 class LinkedInAvailabilityTest(unittest.TestCase):

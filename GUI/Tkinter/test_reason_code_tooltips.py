@@ -3,8 +3,8 @@ from __future__ import annotations
 import sqlite3
 import unittest
 
-from GUI.jobs_viewer import format_reason_code_reference
-from GUI.jobs_viewer import load_reason_code_descriptions
+from GUI.Tkinter.jobs_viewer import format_reason_code_reference
+from GUI.Tkinter.jobs_viewer import load_reason_code_descriptions
 
 
 class ReasonCodeTooltipTest(unittest.TestCase):

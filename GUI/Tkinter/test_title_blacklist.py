@@ -4,7 +4,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
-from GUI.jobs_viewer import append_unique_blacklist_term
+from GUI.Tkinter.jobs_viewer import append_unique_blacklist_term
 
 
 class TitleBlacklistTest(unittest.TestCase):

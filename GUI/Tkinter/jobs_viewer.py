@@ -20,7 +20,7 @@ from tkinter import ttk
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "Data" / "jobs.sqlite"
 SETTINGS_PATH = Path(__file__).with_name("jobs_viewer_settings.json")
 AVAILABILITY_LOG_PATH = Path(__file__).with_name("linkedin_availability_check.log")

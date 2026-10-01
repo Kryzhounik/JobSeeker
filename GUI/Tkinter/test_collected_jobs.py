@@ -3,7 +3,7 @@ from __future__ import annotations
 import sqlite3
 import unittest
 
-from GUI import jobs_viewer
+from GUI.Tkinter import jobs_viewer
 
 
 class CollectedJobsTest(unittest.TestCase):

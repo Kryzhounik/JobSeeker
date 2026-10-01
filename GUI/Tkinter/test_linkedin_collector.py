@@ -6,7 +6,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest.mock import Mock, patch
 
-from GUI import jobs_viewer
+from GUI.Tkinter import jobs_viewer
 
 
 class FakeProcess:
