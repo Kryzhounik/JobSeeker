@@ -58,14 +58,14 @@ this file describes the user-visible behavior to reproduce.
 
 ## Editing and status
 
-- [ ] Status buttons use the database's available status values. Setting a
+- [x] Status buttons use the database's available status values. Setting a
   status updates every selected vacancy. When a result no longer matches the
   active filters, remove it from the visible list.
 - [ ] Fit and Interest can be changed directly in their existing detail fields.
   Enter or focus loss saves them and recalculates Score. Fit is an integer from
   0 to 100; Interest is a nonnegative integer. Invalid input restores the last
   saved values and reports the error.
-- [ ] Marking a vacancy Applied creates one application dated today with
+- [x] Marking a vacancy Applied creates one application dated today with
   initial application status Applied in the same transaction as the job-status
   change. Repeating the action does not create a duplicate application.
 
@@ -91,7 +91,7 @@ this file describes the user-visible behavior to reproduce.
 
 ## Collected and configuration
 
-- [ ] Collect is the first toolbar action and visually distinct. It starts the
+- [x] Collect is the first toolbar action and visually distinct. It starts the
   existing Java LinkedIn collector's `batch` command in the background. Show
   the reported accepted/limit count as it arrives; page-by-page jumps are fine.
   Show completion or an error in the GUI. Use the collector's existing event
@@ -108,7 +108,7 @@ this file describes the user-visible behavior to reproduce.
 
 ## Availability and refilter
 
-- [ ] Check LinkedIn runs in the background over LinkedIn vacancies whose
+- [x] Check LinkedIn runs in the background over LinkedIn vacancies whose
   status is New and calculated Score is greater than zero. Query the public
   job-posting endpoint with a five-second interval. Mark Closed only when the
   response contains `No longer accepting applications`.
@@ -116,12 +116,12 @@ this file describes the user-visible behavior to reproduce.
   continues; HTTP 429, other HTTP/network failures or unexpected HTML stop the
   run and report the error. Keep an append-only JSONL diagnostic log beside
   the GUI with request, response and outcome events.
-- [ ] Refilter runs the existing source-vacancy filter and applies all newly
+- [x] Refilter runs the existing source-vacancy filter and applies all newly
   rejected transitions. Refilter detail collects the same candidates without
   changing data and opens a preview with Source ID, Title, Previous status,
   Action, Fit, Original and Match. Sort the preview by any column; its text is
   selectable and copyable, and a plain title click opens the source URL.
-- [ ] Each preview row has a checkbox, initially checked. An All checkbox
+- [x] Each preview row has a checkbox, initially checked. An All checkbox
   selects or clears every row. Confirm applies only checked transitions;
   Cancel or closing the preview leaves them unapplied. Show the resulting
   count and refresh affected lists.

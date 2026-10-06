@@ -7,6 +7,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.scene.Scene;
+import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -21,6 +22,8 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Region;
+import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.Window;
@@ -48,6 +51,7 @@ final class AuxiliaryWindows {
         return thread;
     });
     private Stage companiesStage;
+    private Stage applicationsStage;
     private Stage collectedStage;
     private TableView<CompanyRow> companiesTable;
     private List<CompanyRow> companyRows = new ArrayList<>();
@@ -64,6 +68,18 @@ final class AuxiliaryWindows {
 
     void shutdown() {
         ioExecutor.shutdownNow();
+    }
+
+    void refreshCompaniesIfOpen() {
+        if (companiesStage != null && companiesStage.isShowing()) refreshCompanies(null);
+    }
+
+    void refreshApplicationsIfOpen() {
+        if (applicationsStage != null && applicationsStage.isShowing()) showApplications(null);
+    }
+
+    void refreshCollectedIfOpen() {
+        if (collectedStage != null && collectedStage.isShowing()) showCollected();
     }
 
     private <T> void submit(
@@ -290,9 +306,10 @@ final class AuxiliaryWindows {
                 table.getSelectionModel().select(row);
                 table.scrollTo(row);
             });
-            Stage stage = stage("Applications", 1050, 650);
-            stage.setScene(new Scene(table, 1050, 650));
-            stage.show();
+            if (applicationsStage == null) applicationsStage = stage("Applications", 1050, 650);
+            applicationsStage.setScene(new Scene(table, 1050, 650));
+            applicationsStage.show();
+            applicationsStage.toFront();
     }
 
     void showCollected() {
@@ -522,16 +539,31 @@ final class AuxiliaryWindows {
     private static class HyperlinkCell<T> extends TableCell<T, String> {
         private final java.util.function.Function<T, String> text;
         private final Consumer<T> action;
+        private final TextField linkText = new TextField();
         HyperlinkCell(java.util.function.Function<T, String> text, Consumer<T> action) {
             this.text = text; this.action = action;
+            linkText.setEditable(false);
+            linkText.setFocusTraversable(true);
+            linkText.setCursor(Cursor.HAND);
+            linkText.getStyleClass().add("filter-link-cell");
+            linkText.setMaxWidth(Region.USE_COMPUTED_SIZE);
+            linkText.prefWidthProperty().bind(widthProperty().subtract(8));
+            linkText.setOnMouseClicked(event -> {
+                Text measure = new Text(linkText.getText());
+                measure.setFont(linkText.getFont());
+                if (event.getClickCount() == 1 && linkText.getSelectedText().isEmpty()
+                        && event.getX() <= measure.getLayoutBounds().getWidth() + 12) {
+                    T row = getTableRow() == null ? null : getTableRow().getItem();
+                    if (row != null) action.accept(row);
+                }
+            });
         }
         @Override protected void updateItem(String value, boolean empty) {
             super.updateItem(value, empty);
             T row = empty || getTableRow() == null ? null : getTableRow().getItem();
             if (row == null) { setGraphic(null); return; }
-            Hyperlink link = new Hyperlink(text.apply(row));
-            link.setOnAction(event -> action.accept(row));
-            setGraphic(link);
+            linkText.setText(text.apply(row));
+            setGraphic(linkText);
         }
     }
 

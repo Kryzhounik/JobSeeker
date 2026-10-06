@@ -10,6 +10,12 @@
     -fx-border-width: 0 0 1 0;
 }
 
+.collect-button {
+    -fx-background-color: #d8eadf;
+    -fx-border-color: #71927c;
+    -fx-font-weight: bold;
+}
+
 .status-label {
     -fx-text-fill: #50504c;
 }

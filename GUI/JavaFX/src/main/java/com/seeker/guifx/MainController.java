@@ -1,12 +1,17 @@
 package com.seeker.guifx;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
@@ -17,10 +22,14 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
+import javafx.scene.control.SelectionMode;
+import javafx.scene.Cursor;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.Region;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -34,6 +43,9 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.function.Consumer;
+import java.util.concurrent.Callable;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -63,6 +75,10 @@ public final class MainController {
     @FXML private TableColumn<JobRecord, String> reasonColumn;
 
     @FXML private Button refreshButton;
+    @FXML private Button collectButton;
+    @FXML private Button linkedinCheckButton;
+    @FXML private Button refilterButton;
+    @FXML private Button refilterDetailButton;
     @FXML private Button searchButton;
     @FXML private Button clearButton;
     @FXML private Button companiesButton;
@@ -71,6 +87,7 @@ public final class MainController {
     @FXML private Button configButton;
     @FXML private Label statusLabel;
     @FXML private HBox statusFilters;
+    @FXML private HBox statusActions;
     @FXML private CheckBox showZeroCheck;
     @FXML private TextField idFilterField;
     @FXML private TextField dateFilterField;
@@ -115,9 +132,19 @@ public final class MainController {
     private JobRecord selectedJob;
     private String detailLoadedSourceUrl = "";
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
+    private final ObjectMapper json = new ObjectMapper();
+    private final ThreadPoolExecutor operationExecutor = new ThreadPoolExecutor(
+            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
+                Thread thread = new Thread(runnable, "gui-long-operation");
+                thread.setDaemon(true);
+                return thread;
+            }
+    );
     private final PauseTransition settingsSaveDelay = new PauseTransition(Duration.millis(250));
     private boolean restoringWindowSettings = true;
     private boolean scoreSaveRunning;
+    private boolean operationRunning;
+    private List<String> availableStatuses = List.of();
     private String focusAfterRefreshUrl = "";
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
@@ -136,6 +163,10 @@ public final class MainController {
         sourceLink.setOnAction(event -> openSelectedSource());
         openButton.setOnAction(event -> openSelectedSource());
         refreshButton.setOnAction(event -> refreshJobs());
+        collectButton.setOnAction(event -> startCollect());
+        linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
+        refilterButton.setOnAction(event -> startRefilter(false));
+        refilterDetailButton.setOnAction(event -> startRefilter(true));
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
         searchButton.setOnAction(event -> refreshJobs());
         clearButton.setOnAction(event -> clearTextFilters());
@@ -169,6 +200,7 @@ public final class MainController {
         );
 
         refreshButton.setDisable(true);
+        setOperationButtonsDisabled(true);
         statusLabel.setText("Starting data connection...");
         Task<ClientSession> connectionTask = new Task<>() {
             @Override
@@ -183,8 +215,11 @@ public final class MainController {
                     clientData, stage, this::focusJobFromAuxiliary
             );
             loadStatusFilters(connectionTask.getValue().statuses());
+            availableStatuses = connectionTask.getValue().statuses();
+            buildStatusActions();
             restoreJobSort();
             refreshJobs();
+            setOperationButtonsDisabled(false);
         });
         connectionTask.setOnFailed(event -> {
             statusLabel.setText("Data connection failed");
@@ -232,6 +267,267 @@ public final class MainController {
             saveStatusFilters();
             refreshJobs();
         });
+    }
+
+    private void buildStatusActions() {
+        statusActions.getChildren().clear();
+        statusActions.getChildren().add(new Label("Set status"));
+        for (String status : availableStatuses) {
+            Button button = new Button(status);
+            button.setOnAction(event -> applyStatusToSelection(status));
+            statusActions.getChildren().add(button);
+        }
+    }
+
+    private void applyStatusToSelection(String status) {
+        List<String> urls = jobsTable.getSelectionModel().getSelectedItems().stream()
+                .map(JobRecord::sourceUrl).filter(url -> !url.isBlank()).distinct().toList();
+        if (urls.isEmpty()) return;
+        runOperation("Saving status...", () -> clientData.setJobStatus(
+                urls, status, LocalDate.now().toString()), result -> {
+            int updated = result.path("updated_count").asInt();
+            int created = result.path("created_applications").asInt();
+            refreshJobs();
+            if (created > 0 && auxiliaryWindows != null) {
+                auxiliaryWindows.refreshApplicationsIfOpen();
+                auxiliaryWindows.refreshCompaniesIfOpen();
+            }
+            statusLabel.setText("Status -> " + status + " (" + updated + ")");
+        }, "Status update failed");
+    }
+
+    private void setOperationButtonsDisabled(boolean disabled) {
+        collectButton.setDisable(disabled || operationRunning);
+        linkedinCheckButton.setDisable(disabled || operationRunning);
+        refilterButton.setDisable(disabled || operationRunning);
+        refilterDetailButton.setDisable(disabled || operationRunning);
+        statusActions.setDisable(disabled || operationRunning);
+    }
+
+    private <T> void runOperation(
+            String initialMessage,
+            Callable<T> work,
+            Consumer<T> success,
+            String errorTitle
+    ) {
+        runTask(initialMessage, updater -> work.call(), success, errorTitle);
+    }
+
+    private <T> void runTask(
+            String initialMessage,
+            TaskWork<T> work,
+            Consumer<T> success,
+            String errorTitle
+    ) {
+        if (operationRunning) return;
+        operationRunning = true;
+        setOperationButtonsDisabled(true);
+        Task<T> task = new Task<>() {
+            @Override protected T call() throws Exception {
+                updateMessage(initialMessage);
+                return work.run(this::updateMessage);
+            }
+        };
+        task.messageProperty().addListener((obs, old, message) -> {
+            if (message != null && !message.isBlank()) statusLabel.setText(message);
+        });
+        task.setOnSucceeded(event -> {
+            operationRunning = false;
+            setOperationButtonsDisabled(false);
+            success.accept(task.getValue());
+        });
+        task.setOnFailed(event -> {
+            operationRunning = false;
+            setOperationButtonsDisabled(false);
+            String message = task.getException() == null ? "Unknown error"
+                    : String.valueOf(task.getException().getMessage());
+            statusLabel.setText(errorTitle);
+            Alert alert = new Alert(Alert.AlertType.ERROR, message);
+            alert.setTitle(errorTitle);
+            alert.initOwner(stage);
+            alert.show();
+        });
+        operationExecutor.execute(task);
+    }
+
+    private void startCollect() {
+        CollectorRunner collector = new CollectorRunner(ClientData.findProjectRoot());
+        runTask("Starting LinkedIn collector...", collector::run, summary -> {
+            statusLabel.setText(summary);
+            refreshJobs();
+            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+        }, "LinkedIn collector failed");
+    }
+
+    private void startLinkedInCheck() {
+        String closedStatus = availableStatuses.stream()
+                .filter(value -> value.equalsIgnoreCase("closed")).findFirst().orElse("");
+        LinkedInAvailabilityChecker checker = new LinkedInAvailabilityChecker(
+                clientData, ClientData.findProjectRoot(), closedStatus);
+        runTask("Loading LinkedIn candidates...", checker::run, summary -> {
+            statusLabel.setText(summary.message());
+            refreshJobs();
+            if (!summary.error().isBlank()) {
+                Alert alert = new Alert(Alert.AlertType.ERROR, summary.error());
+                alert.setTitle("LinkedIn check stopped");
+                alert.initOwner(stage);
+                alert.show();
+            }
+        }, "LinkedIn check failed");
+    }
+
+    private void startRefilter(boolean preview) {
+        if (preview) {
+            runOperation("Collecting Refilter candidates...", clientData::collectRefilterCandidates,
+                    this::showRefilterPreview, "Refilter failed");
+        } else {
+            runOperation("Running Refilter...", () -> {
+                JsonNode candidates = clientData.collectRefilterCandidates();
+                return clientData.applyRefilterCandidates(candidates);
+            }, count -> {
+                refreshJobs();
+                if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+                statusLabel.setText("Refilter applied " + count + " transitions");
+            }, "Refilter failed");
+        }
+    }
+
+    private void showRefilterPreview(JsonNode candidates) {
+        List<RefilterRow> rows = new ArrayList<>();
+        candidates.forEach(candidate -> rows.add(new RefilterRow(candidate.deepCopy())));
+        TableView<RefilterRow> table = new TableView<>(FXCollections.observableArrayList(rows));
+        table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        CheckBox all = new CheckBox("All");
+        all.setSelected(true);
+        Button confirm = new Button("Confirm selected");
+        confirm.setDisable(rows.isEmpty());
+        TableColumn<RefilterRow, Boolean> selected = new TableColumn<>("");
+        selected.setSortable(false);
+        selected.setCellValueFactory(cell -> cell.getValue().selected);
+        selected.setCellFactory(column -> new TableCell<>() {
+            private final CheckBox check = new CheckBox();
+            {
+                check.setOnAction(event -> {
+                    RefilterRow row = getTableRow().getItem();
+                    if (row != null) row.selected.set(check.isSelected());
+                });
+            }
+            @Override protected void updateItem(Boolean value, boolean empty) {
+                super.updateItem(value, empty);
+                setGraphic(empty || value == null ? null : check);
+                if (!empty && value != null) check.setSelected(value);
+            }
+        });
+        for (RefilterRow row : rows) {
+            row.selected.addListener((obs, old, value) -> {
+                all.setSelected(!rows.isEmpty() && rows.stream().allMatch(item -> item.selected.get()));
+                confirm.setDisable(rows.stream().noneMatch(item -> item.selected.get()));
+            });
+        }
+        all.setOnAction(event -> rows.forEach(row -> row.selected.set(all.isSelected())));
+        TableColumn<RefilterRow, String> sourceId = refilterColumn("Source ID", "source_job_id");
+        TableColumn<RefilterRow, String> title = refilterColumn("Title", "title");
+        title.setCellFactory(column -> new TableCell<>() {
+            private final TextField linkedText = linkedTextField();
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                RefilterRow row = empty || getTableRow() == null ? null : getTableRow().getItem();
+                if (row == null) { setGraphic(null); return; }
+                linkedText.setText(value);
+                linkedText.setOnMouseClicked(event -> {
+                    if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                        openUrl(text(row.candidate, "source_url"));
+                    }
+                });
+                setGraphic(linkedText);
+            }
+        });
+        TableColumn<RefilterRow, String> previous = refilterColumn("Previous", "previous_status");
+        TableColumn<RefilterRow, String> action = refilterColumn("Action", "action");
+        TableColumn<RefilterRow, String> fit = refilterColumn("Fit", "fit");
+        TableColumn<RefilterRow, String> original = refilterColumn("Original", "original");
+        TableColumn<RefilterRow, String> matched = refilterColumn("Match", "matched");
+        for (TableColumn<RefilterRow, String> column : List.of(
+                sourceId, previous, action, fit, original, matched)) {
+            CopyableTextCell.install(column);
+        }
+        table.getColumns().setAll(selected, sourceId, title, previous, action, fit, original, matched);
+        Label count = new Label("Refilter candidates: " + rows.size());
+        Button cancel = new Button("Cancel");
+        Stage dialog = new Stage();
+        dialog.initOwner(stage);
+        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
+        dialog.setTitle("Refilter detail");
+        confirm.setOnAction(event -> {
+            ArrayNode chosen = json.createArrayNode();
+            rows.stream().filter(row -> row.selected.get())
+                    .forEach(row -> chosen.add(row.candidate.deepCopy()));
+            if (chosen.isEmpty()) return;
+            dialog.close();
+            runOperation("Applying selected Refilter transitions...",
+                    () -> clientData.applyRefilterCandidates(chosen), applied -> {
+                        refreshJobs();
+                        if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+                        statusLabel.setText("Refilter applied " + applied + " transitions");
+                    }, "Refilter failed");
+        });
+        cancel.setOnAction(event -> dialog.close());
+        HBox footer = new HBox(8, all, count, new javafx.scene.layout.Region(), cancel, confirm);
+        HBox.setHgrow(footer.getChildren().get(2), javafx.scene.layout.Priority.ALWAYS);
+        VBox content = new VBox(8, table, footer);
+        content.setPadding(new javafx.geometry.Insets(10));
+        VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
+        dialog.setScene(new javafx.scene.Scene(content, 1160, 540));
+        dialog.show();
+    }
+
+    private TableColumn<RefilterRow, String> refilterColumn(String title, String key) {
+        TableColumn<RefilterRow, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(
+                text(cell.getValue().candidate, key)));
+        return column;
+    }
+
+    private static String text(JsonNode row, String key) {
+        JsonNode value = row.get(key);
+        return value == null || value.isNull() ? "" : value.asText();
+    }
+
+    private static final class RefilterRow {
+        final JsonNode candidate;
+        final SimpleBooleanProperty selected = new SimpleBooleanProperty(true);
+        RefilterRow(JsonNode candidate) { this.candidate = candidate; }
+    }
+
+    @FunctionalInterface private interface TaskWork<T> {
+        T run(Consumer<String> updateMessage) throws Exception;
+    }
+
+    private void openUrl(String value) {
+        if (value == null || value.isBlank()) return;
+        try {
+            Desktop.getDesktop().browse(URI.create(value));
+        } catch (Exception error) {
+            statusLabel.setText("Could not open link: " + error.getMessage());
+        }
+    }
+
+    private static TextField linkedTextField() {
+        TextField field = new TextField();
+        field.setEditable(false);
+        field.setFocusTraversable(true);
+        field.setCursor(Cursor.HAND);
+        field.getStyleClass().add("filter-link-cell");
+        field.setMaxWidth(Region.USE_COMPUTED_SIZE);
+        return field;
+    }
+
+    private static boolean isLinkClick(TextField field, double x, int clickCount) {
+        Text measure = new Text(field.getText());
+        measure.setFont(field.getFont());
+        return clickCount == 1 && field.getSelectedText().isEmpty()
+                && x <= measure.getLayoutBounds().getWidth() + 12;
     }
 
     private void refreshJobs() {
@@ -465,6 +761,7 @@ public final class MainController {
         bind(locationColumn, JobRecord::location);
         bind(companyColumn, JobRecord::companyDisplay);
         companyColumn.setCellFactory(column -> new TableCell<>() {
+            private final TextField linkedText = linkedTextField();
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
@@ -472,13 +769,14 @@ public final class MainController {
                     setGraphic(null);
                     return;
                 }
-                Hyperlink link = new Hyperlink(value);
-                link.setPadding(javafx.geometry.Insets.EMPTY);
-                link.setOnAction(event -> {
-                    try { showCompanies(Integer.parseInt(row.companyId())); }
-                    catch (NumberFormatException ignored) { }
+                linkedText.setText(value);
+                linkedText.setOnMouseClicked(event -> {
+                    if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                        try { showCompanies(Integer.parseInt(row.companyId())); }
+                        catch (NumberFormatException ignored) { }
+                    }
                 });
-                setGraphic(link);
+                setGraphic(linkedText);
             }
         });
         bind(titleColumn, JobRecord::title);
@@ -504,6 +802,31 @@ public final class MainController {
                 this::filterFromDate
         );
         FilterLinkCell.install(reasonCodeColumn, JobRecord::reasonCode, this::filterByReason);
+        statusColumn.setCellFactory(column -> new TableCell<>() {
+            @Override protected void updateItem(String value, boolean empty) {
+                super.updateItem(value, empty);
+                JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
+                if (row == null) { setGraphic(null); return; }
+                if ("Applied".equalsIgnoreCase(value) && !row.applicationId().isBlank()) {
+                    TextField linkedText = linkedTextField();
+                    linkedText.setText(value);
+                    linkedText.setOnMouseClicked(event -> {
+                        if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                            try { showApplications(Integer.parseInt(row.applicationId())); }
+                            catch (NumberFormatException ignored) { }
+                        }
+                    });
+                    setGraphic(linkedText);
+                } else {
+                    TextField copyable = new TextField(value);
+                    copyable.setEditable(false);
+                    copyable.getStyleClass().add("copyable-cell");
+                    copyable.setPadding(javafx.geometry.Insets.EMPTY);
+                    copyable.setMaxWidth(Double.MAX_VALUE);
+                    setGraphic(copyable);
+                }
+            }
+        });
 
         scoreColumn.setComparator(numericComparator());
         fitColumn.setComparator(numericComparator());
@@ -583,6 +906,7 @@ public final class MainController {
                     job.relocation(), job.location(), job.companyDisplay(), job.title(),
                     job.role(), job.seniority(), job.language(), job.salary(),
                     job.addedAt(), job.reasonCode(), job.reason(), job.companyId(),
+                    job.applicationId(),
                     job.sourceUrl()
             );
             for (int index = 0; index < jobsTable.getItems().size(); index++) {
@@ -840,6 +1164,7 @@ public final class MainController {
     void shutdown() {
         if (auxiliaryWindows != null) auxiliaryWindows.shutdown();
         settingsSaveDelay.stop();
+        operationExecutor.shutdownNow();
         saveWindowSettings();
         if (pendingDetailTask != null) {
             pendingDetailTask.cancel(true);

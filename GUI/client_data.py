@@ -18,6 +18,8 @@ from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DRIVER_ROOT = PROJECT_ROOT / "Driver"
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
@@ -643,28 +645,23 @@ def save_scores(
 
 
 def load_linkedin_availability_candidates(db_path: str | Path) -> str:
-    score_sql = """
-        CAST((
-            j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
-            + 9999
-        ) / 10000 AS INTEGER)
-    """
     with _connection(db_path, readonly=True) as connection:
         rows = connection.execute(
-            f"""
+            """
             SELECT
                 text.source_url,
                 text.title,
                 coalesce(c.name, '') AS company,
-                {score_sql} AS score
+                CAST(jl.score AS INTEGER) AS score
             FROM jobs j
+            JOIN job_list jl ON jl.job_id = j.id
             JOIN source_job_texts text
                 ON text.source_job_ref = j.source_job_ref
             LEFT JOIN companies c ON c.id = text.company_id
-            WHERE j.status = ?
-                AND {score_sql} > 0
+            WHERE jl.status = ?
+                AND CAST(jl.score AS INTEGER) > 0
                 AND text.source_url LIKE ?
-            ORDER BY score DESC, j.added_at DESC, j.id DESC
+            ORDER BY CAST(jl.score AS INTEGER) DESC, j.added_at DESC, j.id DESC
             """,
             ("New", "%linkedin.com/%"),
         ).fetchall()
@@ -715,3 +712,9 @@ def apply_refilter_candidates(db_path: str | Path, candidates_json: str) -> int:
             ],
         )
     return len(applied_refs)
+
+
+def collect_refilter_candidates(db_path: str | Path) -> str:
+    from Tools.filter_database import collect_refilter_transitions
+
+    return _json(collect_refilter_transitions(Path(db_path)))

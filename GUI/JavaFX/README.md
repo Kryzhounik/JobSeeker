@@ -17,11 +17,20 @@ must also be available to the Java process. Then double-click `run.cmd`, or run:
 The project can also be launched directly with `mvn javafx:run` from this
 directory. Maven downloads the JavaFX platform modules on the first build.
 
-The main window currently loads the vacancy list through the shared data API
-and shows the selected vacancy's fields, source link, skills and full text.
-It also has status/score-zero filters, ID/date/reason search, sortable columns,
-copyable table/detail text, editable Fit and Interest fields, and persists the
-main window size and table sort/filter settings in `gui-settings.json`.
-The API accepts a database path and primitive values, returning structured
-records as JSON strings. JavaFX invokes `GUI.client_data` through `jpy`; it
-does not open SQLite itself or depend on the collector/orchestrator.
+The main window loads vacancies through the shared data API, displays details,
+skills and full text, and supports filters, sorting, copyable text and editable
+Fit/Interest. Companies, Applications, Collected and Config open as separate
+windows. Status actions apply to the selected vacancies; Applied creates the
+application records and links to them.
+
+Collect launches the configured Java LinkedIn collector in the background and
+shows its accepted/limit progress. Check LinkedIn checks scored New vacancies
+sequentially with a five-second interval; its JSONL log is
+`GUI/JavaFX/linkedin_availability_check.log`. Refilter uses the existing
+`Tools.filter_database` filter implementation through `GUI.client_data` and
+`jpy`. Refilter detail previews transitions and applies only checked rows.
+
+The client-data API accepts a database path and primitive values, returning
+structured records as JSON. JavaFX calls it through `jpy` and does not open
+SQLite directly. Database and network work for these actions runs off the
+JavaFX Application Thread.

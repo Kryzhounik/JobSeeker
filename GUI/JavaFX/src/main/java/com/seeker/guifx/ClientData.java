@@ -119,6 +119,7 @@ final class ClientData {
                     text(row, "primary_language"), text(row, "salary"),
                     text(row, "added_at"), text(row, "candidate_fit_reason_code"),
                     text(row, "candidate_fit_reason"), text(row, "company_id"),
+                    text(row, "application_id"),
                     text(row, "source_url")
             ));
         }
@@ -129,6 +130,34 @@ final class ClientData {
         try (PyObject result = module.call(
                 "save_scores", databasePath.toString(), sourceUrl, fit, interest
         )) {
+            return result.getIntValue();
+        }
+    }
+
+    synchronized JsonNode setJobStatus(List<String> sourceUrls, String status, String appliedAt)
+            throws Exception {
+        return readJson(call("set_job_status", databasePath.toString(),
+                json.writeValueAsString(sourceUrls), status, appliedAt));
+    }
+
+    synchronized JsonNode loadLinkedInAvailabilityCandidates() throws Exception {
+        return readJson(call("load_linkedin_availability_candidates", databasePath.toString()));
+    }
+
+    synchronized int markJobsClosed(List<String> sourceUrls, String closedStatus) throws Exception {
+        try (PyObject result = module.call("mark_jobs_closed", databasePath.toString(),
+                json.writeValueAsString(sourceUrls), closedStatus)) {
+            return result.getIntValue();
+        }
+    }
+
+    synchronized JsonNode collectRefilterCandidates() throws Exception {
+        return readJson(call("collect_refilter_candidates", databasePath.toString()));
+    }
+
+    synchronized int applyRefilterCandidates(JsonNode candidates) throws Exception {
+        try (PyObject result = module.call("apply_refilter_candidates",
+                databasePath.toString(), json.writeValueAsString(candidates))) {
             return result.getIntValue();
         }
     }

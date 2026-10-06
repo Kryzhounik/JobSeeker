@@ -30,7 +30,11 @@
         <VBox styleClass="toolbar">
             <HBox alignment="CENTER_LEFT" spacing="8.0">
                 <padding><Insets top="7.0" right="10.0" bottom="5.0" left="10.0" /></padding>
+                <Button fx:id="collectButton" text="Collect" styleClass="collect-button" />
                 <Button fx:id="refreshButton" text="Refresh" />
+                <Button fx:id="linkedinCheckButton" text="Check LinkedIn" />
+                <Button fx:id="refilterButton" text="Refilter" />
+                <Button fx:id="refilterDetailButton" text="Refilter detail" />
                 <Button fx:id="companiesButton" text="Companies" />
                 <Button fx:id="applicationsButton" text="Applications" />
                 <Button fx:id="collectedButton" text="Collected" />
@@ -83,6 +87,7 @@
                         <Hyperlink fx:id="sourceLink" text="" />
                         <Button fx:id="openButton" text="Open" />
                     </HBox>
+                    <HBox fx:id="statusActions" alignment="CENTER_LEFT" spacing="6.0" />
                     <SplitPane fx:id="detailSplit" dividerPositions="0.34" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">
                         <items>
                             <ScrollPane fitToWidth="true" hbarPolicy="NEVER">
