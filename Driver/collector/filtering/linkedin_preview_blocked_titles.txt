@@ -827,3 +827,7 @@ VIP Team Lead
 Packet Core CMM Integration Engineer
 Senior M365 Engineer
 Тестировщик
+Vue Developer
+AI Software Engineer Expert
+VoIP Engineer
+Data Specialist

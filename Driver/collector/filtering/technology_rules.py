@@ -20,6 +20,7 @@ HARD_REQUIREMENT_TEMPLATES = (
     r"\bstrong\s+[^.;:\r\n]{0,120}{technology}[^.;:\r\n]{0,120}\bskills?\b",
     r"\bstrong\s+(?:[\w-]+\s+){0,4}(?:development|programming)\s+experience\s+(?:with|in|using)\s+{technology}",
     r"\bstrong\s+hands[-\s]on\s+experience\s+(?:with|in|using)\s+{technology}",
+    r"\bhands[-\s]on\s+experience\s+(?:supporting|developing)(?:\s+(?:or|and)\s+(?:supporting|developing))?\s+{technology}",
     r"\b(?:deep\s+)?hands[-\s]on\s+expertise\s+(?:with|in|using)\s+{technology}",
     r"\bskills?\s+in\s+{technology}",
     r"\bexperience\s+(?:developing|working|programming|coding)(?:\s+[\w-]+){0,4}\s+(?:with|in|using)?\s*{technology}",
