@@ -59,6 +59,26 @@ final class SettingsStore {
         return boundedDivider("detail_divider", 0.34);
     }
 
+    double windowWidth(String key, double fallback) {
+        return boundedSize(key + "_width", fallback, 320);
+    }
+
+    double windowHeight(String key, double fallback) {
+        return boundedSize(key + "_height", fallback, 240);
+    }
+
+    String tableSortColumn(String key) {
+        return values.path(key + "_sort").path("column").asText("");
+    }
+
+    boolean tableSortDescending(String key) {
+        return values.path(key + "_sort").path("descending").asBoolean(false);
+    }
+
+    String collectedStage() {
+        return values.path("collected_stage_filter").asText("All");
+    }
+
     synchronized void saveStatusFilters(java.util.Map<String, Boolean> filters, boolean showZero)
             throws IOException {
         ObjectNode statusValues = json.createObjectNode();
@@ -85,6 +105,26 @@ final class SettingsStore {
     synchronized void saveDividers(double main, double detail) throws IOException {
         values.put("main_divider", main);
         values.put("detail_divider", detail);
+        save();
+    }
+
+    synchronized void saveWindowSize(String key, double width, double height) throws IOException {
+        values.put(key + "_width", width);
+        values.put(key + "_height", height);
+        save();
+    }
+
+    synchronized void saveTableSort(String key, String column, boolean descending)
+            throws IOException {
+        ObjectNode sort = json.createObjectNode();
+        sort.put("column", column);
+        sort.put("descending", descending);
+        values.set(key + "_sort", sort);
+        save();
+    }
+
+    synchronized void saveCollectedStage(String stage) throws IOException {
+        values.put("collected_stage_filter", stage);
         save();
     }
 

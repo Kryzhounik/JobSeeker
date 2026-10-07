@@ -3,6 +3,7 @@ package com.seeker.guifx;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.stage.Stage;
 
 import java.io.IOException;
@@ -23,6 +24,9 @@ public final class SeekerApplication extends Application {
         );
 
         stage.setTitle("Seeker Jobs");
+        stage.getIcons().add(new Image(
+                SeekerApplication.class.getResourceAsStream("/com/seeker/guifx/SeekerJobsIcon.png")
+        ));
         stage.setMinWidth(900);
         stage.setMinHeight(620);
         stage.setScene(scene);

@@ -79,6 +79,7 @@ public final class MainController {
     @FXML private Button linkedinCheckButton;
     @FXML private Button refilterButton;
     @FXML private Button refilterDetailButton;
+    @FXML private Button blackTitlesButton;
     @FXML private Button searchButton;
     @FXML private Button clearButton;
     @FXML private Button companiesButton;
@@ -128,6 +129,7 @@ public final class MainController {
     private ClientData clientData;
     private AuxiliaryWindows auxiliaryWindows;
     private SettingsStore settingsStore;
+    private TitleBlacklist titleBlacklist;
     private Stage stage;
     private JobRecord selectedJob;
     private String detailLoadedSourceUrl = "";
@@ -145,6 +147,7 @@ public final class MainController {
     private boolean scoreSaveRunning;
     private boolean operationRunning;
     private List<String> availableStatuses = List.of();
+    private Map<String, String> reasonCodeDescriptions = Map.of();
     private String focusAfterRefreshUrl = "";
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
@@ -167,6 +170,9 @@ public final class MainController {
         linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
         refilterButton.setOnAction(event -> startRefilter(false));
         refilterDetailButton.setOnAction(event -> startRefilter(true));
+        blackTitlesButton.setOnAction(event -> runOperation("Opening Black titles...",
+                () -> { titleBlacklist.openInNotepad(); return null; },
+                ignored -> statusLabel.setText("Opened Black titles"), "Black titles failed"));
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
         searchButton.setOnAction(event -> refreshJobs());
         clearButton.setOnAction(event -> clearTextFilters());
@@ -191,6 +197,7 @@ public final class MainController {
         });
         setDetailEnabled(false);
         settingsStore = new SettingsStore(ClientData.findProjectRoot());
+        titleBlacklist = new TitleBlacklist(ClientData.findProjectRoot());
         settingsSaveDelay.setOnFinished(event -> saveWindowSettings());
         mainSplit.getDividers().getFirst().positionProperty().addListener(
                 (observable, previous, current) -> scheduleWindowSettingsSave()
@@ -206,16 +213,26 @@ public final class MainController {
             @Override
             protected ClientSession call() throws Exception {
                 ClientData data = new ClientData();
-                return new ClientSession(data, data.loadStatusValues());
+                return new ClientSession(data, data.loadStatusValues(),
+                        data.loadReasonCodeDescriptions());
             }
         };
         connectionTask.setOnSucceeded(event -> {
             clientData = connectionTask.getValue().clientData();
             auxiliaryWindows = new AuxiliaryWindows(
-                    clientData, stage, this::focusJobFromAuxiliary
+                    clientData, stage, this::focusJobFromAuxiliary, settingsStore,
+                    this::addTitleToBlacklist
             );
             loadStatusFilters(connectionTask.getValue().statuses());
             availableStatuses = connectionTask.getValue().statuses();
+            reasonCodeDescriptions = connectionTask.getValue().reasonCodeDescriptions();
+            Label reasonHeader = new Label("Reason code");
+            reasonHeader.setTooltip(new Tooltip(reasonCodeDescriptions.entrySet().stream()
+                    .map(entry -> entry.getKey() + ": " + entry.getValue())
+                    .collect(java.util.stream.Collectors.joining("\n"))));
+            reasonCodeColumn.setText("");
+            reasonCodeColumn.setGraphic(reasonHeader);
+            jobsTable.refresh();
             buildStatusActions();
             restoreJobSort();
             refreshJobs();
@@ -392,6 +409,17 @@ public final class MainController {
         }
     }
 
+    private void addTitleToBlacklist(String value) {
+        if (operationRunning) {
+            statusLabel.setText("Finish the current operation first");
+            return;
+        }
+        runOperation("Updating title blacklist...", () -> titleBlacklist.add(value), added ->
+                statusLabel.setText(added ? "Added to title blacklist: " + value.strip()
+                        : "Already in title blacklist: " + value.strip()),
+                "Title blacklist failed");
+    }
+
     private void showRefilterPreview(JsonNode candidates) {
         List<RefilterRow> rows = new ArrayList<>();
         candidates.forEach(candidate -> rows.add(new RefilterRow(candidate.deepCopy())));
@@ -479,6 +507,15 @@ public final class MainController {
         content.setPadding(new javafx.geometry.Insets(10));
         VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
         dialog.setScene(new javafx.scene.Scene(content, 1160, 540));
+        dialog.setWidth(settingsStore.windowWidth("refilter_detail", 1160));
+        dialog.setHeight(settingsStore.windowHeight("refilter_detail", 540));
+        dialog.setOnHiding(event -> {
+            try {
+                settingsStore.saveWindowSize("refilter_detail", dialog.getWidth(), dialog.getHeight());
+            } catch (IOException error) {
+                statusLabel.setText("Settings save failed: " + error.getMessage());
+            }
+        });
         dialog.show();
     }
 
@@ -748,7 +785,8 @@ public final class MainController {
         }
     }
 
-    private record ClientSession(ClientData clientData, List<String> statuses) { }
+    private record ClientSession(ClientData clientData, List<String> statuses,
+                                 Map<String, String> reasonCodeDescriptions) { }
 
     private void configureColumns() {
         jobsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
@@ -780,6 +818,7 @@ public final class MainController {
             }
         });
         bind(titleColumn, JobRecord::title);
+        TitleTextCell.install(titleColumn, this::addTitleToBlacklist);
         bind(roleColumn, JobRecord::role);
         bind(seniorityColumn, JobRecord::seniority);
         bind(languageColumn, JobRecord::language);
@@ -790,7 +829,7 @@ public final class MainController {
 
         for (TableColumn<JobRecord, String> column : List.of(
                 scoreColumn, fitColumn, interestColumn, statusColumn, remoteColumn,
-                relocationColumn, locationColumn, companyColumn, titleColumn,
+                relocationColumn, locationColumn, companyColumn,
                 roleColumn, seniorityColumn, languageColumn, salaryColumn,
                 reasonColumn
         )) {
@@ -801,7 +840,8 @@ public final class MainController {
                 row -> formatDate(row.addedAt()),
                 this::filterFromDate
         );
-        FilterLinkCell.install(reasonCodeColumn, JobRecord::reasonCode, this::filterByReason);
+        FilterLinkCell.install(reasonCodeColumn, JobRecord::reasonCode, this::filterByReason,
+                code -> reasonCodeDescriptions.getOrDefault(code, ""));
         statusColumn.setCellFactory(column -> new TableCell<>() {
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);

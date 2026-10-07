@@ -5,6 +5,7 @@ import javafx.scene.Cursor;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.Region;
 import javafx.scene.text.Text;
 
@@ -14,9 +15,11 @@ import java.util.function.Function;
 final class FilterLinkCell<S> extends TableCell<S, String> {
     private final TextField textField = new TextField();
     private final Consumer<String> action;
+    private final Function<String, String> tooltipText;
 
-    private FilterLinkCell(Consumer<String> action) {
+    private FilterLinkCell(Consumer<String> action, Function<String, String> tooltipText) {
         this.action = action;
+        this.tooltipText = tooltipText;
         textField.setEditable(false);
         textField.setFocusTraversable(true);
         textField.getStyleClass().add("filter-link-cell");
@@ -38,13 +41,22 @@ final class FilterLinkCell<S> extends TableCell<S, String> {
             Function<S, String> value,
             Consumer<String> action
     ) {
+        install(column, value, action, ignored -> "");
+    }
+
+    static <S> void install(
+            TableColumn<S, String> column,
+            Function<S, String> value,
+            Consumer<String> action,
+            Function<String, String> tooltipText
+    ) {
         column.setCellValueFactory(cell -> {
             String text = value.apply(cell.getValue());
             return new javafx.beans.property.ReadOnlyStringWrapper(
                     text == null ? "" : text
             );
         });
-        column.setCellFactory(ignored -> new FilterLinkCell<>(action));
+        column.setCellFactory(ignored -> new FilterLinkCell<>(action, tooltipText));
     }
 
     private boolean clickIsOnText(double x) {
@@ -58,9 +70,13 @@ final class FilterLinkCell<S> extends TableCell<S, String> {
         super.updateItem(value, empty);
         if (empty) {
             textField.clear();
+            textField.setTooltip(null);
             setGraphic(null);
         } else {
             textField.setText(value == null ? "" : value);
+            String description = tooltipText.apply(textField.getText());
+            textField.setTooltip(description == null || description.isBlank()
+                    ? null : new Tooltip(description));
             setGraphic(textField);
         }
     }

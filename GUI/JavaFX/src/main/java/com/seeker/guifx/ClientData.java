@@ -3,14 +3,18 @@ package com.seeker.guifx;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.jpy.PyLib;
+import org.jpy.PyLibInitializer;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 final class ClientData {
     private final Path projectRoot;
@@ -25,6 +29,7 @@ final class ClientData {
             throw new IllegalStateException("Database not found: " + databasePath);
         }
         try {
+            initializePythonRuntime();
             if (!PyLib.isPythonRunning()) {
                 PyLib.startPython(projectRoot.toString());
             }
@@ -37,11 +42,46 @@ final class ClientData {
         module = PyModule.importModule("GUI.client_data");
     }
 
+    private void initializePythonRuntime() throws Exception {
+        Path runtime = projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties");
+        Properties properties = new Properties();
+        try (Reader reader = Files.newBufferedReader(runtime, StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        }
+        if (!PyLibInitializer.isPyLibInitialized()) {
+            PyLibInitializer.initPyLib(
+                    runtimePath(properties, "python.library"),
+                    runtimePath(properties, "jpy.library"),
+                    runtimePath(properties, "jdl.library")
+            );
+        }
+        if (!PyLib.isPythonRunning()) {
+            PyLib.setProgramName(runtimePath(properties, "python.executable"));
+            PyLib.setPythonHome(runtimePath(properties, "python.home"));
+        }
+    }
+
+    private static String runtimePath(Properties properties, String key) {
+        String value = properties.getProperty(key, "").strip();
+        if (value.isEmpty()) {
+            throw new IllegalStateException("Missing " + key + " in Python runtime configuration.");
+        }
+        return Path.of(value).toAbsolutePath().normalize().toString();
+    }
+
     synchronized List<String> loadStatusValues() throws Exception {
         JsonNode values = readJson(call("load_status_values", databasePath.toString()));
         List<String> statuses = new ArrayList<>();
         values.forEach(value -> statuses.add(value.asText()));
         return statuses;
+    }
+
+    synchronized Map<String, String> loadReasonCodeDescriptions() throws Exception {
+        JsonNode rows = readJson(call("load_reason_code_descriptions", databasePath.toString()));
+        Map<String, String> descriptions = new java.util.LinkedHashMap<>();
+        rows.fields().forEachRemaining(entry ->
+                descriptions.put(entry.getKey(), entry.getValue().asText("")));
+        return descriptions;
     }
 
     synchronized JsonNode loadCompanies() throws Exception {

@@ -6,9 +6,21 @@ shared Python client-data module at `GUI/client_data.py`.
 
 ## Run on Windows
 
-Install JDK 21 and Maven 3.9 or newer. Set `JAVA_HOME` to the JDK directory and
-make sure `mvn.cmd` is on `PATH`. The Python installation configured for `jpy`
-must also be available to the Java process. Then double-click `run.cmd`, or run:
+Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
+
+```powershell
+.\build_launcher.ps1 -JavaHome 'C:\path\to\jdk-21'
+```
+
+Then double-click `SeekerJobs.exe` in this directory. The build generates this
+GUI's black/yellow icon, copies the JavaFX/Jackson/jpy dependencies into
+`target/dependency`, checks the database connection through jpy, runs small
+GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
+does not need Maven at startup and does not leave a console window. Its startup
+output and errors go to `launch.log` beside the executable. Rebuild after code
+changes or a JDK move.
+
+For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 
 ```powershell
 .\run.ps1
@@ -16,12 +28,21 @@ must also be available to the Java process. Then double-click `run.cmd`, or run:
 
 The project can also be launched directly with `mvn javafx:run` from this
 directory. Maven downloads the JavaFX platform modules on the first build.
+The Python/JNI library paths come from
+`Driver/collector/java_linkedin/runtime.properties`.
 
 The main window loads vacancies through the shared data API, displays details,
 skills and full text, and supports filters, sorting, copyable text and editable
 Fit/Interest. Companies, Applications, Collected and Config open as separate
 windows. Status actions apply to the selected vacancies; Applied creates the
 application records and links to them.
+
+In the main and Collected Title columns, select text and right-click to add
+only that fragment to the title blacklist; right-click without a selection to
+add the whole title. The bottom Black titles button opens the active file in
+Notepad. Reason code cells show descriptions on hover, and the column header
+shows the full code reference. Window sizes, table sorts and the Collected
+stage filter are saved in `gui-settings.json`.
 
 Collect launches the configured Java LinkedIn collector in the background and
 shows its accepted/limit progress. Check LinkedIn checks scored New vacancies

@@ -7,6 +7,7 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
@@ -45,6 +46,8 @@ final class AuxiliaryWindows {
     private final ClientData data;
     private final Window owner;
     private final Consumer<String> openJob;
+    private final SettingsStore settingsStore;
+    private final Consumer<String> addTitleToBlacklist;
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "javafx-auxiliary-data");
         thread.setDaemon(true);
@@ -59,11 +62,15 @@ final class AuxiliaryWindows {
     AuxiliaryWindows(
             ClientData data,
             Window owner,
-            Consumer<String> openJob
+            Consumer<String> openJob,
+            SettingsStore settingsStore,
+            Consumer<String> addTitleToBlacklist
     ) {
         this.data = data;
         this.owner = owner;
         this.openJob = openJob;
+        this.settingsStore = settingsStore;
+        this.addTitleToBlacklist = addTitleToBlacklist;
     }
 
     void shutdown() {
@@ -148,6 +155,7 @@ final class AuxiliaryWindows {
                         event.getRowValue(), "set_company_blacklisted", event.getNewValue(), false
                 ));
                 companiesTable.getColumns().add(blacklisted);
+                restoreTableSort(companiesTable, "company");
 
                 TextField linkedinField = new TextField();
                 linkedinField.setPromptText("LinkedIn ID (optional)");
@@ -268,6 +276,9 @@ final class AuxiliaryWindows {
             }));
             TableColumn<ApplicationRow, String> date = new TableColumn<>("Date");
             date.setCellValueFactory(cell -> new SimpleStringProperty(displayDate(cell.getValue().date)));
+            date.setComparator(java.util.Comparator.comparing(
+                    AuxiliaryWindows::parseDisplayDate,
+                    java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
             TableColumn<ApplicationRow, String> status = new TableColumn<>("Status");
             status.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().status));
             status.setCellFactory(column -> new TableCell<>() {
@@ -302,6 +313,7 @@ final class AuxiliaryWindows {
                 }
             });
             table.getColumns().setAll(title, company, date, status);
+            restoreTableSort(table, "application");
             if (focusId != null) rows.stream().filter(row -> row.id == focusId).findFirst().ifPresent(row -> {
                 table.getSelectionModel().select(row);
                 table.scrollTo(row);
@@ -329,26 +341,37 @@ final class AuxiliaryWindows {
     private void buildCollected(List<CollectedRow> rows) {
             TableView<CollectedRow> table = new TableView<>(FXCollections.observableArrayList(rows));
             table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            TableColumn<CollectedRow, String> titleColumn = collectedColumn("Title", row -> row.title);
+            TitleTextCell.install(titleColumn, addTitleToBlacklist);
             table.getColumns().setAll(
                     collectedColumn("Source ID", row -> row.sourceId),
                     collectedColumn("Stage", row -> row.stage),
                     collectedColumn("Collector", row -> row.collector),
-                    collectedColumn("Title", row -> row.title),
+                    titleColumn,
                     collectedColumn("Company", row -> row.company),
                     collectedColumn("Location", row -> row.location),
                     collectedColumn("Workplace", row -> row.workplace),
                     collectedColumn("Salary", row -> row.salary),
                     collectedColumn("URL", row -> row.url)
             );
+            restoreTableSort(table, "collected");
             ComboBox<String> stageFilter = new ComboBox<>();
             List<String> stages = rows.stream().map(row -> row.stage).distinct().sorted().toList();
             stageFilter.getItems().add("All");
             stageFilter.getItems().addAll(stages);
-            stageFilter.setValue("All");
-            stageFilter.setOnAction(event -> table.setItems(FXCollections.observableArrayList(
-                    rows.stream().filter(row -> stageFilter.getValue().equals("All")
-                            || row.stage.equals(stageFilter.getValue())).toList()
-            )));
+            String savedStage = settingsStore.collectedStage();
+            stageFilter.setValue(stageFilter.getItems().contains(savedStage) ? savedStage : "All");
+            java.util.function.Consumer<String> applyStage = value -> {
+                table.setItems(FXCollections.observableArrayList(rows.stream().filter(row ->
+                        "All".equals(value) || row.stage.equals(value)).toList()));
+                table.sort();
+            };
+            applyStage.accept(stageFilter.getValue());
+            stageFilter.setOnAction(event -> {
+                applyStage.accept(stageFilter.getValue());
+                try { settingsStore.saveCollectedStage(stageFilter.getValue()); }
+                catch (java.io.IOException error) { showError("Settings save failed", error); }
+            });
             TextArea text = new TextArea();
             text.setEditable(false);
             text.setWrapText(true);
@@ -357,7 +380,10 @@ final class AuxiliaryWindows {
             table.setRowFactory(view -> {
                 var row = new javafx.scene.control.TableRow<CollectedRow>();
                 row.setOnMouseClicked(event -> {
-                    if (event.getClickCount() == 2 && !row.isEmpty()) openUrl(row.getItem().url);
+                    if (event.getClickCount() == 2 && !row.isEmpty()
+                            && !TitleTextCell.isTitleTarget(event.getTarget())) {
+                        openUrl(row.getItem().url);
+                    }
                 });
                 return row;
             });
@@ -470,9 +496,49 @@ final class AuxiliaryWindows {
         stage.initOwner(owner);
         stage.initModality(Modality.NONE);
         stage.setTitle(title);
-        stage.setWidth(width);
-        stage.setHeight(height);
+        String key = title.equals("Collected jobs") ? "collected"
+                : title.toLowerCase(java.util.Locale.ROOT);
+        stage.setWidth(settingsStore.windowWidth(key, width));
+        stage.setHeight(settingsStore.windowHeight(key, height));
+        stage.getIcons().add(new Image(AuxiliaryWindows.class.getResourceAsStream(
+                "/com/seeker/guifx/SeekerJobsIcon.png")));
+        stage.setOnHiding(event -> {
+            try { settingsStore.saveWindowSize(key, stage.getWidth(), stage.getHeight()); }
+            catch (java.io.IOException error) { showError("Settings save failed", error); }
+        });
         return stage;
+    }
+
+    private <T> void restoreTableSort(TableView<T> table, String key) {
+        table.setSortPolicy(view -> {
+            boolean sorted = TableView.DEFAULT_SORT_POLICY.call(view);
+            TableColumn<T, ?> column = view.getSortOrder().isEmpty()
+                    ? null : view.getSortOrder().getFirst();
+            try {
+                settingsStore.saveTableSort(key, column == null ? "" : column.getText(),
+                        column != null && column.getSortType() == TableColumn.SortType.DESCENDING);
+            } catch (java.io.IOException error) {
+                showError("Settings save failed", error);
+            }
+            return sorted;
+        });
+        String savedColumn = settingsStore.tableSortColumn(key);
+        table.getColumns().stream().filter(column -> column.getText().equals(savedColumn))
+                .findFirst().ifPresent(column -> {
+                    column.setSortType(settingsStore.tableSortDescending(key)
+                            ? TableColumn.SortType.DESCENDING : TableColumn.SortType.ASCENDING);
+                    table.getSortOrder().setAll(column);
+                    table.sort();
+                });
+    }
+
+    private static java.time.LocalDate parseDisplayDate(String value) {
+        try {
+            return java.time.LocalDate.parse(value,
+                    java.time.format.DateTimeFormatter.ofPattern("dd.MM.uuuu"));
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 
     private static Path collectorConfigPath() {

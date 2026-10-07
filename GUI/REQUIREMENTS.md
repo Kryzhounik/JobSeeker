@@ -35,7 +35,7 @@ this file describes the user-visible behavior to reproduce.
   Mouse selection followed by Ctrl+C copies the selected substring where text
   selection is active. Search and editable fields also support normal Ctrl+V
   and context-menu actions.
-- [ ] In Title cells of the main and Collected tables, allow selecting a title
+- [x] In Title cells of the main and Collected tables, allow selecting a title
   fragment and adding just that fragment to the title blacklist. Right-clicking
   without a selection offers the whole title instead. Apply these actions only
   to Title. Ignore blank and case-insensitive duplicate blacklist entries.
@@ -52,7 +52,7 @@ this file describes the user-visible behavior to reproduce.
   accepts comma-separated codes and matches any of them (`IN`). Search/Enter
   applies the text filters; Clear resets ID, Date and Reason. Clicking a date
   fills Date; clicking a reason adds it without duplicates.
-- [ ] Hovering over a Reason code shows its description from
+- [x] Hovering over a Reason code shows its description from
   `candidate_fit_reason_codes`; hovering over the column header lists all
   available codes and descriptions.
 
@@ -125,12 +125,12 @@ this file describes the user-visible behavior to reproduce.
   selects or clears every row. Confirm applies only checked transitions;
   Cancel or closing the preview leaves them unapplied. Show the resulting
   count and refresh affected lists.
-- [ ] The bottom Black titles action opens the active title-blocklist file in
+- [x] The bottom Black titles action opens the active title-blocklist file in
   Windows Notepad.
 
 ## Persistence and runtime
 
-- [ ] Persist status and Show zero selections, main/Companies/Applications/
+- [x] Persist status and Show zero selections, main/Companies/Applications/
   Collected sorting, the Collected stage filter, and the sizes of the main,
   Companies, Applications, Collected, Config and Refilter detail windows.
   Restore them after reopening; Refresh preserves the current selections and
@@ -139,5 +139,19 @@ this file describes the user-visible behavior to reproduce.
   thread, show live status, report failures, and prevent overlapping runs of
   those three operations. Secondary windows remain usable when the main window
   is minimized and restored.
-- [ ] Provide a convenient double-click Windows launcher for the JavaFX GUI
+- [x] Provide a convenient double-click Windows launcher for the JavaFX GUI
   with a recognizable icon and without a lingering console window.
+
+## Verification (2026-10-07)
+
+- `GUI/JavaFX/build_launcher.ps1` builds the JavaFX classes, copies runtime
+  dependencies, runs read-only jpy/database, GUI feature and FXML smoke checks,
+  and builds the icon-bearing `SeekerJobs.exe`. All checks passed.
+- The launcher runs `javaw.exe` without a console. Its startup output goes to
+  `GUI/JavaFX/launch.log`. JavaFX now has its own high-contrast icon in the
+  executable and windows, distinct from the Tkinter icon.
+- Added title-fragment/whole-title blacklist actions, Reason code description
+  tooltips, the bottom Black titles action, and persistence of auxiliary
+  window sizes/sorts and the Collected stage filter. Automated checks cover
+  blacklist deduplication, settings restoration, reason-code loading and FXML
+  initialization. Mouse interactions have not been manually verified.

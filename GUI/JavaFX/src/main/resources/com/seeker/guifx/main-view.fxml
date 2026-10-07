@@ -158,4 +158,10 @@
             </items>
         </SplitPane>
     </center>
+    <bottom>
+        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="toolbar">
+            <padding><Insets top="5.0" right="10.0" bottom="5.0" left="10.0" /></padding>
+            <Button fx:id="blackTitlesButton" text="Black titles" />
+        </HBox>
+    </bottom>
 </BorderPane>
