@@ -152,6 +152,7 @@ final class ClientData {
                     ? company + " (" + applicationCount + ")"
                     : company;
             jobs.add(new JobRecord(
+                    row.path("job_id").asInt(),
                     text(row, "score"), text(row, "fit"), text(row, "interest"),
                     text(row, "status"), text(row, "remote_scope"),
                     text(row, "relocation"), text(row, "location"), companyDisplay,
@@ -166,9 +167,9 @@ final class ClientData {
         return jobs;
     }
 
-    synchronized int saveScores(String sourceUrl, int fit, int interest) {
+    synchronized int saveScores(int jobId, int fit, int interest) {
         try (PyObject result = module.call(
-                "save_scores", databasePath.toString(), sourceUrl, fit, interest
+                "save_scores", databasePath.toString(), jobId, fit, interest
         )) {
             return result.getIntValue();
         }
@@ -178,6 +179,12 @@ final class ClientData {
             throws Exception {
         return readJson(call("set_job_status", databasePath.toString(),
                 json.writeValueAsString(sourceUrls), status, appliedAt));
+    }
+
+    synchronized JsonNode setJobStatusByIds(List<Integer> jobIds, String status, String appliedAt)
+            throws Exception {
+        return readJson(call("set_job_status_by_ids", databasePath.toString(),
+                json.writeValueAsString(jobIds), status, appliedAt));
     }
 
     synchronized JsonNode loadLinkedInAvailabilityCandidates() throws Exception {
@@ -202,9 +209,9 @@ final class ClientData {
         }
     }
 
-    synchronized JobDetail loadDetail(String sourceUrl) throws Exception {
+    synchronized JobDetail loadDetail(int jobId) throws Exception {
         JsonNode result = readJson(call(
-                "load_job_detail", databasePath.toString(), sourceUrl
+                "load_job_detail", databasePath.toString(), jobId
         ));
         JsonNode detail = result.path("detail");
         List<TechnologyRecord> technologies = new ArrayList<>();

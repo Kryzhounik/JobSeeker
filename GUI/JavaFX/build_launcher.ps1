@@ -42,10 +42,25 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX FXML check failed with exit code $LASTEXITCODE."
 }
+& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.UiSmoke
+if ($LASTEXITCODE -ne 0) {
+    throw "JavaFX UI check failed with exit code $LASTEXITCODE."
+}
+& python -m unittest GUI.test_client_data_smoke
+if ($LASTEXITCODE -ne 0) {
+    throw "Client data write check failed with exit code $LASTEXITCODE."
+}
 
 $source = Join-Path $directory "SeekerLauncher.cs"
 $icon = Join-Path $directory "SeekerJobsIcon.ico"
 $output = Join-Path $directory "SeekerJobs.exe"
+try {
+    $stream = [System.IO.File]::Open($output, 'OpenOrCreate', 'ReadWrite', 'None')
+    $stream.Dispose()
+} catch [System.IO.IOException] {
+    $output = Join-Path $directory "SeekerJobs-updated.exe"
+    Write-Output "SeekerJobs.exe is running; building $output instead."
+}
 & $compiler /nologo /target:winexe "/win32icon:$icon" "/out:$output" `
     /reference:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) {

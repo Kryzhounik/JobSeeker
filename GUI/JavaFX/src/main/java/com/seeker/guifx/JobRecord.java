@@ -1,6 +1,7 @@
 package com.seeker.guifx;
 
 record JobRecord(
+        int jobId,
         String score,
         String fit,
         String interest,

@@ -14,7 +14,9 @@ final class SettingsStore {
     private final ObjectNode values;
 
     SettingsStore(Path projectRoot) {
-        path = projectRoot.resolve("GUI/JavaFX/gui-settings.json");
+        String override = System.getProperty("seeker.gui.settings.path", "");
+        path = override.isBlank() ? projectRoot.resolve("GUI/JavaFX/gui-settings.json")
+                : Path.of(override);
         ObjectNode loaded;
         try {
             JsonNode node = json.readTree(path.toFile());

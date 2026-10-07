@@ -132,7 +132,7 @@ public final class MainController {
     private TitleBlacklist titleBlacklist;
     private Stage stage;
     private JobRecord selectedJob;
-    private String detailLoadedSourceUrl = "";
+    private int detailLoadedJobId = -1;
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
     private final ObjectMapper json = new ObjectMapper();
     private final ThreadPoolExecutor operationExecutor = new ThreadPoolExecutor(
@@ -297,11 +297,11 @@ public final class MainController {
     }
 
     private void applyStatusToSelection(String status) {
-        List<String> urls = jobsTable.getSelectionModel().getSelectedItems().stream()
-                .map(JobRecord::sourceUrl).filter(url -> !url.isBlank()).distinct().toList();
-        if (urls.isEmpty()) return;
-        runOperation("Saving status...", () -> clientData.setJobStatus(
-                urls, status, LocalDate.now().toString()), result -> {
+        List<Integer> jobIds = jobsTable.getSelectionModel().getSelectedItems().stream()
+                .map(JobRecord::jobId).distinct().toList();
+        if (jobIds.isEmpty()) return;
+        runOperation("Saving status...", () -> clientData.setJobStatusByIds(
+                jobIds, status, LocalDate.now().toString()), result -> {
             int updated = result.path("updated_count").asInt();
             int created = result.path("created_applications").asInt();
             refreshJobs();
@@ -571,7 +571,7 @@ public final class MainController {
         if (clientData == null) {
             return;
         }
-        String selectedUrl = selectedJob == null ? "" : selectedJob.sourceUrl();
+        int selectedId = selectedJob == null ? -1 : selectedJob.jobId();
         Map<String, Object> filters;
         try {
             String date = dateFilterField.getText().strip();
@@ -628,9 +628,10 @@ public final class MainController {
             dateFilterField.setDisable(false);
             reasonFilterField.setDisable(false);
             statusLabel.setText(task.getValue().size() + " vacancies");
-            String restoreUrl = requestedFocusUrl.isBlank() ? selectedUrl : requestedFocusUrl;
             JobRecord restore = task.getValue().stream()
-                    .filter(row -> row.sourceUrl().equals(restoreUrl))
+                    .filter(row -> requestedFocusUrl.isBlank()
+                            ? row.jobId() == selectedId
+                            : row.sourceUrl().equals(requestedFocusUrl))
                     .findFirst()
                     .orElse(null);
             if (restore != null) {
@@ -898,7 +899,7 @@ public final class MainController {
     private void saveScores() {
         JobRecord job = selectedJob;
         if (job == null
-                || !job.sourceUrl().equals(detailLoadedSourceUrl)
+                || job.jobId() != detailLoadedJobId
                 || scoreSaveRunning) {
             return;
         }
@@ -934,14 +935,14 @@ public final class MainController {
         Task<Integer> task = new Task<>() {
             @Override
             protected Integer call() {
-                return clientData.saveScores(job.sourceUrl(), fit, interest);
+                return clientData.saveScores(job.jobId(), fit, interest);
             }
         };
         task.setOnSucceeded(event -> {
             scoreSaveRunning = false;
             int score = task.getValue();
             JobRecord updated = new JobRecord(
-                    Integer.toString(score), Integer.toString(fit),
+                    job.jobId(), Integer.toString(score), Integer.toString(fit),
                     Integer.toString(interest), job.status(), job.remoteScope(),
                     job.relocation(), job.location(), job.companyDisplay(), job.title(),
                     job.role(), job.seniority(), job.language(), job.salary(),
@@ -950,7 +951,7 @@ public final class MainController {
                     job.sourceUrl()
             );
             for (int index = 0; index < jobsTable.getItems().size(); index++) {
-                if (jobsTable.getItems().get(index).sourceUrl().equals(job.sourceUrl())) {
+                if (jobsTable.getItems().get(index).jobId() == job.jobId()) {
                     if (score == 0 && !showZeroCheck.isSelected()) {
                         refreshJobs();
                     } else {
@@ -960,16 +961,16 @@ public final class MainController {
                 }
             }
             if (selectedJob != null
-                    && selectedJob.sourceUrl().equals(job.sourceUrl())) {
+                    && selectedJob.jobId() == job.jobId()) {
                 selectedJob = updated;
-                if (job.sourceUrl().equals(detailLoadedSourceUrl)) {
+                if (job.jobId() == detailLoadedJobId) {
                     scoreField.setText(Integer.toString(score));
                     fitField.setText(Integer.toString(fit));
                     interestField.setText(Integer.toString(interest));
                 }
             }
             boolean detailReady = selectedJob != null
-                    && selectedJob.sourceUrl().equals(detailLoadedSourceUrl);
+                    && selectedJob.jobId() == detailLoadedJobId;
             fitField.setDisable(!detailReady);
             interestField.setDisable(!detailReady);
             statusLabel.setText("Scores saved");
@@ -977,13 +978,13 @@ public final class MainController {
         task.setOnFailed(event -> {
             scoreSaveRunning = false;
             if (selectedJob != null
-                    && selectedJob.sourceUrl().equals(job.sourceUrl())
-                    && job.sourceUrl().equals(detailLoadedSourceUrl)) {
+                    && selectedJob.jobId() == job.jobId()
+                    && job.jobId() == detailLoadedJobId) {
                 fitField.setText(job.fit());
                 interestField.setText(job.interest());
             }
             boolean detailReady = selectedJob != null
-                    && selectedJob.sourceUrl().equals(detailLoadedSourceUrl);
+                    && selectedJob.jobId() == detailLoadedJobId;
             fitField.setDisable(!detailReady);
             interestField.setDisable(!detailReady);
             statusLabel.setText("Score update failed: " + task.getException().getMessage());
@@ -1016,7 +1017,7 @@ public final class MainController {
     }
 
     private void loadDetail(JobRecord job) {
-        detailLoadedSourceUrl = "";
+        detailLoadedJobId = -1;
         setDetailEnabled(false);
         selectedJob = job;
         detailRequestId++;
@@ -1034,7 +1035,7 @@ public final class MainController {
         Task<JobDetail> task = new Task<>() {
             @Override
             protected JobDetail call() throws Exception {
-                return clientData.loadDetail(job.sourceUrl());
+                return clientData.loadDetail(job.jobId());
             }
         };
         pendingDetailTask = task;
@@ -1057,7 +1058,7 @@ public final class MainController {
 
     private void showDetail(JobDetail detail) {
         JobRecord job = selectedJob;
-        if (job == null || !job.sourceUrl().equals(detail.sourceUrl())) {
+        if (job == null || job.jobId() != Integer.parseInt(detail.id())) {
             return;
         }
         set(titleField, detail.title());
@@ -1080,8 +1081,10 @@ public final class MainController {
         skillsTable.setItems(FXCollections.observableArrayList(detail.technologies()));
         summaryArea.setText(detail.summary());
         fullTextArea.setText(detail.readableText());
-        detailLoadedSourceUrl = detail.sourceUrl();
+        detailLoadedJobId = job.jobId();
         setDetailEnabled(true);
+        sourceLink.setDisable(job.sourceUrl().isBlank());
+        openButton.setDisable(job.sourceUrl().isBlank());
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
         showText(textToggle.isSelected());
@@ -1089,7 +1092,7 @@ public final class MainController {
 
     private void clearDetail() {
         selectedJob = null;
-        detailLoadedSourceUrl = "";
+        detailLoadedJobId = -1;
         sourceLink.setText("");
         for (TextField field : List.of(
                 titleField, companyField, idField, sourceIdField, scoreField, fitField,

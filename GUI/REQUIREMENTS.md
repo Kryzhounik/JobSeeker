@@ -155,3 +155,11 @@ this file describes the user-visible behavior to reproduce.
   window sizes/sorts and the Collected stage filter. Automated checks cover
   blacklist deduplication, settings restoration, reason-code loading and FXML
   initialization. Mouse interactions have not been manually verified.
+- A JavaFX UI smoke check now opens the main window and four auxiliary windows,
+  loads a vacancy detail, and exercises ID Search/Clear. A separate write check
+  uses a temporary database snapshot to verify ID-based Fit/Interest and Applied
+  updates, including an application without duplicates. Vacancies lacking URLs
+  are addressed by internal job ID; the real database is not modified by tests.
+- The Windows desktop interaction check could not be completed. The application
+  test window passed rendering checks, but mouse selection, drag copying and
+  minimize/restore behavior remain unverified manually.

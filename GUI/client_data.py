@@ -24,7 +24,6 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from db.applications import (  # noqa: E402
-    create_for_source_urls,
     list_application_statuses,
     list_applications,
     update_status as update_application_status,
@@ -182,6 +181,7 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
         rows = connection.execute(
             f"""
             SELECT
+                j.id AS job_id,
                 jl.score,
                 jl.fit,
                 jl.interest,
@@ -230,14 +230,16 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
     return _json(_rows_as_dicts(rows))
 
 
-def load_job_detail(db_path: str | Path, source_url: str) -> str:
+def load_job_detail(db_path: str | Path, source_url: str | int) -> str:
+    by_id = isinstance(source_url, int)
+    where = "j.id = ?" if by_id else "text.source_url = ?"
     with _connection(db_path, readonly=True) as connection:
         row = connection.execute(
-            """
+            f"""
             SELECT
                 j.id,
                 sj.source_job_id,
-                text.title,
+                coalesce(text.title, '') AS title,
                 coalesce(c.name, '') AS company,
                 j.location,
                 j.remote_type,
@@ -253,16 +255,16 @@ def load_job_detail(db_path: str | Path, source_url: str) -> str:
                     j.job_interest * j.candidate_fit_percent * j.candidate_fit_percent
                     + 9999
                 ) / 10000 AS INTEGER) AS score,
-                text.source_url,
+                coalesce(text.source_url, '') AS source_url,
                 j.summary,
                 coalesce(text.readable_text, '') AS readable_text,
                 j.added_at
             FROM jobs j
             JOIN source_jobs sj ON sj.id = j.source_job_ref
-            JOIN source_job_texts text
+            LEFT JOIN source_job_texts text
                 ON text.source_job_ref = j.source_job_ref
             LEFT JOIN companies c ON c.id = text.company_id
-            WHERE text.source_url = ?
+            WHERE {where}
             """,
             (source_url,),
         ).fetchone()
@@ -522,6 +524,52 @@ def find_job_by_source_url(db_path: str | Path, source_url: str) -> str:
     return _json(dict(row) if row is not None else None)
 
 
+def _update_job_status_by_ids(
+    connection: sqlite3.Connection,
+    job_ids: list[int],
+    status: str,
+    applied_at: str,
+) -> tuple[int, int]:
+    placeholders = ", ".join("?" for _ in job_ids)
+    result = connection.execute(
+        f"""
+        UPDATE jobs
+        SET status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id IN ({placeholders})
+        """,
+        [status, *job_ids],
+    )
+    if result.rowcount == 0:
+        raise KeyError("Selected jobs were not found.")
+    created = 0
+    if status == "Applied":
+        connection.execute(
+            f"""
+            INSERT OR IGNORE INTO applications (job_id, applied_at, status)
+            SELECT id, ?, 'Applied' FROM jobs WHERE id IN ({placeholders})
+            """,
+            [applied_at, *job_ids],
+        )
+        created = int(connection.execute("SELECT changes()").fetchone()[0])
+    return int(result.rowcount), created
+
+
+def set_job_status_by_ids(
+    db_path: str | Path,
+    job_ids_json: str,
+    status: str,
+    applied_at: str,
+) -> str:
+    job_ids = list(dict.fromkeys(int(value) for value in json.loads(job_ids_json or "[]")))
+    if not job_ids:
+        return _json({"updated_count": 0, "created_applications": 0})
+    with _connection(db_path, readonly=False) as connection:
+        updated, created = _update_job_status_by_ids(
+            connection, job_ids, status, applied_at
+        )
+    return _json({"updated_count": updated, "created_applications": created})
+
+
 def set_job_status(
     db_path: str | Path,
     source_urls_json: str,
@@ -544,27 +592,20 @@ def set_job_status(
     company_application_counts: dict[str, str] = {}
     with _connection(db_path, readonly=False) as connection:
         placeholders = ", ".join("?" for _ in source_urls)
-        result = connection.execute(
+        rows = connection.execute(
             f"""
-            UPDATE jobs
-            SET status = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE source_job_ref IN (
-                SELECT source_job_ref
-                FROM source_job_texts
-                WHERE source_url IN ({placeholders})
-            )
+            SELECT j.id
+            FROM jobs j
+            JOIN source_job_texts text ON text.source_job_ref = j.source_job_ref
+            WHERE text.source_url IN ({placeholders})
             """,
-            [status, *source_urls],
+            source_urls,
+        ).fetchall()
+        updated_count, created_applications = _update_job_status_by_ids(
+            connection, [int(row[0]) for row in rows], status, applied_at
         )
-        if result.rowcount == 0:
-            raise KeyError("Selected jobs were not found.")
 
         if status == "Applied":
-            created_applications = create_for_source_urls(
-                connection,
-                source_urls,
-                applied_at,
-            )
             application_ids = {
                 str(row["source_url"]): str(row["application_id"])
                 for row in connection.execute(
@@ -604,7 +645,7 @@ def set_job_status(
             }
 
     return _json({
-        "updated_count": int(result.rowcount),
+        "updated_count": updated_count,
         "created_applications": created_applications,
         "application_ids": application_ids,
         "company_application_counts": company_application_counts,
@@ -613,29 +654,28 @@ def set_job_status(
 
 def save_scores(
     db_path: str | Path,
-    source_url: str,
+    source_url: str | int,
     fit: int,
     interest: int,
 ) -> int:
+    by_id = isinstance(source_url, int)
+    where = "id = ?" if by_id else "source_job_ref = (SELECT source_job_ref FROM source_job_texts WHERE source_url = ?)"
     with _connection(db_path, readonly=False) as connection:
         result = connection.execute(
-            """
+            f"""
             UPDATE jobs
             SET candidate_fit_percent = ?,
                 job_interest = ?,
                 updated_at = CURRENT_TIMESTAMP
-            WHERE source_job_ref = (
-                SELECT source_job_ref
-                FROM source_job_texts
-                WHERE source_url = ?
-            )
+            WHERE {where}
             """,
             (int(fit), int(interest), source_url),
         )
         if result.rowcount != 1:
             raise KeyError(f"Job not found: {source_url}")
         score_row = connection.execute(
-            "SELECT score FROM job_list WHERE source_url = ?",
+            "SELECT score FROM job_list WHERE "
+            + ("job_id = ?" if by_id else "source_url = ?"),
             (source_url,),
         ).fetchone()
         if score_row is None:
