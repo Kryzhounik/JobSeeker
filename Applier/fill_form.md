@@ -18,6 +18,12 @@ matching location. Otherwise enter the preferred location. This rule takes
 precedence over a location mentioned in the resume. Do not invent a city or
 address when the facts only name a country.
 
+For a phone number field, apply the same location-selection rule above and use
+the number listed for that location in the facts file. If the selected
+location has no listed number, leave the phone field unanswered and mention
+it in the result. If the form asks for neither location nor phone, there is
+no need to select a location.
+
 Do not pick a compensation number from a range without an explicit selection
 rule. No compensation selection rule is defined yet, so leave such questions
 unanswered and mention them in the result.
