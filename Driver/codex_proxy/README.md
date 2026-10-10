@@ -31,10 +31,15 @@ python codex_proxy/metrics_proxy.py
   --thread-id <persisted-thread-id> # omit for the first target input
   --model <model>                   # optional operation override
   --reasoning-effort <effort>       # optional operation override
+  --allow-browser-tools             # Applier: permit Playwright MCP browser tools
 ```
 
 If either optional override is omitted, that value comes from `config.ini`.
 Overrides apply only to the current invocation and do not change the file.
+Browser tools are prohibited by default for analyzer operations. Applier passes
+`--allow-browser-tools` (or `allow_browser_tools=True` to `run`) to permit only
+Playwright MCP browser tools in its agent instructions. MCP connection setup is
+a separate part of the Applier integration.
 
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.

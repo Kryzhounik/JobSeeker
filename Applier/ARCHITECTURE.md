@@ -1,7 +1,7 @@
 # Applier architecture
 
 This is a minimal design for the happy-path prototype. Behavioral expectations
-live in `REQUIREMENTS.md`; implementation planning follows agreement on scope.
+live in `REQUIREMENTS.md`; execution steps are in `PLAN.md`.
 
 ## Shared browser
 
@@ -56,10 +56,10 @@ registry or an adapter framework.
 ## Existing Codex Proxy
 
 Reuse `Driver/codex_proxy` for CLI invocation, response handling, and token
-usage accounting. Add only the ability needed to configure Playwright MCP
-for an Applier invocation: the MCP launch command and the shared browser's
-CDP endpoint. Keep this configuration specific to the Applier call so existing
-analyzer calls retain their behavior. Do not create another CLI launcher.
+usage accounting. Its browser-tools mode permits Playwright MCP for Applier
+while analyzer calls keep their existing no-tools instruction. Configure
+Playwright MCP for an Applier invocation with the shared browser's CDP endpoint.
+Do not create another CLI launcher.
 
 Applier supplies the form-filling instruction and input. The proxy continues
 to handle CLI invocation and metrics, without form-filling logic. There is no

@@ -67,6 +67,17 @@ class CodexProxyTest(unittest.TestCase):
             self.assertIn("FIT RULES", prompt)
             self.assertIn('{"title":"Backend"}', prompt)
             self.assertIn("CANDIDATE PROFILE", prompt)
+            self.assertIn("Do not use tools", prompt)
+
+            browser_prompt = cli_prompt(
+                instruction,
+                '{"title":"Backend"}',
+                "stdin",
+                (context,),
+                allow_browser_tools=True,
+            )
+            self.assertIn("Use only Playwright MCP browser tools", browser_prompt)
+            self.assertNotIn("Do not use tools", browser_prompt)
 
     def test_cli_continuation_sends_only_the_next_input(self) -> None:
         prompt = cli_continuation_prompt('{"job_id":"2"}', "linkedin-2.json")
@@ -75,6 +86,15 @@ class CodexProxyTest(unittest.TestCase):
         self.assertIn("linkedin-2.json", prompt)
         self.assertNotIn("INSTRUCTION", prompt)
         self.assertNotIn("CONTEXT", prompt)
+        self.assertIn("Do not use tools", prompt)
+
+        browser_prompt = cli_continuation_prompt(
+            '{"job_id":"2"}',
+            "linkedin-2.json",
+            allow_browser_tools=True,
+        )
+        self.assertIn("Use only Playwright MCP browser tools", browser_prompt)
+        self.assertNotIn("Do not use tools", browser_prompt)
 
     @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
     @patch("codex_proxy.codex_cli.subprocess.run")

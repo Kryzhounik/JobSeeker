@@ -31,11 +31,18 @@ def cli_prompt(
     input_text: str,
     input_name: str,
     context_paths: tuple[Path, ...],
+    *,
+    allow_browser_tools: bool = False,
 ) -> str:
     """Materialize an explicit operation request for an isolated CLI agent."""
     sections = [
         "Perform exactly one isolated agent operation.",
-        "Do not use tools, inspect other files, run commands, or write files.",
+        (
+            "Use only Playwright MCP browser tools. Do not inspect other files, "
+            "run commands, or write files."
+            if allow_browser_tools else
+            "Do not use tools, inspect other files, run commands, or write files."
+        ),
         "Return only the JSON object required by the output schema.",
         f"\nINSTRUCTION ({instruction_path.name}):\n"
         + instruction_path.read_text(encoding="utf-8"),
@@ -48,12 +55,22 @@ def cli_prompt(
     return "\n".join(sections)
 
 
-def cli_continuation_prompt(input_text: str, input_name: str) -> str:
+def cli_continuation_prompt(
+    input_text: str,
+    input_name: str,
+    *,
+    allow_browser_tools: bool = False,
+) -> str:
     """Materialize the next input for an existing operation target."""
     return "\n".join((
         "Perform exactly one additional operation in the current target.",
         "Keep using the instruction and contexts established for this target.",
-        "Do not use tools, inspect other files, run commands, or write files.",
+        (
+            "Use only Playwright MCP browser tools. Do not inspect other files, "
+            "run commands, or write files."
+            if allow_browser_tools else
+            "Do not use tools, inspect other files, run commands, or write files."
+        ),
         "Return only the JSON object required by the output schema.",
         f"\nINPUT ({input_name}):\n" + input_text,
     ))
@@ -73,6 +90,7 @@ def run(
     model: str | None = None,
     reasoning_effort: str | None = None,
     thread_id: str | None = None,
+    allow_browser_tools: bool = False,
 ) -> Result:
     """Invoke one CLI instruction and persist only its usage metrics."""
     settings = load(
@@ -84,13 +102,18 @@ def run(
     result = codex_cli.call(
         config=settings.config,
         prompt=(
-            cli_continuation_prompt(input_text, input_name)
+            cli_continuation_prompt(
+                input_text,
+                input_name,
+                allow_browser_tools=allow_browser_tools,
+            )
             if thread_id
             else cli_prompt(
                 instruction_path.resolve(),
                 input_text,
                 input_name,
                 tuple(path.resolve() for path in context_paths),
+                allow_browser_tools=allow_browser_tools,
             )
         ),
         model=settings.model,
@@ -132,6 +155,7 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--model")
     parser.add_argument("--reasoning-effort")
+    parser.add_argument("--allow-browser-tools", action="store_true")
     parser.add_argument(
         "--thread-id",
         help="Resume this persisted Codex CLI session for the next target input.",
@@ -161,6 +185,7 @@ def main() -> None:
         model=args.model,
         reasoning_effort=args.reasoning_effort,
         thread_id=args.thread_id,
+        allow_browser_tools=args.allow_browser_tools,
     )
     if result.final_message:
         print(result.final_message)
