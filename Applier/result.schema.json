@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": ["filled", "partially_filled"]
+    },
+    "note": { "type": "string" },
+    "submission_observed": { "type": "boolean" }
+  },
+  "required": ["status", "note", "submission_observed"],
+  "additionalProperties": false
+}

@@ -86,6 +86,7 @@
                     <HBox alignment="CENTER_LEFT" spacing="8.0">
                         <Hyperlink fx:id="sourceLink" text="" />
                         <Button fx:id="openButton" text="Open" />
+                        <Button fx:id="applyButton" text="Apply" />
                     </HBox>
                     <HBox fx:id="statusActions" alignment="CENTER_LEFT" spacing="6.0" />
                     <SplitPane fx:id="detailSplit" dividerPositions="0.34" HBox.hgrow="ALWAYS" VBox.vgrow="ALWAYS">

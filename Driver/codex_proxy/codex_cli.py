@@ -34,6 +34,7 @@ def call(
     cwd: Path,
     output_schema: Path,
     thread_id: str | None = None,
+    browser_cdp_endpoint: str | None = None,
 ) -> Result:
     executable = shutil.which("codex.cmd") or shutil.which("codex")
     if not executable:
@@ -53,6 +54,18 @@ def call(
         "--config",
         f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ))
+    if browser_cdp_endpoint:
+        npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
+        if not npx:
+            raise RuntimeError("npx was not found on PATH for Playwright MCP.")
+        args = ["-y", "@playwright/mcp", "--cdp-endpoint", browser_cdp_endpoint]
+        server_config = "{command = " + json.dumps(npx) + ", args = [" + ", ".join(
+            json.dumps(value) for value in args
+        ) + "], default_tools_approval_mode = \"approve\", required = true, startup_timeout_sec = 45}"
+        configured_args.extend((
+            "--config",
+            "mcp_servers.playwright=" + server_config,
+        ))
 
     if not thread_id:
         sandbox = config.get("proxy", "sandbox", fallback="").strip()

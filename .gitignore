@@ -18,6 +18,10 @@ python-*-embed-amd64.zip
 # Python cache
 __pycache__/
 *.pyc
+*.log
+
+# Playwright MCP logs and page snapshots
+.playwright-mcp/
 
 # Local GUI build artifacts
 GUI/*.exe

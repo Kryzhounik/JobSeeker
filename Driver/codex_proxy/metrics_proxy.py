@@ -91,12 +91,15 @@ def run(
     reasoning_effort: str | None = None,
     thread_id: str | None = None,
     allow_browser_tools: bool = False,
+    browser_cdp_endpoint: str | None = None,
 ) -> Result:
     """Invoke one CLI instruction and persist only its usage metrics."""
     settings = load(
         model_override=model,
         reasoning_effort_override=reasoning_effort,
     )
+    if allow_browser_tools and not browser_cdp_endpoint:
+        raise ValueError("Browser tools require an explicit Playwright MCP CDP endpoint.")
     started_at = metrics.now()
     started = time.monotonic()
     result = codex_cli.call(
@@ -118,9 +121,10 @@ def run(
         ),
         model=settings.model,
         reasoning_effort=settings.reasoning_effort,
-        cwd=ROOT,
+        cwd=ROOT.parent if allow_browser_tools else ROOT,
         output_schema=output_schema.resolve(),
         thread_id=thread_id,
+        browser_cdp_endpoint=browser_cdp_endpoint if allow_browser_tools else None,
     )
     finished_at = metrics.now()
     metrics.save(
@@ -156,6 +160,7 @@ def main() -> None:
     parser.add_argument("--model")
     parser.add_argument("--reasoning-effort")
     parser.add_argument("--allow-browser-tools", action="store_true")
+    parser.add_argument("--browser-cdp-endpoint")
     parser.add_argument(
         "--thread-id",
         help="Resume this persisted Codex CLI session for the next target input.",
@@ -186,6 +191,7 @@ def main() -> None:
         reasoning_effort=args.reasoning_effort,
         thread_id=args.thread_id,
         allow_browser_tools=args.allow_browser_tools,
+        browser_cdp_endpoint=args.browser_cdp_endpoint,
     )
     if result.final_message:
         print(result.final_message)

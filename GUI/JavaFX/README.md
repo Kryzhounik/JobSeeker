@@ -54,6 +54,11 @@ sequentially with a five-second interval; its JSONL log is
 `Tools.filter_database` filter implementation through `GUI.client_data` and
 `jpy`. Refilter detail previews transitions and applies only checked rows.
 
+Apply opens the selected vacancy in the shared logged-in browser, starts
+application preparation in the background, and leaves the form tab open for
+review and manual submission. Approved answers can be added to
+`Data/applier/approved_answers.md`.
+
 The client-data API accepts a database path and primitive values, returning
 structured records as JSON. JavaFX calls it through `jpy` and does not open
 SQLite directly. Database and network work for these actions runs off the

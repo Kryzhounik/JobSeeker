@@ -1,8 +1,8 @@
 # Java LinkedIn collector
 
 This module replaces agent-driven LinkedIn clicking with one local Java
-process. Java owns the logged-in Playwright browser session, search pagination,
-card selection, and the final in-memory run scope. It calls the existing Python
+process. Java connects to the shared logged-in browser through CDP and owns
+search pagination, card selection, its own tabs, and the final in-memory run scope. It calls the existing Python
 filtering, raw/readable persistence, priority-company lookup, lifecycle, and
 collection logging functions through jpy.
 
@@ -17,7 +17,7 @@ The Java code is split by responsibility:
 - `Main` chooses between the two supported commands: `login` and `batch`;
 - `login` owns the one-time browser authentication bootstrap;
 - `collection` owns search planning, pagination, cards, limits, and run reports;
-- `browser` owns only the shared Playwright persistent-context lifecycle;
+- `browser` connects to the shared browser and closes only collector-owned tabs;
 - `python` owns the Java-to-Python gateway;
 - `config` resolves project paths and collector settings.
 
@@ -32,10 +32,10 @@ cases without command-line request wrappers.
   first. Each country then gets a priority-company pass and a general pass.
 - Collection is intentionally single-threaded.
 - Persistence paths are configured in `runtime.properties`.
-- Playwright uses its one persistent profile at `Data/browser_profiles/linkedin`.
-  This is only a separate local Chrome data directory; it needs neither a new
-  LinkedIn account nor any purchase. Run `login` once and sign in with the
-  existing account.
+- The managed visible Chrome process uses the persistent profile at
+  `Data/browser_profiles/linkedin` and exposes CDP only on loopback. It remains
+  open after collector commands. Run `login` once and sign in with the existing
+  account; collection and application preparation reuse that session.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
   decision JSON, scope files, or checkpoints are created.
 - For compatibility, Python still saves canonical raw HTML, writes collector

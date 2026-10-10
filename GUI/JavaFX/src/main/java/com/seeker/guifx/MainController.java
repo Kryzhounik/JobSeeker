@@ -1,5 +1,7 @@
 package com.seeker.guifx;
 
+import com.seeker.applier.ApplierRunner;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,6 +99,7 @@ public final class MainController {
     @FXML private SplitPane detailSplit;
     @FXML private Hyperlink sourceLink;
     @FXML private Button openButton;
+    @FXML private Button applyButton;
     @FXML private GridPane metadataGrid;
     @FXML private TableView<TechnologyRecord> skillsTable;
     @FXML private TableColumn<TechnologyRecord, String> technologyColumn;
@@ -165,6 +168,7 @@ public final class MainController {
         configureSelection();
         sourceLink.setOnAction(event -> openSelectedSource());
         openButton.setOnAction(event -> openSelectedSource());
+        applyButton.setOnAction(event -> startApply());
         refreshButton.setOnAction(event -> refreshJobs());
         collectButton.setOnAction(event -> startCollect());
         linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
@@ -319,6 +323,8 @@ public final class MainController {
         refilterButton.setDisable(disabled || operationRunning);
         refilterDetailButton.setDisable(disabled || operationRunning);
         statusActions.setDisable(disabled || operationRunning);
+        applyButton.setDisable(disabled || operationRunning || selectedJob == null
+                || selectedJob.sourceUrl().isBlank());
     }
 
     private <T> void runOperation(
@@ -1085,6 +1091,7 @@ public final class MainController {
         setDetailEnabled(true);
         sourceLink.setDisable(job.sourceUrl().isBlank());
         openButton.setDisable(job.sourceUrl().isBlank());
+        applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
         showText(textToggle.isSelected());
@@ -1113,6 +1120,7 @@ public final class MainController {
         skillsPane.setDisable(!enabled);
         sourceLink.setDisable(!enabled);
         openButton.setDisable(!enabled);
+        applyButton.setDisable(!enabled || operationRunning);
         textToggle.setDisable(!enabled);
     }
 
@@ -1133,6 +1141,23 @@ public final class MainController {
         } catch (Exception error) {
             statusLabel.setText("Could not open link: " + error.getMessage());
         }
+    }
+
+    private void startApply() {
+        JobRecord job = selectedJob;
+        if (job == null || job.sourceUrl().isBlank()) return;
+        ApplierRunner applier = new ApplierRunner(ClientData.findProjectRoot());
+        runTask("Opening application form...", updater -> applier.run(job.sourceUrl()), result -> {
+            String summary = result.submissionObserved()
+                    ? "Application may already have been submitted. " + result.note()
+                    : ("filled".equals(result.status()) ? "Filled. " : "Partially filled. ")
+                    + result.note();
+            statusLabel.setText(summary);
+            Alert alert = new Alert(Alert.AlertType.INFORMATION, summary);
+            alert.setTitle("Application preparation");
+            alert.initOwner(stage);
+            alert.show();
+        }, "Application preparation failed");
     }
 
     private void showCompanies(Integer companyId) {
