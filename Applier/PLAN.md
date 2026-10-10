@@ -1,8 +1,8 @@
 # Applier prototype execution plan
 
-Goal: check that Java can open an application form, Codex can continue filling
-that same form, and the user can review and submit it. Implement the happy path
-described in `REQUIREMENTS.md`.
+Goal: check that Java can open an application form, Applier can choose its
+filler, and the user can review and submit the filled form. Implement the happy
+path described in `REQUIREMENTS.md`.
 
 1. Prove shared-browser access with one visible logged-in browser and one job.
    Start or attach through CDP, connect Java and Playwright MCP to the same
@@ -14,15 +14,18 @@ described in `REQUIREMENTS.md`.
    selected vacancy, click Apply, and identify the resulting Easy Apply dialog
    or external form tab. Pass that tab's identity and the current step to
    Applier.
-4. Connect Applier to the existing Codex Proxy. For this invocation, configure
-   Playwright MCP with the shared CDP endpoint and enable the Proxy's browser
-   tools mode. Give Codex the existing resume and available approved answers
-   from `Data/`. It fills the already-opened form as far as possible and stops
-   before final submission.
-5. Show only "filled" or "partially filled" with a short note about remaining
+4. In Applier, identify the actual form and check first for its adapter: a
+   Playwright script written for that form. Run it if present. No adapter
+   scripts exist yet, so the first prototype proceeds to Codex.
+5. When no adapter matches, connect Applier to the existing Codex Proxy.
+   Configure Playwright MCP for this invocation with the shared CDP endpoint
+   and enable the Proxy's browser tools mode. Give Codex the existing resume
+   and available approved answers from `Data/`. It fills the already-opened
+   form as far as possible and stops before final submission.
+6. Show only "filled" or "partially filled" with a short note about remaining
    work. Keep the form open. The user reviews, completes missing answers,
    submits, and then uses the existing Applied action in the GUI.
-6. Check the full path on one LinkedIn Easy Apply form and one external form.
+7. Check the full path on one LinkedIn Easy Apply form and one external form.
    Also confirm that standalone collection still works, does not close the
    application tab, and that preparation alone does not mark the job Applied.
 

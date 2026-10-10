@@ -31,27 +31,30 @@ entry points and login behavior.
 1. JavaFX starts preparation for the selected job URL off the UI thread.
 2. Java opens an application-owned tab in the shared browser, clicks the
    initial Apply control, and observes a modal, redirect, or new tab.
-3. Java passes the resulting form tab's identity and a short description of
-   where it stopped to the existing `Driver/codex_proxy`. The identity must be
-   matchable to the tab exposed by Playwright MCP; the agent selects that
-   already-opened tab and continues there.
-4. The proxy starts Codex CLI with Playwright MCP configured for the shared
+3. Applier identifies the actual form and checks for a matching adapter: a
+   Playwright script written for that form. If one exists, it fills the opened
+   form. No adapter scripts exist yet.
+4. If no adapter matches, Java passes the form tab's identity and a short
+   description of where it stopped to the existing `Driver/codex_proxy`. The
+   identity must be matchable to the tab exposed by Playwright MCP; the agent
+   selects that already-opened tab and continues there.
+5. The proxy starts Codex CLI with Playwright MCP configured for the shared
    CDP endpoint. Supply the existing resume and available approved answers
    from `Data/`. Codex fills as much as these support and stops before final
    submission. Unknown answers are left for the user.
-5. Return filled or partially filled, with a short note about anything left
+6. Return filled or partially filled, with a short note about anything left
    to do. Display the result in JavaFX. The browser and form stay open for
    manual review, completion, and submission.
-6. The user marks the vacancy Applied through the existing GUI action after
+7. The user marks the vacancy Applied through the existing GUI action after
    submitting. Preparation itself does not change application tracking.
 
 A collector tab and an application tab may coexist; each workflow uses its own
 tab. If an accidental submission is reported or observed, mention it in the
 result message. No separate submission-detection subsystem is required.
 
-Future form-specific adapters can be selected by the actual form/site. The
-prototype goes directly through Codex; it does not need an empty adapter
-registry or an adapter framework.
+The adapter check is part of the normal choice of filler, even though no
+adapter scripts exist yet. This does not require writing an adapter script
+for the first prototype.
 
 ## Existing Codex Proxy
 
