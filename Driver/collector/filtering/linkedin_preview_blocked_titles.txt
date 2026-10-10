@@ -830,4 +830,7 @@ Senior M365 Engineer
 Vue Developer
 AI Software Engineer Expert
 VoIP Engineer
-Data Specialist
+Керівник напрямку
+Системний інженер
+Voice Engineer
+Head of Infrastructure
