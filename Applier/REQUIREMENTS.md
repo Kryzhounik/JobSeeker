@@ -6,6 +6,9 @@ Prepare a job application from the existing JavaFX GUI so the user can review
 the filled form in the browser and submit it manually. The LinkedIn collector
 must remain usable from the command line without the GUI.
 
+The first implementation is a happy-path prototype to check whether this
+workflow is useful and works on real forms. Keep it small.
+
 ## Browser and collection
 
 - Collection and application use one logged-in LinkedIn account and one
@@ -26,29 +29,35 @@ must remain usable from the command line without the GUI.
   a visible tab and starts preparation without blocking the UI thread.
 - Java handles the initial Apply click and identifies LinkedIn Easy Apply versus
   a redirect or new tab containing an external application form.
-- The design supports form-specific adapters selected by the actual form/site.
-  No adapters are required in the first implementation.
-- When no adapter matches, Java invokes Codex CLI with Playwright MCP attached
-  to the same browser. The agent works in the application tab, not the
-  collector tab.
+- Java hands off the already-opened form to Codex: pass the tab identity that
+  Codex can match through Playwright MCP and a short description of where Java
+  stopped (for example, the Easy Apply dialog or the external form is open).
+  Codex continues in that tab without reopening the application. If Apply
+  opened a new tab, pass the identity of that resulting form tab.
+- Invoke Codex CLI through the existing `Driver/codex_proxy`, with Playwright
+  MCP attached to the same browser. The agent works in the application tab,
+  not the collector tab. Site-specific adapters can be added later; none are
+  needed for the prototype.
 - The filler may complete multi-step forms but should stop before final
   submission. The form and browser stay open for the user's inspection and
   manual submission. An accidental agent submission is not a fatal condition,
   but must not be presented as an unsubmitted form.
-- Use only applicant information explicitly supplied or approved by the user.
-  Do not invent answers; ask for input or hand control to the user when needed.
-- Login challenges, captchas, unsupported forms, and failures hand control back
-  to the user without closing the tab.
+- Use the existing resume and user-supplied or approved answers stored locally
+  under `Data/`. This information grows as new questions arise; a complete
+  catalogue of possible questions and answers is not required upfront.
+- Fill what the available information supports. Do not invent missing answers;
+  leave them for the user and briefly explain what remains. If the form blocks
+  further progress, leave it open for manual completion.
 
-## UI and status
+## Result and application tracking
 
-- Show whether preparation is running, ready for review, needs user input,
-  submitted, or failed. Ready for review must be visibly distinct from Applied.
-- A successful filler response alone must not mark the job Applied in SQLite.
-  The existing application tracking changes only after user confirmation of
-  submission. If the agent appears to have submitted, show that explicitly and
-  ask the user to verify before updating the tracked status.
-- Errors must leave the opened application tab available for manual recovery.
+- Two preparation results are enough: filled, or partially filled with a short
+  explanation of what remains. The user reviews the actual form in the browser.
+- Preparation does not mark the vacancy Applied or create an application record.
+  After submitting manually, the user uses the existing Applied action in the
+  GUI. No new submission-confirmation workflow is required.
+- If an accidental submission is reported or observed, say so in the result
+  message; do not describe the form as still awaiting submission.
 
 ## Acceptance checks
 
@@ -56,12 +65,12 @@ must remain usable from the command line without the GUI.
   browser/profile without another LinkedIn login.
 - Keep an application form open while collection finishes; the form remains
   available for manual review.
-- Prepare both an Easy Apply form and an external form with no adapter through
-  the Codex CLI fallback.
+- Prepare an Easy Apply form and an external form through the existing Codex
+  Proxy and Playwright MCP, continuing in the tab opened by Java.
 - Verify that finishing Codex leaves the prepared form open and does not mark
-  the job Applied; user-confirmed submission does.
-- Verify that unavailable CDP, missing applicant information, and an
-  unsupported form are reported without losing the browser tab.
+  the job Applied; the existing manual Applied action still works.
 
-No automatic submission, initial adapter implementation, or redesign of the
-overall collection workflow is required.
+Automatic submission, adapters, retries, crash recovery, a cancellation system,
+and a detailed task-status model are outside this prototype. Handle additional
+cases when actual use shows they are needed. Do not redesign the collection
+workflow.

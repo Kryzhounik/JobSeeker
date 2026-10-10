@@ -2,9 +2,10 @@
 
 Applier prepares job-application forms opened from the existing JavaFX GUI.
 It shares the logged-in browser with the independently runnable LinkedIn
-collector. Form-specific adapters can handle known sites; Codex CLI with
-Playwright MCP handles forms without an adapter. The filled form stays open for
-human review and submission.
+collector. The first prototype uses the existing Codex Proxy to run Codex CLI
+with Playwright MCP and fill the opened form. The form stays open for human
+review, completion of missing answers, and submission. Site-specific adapters
+can be added later.
 
 This directory currently contains design documents only. The behavior is not
 implemented yet. `REQUIREMENTS.md` defines what must work;

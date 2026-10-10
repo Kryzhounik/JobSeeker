@@ -1,7 +1,7 @@
 # Applier architecture
 
-This is the implementation design for the executor. It may be removed after
-implementation; behavioral expectations live in `REQUIREMENTS.md`.
+This is a minimal design for the happy-path prototype. Behavioral expectations
+live in `REQUIREMENTS.md`; implementation planning follows agreement on scope.
 
 ## Shared browser
 
@@ -9,9 +9,8 @@ The browser is an independent, long-lived Chromium process using the existing
 `Data/browser_profiles/linkedin` profile. It is not owned by JavaFX, the
 collector JAR, or Codex CLI. A small shared Java browser-access component does
 "attach if active, otherwise start": discover and validate the managed local
-CDP endpoint, start the browser with that profile if absent, then connect.
-Serialize startup so two clients cannot launch competing browsers for the same
-profile. Expose CDP only on loopback and do not attach to an unrelated browser.
+CDP endpoint, start the visible browser with that profile if absent, then
+connect. Expose CDP only on loopback and use the managed browser.
 
 The collector, JavaFX application preparation, and Playwright MCP are clients
 of this browser. Java clients connect with Playwright's `connectOverCDP`;
@@ -27,42 +26,54 @@ its `close()` call is insufficient because collection runs in a separate
 process. Keep collection logic independent of the GUI and preserve its console
 entry points and login behavior.
 
-The application flow requires a visible browser. If an existing browser cannot
-support visible manual review, report that state rather than silently opening
-a second instance on the locked profile.
-
 ## Application flow
 
-1. JavaFX starts an Apply task for the selected job URL and shows progress.
+1. JavaFX starts preparation for the selected job URL off the UI thread.
 2. Java opens an application-owned tab in the shared browser, clicks the
    initial Apply control, and observes a modal, redirect, or new tab.
-3. Form identification chooses an adapter by the actual form/site, not only
-   the original LinkedIn URL. An adapter has a match check and a fill operation.
-   The registry is initially empty.
-4. Without a match, Java starts Codex CLI with Playwright MCP configured for
-   the shared CDP endpoint. The task identifies the application tab and supplies
-   only approved applicant data. The agent prepares the form and reports
-   `ready_for_review`, `needs_input`, `submitted`, or `failed`.
-5. Java checks the reported outcome and that the relevant tab still exists,
-   then updates JavaFX. Codex disconnects; the browser and application tab stay
-   open. The user reviews and submits in that tab.
-6. Existing application tracking is updated only on user-confirmed submission.
+3. Java passes the resulting form tab's identity and a short description of
+   where it stopped to the existing `Driver/codex_proxy`. The identity must be
+   matchable to the tab exposed by Playwright MCP; the agent selects that
+   already-opened tab and continues there.
+4. The proxy starts Codex CLI with Playwright MCP configured for the shared
+   CDP endpoint. Supply the existing resume and available approved answers
+   from `Data/`. Codex fills as much as these support and stops before final
+   submission. Unknown answers are left for the user.
+5. Return filled or partially filled, with a short note about anything left
+   to do. Display the result in JavaFX. The browser and form stay open for
+   manual review, completion, and submission.
+6. The user marks the vacancy Applied through the existing GUI action after
+   submitting. Preparation itself does not change application tracking.
 
-The GUI must not perform browser automation on the JavaFX UI thread. A
-collector tab and an application tab may coexist, but neither workflow may
-close or commandeer the other's tab. An agent instruction to avoid final
-submission is a preference, not a technical guarantee; detect and surface a
-reported or observable submission rather than assuming it never happens.
+A collector tab and an application tab may coexist; each workflow uses its own
+tab. If an accidental submission is reported or observed, mention it in the
+result message. No separate submission-detection subsystem is required.
+
+Future form-specific adapters can be selected by the actual form/site. The
+prototype goes directly through Codex; it does not need an empty adapter
+registry or an adapter framework.
+
+## Existing Codex Proxy
+
+Reuse `Driver/codex_proxy` for CLI invocation, response handling, and token
+usage accounting. Add only the ability needed to configure Playwright MCP
+for an Applier invocation: the MCP launch command and the shared browser's
+CDP endpoint. Keep this configuration specific to the Applier call so existing
+analyzer calls retain their behavior. Do not create another CLI launcher.
+
+Applier supplies the form-filling instruction and input. The proxy continues
+to handle CLI invocation and metrics, without form-filling logic. There is no
+new retry, cancellation, or recovery mechanism in this prototype.
 
 ## Integration boundaries
 
 - `Driver/collector/java_linkedin`: retain search, extraction, persistence,
   login, and standalone batch commands; switch only browser acquisition and
   collector-owned tab cleanup to the shared model.
-- `GUI/JavaFX`: add the Apply command and progress/review states to the
+- `GUI/JavaFX`: add the Apply command and display the preparation result in the
   existing job view. Do not make the collector depend on the GUI process.
-- `Applier`: own application preparation, form-adapter contract, Codex CLI/MCP
-  handoff, and the shared browser-access contract. Decide Java module wiring
+- `Applier`: own application preparation, the Codex Proxy/MCP handoff, and
+  the shared browser-access contract. Decide Java module wiring
   during implementation without duplicating browser lifecycle rules.
 
 Validate the attach/reuse/disconnect behavior with one browser and one job
