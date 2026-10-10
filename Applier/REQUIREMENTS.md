@@ -30,7 +30,8 @@ fix additional problems as they arise in use.
   applicant facts or choose form answers.
 - For version 0.1, Applier opens the vacancy, clicks an external Apply link, and identifies the
   redirect or new tab containing the company's application form. LinkedIn
-  Easy Apply is outside this first implementation.
+  Easy Apply is outside this first implementation. If the selected job has an
+  Easy Apply button, skip it before clicking and report that it was skipped.
 - An adapter is a Playwright script written for a specific application form.
   Choose by the form actually opened, including after a redirect or new tab.
   First check for a matching adapter and run it if present. Only when no
@@ -57,8 +58,9 @@ fix additional problems as they arise in use.
 
 ## Result and application tracking
 
-- Two preparation results are enough: filled, or partially filled with a short
-  explanation of what remains. The user reviews the actual form in the browser.
+- Form preparation returns filled, or partially filled with a short explanation
+  of what remains. Easy Apply is reported as skipped without preparing a form.
+  The user reviews any prepared form in the browser.
 - Preparation does not mark the vacancy Applied or create an application record.
   After submitting manually, the user uses the existing Applied action in the
   GUI. No new submission-confirmation workflow is required.

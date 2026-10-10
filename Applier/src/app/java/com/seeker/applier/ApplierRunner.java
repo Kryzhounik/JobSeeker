@@ -32,7 +32,6 @@ public final class ApplierRunner {
         Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
         String channel = collector.getProperty("browserChannel", "chrome").strip();
         String python = runtime.getProperty("python.executable", "python").strip();
-        String vacancyLocation = vacancyLocation(jobUrl, python);
 
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             double timeoutMs = Double.parseDouble(
@@ -42,6 +41,11 @@ public final class ApplierRunner {
             Page jobPage = browser.newPage();
             jobPage.navigate(jobUrl);
             String vacancyUrl = jobPage.url();
+            Locator easyApply = jobPage.locator(
+                    "button[aria-label^='Easy Apply' i]");
+            if (easyApply.count() > 0) {
+                return new Result("skipped", "LinkedIn Easy Apply; no form was opened or Codex started.", false);
+            }
             Locator apply = jobPage.locator(
                     "button[aria-label*='on company website' i], a[aria-label*='on company website' i]");
             if (apply.count() == 0) {
@@ -81,7 +85,7 @@ public final class ApplierRunner {
             } else {
                 step = "The initial Apply action redirected to an external application form; continue in this tab.";
             }
-            return runCodex(formPage.url(), tabIndex, step, vacancyLocation, python);
+            return runCodex(formPage.url(), tabIndex, step, vacancyLocation(jobUrl, python), python);
         }
     }
 

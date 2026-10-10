@@ -1150,7 +1150,8 @@ public final class MainController {
         runTask("Opening application form...", updater -> applier.run(job.sourceUrl()), result -> {
             String summary = result.submissionObserved()
                     ? "Application may already have been submitted. " + result.note()
-                    : ("filled".equals(result.status()) ? "Filled. " : "Partially filled. ")
+                    : ("filled".equals(result.status()) ? "Filled. "
+                    : "skipped".equals(result.status()) ? "Skipped. " : "Partially filled. ")
                     + result.note();
             statusLabel.setText(summary);
             Alert alert = new Alert(Alert.AlertType.INFORMATION, summary);
