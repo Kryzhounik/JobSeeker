@@ -47,6 +47,11 @@ execution contract; the Java orchestrator owns pipeline behavior.
 
 ## Next
 
+- **MEDIUM: Скриптовые адаптеры для Applier.** Сначала измерить расход токенов
+  на агентное заполнение внешних форм в реальных запусках. Решение о написании
+  адаптеров принимать по результату: пока Apply редко выполняется внутри
+  батча, экономия может быть небольшой. Если расход окажется существенным,
+  повысить приоритет и начать с повторяющихся форм.
 - **HIGH — MONITORING: Преждевременная остановка локации Playwright-коллектором**
   Ранее коллектор мог принять временное отсутствие кнопки `Next` после
   материализации только 7 из 25 карточек за конец локации. Подозрение на связь
@@ -213,6 +218,8 @@ execution contract; the Java orchestrator owns pipeline behavior.
 
 ## Later
 
+- After the Applier prototype has proved useful, move `Driver/codex_proxy` to
+  the repository root as a shared module and update its callers and imports.
 - **ОТЛОЖЕНО: Автоматизация обычного ChatGPT-чата для финальной проверки и
   замены Codex-оценщиков.** Пользователь отложил эту идею из-за неясности
   допустимости программного доступа к обычному чату и возможных последствий

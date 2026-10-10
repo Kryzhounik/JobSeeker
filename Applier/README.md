@@ -9,6 +9,10 @@ collector. Applier first looks for a host-specific Playwright adapter. If no
 adapter matches, it uses the existing Codex Proxy with Playwright MCP. No
 adapter scripts are installed yet, so version 0.1 uses the Codex path. The
 form stays open for human review, completion of missing answers, and submission.
+`ManagedBrowser` starts or attaches to the shared browser using the persistent
+`Data/browser_profiles/linkedin` profile and local CDP endpoint. Each Java
+client closes only the tabs it owns; Applier leaves an opened form tab available
+for review. Form preparation never submits or marks a vacancy Applied.
 
 The local resume lives at `Data/applier/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
 `Data/applier/resume.txt` is passed to Codex as context; the PDF path is passed
@@ -19,5 +23,4 @@ available locations. Applier reads the vacancy location from `Data/jobs.sqlite`
 so Codex can apply the location rule. Add confirmed facts as testing reveals new fields;
 add choice rules to `fill_form.md`. `Data/` is excluded from Git.
 
-`REQUIREMENTS.md` defines the expected behavior; `ARCHITECTURE.md` describes
-the shared-browser design; `PLAN.md` records the implementation sequence.
+`REQUIREMENTS.md` defines the expected behavior.
