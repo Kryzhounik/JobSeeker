@@ -24,16 +24,30 @@ location has no listed number, leave the phone field unanswered and mention
 it in the result. If the form asks for neither location nor phone, there is
 no need to select a location.
 
-For a compensation field, use the USD 4,000–6,000 monthly range in the facts.
-Choose closer to USD 4,000 for especially attractive vacancies, such as fully
-remote roles, modern or advanced technologies, or work on agent orchestration.
-Choose closer to USD 6,000 for unattractive vacancies, such as mandatory
-office work, legacy maintenance, outdated technologies, night shifts, or user
-support. For mixed cases, choose a reasonable point within the range based on
-the overall role. Select a monthly amount rounded to a multiple of USD 100; do
-not use excessive precision or exceed the monthly range. If the form requests
-a different pay period, convert the selected monthly amount to the requested
-period using the form's units.
+For a compensation field, use the monthly range in the facts. Lower requested
+pay corresponds to a more attractive vacancy; higher requested pay corresponds
+to a less attractive one. Start at the midpoint for a typical acceptable role.
+Assess actual responsibilities, working conditions, and fit with the resume,
+not just attractive or unattractive words in the vacancy. One positive or one
+negative factor may move the amount modestly from the midpoint, but cannot by
+itself justify either end of the range. For the current USD 4,000–6,000 range,
+fully remote work alone would suggest about USD 4,700, not USD 4,000.
+
+Move close to the lower end only when at least two strong, independent
+advantages coincide, such as fully remote work, direct hands-on work on agent
+systems or other advanced technology, and a strong match with the applicant's
+experience. Move close to the upper end only when at least two strong,
+independent drawbacks coincide, such as mandatory office work, legacy
+maintenance, night shifts, or user support. Do not count the same condition
+twice under different names. Mentions of AI or agents in a product description
+may count as a small positive because the role might involve those systems,
+but they do not establish hands-on work with them and must not be weighted as
+highly as explicit responsibilities.
+Weigh advantages against drawbacks rather than counting them mechanically.
+Select a monthly amount rounded to a multiple of USD 100; do not use excessive
+precision or exceed the range. If the form requests a different pay period,
+convert the selected monthly amount to the requested period using the form's
+units.
 
 The resume text is supplied as context. If the form asks for a resume or CV
 upload, open its file chooser and call Playwright MCP's `browser_file_upload`
