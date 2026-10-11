@@ -152,6 +152,8 @@ public final class MainController {
     private List<String> availableStatuses = List.of();
     private Map<String, String> reasonCodeDescriptions = Map.of();
     private int focusAfterRefreshId = -1;
+    private long refreshRequestId;
+    private long navigationRequestId;
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -606,6 +608,10 @@ public final class MainController {
             return;
         }
 
+        int requestedFocusId = focusAfterRefreshId;
+        focusAfterRefreshId = -1;
+        long requestId = ++refreshRequestId;
+
         refreshButton.setDisable(true);
         searchButton.setDisable(true);
         clearButton.setDisable(true);
@@ -622,9 +628,8 @@ public final class MainController {
             }
         };
         task.setOnSucceeded(event -> {
+            if (requestId != refreshRequestId) return;
             jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
-            int requestedFocusId = focusAfterRefreshId;
-            focusAfterRefreshId = -1;
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
             clearButton.setDisable(false);
@@ -641,6 +646,10 @@ public final class MainController {
                     .orElse(null);
             if (restore != null) {
                 jobsTable.getSelectionModel().select(restore);
+                if (requestedFocusId >= 0) jobsTable.scrollTo(restore);
+            } else if (requestedFocusId >= 0) {
+                clearDetail();
+                statusLabel.setText("Vacancy " + requestedFocusId + " not found in the table");
             } else if (!jobsTable.getItems().isEmpty()) {
                 jobsTable.getSelectionModel().selectFirst();
             } else {
@@ -648,6 +657,7 @@ public final class MainController {
             }
         });
         task.setOnFailed(event -> {
+            if (requestId != refreshRequestId) return;
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
             clearButton.setDisable(false);
@@ -1168,20 +1178,55 @@ public final class MainController {
         if (auxiliaryWindows != null) auxiliaryWindows.showApplications(applicationId);
     }
 
-    private void focusJobFromAuxiliary(Integer jobId) {
+    void focusJobFromAuxiliary(Integer jobId) {
         if (jobId == null) return;
+        long requestId = ++navigationRequestId;
+        stage.setIconified(false);
+        stage.toFront();
         for (JobRecord job : jobsTable.getItems()) {
             if (job.jobId() == jobId) {
                 jobsTable.getSelectionModel().select(job);
                 jobsTable.scrollTo(job);
-                stage.toFront();
                 return;
             }
         }
-        idFilterField.setText(Integer.toString(jobId));
-        focusAfterRefreshId = jobId;
-        refreshJobs();
-        stage.toFront();
+        statusLabel.setText("Locating vacancy " + jobId + "...");
+        Task<JobDetail> task = new Task<>() {
+            @Override
+            protected JobDetail call() throws Exception {
+                return clientData.loadDetail(jobId);
+            }
+        };
+        task.setOnSucceeded(event -> {
+            if (requestId != navigationRequestId) return;
+            JobDetail detail = task.getValue();
+            CheckBox statusCheck = statusChecks.get(detail.status());
+            if (statusCheck == null) {
+                statusLabel.setText("Unknown vacancy status: " + detail.status());
+                return;
+            }
+            boolean changed = false;
+            if (!statusCheck.isSelected()) {
+                statusCheck.setSelected(true);
+                changed = true;
+            }
+            if ("0".equals(detail.score()) && !showZeroCheck.isSelected()) {
+                showZeroCheck.setSelected(true);
+                changed = true;
+            }
+            if (changed) saveStatusFilters();
+            dateFilterField.clear();
+            reasonFilterField.clear();
+            idFilterField.setText(Integer.toString(jobId));
+            focusAfterRefreshId = jobId;
+            refreshJobs();
+        });
+        task.setOnFailed(event -> {
+            if (requestId == navigationRequestId) {
+                statusLabel.setText("Could not locate vacancy: " + task.getException().getMessage());
+            }
+        });
+        detailExecutor.execute(task);
     }
 
     private static void set(TextField field, String value) {

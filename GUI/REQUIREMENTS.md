@@ -183,3 +183,8 @@ this file describes the user-visible behavior to reproduce.
   `SetIsBorderRequired failed: 0x80004002` on both the first attempt and the
   documented retry. Mouse text selection/Ctrl+C, column drag-resize, mouse-wheel
   scrolling and taskbar minimize/restore are still not verified interactively.
+- An Applications-to-main-table regression check now starts with only `New`
+  enabled and navigates to an `Applied` vacancy. The target status is enabled,
+  conflicting Date/Reason filters are cleared, and the target ID is selected.
+  Selected Company/application links use white text on the dark selected row;
+  the rebuilt screenshot confirms the contrast.

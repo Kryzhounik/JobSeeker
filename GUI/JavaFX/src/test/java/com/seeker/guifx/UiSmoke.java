@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableView;
@@ -14,6 +15,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
+import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 
@@ -149,6 +151,36 @@ public final class UiSmoke {
                     throw new AssertionError("ID filter was squeezed on resize");
                 }
                 saveSnapshot(stage, Path.of("GUI/JavaFX/target/ui-smoke-small.png"));
+                return null;
+            });
+            JobRecord applied = onFx(() -> jobs.getItems().stream()
+                    .filter(job -> "Applied".equals(job.status())).findFirst().orElseThrow());
+            HBox statusFilters = lookup(stage, "#statusFilters", HBox.class);
+            onFx(() -> {
+                statusFilters.getChildren().stream()
+                        .filter(node -> node instanceof CheckBox)
+                        .map(node -> (CheckBox) node)
+                        .forEach(check -> check.setSelected("New".equals(check.getText())));
+                search.fire();
+                return null;
+            });
+            waitUntil(() -> status.getText().endsWith(" vacancies")
+                    && jobs.getItems().stream().allMatch(job -> "New".equals(job.status()))
+                    && jobs.getItems().stream().noneMatch(job -> job.jobId() == applied.jobId()),
+                    "New-only filter did not hide the Applied vacancy");
+            MainController ui = controller;
+            onFx(() -> { ui.focusJobFromAuxiliary(applied.jobId()); return null; });
+            waitUntil(() -> status.getText().endsWith(" vacancies")
+                    && jobs.getSelectionModel().getSelectedItem() != null
+                    && jobs.getSelectionModel().getSelectedItem().jobId() == applied.jobId()
+                    && Integer.toString(applied.jobId()).equals(idFilter.getText()),
+                    "Applications navigation did not reveal and select the vacancy");
+            onFx(() -> {
+                boolean appliedEnabled = statusFilters.getChildren().stream()
+                        .filter(node -> node instanceof CheckBox)
+                        .map(node -> (CheckBox) node)
+                        .anyMatch(check -> "Applied".equals(check.getText()) && check.isSelected());
+                if (!appliedEnabled) throw new AssertionError("Applied filter remained disabled");
                 return null;
             });
             System.out.println("UI check OK: " + initialCount + " vacancies; auxiliary windows opened");
