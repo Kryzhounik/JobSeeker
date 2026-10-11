@@ -29,6 +29,7 @@ REQUIRED_RULE_NAMES = (
     "REQUIRED_WITHOUT_LEVEL_TEMPLATES",
     "REQUIRED_WITHOUT_LEVEL_LANGUAGE_LIST_TEMPLATES",
     "OPTIONAL_SIGNALS",
+    "INLINE_OPTIONAL_SIGNALS",
 )
 
 
@@ -346,6 +347,10 @@ class LanguageRequirementExtractor:
             re.compile(pattern, re.IGNORECASE)
             for pattern in rules["OPTIONAL_SIGNALS"]
         )
+        self.inline_optional_patterns = tuple(
+            re.compile(pattern, re.IGNORECASE)
+            for pattern in rules["INLINE_OPTIONAL_SIGNALS"]
+        )
 
     def extract(self, text: str) -> list[LanguageRequirement]:
         if not self.patterns:
@@ -359,7 +364,9 @@ class LanguageRequirementExtractor:
                 continue
             if self.alternative_language_list_pattern.search(unit) is not None:
                 continue
-            if any(pattern.search(context) for pattern in self.optional_patterns):
+            if any(pattern.search(context) for pattern in self.optional_patterns) or any(
+                pattern.search(unit) for pattern in self.inline_optional_patterns
+            ):
                 continue
             for pattern in self.patterns:
                 for match in pattern.regex.finditer(unit):

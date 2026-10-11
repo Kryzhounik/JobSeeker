@@ -174,6 +174,10 @@ TECHNOLOGY_VERSION_QUALIFIER = re.compile(
     r"\(\s*or\s+(?:later|newer|higher)\s*\)",
     re.IGNORECASE,
 )
+TECHNOLOGY_LIST_TRAILING_WILLINGNESS = re.compile(
+    r",\s*with\s+(?:a\s+)?(?:strong\s+)?willingness\s+to\b[^,;:\r\n]{0,80}\bboth\s*$",
+    re.IGNORECASE,
+)
 TECHNOLOGY_EXAMPLE_MARKER = re.compile(
     r"(?:\be\s*\.\s*g\s*\.|\bfor\s+example\b|\bsuch\s+as\b)",
     re.IGNORECASE,
@@ -253,6 +257,7 @@ def technology_list_pattern(template: str) -> re.Pattern[str]:
 
 def prepare_technology_list(value: str) -> tuple[str, bool]:
     prepared = TECHNOLOGY_VERSION_QUALIFIER.sub("", value)
+    prepared = TECHNOLOGY_LIST_TRAILING_WILLINGNESS.sub("", prepared)
     example = TECHNOLOGY_EXAMPLE_MARKER.search(prepared)
     if example is None:
         return prepared, False

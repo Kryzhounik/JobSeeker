@@ -19,6 +19,8 @@ GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The laun
 does not need Maven at startup and does not leave a console window. Its startup
 output and errors go to `launch.log` beside the executable. Rebuild after code
 changes or a JDK move.
+The normal build does not open test windows. To run the interactive UI check,
+add `-UiSmoke` to the build command; it opens the main and auxiliary windows.
 If `SeekerJobs.exe` is open during a rebuild, the script writes
 `SeekerJobs-updated.exe` beside it instead; both launch the current JavaFX
 classes from `target/classes`.

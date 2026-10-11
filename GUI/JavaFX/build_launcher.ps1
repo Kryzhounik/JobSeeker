@@ -1,5 +1,6 @@
 param(
-    [string]$JavaHome = $env:JAVA_HOME
+    [string]$JavaHome = $env:JAVA_HOME,
+    [switch]$UiSmoke
 )
 
 $ErrorActionPreference = "Stop"
@@ -42,9 +43,15 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX FXML check failed with exit code $LASTEXITCODE."
 }
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.UiSmoke
+& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.FillLastColumnResizePolicySmoke
 if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX UI check failed with exit code $LASTEXITCODE."
+    throw "Table column fill check failed with exit code $LASTEXITCODE."
+}
+if ($UiSmoke) {
+    & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.UiSmoke
+    if ($LASTEXITCODE -ne 0) {
+        throw "JavaFX UI check failed with exit code $LASTEXITCODE."
+    }
 }
 & python -m unittest GUI.test_client_data_smoke
 if ($LASTEXITCODE -ne 0) {

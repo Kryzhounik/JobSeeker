@@ -22,6 +22,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
@@ -108,7 +109,7 @@ final class AuxiliaryWindows {
                 companiesStage = stage("Companies", 760, 620);
                 companiesTable = new TableView<>();
                 companiesTable.setEditable(true);
-                companiesTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+                FillLastColumnResizePolicy.install(companiesTable);
                 TableColumn<CompanyRow, Boolean> priority = new TableColumn<>("Priority");
                 priority.setCellValueFactory(cell -> cell.getValue().priorityProperty());
                 priority.setCellFactory(column -> flagCell(true));
@@ -118,7 +119,9 @@ final class AuxiliaryWindows {
                         event.getRowValue(), "set_company_priority", event.getNewValue(), true
                 ));
                 companiesTable.getColumns().add(priority);
-                companiesTable.getColumns().add(stringColumn("Company", "name"));
+                TableColumn<CompanyRow, String> company = stringColumn("Company", "name");
+                company.setPrefWidth(300);
+                companiesTable.getColumns().add(company);
                 TableColumn<CompanyRow, String> linkedin = new TableColumn<>("LinkedIn ID");
                 linkedin.setCellValueFactory(cell -> cell.getValue().linkedinIdProperty());
                 linkedin.setCellFactory(TextFieldTableCell.forTableColumn());
@@ -137,9 +140,11 @@ final class AuxiliaryWindows {
                         showError("LinkedIn ID update failed", error);
                     });
                 });
-                linkedin.setPrefWidth(125);
+                linkedin.setPrefWidth(145);
                 companiesTable.getColumns().add(linkedin);
-                companiesTable.getColumns().add(numberColumn("Applications", "applications"));
+                TableColumn<CompanyRow, String> applications = numberColumn("Applications", "applications");
+                applications.setPrefWidth(105);
+                companiesTable.getColumns().add(applications);
                 TableColumn<CompanyRow, Boolean> blacklisted = new TableColumn<>("Blacklisted");
                 blacklisted.setCellValueFactory(cell -> cell.getValue().blacklistedProperty());
                 blacklisted.setCellFactory(column -> flagCell(false));
@@ -176,6 +181,7 @@ final class AuxiliaryWindows {
                 });
                 HBox addRow = new HBox(8, new Label("LinkedIn ID"), linkedinField,
                         new Label("Name"), nameField, add);
+                VBox.setVgrow(companiesTable, Priority.ALWAYS);
                 companiesStage.setScene(new Scene(new VBox(8, companiesTable, addRow), 760, 620));
             }
             companiesStage.show();
@@ -258,23 +264,27 @@ final class AuxiliaryWindows {
             List<String> statuses = loaded.statuses;
             List<ApplicationRow> rows = loaded.rows;
             TableView<ApplicationRow> table = new TableView<>(FXCollections.observableArrayList(rows));
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            FillLastColumnResizePolicy.install(table);
             TableColumn<ApplicationRow, String> title = new TableColumn<>("Title");
+            title.setPrefWidth(380);
             title.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().title));
             title.setCellFactory(column -> new HyperlinkCell<>(row -> row.title, row ->
                     openJob.accept(row.jobId)));
             TableColumn<ApplicationRow, String> company = new TableColumn<>("Company");
+            company.setPrefWidth(260);
             company.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().company));
             company.setCellFactory(column -> new HyperlinkCell<>(row -> row.company, row -> {
                 if (row.companyId != null) showCompanies(row.companyId);
             }));
             TableColumn<ApplicationRow, String> date = new TableColumn<>("Date");
+            date.setPrefWidth(120);
             date.setCellValueFactory(cell -> new SimpleStringProperty(displayDate(cell.getValue().date)));
             date.setComparator(java.util.Comparator.comparing(
                     AuxiliaryWindows::parseDisplayDate,
                     java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
             CopyableTextCell.install(date);
             TableColumn<ApplicationRow, String> status = new TableColumn<>("Status");
+            status.setPrefWidth(210);
             status.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().status));
             status.setCellFactory(column -> new TableCell<>() {
                 private final ComboBox<String> box = new ComboBox<>(FXCollections.observableArrayList(statuses));
@@ -335,19 +345,36 @@ final class AuxiliaryWindows {
 
     private void buildCollected(List<CollectedRow> rows) {
             TableView<CollectedRow> table = new TableView<>(FXCollections.observableArrayList(rows));
-            table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+            FillLastColumnResizePolicy.install(table);
             TableColumn<CollectedRow, String> titleColumn = collectedColumn("Title", row -> row.title);
+            titleColumn.setPrefWidth(300);
             TitleTextCell.install(titleColumn, addTitleToBlacklist);
+            TableColumn<CollectedRow, String> sourceId = collectedColumn("Source ID", row -> row.sourceId);
+            sourceId.setPrefWidth(130);
+            TableColumn<CollectedRow, String> stage = collectedColumn("Stage", row -> row.stage);
+            stage.setPrefWidth(155);
+            TableColumn<CollectedRow, String> collector = collectedColumn("Collector", row -> row.collector);
+            collector.setPrefWidth(105);
+            TableColumn<CollectedRow, String> company = collectedColumn("Company", row -> row.company);
+            company.setPrefWidth(190);
+            TableColumn<CollectedRow, String> location = collectedColumn("Location", row -> row.location);
+            location.setPrefWidth(230);
+            TableColumn<CollectedRow, String> workplace = collectedColumn("Workplace", row -> row.workplace);
+            workplace.setPrefWidth(100);
+            TableColumn<CollectedRow, String> salary = collectedColumn("Salary", row -> row.salary);
+            salary.setPrefWidth(135);
+            TableColumn<CollectedRow, String> url = collectedColumn("URL", row -> row.url);
+            url.setPrefWidth(280);
             table.getColumns().setAll(
-                    collectedColumn("Source ID", row -> row.sourceId),
-                    collectedColumn("Stage", row -> row.stage),
-                    collectedColumn("Collector", row -> row.collector),
+                    sourceId,
+                    stage,
+                    collector,
                     titleColumn,
-                    collectedColumn("Company", row -> row.company),
-                    collectedColumn("Location", row -> row.location),
-                    collectedColumn("Workplace", row -> row.workplace),
-                    collectedColumn("Salary", row -> row.salary),
-                    collectedColumn("URL", row -> row.url)
+                    company,
+                    location,
+                    workplace,
+                    salary,
+                    url
             );
             restoreTableSort(table, "collected");
             ComboBox<String> stageFilter = new ComboBox<>();
@@ -491,6 +518,10 @@ final class AuxiliaryWindows {
 
     private Stage stage(String title, double width, double height) {
         Stage stage = new Stage();
+        stage.sceneProperty().addListener((ignored, previous, scene) -> {
+            if (scene != null) scene.getStylesheets().add(AuxiliaryWindows.class.getResource(
+                    "/com/seeker/guifx/application.css").toExternalForm());
+        });
         stage.initModality(Modality.NONE);
         stage.setTitle(title);
         String key = title.equals("Collected jobs") ? "collected"

@@ -431,7 +431,7 @@ public final class MainController {
         candidates.forEach(candidate -> rows.add(new RefilterRow(candidate.deepCopy())));
         TableView<RefilterRow> table = new TableView<>(FXCollections.observableArrayList(rows));
         table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        FillLastColumnResizePolicy.install(table);
         CheckBox all = new CheckBox("All");
         all.setSelected(true);
         Button confirm = new Button("Confirm selected");
@@ -461,7 +461,10 @@ public final class MainController {
         }
         all.setOnAction(event -> rows.forEach(row -> row.selected.set(all.isSelected())));
         TableColumn<RefilterRow, String> sourceId = refilterColumn("Source ID", "source_job_id");
+        selected.setPrefWidth(36);
+        sourceId.setPrefWidth(125);
         TableColumn<RefilterRow, String> title = refilterColumn("Title", "title");
+        title.setPrefWidth(280);
         title.setCellFactory(column -> new TableCell<>() {
             private final TextField linkedText = linkedTextField();
             { CellTextFieldWidth.fitToText(linkedText, this); }
@@ -479,10 +482,15 @@ public final class MainController {
             }
         });
         TableColumn<RefilterRow, String> previous = refilterColumn("Previous", "previous_status");
+        previous.setPrefWidth(105);
         TableColumn<RefilterRow, String> action = refilterColumn("Action", "action");
+        action.setPrefWidth(105);
         TableColumn<RefilterRow, String> fit = refilterColumn("Fit", "fit");
+        fit.setPrefWidth(60);
         TableColumn<RefilterRow, String> original = refilterColumn("Original", "original");
+        original.setPrefWidth(440);
         TableColumn<RefilterRow, String> matched = refilterColumn("Match", "matched");
+        matched.setPrefWidth(260);
         for (TableColumn<RefilterRow, String> column : List.of(
                 sourceId, previous, action, fit, original, matched)) {
             CopyableTextCell.install(column);
@@ -513,7 +521,9 @@ public final class MainController {
         VBox content = new VBox(8, table, footer);
         content.setPadding(new javafx.geometry.Insets(10));
         VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
-        dialog.setScene(new javafx.scene.Scene(content, 1160, 540));
+        javafx.scene.Scene dialogScene = new javafx.scene.Scene(content, 1160, 540);
+        dialogScene.getStylesheets().addAll(stage.getScene().getStylesheets());
+        dialog.setScene(dialogScene);
         dialog.setWidth(settingsStore.windowWidth("refilter_detail", 1160));
         dialog.setHeight(settingsStore.windowHeight("refilter_detail", 540));
         dialog.setOnHiding(event -> {
@@ -800,7 +810,7 @@ public final class MainController {
                                  Map<String, String> reasonCodeDescriptions) { }
 
     private void configureColumns() {
-        jobsTable.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
+        FillLastColumnResizePolicy.install(jobsTable);
         bind(scoreColumn, JobRecord::score);
         bind(fitColumn, JobRecord::fit);
         bind(interestColumn, JobRecord::interest);
@@ -893,15 +903,17 @@ public final class MainController {
                 Comparator.nullsFirst(Comparator.naturalOrder())
         ));
 
+        FillLastColumnResizePolicy.install(skillsTable);
         bindTechnology(technologyColumn, TechnologyRecord::technology);
         bindTechnology(requirementColumn, TechnologyRecord::requirement);
         bindTechnology(levelColumn, TechnologyRecord::level);
         bindTechnology(rawColumn, TechnologyRecord::raw);
         for (TableColumn<TechnologyRecord, String> column : List.of(
-                technologyColumn, requirementColumn, levelColumn, rawColumn
+                technologyColumn, requirementColumn, levelColumn
         )) {
             CopyableTextCell.install(column);
         }
+        CopyableTextCell.installExpandable(rawColumn);
         jobsTable.getSelectionModel().setSelectionMode(
                 javafx.scene.control.SelectionMode.MULTIPLE
         );

@@ -463,6 +463,40 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(requirements, [])
 
+    def test_arabic_requirement_survives_preferred_on_next_line(self) -> None:
+        text = (
+            "It's Important To Us That You Have\n"
+            "Native or professional-level fluency in Arabic, and excellent written and spoken English\n"
+            "A base in the MENA region (preferred) or elsewhere in EMEA"
+        )
+
+        requirements = extract_language_requirements(text, DEFAULT_LANGUAGE_CONFIG)
+        result = decide_content(text)
+
+        self.assertIn(("Arabic", "C1"), [(item.name, item.level) for item in requirements])
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_languages"], ["Arabic C1"])
+
+    def test_optional_arabic_remains_unblocked(self) -> None:
+        requirements = extract_language_requirements(
+            "Fluency in Arabic preferred",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(requirements, [])
+
+    def test_other_common_languages_are_recognized(self) -> None:
+        for language in ("Spanish", "Portuguese", "Japanese", "Hindi"):
+            with self.subTest(language=language):
+                requirements = extract_language_requirements(
+                    f"Fluent in {language}",
+                    DEFAULT_LANGUAGE_CONFIG,
+                )
+                self.assertEqual(
+                    [(item.name, item.level) for item in requirements],
+                    [(language, "C1")],
+                )
+
     def test_content_filter_compares_extracted_level_with_resume(self) -> None:
         with TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
