@@ -10,7 +10,6 @@ import javafx.scene.control.TextField;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseButton;
-import javafx.scene.layout.Region;
 
 import java.util.function.Consumer;
 
@@ -24,8 +23,7 @@ final class TitleTextCell<S> extends TableCell<S, String> {
         textField.setEditable(false);
         textField.setFocusTraversable(true);
         textField.getStyleClass().addAll("copyable-cell", "title-text-cell");
-        textField.setMaxWidth(Region.USE_COMPUTED_SIZE);
-        textField.prefWidthProperty().bind(widthProperty().subtract(8));
+        CellTextFieldWidth.fitToText(textField, this);
         textField.addEventFilter(javafx.scene.input.MouseEvent.MOUSE_PRESSED, event -> {
             if (event.getButton() == MouseButton.SECONDARY) {
                 contextSelection = textField.getSelectedText();

@@ -6,8 +6,6 @@ import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Tooltip;
-import javafx.scene.layout.Region;
-import javafx.scene.text.Text;
 
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -24,12 +22,10 @@ final class FilterLinkCell<S> extends TableCell<S, String> {
         textField.setFocusTraversable(true);
         textField.getStyleClass().add("filter-link-cell");
         textField.setCursor(Cursor.HAND);
-        textField.setMaxWidth(Region.USE_COMPUTED_SIZE);
-        textField.prefWidthProperty().bind(widthProperty().subtract(8));
+        CellTextFieldWidth.fitToText(textField, this);
         textField.setOnMouseClicked(event -> {
             if (event.getClickCount() == 1
-                    && textField.getSelectedText().isEmpty()
-                    && clickIsOnText(event.getX())) {
+                    && textField.getSelectedText().isEmpty()) {
                 action.accept(textField.getText());
             }
         });
@@ -57,12 +53,6 @@ final class FilterLinkCell<S> extends TableCell<S, String> {
             );
         });
         column.setCellFactory(ignored -> new FilterLinkCell<>(action, tooltipText));
-    }
-
-    private boolean clickIsOnText(double x) {
-        Text measure = new Text(textField.getText());
-        measure.setFont(textField.getFont());
-        return x <= measure.getLayoutBounds().getWidth() + 12;
     }
 
     @Override

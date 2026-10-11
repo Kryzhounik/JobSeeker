@@ -30,8 +30,6 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.Region;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -466,13 +464,14 @@ public final class MainController {
         TableColumn<RefilterRow, String> title = refilterColumn("Title", "title");
         title.setCellFactory(column -> new TableCell<>() {
             private final TextField linkedText = linkedTextField();
+            { CellTextFieldWidth.fitToText(linkedText, this); }
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 RefilterRow row = empty || getTableRow() == null ? null : getTableRow().getItem();
                 if (row == null) { setGraphic(null); return; }
                 linkedText.setText(value);
                 linkedText.setOnMouseClicked(event -> {
-                    if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                    if (isLinkClick(linkedText, event.getClickCount())) {
                         openUrl(text(row.candidate, "source_url"));
                     }
                 });
@@ -564,15 +563,11 @@ public final class MainController {
         field.setFocusTraversable(true);
         field.setCursor(Cursor.HAND);
         field.getStyleClass().add("filter-link-cell");
-        field.setMaxWidth(Region.USE_COMPUTED_SIZE);
         return field;
     }
 
-    private static boolean isLinkClick(TextField field, double x, int clickCount) {
-        Text measure = new Text(field.getText());
-        measure.setFont(field.getFont());
-        return clickCount == 1 && field.getSelectedText().isEmpty()
-                && x <= measure.getLayoutBounds().getWidth() + 12;
+    private static boolean isLinkClick(TextField field, int clickCount) {
+        return clickCount == 1 && field.getSelectedText().isEmpty();
     }
 
     private void refreshJobs() {
@@ -816,6 +811,7 @@ public final class MainController {
         bind(companyColumn, JobRecord::companyDisplay);
         companyColumn.setCellFactory(column -> new TableCell<>() {
             private final TextField linkedText = linkedTextField();
+            { CellTextFieldWidth.fitToText(linkedText, this); }
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
@@ -825,7 +821,7 @@ public final class MainController {
                 }
                 linkedText.setText(value);
                 linkedText.setOnMouseClicked(event -> {
-                    if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                    if (isLinkClick(linkedText, event.getClickCount())) {
                         try { showCompanies(Integer.parseInt(row.companyId())); }
                         catch (NumberFormatException ignored) { }
                     }
@@ -859,26 +855,31 @@ public final class MainController {
         FilterLinkCell.install(reasonCodeColumn, JobRecord::reasonCode, this::filterByReason,
                 code -> reasonCodeDescriptions.getOrDefault(code, ""));
         statusColumn.setCellFactory(column -> new TableCell<>() {
+            private final TextField linkedText = linkedTextField();
+            private final TextField copyable = new TextField();
+            {
+                CellTextFieldWidth.fitToText(linkedText, this);
+                copyable.setEditable(false);
+                copyable.setFocusTraversable(true);
+                copyable.getStyleClass().add("copyable-cell");
+                copyable.setPadding(javafx.geometry.Insets.EMPTY);
+                CellTextFieldWidth.fitToText(copyable, this);
+            }
             @Override protected void updateItem(String value, boolean empty) {
                 super.updateItem(value, empty);
                 JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
                 if (row == null) { setGraphic(null); return; }
                 if ("Applied".equalsIgnoreCase(value) && !row.applicationId().isBlank()) {
-                    TextField linkedText = linkedTextField();
                     linkedText.setText(value);
                     linkedText.setOnMouseClicked(event -> {
-                        if (isLinkClick(linkedText, event.getX(), event.getClickCount())) {
+                        if (isLinkClick(linkedText, event.getClickCount())) {
                             try { showApplications(Integer.parseInt(row.applicationId())); }
                             catch (NumberFormatException ignored) { }
                         }
                     });
                     setGraphic(linkedText);
                 } else {
-                    TextField copyable = new TextField(value);
-                    copyable.setEditable(false);
-                    copyable.getStyleClass().add("copyable-cell");
-                    copyable.setPadding(javafx.geometry.Insets.EMPTY);
-                    copyable.setMaxWidth(Double.MAX_VALUE);
+                    copyable.setText(value);
                     setGraphic(copyable);
                 }
             }

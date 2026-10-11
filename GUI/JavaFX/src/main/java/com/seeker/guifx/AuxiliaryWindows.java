@@ -23,8 +23,6 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.Region;
-import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.util.StringConverter;
@@ -611,13 +609,9 @@ final class AuxiliaryWindows {
             linkText.setFocusTraversable(true);
             linkText.setCursor(Cursor.HAND);
             linkText.getStyleClass().add("filter-link-cell");
-            linkText.setMaxWidth(Region.USE_COMPUTED_SIZE);
-            linkText.prefWidthProperty().bind(widthProperty().subtract(8));
+            CellTextFieldWidth.fitToText(linkText, this);
             linkText.setOnMouseClicked(event -> {
-                Text measure = new Text(linkText.getText());
-                measure.setFont(linkText.getFont());
-                if (event.getClickCount() == 1 && linkText.getSelectedText().isEmpty()
-                        && event.getX() <= measure.getLayoutBounds().getWidth() + 12) {
+                if (event.getClickCount() == 1 && linkText.getSelectedText().isEmpty()) {
                     T row = getTableRow() == null ? null : getTableRow().getItem();
                     if (row != null) action.accept(row);
                 }

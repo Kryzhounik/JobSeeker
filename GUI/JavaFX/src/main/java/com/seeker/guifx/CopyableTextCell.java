@@ -3,7 +3,6 @@ package com.seeker.guifx;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TextField;
-import javafx.scene.layout.Region;
 import javafx.geometry.Insets;
 
 final class CopyableTextCell<S> extends TableCell<S, String> {
@@ -13,8 +12,7 @@ final class CopyableTextCell<S> extends TableCell<S, String> {
         textField.setEditable(false);
         textField.setFocusTraversable(true);
         textField.getStyleClass().add("copyable-cell");
-        textField.setMaxWidth(Region.USE_COMPUTED_SIZE);
-        textField.prefWidthProperty().bind(widthProperty().subtract(8));
+        CellTextFieldWidth.fitToText(textField, this);
         setPadding(new Insets(0, 4, 0, 4));
     }
 
