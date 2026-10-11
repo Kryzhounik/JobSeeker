@@ -362,6 +362,26 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
+    def test_professional_software_development_experience_list_is_blocked(self) -> None:
+        result = decide_content(
+            "Solid track record of professional software development "
+            "experience in Python, Go for back-end roles"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python", "Go"])
+
+    def test_professional_software_development_experience_keeps_java_option(self) -> None:
+        result = decide_content(
+            "Professional software development experience in Python or Java"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_optional_professional_software_development_experience_is_not_blocked(self) -> None:
+        result = decide_content(
+            "Professional software development experience in Python, Go is a plus"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_strong_experience_and_list_blocks_each_unsupported_item(self) -> None:
         result = decide_content("Strong experience with Spark, Scala, and Python")
         self.assertEqual(result["content_decision"], "skip")

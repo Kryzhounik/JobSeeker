@@ -34,8 +34,8 @@ final class TitleTextCell<S> extends TableCell<S, String> {
                     ? textField.getSelectedText() : contextSelection;
             String value = selected.isBlank() ? textField.getText() : selected;
             ContextMenu menu = new ContextMenu();
-            menu.getStyleClass().add("title-context-menu");
             MenuItem copy = new MenuItem(selected.isBlank() ? "Copy title" : "Copy");
+            copy.setStyle("-fx-text-fill: #111;");
             copy.setOnAction(action -> {
                 ClipboardContent content = new ClipboardContent();
                 content.putString(value);
@@ -43,6 +43,7 @@ final class TitleTextCell<S> extends TableCell<S, String> {
             });
             MenuItem blacklist = new MenuItem(selected.isBlank()
                     ? "Title to blacklist" : "Selection to blacklist");
+            blacklist.setStyle("-fx-text-fill: #111;");
             blacklist.setOnAction(action -> addToBlacklist.accept(value));
             menu.getItems().addAll(copy, blacklist);
             menu.show(textField, event.getScreenX(), event.getScreenY());
