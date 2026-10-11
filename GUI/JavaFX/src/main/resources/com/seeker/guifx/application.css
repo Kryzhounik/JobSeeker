@@ -10,6 +10,13 @@
     -fx-border-width: 0 0 1 0;
 }
 
+.filter-scroll,
+.filter-scroll > .viewport {
+    -fx-background-color: #deddd9;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+}
+
 .collect-button {
     -fx-background-color: #d8eadf;
     -fx-border-color: #71927c;

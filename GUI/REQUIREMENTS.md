@@ -163,3 +163,23 @@ this file describes the user-visible behavior to reproduce.
 - The Windows desktop interaction check could not be completed. The application
   test window passed rendering checks, but mouse selection, drag copying and
   minimize/restore behavior remain unverified manually.
+
+## Verification (2026-10-11)
+
+- `GUI/JavaFX/build_launcher.ps1` passed, including jpy/database, feature,
+  FXML, UI and temporary-database write checks; `SeekerJobs.exe` was rebuilt.
+- The UI check loaded 476 visible vacancies, opened all four auxiliary windows,
+  exercised ID Search/Clear, numeric Score sorting and Text/Skills toggling,
+  confirmed Company link cells exist, and produced a nonblank screenshot.
+- Fixed Company links being overwritten by generic copyable cells. Applications
+  now navigate to vacancies by internal job ID, including records without URLs.
+  Added selectable text cells to read-only Companies, Applications and Collected
+  columns without changing editable controls. Auxiliary windows are independent
+  so the main window can be minimized without owning them.
+- Added a scrollable filter row for narrower windows. JavaFX smoke screenshots
+  at 1440x900 and 1100x750 are nonblank; the narrower check verifies that the
+  filter controls keep their width and remain reachable by horizontal scrolling.
+- The real desktop window launched, but Computer Use could not capture it:
+  `SetIsBorderRequired failed: 0x80004002` on both the first attempt and the
+  documented retry. Mouse text selection/Ctrl+C, column drag-resize, mouse-wheel
+  scrolling and taskbar minimize/restore are still not verified interactively.

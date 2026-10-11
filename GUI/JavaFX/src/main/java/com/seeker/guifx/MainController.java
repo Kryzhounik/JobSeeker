@@ -151,7 +151,7 @@ public final class MainController {
     private boolean operationRunning;
     private List<String> availableStatuses = List.of();
     private Map<String, String> reasonCodeDescriptions = Map.of();
-    private String focusAfterRefreshUrl = "";
+    private int focusAfterRefreshId = -1;
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -224,7 +224,7 @@ public final class MainController {
         connectionTask.setOnSucceeded(event -> {
             clientData = connectionTask.getValue().clientData();
             auxiliaryWindows = new AuxiliaryWindows(
-                    clientData, stage, this::focusJobFromAuxiliary, settingsStore,
+                    clientData, this::focusJobFromAuxiliary, settingsStore,
                     this::addTitleToBlacklist
             );
             loadStatusFilters(connectionTask.getValue().statuses());
@@ -623,8 +623,8 @@ public final class MainController {
         };
         task.setOnSucceeded(event -> {
             jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
-            String requestedFocusUrl = focusAfterRefreshUrl;
-            focusAfterRefreshUrl = "";
+            int requestedFocusId = focusAfterRefreshId;
+            focusAfterRefreshId = -1;
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
             clearButton.setDisable(false);
@@ -635,9 +635,8 @@ public final class MainController {
             reasonFilterField.setDisable(false);
             statusLabel.setText(task.getValue().size() + " vacancies");
             JobRecord restore = task.getValue().stream()
-                    .filter(row -> requestedFocusUrl.isBlank()
-                            ? row.jobId() == selectedId
-                            : row.sourceUrl().equals(requestedFocusUrl))
+                    .filter(row -> row.jobId() == (requestedFocusId < 0
+                            ? selectedId : requestedFocusId))
                     .findFirst()
                     .orElse(null);
             if (restore != null) {
@@ -836,7 +835,7 @@ public final class MainController {
 
         for (TableColumn<JobRecord, String> column : List.of(
                 scoreColumn, fitColumn, interestColumn, statusColumn, remoteColumn,
-                relocationColumn, locationColumn, companyColumn,
+                relocationColumn, locationColumn,
                 roleColumn, seniorityColumn, languageColumn, salaryColumn,
                 reasonColumn
         )) {
@@ -1169,18 +1168,18 @@ public final class MainController {
         if (auxiliaryWindows != null) auxiliaryWindows.showApplications(applicationId);
     }
 
-    private void focusJobFromAuxiliary(String sourceUrl) {
-        if (sourceUrl == null || sourceUrl.isBlank()) return;
+    private void focusJobFromAuxiliary(Integer jobId) {
+        if (jobId == null) return;
         for (JobRecord job : jobsTable.getItems()) {
-            if (job.sourceUrl().equals(sourceUrl)) {
+            if (job.jobId() == jobId) {
                 jobsTable.getSelectionModel().select(job);
                 jobsTable.scrollTo(job);
                 stage.toFront();
                 return;
             }
         }
-        idFilterField.setText(sourceUrl);
-        focusAfterRefreshUrl = sourceUrl;
+        idFilterField.setText(Integer.toString(jobId));
+        focusAfterRefreshId = jobId;
         refreshJobs();
         stage.toFront();
     }

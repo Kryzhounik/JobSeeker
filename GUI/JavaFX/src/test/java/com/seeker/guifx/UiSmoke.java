@@ -5,8 +5,13 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.image.PixelReader;
 import javafx.scene.image.WritableImage;
 import javafx.stage.Stage;
@@ -44,7 +49,8 @@ public final class UiSmoke {
                 return window;
             });
             controller = loader.getController();
-            TableView<?> jobs = lookup(stage, "#jobsTable", TableView.class);
+            @SuppressWarnings("unchecked")
+            TableView<JobRecord> jobs = lookup(stage, "#jobsTable", TableView.class);
             Label status = lookup(stage, "#statusLabel", Label.class);
             waitUntil(() -> status.getText().endsWith(" vacancies") && !jobs.getItems().isEmpty(),
                     "Vacancies did not load");
@@ -85,22 +91,64 @@ public final class UiSmoke {
             waitUntil(() -> jobs.getItems().size() == initialCount && idFilter.getText().isEmpty(),
                     "Clear did not restore the table");
 
+            onFx(() -> {
+                jobs.applyCss();
+                jobs.layout();
+                boolean companyLink = jobs.lookupAll(".table-cell").stream()
+                        .filter(node -> node instanceof TableCell<?, ?>)
+                        .map(node -> (TableCell<?, ?>) node)
+                        .anyMatch(cell -> cell.getTableColumn() == jobs.getColumns().get(7)
+                                && cell.getGraphic() instanceof TextField field
+                                && field.getOnMouseClicked() != null);
+                if (!companyLink) throw new AssertionError("Company link cells are missing");
+
+                @SuppressWarnings("unchecked")
+                TableColumn<JobRecord, String> score =
+                        (TableColumn<JobRecord, String>) jobs.getColumns().getFirst();
+                jobs.getSortOrder().setAll(score);
+                score.setSortType(TableColumn.SortType.ASCENDING);
+                jobs.sort();
+                int previous = Integer.MIN_VALUE;
+                for (Object item : jobs.getItems()) {
+                    int current = Integer.parseInt(((JobRecord) item).score());
+                    if (current < previous) throw new AssertionError("Score sort is not numeric");
+                    previous = current;
+                }
+                return null;
+            });
+
+            ToggleButton textToggle = lookup(stage, "#textToggle", ToggleButton.class);
+            TextArea fullText = lookup(stage, "#fullTextArea", TextArea.class);
+            onFx(() -> {
+                textToggle.fire();
+                if (!fullText.isVisible()) throw new AssertionError("Text view did not open");
+                textToggle.fire();
+                if (fullText.isVisible()) throw new AssertionError("Skills view did not return");
+                return null;
+            });
+
             checkWindow(stage, "#companiesButton", "Companies");
             checkWindow(stage, "#applicationsButton", "Applications");
             checkWindow(stage, "#collectedButton", "Collected jobs");
             checkWindow(stage, "#configButton", "Config");
 
             onFx(() -> {
-                WritableImage image = stage.getScene().snapshot(null);
-                PixelReader pixels = image.getPixelReader();
-                BufferedImage bitmap = new BufferedImage((int) image.getWidth(),
-                        (int) image.getHeight(), BufferedImage.TYPE_INT_ARGB);
-                for (int y = 0; y < bitmap.getHeight(); y++) {
-                    for (int x = 0; x < bitmap.getWidth(); x++) {
-                        bitmap.setRGB(x, y, pixels.getArgb(x, y));
-                    }
+                saveSnapshot(stage, Path.of("GUI/JavaFX/target/ui-smoke.png"));
+                stage.setWidth(1100);
+                stage.setHeight(750);
+                return null;
+            });
+            Thread.sleep(300);
+            onFx(() -> {
+                ScrollPane filters = (ScrollPane) stage.getScene().lookup(".filter-scroll");
+                if (filters.getContent().getLayoutBounds().getWidth()
+                        <= filters.getViewportBounds().getWidth()) {
+                    throw new AssertionError("Narrow filter bar is not scrollable");
                 }
-                ImageIO.write(bitmap, "png", Path.of("GUI/JavaFX/target/ui-smoke.png").toFile());
+                if (idFilter.getWidth() < 110) {
+                    throw new AssertionError("ID filter was squeezed on resize");
+                }
+                saveSnapshot(stage, Path.of("GUI/JavaFX/target/ui-smoke-small.png"));
                 return null;
             });
             System.out.println("UI check OK: " + initialCount + " vacancies; auxiliary windows opened");
@@ -122,6 +170,41 @@ public final class UiSmoke {
         waitUntil(() -> Window.getWindows().stream().anyMatch(window ->
                 window instanceof Stage stage && stage.isShowing() && title.equals(stage.getTitle())),
                 title + " window did not open");
+        onFx(() -> {
+            Stage auxiliary = Window.getWindows().stream()
+                    .filter(window -> window instanceof Stage stage
+                            && stage.isShowing() && title.equals(stage.getTitle()))
+                    .map(window -> (Stage) window).findFirst().orElseThrow();
+            if (auxiliary.getOwner() != null) {
+                throw new AssertionError(title + " is still owned by the main window");
+            }
+            return null;
+        });
+    }
+
+    private static void saveSnapshot(Stage stage, Path destination) throws Exception {
+        WritableImage image = stage.getScene().snapshot(null);
+        PixelReader pixels = image.getPixelReader();
+        BufferedImage bitmap = new BufferedImage((int) image.getWidth(),
+                (int) image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < bitmap.getHeight(); y++) {
+            for (int x = 0; x < bitmap.getWidth(); x++) {
+                bitmap.setRGB(x, y, pixels.getArgb(x, y));
+            }
+        }
+        int background = bitmap.getRGB(bitmap.getWidth() - 5, bitmap.getHeight() - 5);
+        int occupied = 0;
+        int sampled = 0;
+        for (int y = 0; y < bitmap.getHeight(); y += 8) {
+            for (int x = 0; x < bitmap.getWidth(); x += 8) {
+                sampled++;
+                if (bitmap.getRGB(x, y) != background) occupied++;
+            }
+        }
+        if (occupied < sampled / 10) {
+            throw new AssertionError("UI snapshot appears blank: " + destination);
+        }
+        ImageIO.write(bitmap, "png", destination.toFile());
     }
 
     private static <T> T lookup(Stage stage, String selector, Class<T> type) throws Exception {

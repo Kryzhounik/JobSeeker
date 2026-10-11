@@ -27,7 +27,6 @@ import javafx.scene.layout.Region;
 import javafx.scene.text.Text;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
-import javafx.stage.Window;
 import javafx.util.StringConverter;
 
 import java.awt.Desktop;
@@ -44,8 +43,7 @@ import java.util.concurrent.Executors;
 
 final class AuxiliaryWindows {
     private final ClientData data;
-    private final Window owner;
-    private final Consumer<String> openJob;
+    private final Consumer<Integer> openJob;
     private final SettingsStore settingsStore;
     private final Consumer<String> addTitleToBlacklist;
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
@@ -61,13 +59,11 @@ final class AuxiliaryWindows {
 
     AuxiliaryWindows(
             ClientData data,
-            Window owner,
-            Consumer<String> openJob,
+            Consumer<Integer> openJob,
             SettingsStore settingsStore,
             Consumer<String> addTitleToBlacklist
     ) {
         this.data = data;
-        this.owner = owner;
         this.openJob = openJob;
         this.settingsStore = settingsStore;
         this.addTitleToBlacklist = addTitleToBlacklist;
@@ -250,7 +246,7 @@ final class AuxiliaryWindows {
             List<String> statuses = data.loadApplicationStatuses();
             List<ApplicationRow> rows = new ArrayList<>();
             for (JsonNode row : data.loadApplications()) {
-                rows.add(new ApplicationRow(integer(row, "id"), text(row, "source_url"),
+                rows.add(new ApplicationRow(integer(row, "id"), integer(row, "job_id"),
                         text(row, "title"), text(row, "company"),
                         nullableInteger(row, "company_id"), text(row, "applied_at"),
                         text(row, "status")));
@@ -268,7 +264,7 @@ final class AuxiliaryWindows {
             TableColumn<ApplicationRow, String> title = new TableColumn<>("Title");
             title.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().title));
             title.setCellFactory(column -> new HyperlinkCell<>(row -> row.title, row ->
-                    openJob.accept(row.sourceUrl)));
+                    openJob.accept(row.jobId)));
             TableColumn<ApplicationRow, String> company = new TableColumn<>("Company");
             company.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().company));
             company.setCellFactory(column -> new HyperlinkCell<>(row -> row.company, row -> {
@@ -279,6 +275,7 @@ final class AuxiliaryWindows {
             date.setComparator(java.util.Comparator.comparing(
                     AuxiliaryWindows::parseDisplayDate,
                     java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())));
+            CopyableTextCell.install(date);
             TableColumn<ApplicationRow, String> status = new TableColumn<>("Status");
             status.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().status));
             status.setCellFactory(column -> new TableCell<>() {
@@ -472,13 +469,16 @@ final class AuxiliaryWindows {
                     ? new SimpleStringProperty(company.name) : company.linkedinId;
             return new SimpleStringProperty("");
         });
+        CopyableTextCell.install(column);
         return column;
     }
 
-    private TableColumn<CompanyRow, Number> numberColumn(String title, String property) {
-        TableColumn<CompanyRow, Number> column = new TableColumn<>(title);
-        column.setCellValueFactory(cell -> new javafx.beans.property.SimpleIntegerProperty(
-                cell.getValue().applications));
+    private TableColumn<CompanyRow, String> numberColumn(String title, String property) {
+        TableColumn<CompanyRow, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(cell -> new SimpleStringProperty(
+                Integer.toString(cell.getValue().applications)));
+        column.setComparator(java.util.Comparator.comparingInt(Integer::parseInt));
+        CopyableTextCell.install(column);
         return column;
     }
 
@@ -487,13 +487,12 @@ final class AuxiliaryWindows {
     ) {
         TableColumn<CollectedRow, String> column = new TableColumn<>(title);
         column.setCellValueFactory(cell -> new SimpleStringProperty(value.apply(cell.getValue())));
-        column.setCellFactory(TextFieldTableCell.forTableColumn());
+        CopyableTextCell.install(column);
         return column;
     }
 
     private Stage stage(String title, double width, double height) {
         Stage stage = new Stage();
-        stage.initOwner(owner);
         stage.initModality(Modality.NONE);
         stage.setTitle(title);
         String key = title.equals("Collected jobs") ? "collected"
@@ -653,11 +652,11 @@ final class AuxiliaryWindows {
     }
 
     private static final class ApplicationRow {
-        final int id; final String sourceUrl, title, company, date; final Integer companyId;
+        final int id, jobId; final String title, company, date; final Integer companyId;
         String status;
-        ApplicationRow(int id, String sourceUrl, String title, String company,
+        ApplicationRow(int id, int jobId, String title, String company,
                        Integer companyId, String date, String status) {
-            this.id=id; this.sourceUrl=sourceUrl; this.title=title; this.company=company;
+            this.id=id; this.jobId=jobId; this.title=title; this.company=company;
             this.companyId=companyId; this.date=date; this.status=status;
         }
     }
