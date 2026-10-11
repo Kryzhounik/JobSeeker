@@ -508,6 +508,24 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             ["Golang", "Python", "C", "C++", "Rust"],
         )
 
+    def test_expert_level_knowledge_of_technology_list_is_blocked(self) -> None:
+        result = decide_content(
+            "expert-level knowledge of TypeScript (and/or JavaScript), HTML, and CSS"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["TypeScript", "JavaScript", "HTML", "CSS"],
+        )
+
+    def test_expert_level_knowledge_keeps_java_alternative(self) -> None:
+        result = decide_content("expert-level knowledge of TypeScript or Java")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_optional_expert_level_knowledge_is_not_blocked(self) -> None:
+        result = decide_content("expert-level knowledge of TypeScript is a plus")
+        self.assertEqual(result["content_decision"], "analyze")
+
     def test_fluency_keeps_unknown_technology_alternative(self) -> None:
         result = decide_content("Fluency in Golang, MATLAB or TypeScript")
         self.assertEqual(result["content_decision"], "analyze")
@@ -711,6 +729,31 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("2+ years of work experience with JavaScript")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["JavaScript"])
+
+    def test_two_years_building_interfaces_with_technologies_is_blocked(self) -> None:
+        result = decide_content(
+            "2+ years of experience building dynamic, responsive interfaces "
+            "with React and TypeScript/JavaScript"
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["React", "TypeScript", "JavaScript"],
+        )
+
+    def test_two_years_building_interfaces_keeps_java_alternative(self) -> None:
+        result = decide_content(
+            "2+ years of experience building dynamic, responsive interfaces "
+            "with React or Java"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_one_year_building_interfaces_is_not_blocked(self) -> None:
+        result = decide_content(
+            "1+ years of experience building dynamic, responsive interfaces "
+            "with React and TypeScript"
+        )
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_minimum_years_written_in_words_is_blocked(self) -> None:
         for count in ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"):
