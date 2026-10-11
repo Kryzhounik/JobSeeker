@@ -87,6 +87,15 @@
     -fx-text-fill: white;
 }
 
+.title-context-menu .menu-item .label {
+    -fx-text-fill: #111;
+}
+
+.title-context-menu .menu-item:focused .label,
+.title-context-menu .menu-item:hover .label {
+    -fx-text-fill: white;
+}
+
 .table-view {
     -fx-background-color: white;
     -fx-border-color: #aaa9a5;

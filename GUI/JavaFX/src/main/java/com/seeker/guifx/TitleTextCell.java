@@ -34,6 +34,7 @@ final class TitleTextCell<S> extends TableCell<S, String> {
                     ? textField.getSelectedText() : contextSelection;
             String value = selected.isBlank() ? textField.getText() : selected;
             ContextMenu menu = new ContextMenu();
+            menu.getStyleClass().add("title-context-menu");
             MenuItem copy = new MenuItem(selected.isBlank() ? "Copy title" : "Copy");
             copy.setOnAction(action -> {
                 ClipboardContent content = new ClipboardContent();
