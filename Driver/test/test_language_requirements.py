@@ -36,7 +36,7 @@ fluent = {fluent}
 excellent = C1
 native = C2
 bilingual = C2
-required = C2
+required = B1
 
 [level_aliases]
 Intermediate = B1
@@ -102,7 +102,7 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "C1")
 
-    def test_required_known_language_without_level_is_c2(self) -> None:
+    def test_required_known_language_without_level_uses_low_floor(self) -> None:
         requirements = extract_language_requirements(
             "Polish is required",
             DEFAULT_LANGUAGE_CONFIG,
@@ -110,7 +110,12 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].name, "Polish")
-        self.assertEqual(requirements[0].level, "C2")
+        self.assertEqual(requirements[0].level, "B1")
+
+    def test_bare_required_english_does_not_block_b2_resume(self) -> None:
+        result = decide_content("English is required")
+
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_minimum_level_before_language_is_extracted(self) -> None:
         requirements = extract_language_requirements(
@@ -484,6 +489,37 @@ class LanguageRequirementsTest(unittest.TestCase):
         )
 
         self.assertEqual(requirements, [])
+
+    def test_bonus_language_remains_unblocked(self) -> None:
+        requirements = extract_language_requirements(
+            "Bonus: Thai fluency (a strong plus)",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(requirements, [])
+
+    def test_preferred_languages_do_not_cancel_required_clause(self) -> None:
+        requirements = extract_language_requirements(
+            "English fluency required; fluency in French, Spanish, or German preferred",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(
+            [(item.name, item.level) for item in requirements],
+            [("English", "C1")],
+        )
+
+    def test_good_english_is_b2_despite_required_word(self) -> None:
+        requirements = extract_language_requirements(
+            "Good knowledge of the English language is required. "
+            "Ability to speak additional languages such as Spanish, preferred.",
+            DEFAULT_LANGUAGE_CONFIG,
+        )
+
+        self.assertEqual(
+            [(item.name, item.level) for item in requirements],
+            [("English", "B2")],
+        )
 
     def test_other_common_languages_are_recognized(self) -> None:
         for language in ("Spanish", "Portuguese", "Japanese", "Hindi"):

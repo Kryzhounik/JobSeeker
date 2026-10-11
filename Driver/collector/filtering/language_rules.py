@@ -215,7 +215,7 @@ IMPLIED_LEVEL_TEMPLATES: dict[str, tuple[str, ...]] = {
         r"\b(?:good|very\s+good)\s+(?:(?:spoken|written|verbal|oral|business)(?:\s+and\s+(?:spoken|written|verbal|oral))?\s+)?{language}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
         r"\b(?:good|very\s+good)\s+command\s+of\s+{language}\b",
         r"\bgood\s+(?:(?:written|verbal|spoken|oral)(?:\s+and\s+(?:written|verbal|spoken|oral))?\s+)?communication\s+skills?\s+in\s+{language}\b",
-        r"\bgood\s+knowledge\s+of\s+{language}\b",
+        r"\bgood\s+knowledge\s+of\s+(?:the\s+)?{language}(?:\s+language)?\b",
         r"\bbardzo\s+dobr(?:a|y|e)\s+znajomość\s+(?:języka\s+)?{language}\b",
     ),
     "strong": (
@@ -295,8 +295,9 @@ IMPLIED_LEVEL_LANGUAGE_LIST_TEMPLATES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# Product policy: a known language explicitly marked as mandatory without a
-# level is treated as C2. A more specific rule wins for the same language.
+# Bare mandatory wording identifies a required language, not native fluency.
+# The configured low floor mainly catches local languages absent from the resume;
+# a specific CEFR level or proficiency phrase wins for the same language.
 REQUIRED_WITHOUT_LEVEL_TEMPLATES = (
     r"\b{language}(?:\s+language)?\s+(?:is\s+)?(?:required|mandatory)\b",
     r"\b(?:required|mandatory)\s+(?:language\s*:\s*)?{language}\b",
@@ -314,7 +315,10 @@ OPTIONAL_SIGNALS = (
     r"\bnice\s+to\s+have\b",
     r"\boptional\b",
     r"\bwould\s+be\s+a\s+(?:big\s+)?plus\b",
+    r"\b(?:a|an)\s+(?:strong\s+|big\s+)?plus\b",
+    r"\bbonus\b",
     r"\bnot\s+required\b",
+    r"\bpreferred\b",
 )
 
 INLINE_OPTIONAL_SIGNALS = (r"\bpreferred\b",)

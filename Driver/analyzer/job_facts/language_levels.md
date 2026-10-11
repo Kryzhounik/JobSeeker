@@ -43,8 +43,9 @@ Project policy currently keeps `fluent` at C1 by default, although market usage
 is ambiguous and often means B2/B2+. The deterministic pre-agent filter also
 keeps it at C1. See `language_levels_research.txt` before changing this mapping.
 
-The deterministic pre-agent filter also treats an exact mandatory requirement
-for a known language without any proficiency wording, such as `Polish is
-required`, as C2. This is a deliberate product gate, not a linguistic
-equivalence. When the caller supplies that result as an authoritative language
-fact, copy it unchanged.
+The deterministic pre-agent filter treats an exact mandatory requirement for a
+known language without proficiency wording, such as `Polish is required`, as
+B1. This low policy floor primarily catches mandatory local languages absent
+from the resume; `required` alone does not imply native proficiency. Explicit
+levels and more specific proficiency wording override this fallback. When the
+caller supplies the result as a language fact, copy it unchanged.

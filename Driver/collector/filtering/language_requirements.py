@@ -218,7 +218,12 @@ def compile_language_list_pattern(
 
 
 def text_units(text: str) -> list[tuple[str, str]]:
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines = [
+        clause.strip()
+        for line in text.splitlines()
+        for clause in re.split(r";\s*|\.\s+(?=[A-Z])", line)
+        if clause.strip()
+    ]
     units: list[tuple[str, str]] = []
     for index, line in enumerate(lines):
         context = " ".join(lines[max(0, index - 1) : index + 2])
@@ -343,9 +348,11 @@ class LanguageRequirementExtractor:
             ]
         )
         self.list_patterns = tuple(list_patterns)
+        inline_optional_sources = set(rules["INLINE_OPTIONAL_SIGNALS"])
         self.optional_patterns = tuple(
             re.compile(pattern, re.IGNORECASE)
             for pattern in rules["OPTIONAL_SIGNALS"]
+            if pattern not in inline_optional_sources
         )
         self.inline_optional_patterns = tuple(
             re.compile(pattern, re.IGNORECASE)

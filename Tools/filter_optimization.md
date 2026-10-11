@@ -241,7 +241,7 @@ extracted `language + CEFR level` requirements with
 regex templates are code-owned rules in `language_rules.py`; they are parser
 logic, not configuration. `linkedin_language_filter.ini` contains only the
 adjustable interpretation table, such as `fluent = C1`, `good = B2`, and
-`required = C2`, plus common textual aliases for CEFR levels. Changing a level
+`required = B1`, plus common textual aliases for CEFR levels. Changing a level
 there recalibrates an already recognized wording class without changing what
 text the parser recognizes. Every new Refilter or collector operation reads
 both files and compiles one extractor for the whole operation. Consequently,
