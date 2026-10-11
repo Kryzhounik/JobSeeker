@@ -1,9 +1,8 @@
 # Legacy Tkinter GUI
 
-This is the existing GUI for inspecting SQLite results and manually triaging
-job status. Its behavior is a reference for the JavaFX rewrite; the target
-user-visible requirements are in `../REQUIREMENTS.md`. For the purpose and
-layout of the GUI directory, see `../README.md`.
+This is the legacy GUI for inspecting SQLite results and manually triaging
+job status. The current GUI is in `../JavaFX/`. For the purpose and layout
+of the GUI directory, see `../README.md`.
 
 ## Launch
 

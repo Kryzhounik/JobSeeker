@@ -7,16 +7,15 @@ vacancy statuses, companies, and applications. It also provides controls for
 starting existing collection and maintenance workflows and viewing their
 progress.
 
-`Tkinter/` contains the current GUI. The migration plan calls for a JavaFX
-replacement while keeping the Tkinter version available. This directory is
-the interactive front end to the project's job data and workflows.
+`JavaFX/` contains the current GUI. `Tkinter/` contains the legacy version.
+This directory is the interactive front end to the project's job data and
+workflows.
 
 ## Where to look
 
-- `PLAN.md` — the steps for the JavaFX migration.
-- `REQUIREMENTS.md` — the detailed user-visible behavior required of the JavaFX GUI.
+- `JavaFX/README.md` — how to build and use the current GUI.
 - `AGENTS.md` — development rules and guidance for resolving unclear behavior.
-- `Tkinter/README.md` — how the current GUI works, including its launcher, settings, and implementation-specific details.
+- `Tkinter/README.md` — how the legacy GUI works, including its launcher, settings, and implementation-specific details.
 
 ## Shared Client Data
 
@@ -29,7 +28,6 @@ connection or row objects across the language boundary.
 
 The module reuses database helpers from `Driver/db` where those already exist.
 It is a GUI-facing client data layer, not a replacement Java service layer.
-The Tkinter GUI imports it directly; JavaFX can add the repository root to
-Python's import path and invoke `GUI.client_data` through `jpy`. If the data
-access API later moves into the Java application's service layer, the GUI
-clients can be redirected there without keeping SQL in their controllers.
+The Tkinter GUI imports it directly; JavaFX invokes `GUI.client_data` through
+`jpy`. If the data access API later moves into Java code, the GUI clients can
+be redirected there without keeping SQL in their controllers.
