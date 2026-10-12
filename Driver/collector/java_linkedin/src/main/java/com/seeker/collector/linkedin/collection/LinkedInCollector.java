@@ -357,6 +357,13 @@ final class LinkedInCollector {
                 report.acceptedCount(),
                 message
         );
+        System.err.printf(
+                "LinkedIn collection finished: run_id=%s status=%s accepted=%d stop_reason=%s%n",
+                runId,
+                status,
+                report.acceptedCount(),
+                stopReason
+        );
         return report;
     }
 

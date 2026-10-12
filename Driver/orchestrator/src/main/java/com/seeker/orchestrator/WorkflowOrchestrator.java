@@ -128,8 +128,15 @@ public final class WorkflowOrchestrator {
                     start,
                     Math.min(start + vacanciesPerAgent, scope.size())
             )) {
+                System.err.println("Job facts start: job_id=" + item.jobId());
+                long started = System.nanoTime();
                 threadId = agentFilter.jobFacts(
                         runId, source, item.jobId(), target, threadId
+                );
+                System.err.printf(
+                        "Job facts complete: job_id=%s duration_ms=%d%n",
+                        item.jobId(),
+                        (System.nanoTime() - started) / 1_000_000
                 );
             }
         }
