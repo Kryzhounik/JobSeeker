@@ -69,7 +69,7 @@ public final class ApplierRunner {
 
             if (sameHost(vacancyUrl, formPage.url())) {
                 return new Result("partially_filled",
-                        "The external application form did not open. The vacancy remains open for manual preparation.",
+                        "The external Apply destination did not open. The vacancy remains open for manual preparation.",
                         false);
             }
 
@@ -81,19 +81,26 @@ public final class ApplierRunner {
 
             String step;
             if (formPage != jobPage) {
-                step = "The external application form opened in a new tab; continue in this tab.";
+                step = "The employer page opened in a new tab; continue in this tab.";
             } else {
-                step = "The initial Apply action redirected to an external application form; continue in this tab.";
+                step = "The initial Apply action redirected to the employer page; continue in this tab.";
             }
             return runCodex(formPage.url(), tabIndex, step, vacancyLocation(jobUrl, python), python);
         }
     }
 
     private static Page clickForPopup(Page jobPage, Locator apply) {
+        List<Page> pagesBeforeClick = List.copyOf(jobPage.context().pages());
+        int popupTimeoutMs = "_blank".equalsIgnoreCase(apply.getAttribute("target")) ? 30000 : 4000;
         try {
             return jobPage.waitForPopup(
-                    new Page.WaitForPopupOptions().setTimeout(4000), apply::click);
+                    new Page.WaitForPopupOptions().setTimeout(popupTimeoutMs), apply::click);
         } catch (TimeoutError noPopup) {
+            for (Page page : jobPage.context().pages()) {
+                if (!pagesBeforeClick.contains(page) && jobPage.equals(page.opener())) {
+                    return page;
+                }
+            }
             return jobPage;
         }
     }

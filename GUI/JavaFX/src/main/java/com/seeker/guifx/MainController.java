@@ -1175,7 +1175,7 @@ public final class MainController {
             String summary = result.submissionObserved()
                     ? "Application may already have been submitted. " + result.note()
                     : ("filled".equals(result.status()) ? "Filled. "
-                    : "skipped".equals(result.status()) ? "Skipped. " : "Partially filled. ")
+                    : "skipped".equals(result.status()) ? "Skipped. " : "Preparation incomplete. ")
                     + result.note();
             statusLabel.setText(summary);
             Alert alert = new Alert(Alert.AlertType.INFORMATION, summary);

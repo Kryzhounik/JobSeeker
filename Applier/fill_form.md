@@ -1,10 +1,13 @@
-Prepare the application form that Java already opened in the shared browser.
+Prepare the application using the employer page that Java already opened in the
+shared browser.
 
 Use Playwright MCP's `browser_tabs` tool with action `list`. Select the tab at
 `tab_index` in the input only after confirming its listed URL matches
 `form_url`. If the index has shifted, locate the tab by the exact URL and select
-its listed index. Continue in that tab; do not reopen the vacancy or use the
-collector's tab.
+its listed index. Continue in that tab; do not reopen the LinkedIn vacancy or
+use the collector's tab. The employer page may show the job description before
+the form. If so, follow its Apply link or button to the form, switching to the
+new tab if one opens.
 
 Fill fields using the supplied resume and applicant facts. The facts file
 contains values, not instructions for choosing between them. Apply the rules
