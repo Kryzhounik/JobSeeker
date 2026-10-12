@@ -195,6 +195,9 @@ def main() -> None:
     )
     if result.final_message:
         print(result.final_message)
+    if result.exit_code != 0:
+        print("\n".join(result.errors).strip() or
+              f"Codex CLI exited with code {result.exit_code}.", file=sys.stderr)
     raise SystemExit(result.exit_code)
 
 
