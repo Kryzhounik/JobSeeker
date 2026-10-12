@@ -160,14 +160,14 @@ YEARS_EXPRESSION = (
 TECHNOLOGY_LIST_GROUP = "technologies"
 TECHNOLOGY_LIST_EXPRESSION = (
     rf"(?P<{TECHNOLOGY_LIST_GROUP}>[^;:\r\n]{{1,200}}?)"
-    r"(?=\.(?:\s|$)|[;:\r\n]|$)"
+    r"(?=,\s+(?:extensive|strong|proven|professional)\s+experience\b|\.(?:\s|$)|[;:\r\n]|$)"
 )
 TECHNOLOGY_LIST_SEPARATOR = re.compile(
-    r"\s*(?:\band/or\b|\bor\b|\band\b|\bабо\b|\bчи\b|\bта\b|\bі\b|,|/)\s*",
+    r"\s*(\band/or\b|\bor\b|\band\b|\bабо\b|\bчи\b|\bта\b|\bі\b|,|/)\s*",
     re.IGNORECASE,
 )
-TECHNOLOGY_LIST_OR = re.compile(
-    r"\band/or\b|\bor\b|\bабо\b|\bчи\b",
+TECHNOLOGY_SERIAL_COMMA = re.compile(
+    r",\s*(?=(?:and/or|and|or|або|чи|та|і)\b)",
     re.IGNORECASE,
 )
 TECHNOLOGY_VERSION_QUALIFIER = re.compile(
@@ -264,12 +264,43 @@ def prepare_technology_list(value: str) -> tuple[str, bool]:
     return prepared[example.end() :].lstrip(" \t,;:([{\"'"), True
 
 
-def split_technology_list(value: str) -> list[str]:
-    return [
-        item.strip()
-        for item in TECHNOLOGY_LIST_SEPARATOR.split(value)
-        if item.strip()
-    ]
+def technology_list_groups(
+    value: str,
+    alternatives_only: bool,
+    pass_word_patterns: tuple[tuple[str, re.Pattern[str]], ...],
+) -> list[list[str]]:
+    parts = TECHNOLOGY_LIST_SEPARATOR.split(TECHNOLOGY_SERIAL_COMMA.sub(" ", value))
+    groups: list[list[str]] = []
+    parenthesis_depth = 0
+    for index in range(0, len(parts), 2):
+        item = parts[index].strip()
+        if not item:
+            continue
+        separator = parts[index - 1].casefold() if index else ""
+        # A comma before prose is a continuation, not another technology option.
+        candidate = item.strip(" ()")
+        comma_alternative = separator == "," and (
+            parenthesis_depth == 0
+            and (
+                candidate[:1].isupper()
+                or any(pattern.search(candidate) for _, pattern in pass_word_patterns)
+                or (
+                    re.fullmatch(r"[\w.+#-]+", candidate) is not None
+                    and not candidate.casefold().endswith("ing")
+                )
+            )
+        )
+        if not groups or alternatives_only or separator in {
+            "or", "and/or", "або", "чи",
+        } or comma_alternative:
+            groups.append([item])
+        else:
+            groups[-1].append(item)
+        parenthesis_depth = max(
+            0,
+            parenthesis_depth + item.count("(") - item.count(")"),
+        )
+    return groups
 
 
 def content_units(text: str) -> list[tuple[str, str]]:
@@ -522,6 +553,7 @@ class VacancyFilter:
         context: str,
         technology_patterns: tuple[tuple[str, re.Pattern[str]], ...],
     ) -> tuple[bool, FilterResult | None]:
+        list_handled = False
         template_groups = (
             (True, self.alternative_technology_list_templates),
             (False, self.technology_list_templates),
@@ -531,46 +563,49 @@ class VacancyFilter:
                 match = pattern.search(unit)
                 if match is None:
                     continue
+                list_handled = True
                 optional_context = self.without_optional_signal_exclusions(context)
                 if any(
                     optional.search(optional_context)
                     for optional in self.content_optional_signals
                 ):
-                    return True, None
+                    continue
 
                 list_text, example_list = prepare_technology_list(
                     match.group(TECHNOLOGY_LIST_GROUP)
                 )
-                items = split_technology_list(list_text)
-                if not items:
-                    return True, None
-
-                matches_by_item = [
-                    [
-                        name
-                        for name in technology_matches(
-                            item,
-                            technology_patterns,
-                        )
-                        if not self.technology_is_optional(context, name)
-                    ]
-                    for item in items
-                ]
-                alternative = always_alternative or example_list or bool(
-                    TECHNOLOGY_LIST_OR.search(list_text)
+                groups = technology_list_groups(
+                    list_text,
+                    alternatives_only=always_alternative or example_list,
+                    pass_word_patterns=self.pass_word_patterns,
                 )
-                if alternative and any(not names for names in matches_by_item):
-                    return True, None
+                if not groups:
+                    continue
+
+                matches_by_group = [
+                    [
+                        [
+                            name
+                            for name in technology_matches(item, technology_patterns)
+                            if not self.technology_is_optional(context, name)
+                        ]
+                        for item in group
+                    ]
+                    for group in groups
+                ]
+                if any(all(not names for names in group) for group in matches_by_group):
+                    continue
 
                 matched_technologies = list(
                     dict.fromkeys(
                         name
-                        for names in matches_by_item
+                        for group in matches_by_group
+                        for names in group
                         for name in names
                     )
                 )
                 if not matched_technologies:
-                    return True, None
+                    continue
 
                 return True, FilterResult(
                     True,
@@ -584,7 +619,7 @@ class VacancyFilter:
                         (name, template) for name in matched_technologies
                     ),
                 )
-        return False, None
+        return list_handled, None
 
     def filter_language_requirements(self, text: str) -> FilterResult:
         if not self.database_filter_enabled(LANGUAGE_FILTER):

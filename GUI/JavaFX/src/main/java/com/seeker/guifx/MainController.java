@@ -492,9 +492,11 @@ public final class MainController {
         TableColumn<RefilterRow, String> matched = refilterColumn("Match", "matched");
         matched.setPrefWidth(260);
         for (TableColumn<RefilterRow, String> column : List.of(
-                sourceId, previous, action, fit, original, matched)) {
+                sourceId, previous, action, fit)) {
             CopyableTextCell.install(column);
         }
+        CopyableTextCell.installExpandable(original);
+        CopyableTextCell.installExpandable(matched);
         table.getColumns().setAll(selected, sourceId, title, previous, action, fit, original, matched);
         Label count = new Label("Refilter candidates: " + rows.size());
         Button cancel = new Button("Cancel");

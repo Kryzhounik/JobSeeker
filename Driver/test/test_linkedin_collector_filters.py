@@ -251,13 +251,12 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["TypeScript", "Pulumi"])
 
-    def test_proficiency_list_is_blocked_by_pyspark(self) -> None:
+    def test_proficiency_comma_list_keeps_other_tools_as_options(self) -> None:
         result = decide_content(
             "Proficiency in Amazon Web Services (AWS), Apache Kafka, PySpark, "
             "Snowflake, and dbt"
         )
-        self.assertEqual(result["content_decision"], "skip")
-        self.assertEqual(result["content_technologies"], ["PySpark"])
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_example_technology_list_keeps_java_alternative(self) -> None:
         result = decide_content(
@@ -431,12 +430,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
         self.assertEqual(result["content_decision"], "analyze")
 
-    def test_strong_proficiency_and_list_is_blocked(self) -> None:
+    def test_strong_proficiency_comma_keeps_rest_api_option(self) -> None:
         result = decide_content(
             "Strong proficiency with Python, REST APIs and Cloud (e.g. AWS, GCP)"
         )
-        self.assertEqual(result["content_decision"], "skip")
-        self.assertEqual(result["content_technologies"], ["Python"])
+        self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_proficiency_in_go_with_non_technology_requirement_is_blocked(
         self,
@@ -517,6 +515,26 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             result["content_technologies"],
             ["TypeScript", "JavaScript", "HTML", "CSS"],
         )
+
+    def test_expert_level_knowledge_does_not_absorb_next_requirement(self) -> None:
+        result = decide_content(
+            "At least 5 years of experience in front-end development, with "
+            "expert-level knowledge of TypeScript (and/or JavaScript), HTML, "
+            "and CSS, extensive experience with ReactJS (or similar UI "
+            "frameworks) and modern web client development and testing tools."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(
+            result["content_technologies"],
+            ["TypeScript", "JavaScript", "HTML", "CSS"],
+        )
+
+    def test_unblocked_list_does_not_hide_later_required_technology(self) -> None:
+        result = decide_content(
+            "Experience with Python or Java, strong experience with PHP."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["PHP"])
 
     def test_expert_level_knowledge_keeps_java_alternative(self) -> None:
         result = decide_content("expert-level knowledge of TypeScript or Java")
@@ -880,6 +898,39 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         result = decide_content("Expertise in Python or C++")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "C++"])
+
+    def test_comma_list_keeps_java_alternative_in_saved_job_wording(self) -> None:
+        for introduction, qualification in (
+            (
+                "demonstrated expertise in Python, Java, Rust, Go, C++, "
+                "TypeScript, algorithms, and large-scale software development",
+                "Strong proficiency in at least one of the following: Python, "
+                "Java, Rust, Go, C++, or TypeScript.",
+            ),
+            (
+                "expertise in Python, Java, C++, Rust, Go, TypeScript, "
+                "algorithms, and large-scale software development",
+                "Strong proficiency in at least one of the following languages: "
+                "Python, Java, C++, Rust, Go, or TypeScript.",
+            ),
+        ):
+            with self.subTest(introduction=introduction):
+                result = decide_content(introduction + "\n" + qualification)
+                self.assertEqual(result["content_decision"], "analyze")
+
+    def test_comma_list_with_only_blocked_technologies_is_blocked(self) -> None:
+        result = decide_content("Expertise in Python, Go, Rust")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python", "Go", "Rust"])
+
+    def test_comma_list_keeps_lowercase_unblocked_technology(self) -> None:
+        result = decide_content("Expertise in Python, scala")
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_explicit_and_joins_technologies_after_comma(self) -> None:
+        result = decide_content("Strong experience with Python, Java, and Go")
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["Python", "Go"])
 
     def test_backend_language_preference_for_go_is_not_blocked(self) -> None:
         result = decide_content(

@@ -13,7 +13,7 @@ Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
 ```
 
 Then double-click `SeekerJobs.exe` in this directory. The build generates this
-GUI's black/yellow icon, copies the JavaFX/Jackson/jpy dependencies into
+GUI's icon from `pink_panther_transparent_final.ico`, copies the JavaFX/Jackson/jpy dependencies into
 `target/dependency`, checks the database connection through jpy, runs small
 GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
 does not need Maven at startup and does not leave a console window. Its startup
