@@ -637,6 +637,7 @@ public final class MainController {
         task.setOnSucceeded(event -> {
             if (requestId != refreshRequestId) return;
             jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
+            jobsTable.sort();
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
             clearButton.setDisable(false);
@@ -986,6 +987,7 @@ public final class MainController {
                         refreshJobs();
                     } else {
                         jobsTable.getItems().set(index, updated);
+                        jobsTable.sort();
                     }
                     break;
                 }

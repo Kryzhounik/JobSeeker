@@ -849,3 +849,7 @@ Analist Financiar
 Mitigation Specialist
 Filmmaker
 Personal Assistant
+Comarch Developer
+Onboarding Engineer
+Senior Cloud Engineer
+Lead IAM Engineer
