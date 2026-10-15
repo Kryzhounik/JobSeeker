@@ -151,6 +151,7 @@ public final class MainController {
     private Map<String, String> reasonCodeDescriptions = Map.of();
     private int focusAfterRefreshId = -1;
     private long refreshRequestId;
+    private boolean jobSortRestored;
     private long navigationRequestId;
     private Task<JobDetail> pendingDetailTask;
     private final ThreadPoolExecutor detailExecutor = new ThreadPoolExecutor(
@@ -238,7 +239,6 @@ public final class MainController {
             reasonCodeColumn.setGraphic(reasonHeader);
             jobsTable.refresh();
             buildStatusActions();
-            restoreJobSort();
             refreshJobs();
             setOperationButtonsDisabled(false);
         });
@@ -636,7 +636,14 @@ public final class MainController {
         };
         task.setOnSucceeded(event -> {
             if (requestId != refreshRequestId) return;
+            List<TableColumn<JobRecord, ?>> sortOrder = List.copyOf(jobsTable.getSortOrder());
             jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
+            if (!jobSortRestored) {
+                if (jobsTable.getSortOrder().isEmpty()) restoreJobSort();
+                jobSortRestored = true;
+            } else if (!sortOrder.isEmpty()) {
+                jobsTable.getSortOrder().setAll(sortOrder);
+            }
             jobsTable.sort();
             refreshButton.setDisable(false);
             searchButton.setDisable(false);
@@ -742,11 +749,13 @@ public final class MainController {
         if (key.isEmpty()) {
             return;
         }
+        boolean descending = column.getSortType() == TableColumn.SortType.DESCENDING;
+        if (key.equals(settingsStore.sortColumn())
+                && descending == settingsStore.sortDescending()) {
+            return;
+        }
         try {
-            settingsStore.saveJobSort(
-                    key,
-                    column.getSortType() == TableColumn.SortType.DESCENDING
-            );
+            settingsStore.saveJobSort(key, descending);
         } catch (IOException error) {
             statusLabel.setText("Settings save failed: " + error.getMessage());
         }
