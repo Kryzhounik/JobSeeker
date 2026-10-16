@@ -1,6 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.applier.ApplierRunner;
+import com.seeker.chatevaluator.ChatEvaluatorRunner;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -29,6 +30,7 @@ import javafx.scene.Cursor;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
+import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.util.Duration;
@@ -98,6 +100,7 @@ public final class MainController {
     @FXML private Hyperlink sourceLink;
     @FXML private Button openButton;
     @FXML private Button applyButton;
+    @FXML private Button chatEvalButton;
     @FXML private GridPane metadataGrid;
     @FXML private TableView<TechnologyRecord> skillsTable;
     @FXML private TableColumn<TechnologyRecord, String> technologyColumn;
@@ -170,6 +173,7 @@ public final class MainController {
         sourceLink.setOnAction(event -> openSelectedSource());
         openButton.setOnAction(event -> openSelectedSource());
         applyButton.setOnAction(event -> startApply());
+        chatEvalButton.setOnAction(event -> startChatEval());
         refreshButton.setOnAction(event -> refreshJobs());
         collectButton.setOnAction(event -> startCollect());
         linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
@@ -324,6 +328,8 @@ public final class MainController {
         refilterDetailButton.setDisable(disabled || operationRunning);
         statusActions.setDisable(disabled || operationRunning);
         applyButton.setDisable(disabled || operationRunning || selectedJob == null
+                || selectedJob.sourceUrl().isBlank());
+        chatEvalButton.setDisable(disabled || operationRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
     }
 
@@ -1127,6 +1133,7 @@ public final class MainController {
         sourceLink.setDisable(job.sourceUrl().isBlank());
         openButton.setDisable(job.sourceUrl().isBlank());
         applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
+        chatEvalButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
         showText(textToggle.isSelected());
@@ -1156,6 +1163,8 @@ public final class MainController {
         sourceLink.setDisable(!enabled);
         openButton.setDisable(!enabled);
         applyButton.setDisable(!enabled || operationRunning);
+        chatEvalButton.setDisable(!enabled || operationRunning || selectedJob == null
+                || selectedJob.sourceUrl().isBlank());
         textToggle.setDisable(!enabled);
     }
 
@@ -1194,6 +1203,34 @@ public final class MainController {
             alert.initOwner(stage);
             alert.show();
         }, "Application preparation failed");
+    }
+
+    private void startChatEval() {
+        JobRecord job = selectedJob;
+        if (job == null || job.sourceUrl().isBlank()) return;
+        String vacancyTitle = job.title();
+        runTask("Waiting for ChatGPT evaluation...", updater -> {
+            System.setProperty("seeker.projectRoot", ClientData.findProjectRoot().toString());
+            return ChatEvaluatorRunner.run(job.sourceUrl());
+        }, answer -> {
+            statusLabel.setText("ChatGPT evaluation complete");
+            showChatEvaluation(vacancyTitle, answer);
+        }, "GPT Eval failed");
+    }
+
+    private void showChatEvaluation(String vacancyTitle, String answer) {
+        Stage answerStage = new Stage();
+        answerStage.setTitle("GPT Eval — " + vacancyTitle);
+        if (stage != null) answerStage.initOwner(stage);
+        TextArea answerArea = new TextArea(answer);
+        answerArea.setEditable(false);
+        answerArea.setWrapText(true);
+        answerArea.setId("chatEvaluationAnswer");
+        VBox content = new VBox(answerArea);
+        content.setFillWidth(true);
+        VBox.setVgrow(answerArea, javafx.scene.layout.Priority.ALWAYS);
+        answerStage.setScene(new Scene(content, 760, 560));
+        answerStage.show();
     }
 
     private void showCompanies(Integer companyId) {
