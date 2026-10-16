@@ -42,12 +42,16 @@ public final class ApplierRunner {
             jobPage.navigate(jobUrl);
             String vacancyUrl = jobPage.url();
             Locator easyApply = jobPage.locator(
-                    "#jobs-apply-button-id[aria-label^='Easy Apply' i]");
+                    "#jobs-apply-button-id[aria-label^='Easy Apply' i], "
+                            + "button[aria-label^='Easy Apply' i], "
+                            + "a[aria-label^='Easy Apply' i]");
             if (easyApply.count() > 0) {
                 return new Result("skipped", "LinkedIn Easy Apply; no form was opened or Codex started.", false);
             }
             Locator apply = jobPage.locator(
-                    "#jobs-apply-button-id[aria-label*='on company website' i]");
+                    "#jobs-apply-button-id[aria-label*='on company website' i], "
+                            + "a[aria-label*='on company website' i], "
+                            + "button[aria-label*='on company website' i]");
             if (apply.count() == 0) {
                 browser.keepOpen(jobPage);
                 return new Result("partially_filled", "No external Apply link was found for this vacancy.", false);
