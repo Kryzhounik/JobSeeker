@@ -3,6 +3,7 @@
 Top-level layout:
 
 - `GUI`: human viewer for inspecting the SQLite database.
+- [Applier](Applier/README.md): prepares job applications from the GUI or the console.
 - `Data`: local raw/analyzed files and `jobs.sqlite`; analyzer-ready readable
   text is stored inside SQLite.
 - `Driver`: collector, analyzer, scoring, DB mapper, and Java orchestrator.

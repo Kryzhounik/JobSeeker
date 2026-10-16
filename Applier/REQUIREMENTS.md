@@ -2,9 +2,9 @@
 
 ## Purpose
 
-Prepare a job application from the existing JavaFX GUI so the user can review
-the filled form in the browser and submit it manually. The LinkedIn collector
-must remain usable from the command line without the GUI.
+Prepare a job application from the existing JavaFX GUI or a standalone console
+JAR so the user can review the filled form in the browser and submit it manually.
+The LinkedIn collector must remain usable from the command line without the GUI.
 
 Version 0.1 is the first working happy-path implementation. Keep it small;
 fix additional problems as they arise in use.
@@ -28,6 +28,10 @@ fix additional problems as they arise in use.
 - An Apply action in the existing JavaFX job view passes the selected vacancy
   URL to Applier without blocking the UI thread. The GUI does not read
   applicant facts or choose form answers.
+- A runnable console JAR accepts one vacancy URL and calls the same Applier
+  runner as the GUI. Run from the Seeker project root with the same settings
+  and data. Print the returned result to stdout as JSON and errors to stderr;
+  the console follows the same preparation and manual-submission rules.
 - For version 0.1, Applier opens the vacancy, clicks an external Apply link, and identifies the
   redirect or new tab containing the company's application form. LinkedIn
   Easy Apply is outside this first implementation. If the selected job has an
@@ -78,6 +82,9 @@ fix additional problems as they arise in use.
   and surname from the resume can be entered where the form asks for them.
 - Verify that finishing Codex leaves the prepared form open and does not mark
   the job Applied; the existing manual Applied action still works.
+- Build the runnable JAR and verify its console entry point can invoke the
+  shared runner without starting the GUI, return the result, and report
+  invalid arguments or execution errors with a nonzero exit code.
 
 Automatic submission, writing the first adapter script, retries, crash recovery,
 a cancellation system, and a detailed task-status model are outside this
