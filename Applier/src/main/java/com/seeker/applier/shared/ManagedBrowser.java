@@ -46,7 +46,12 @@ public final class ManagedBrowser implements AutoCloseable {
         awaitBrowser();
         Playwright playwright = Playwright.create();
         try {
-            var browser = playwright.chromium().connectOverCDP(CDP_ENDPOINT);
+            var browser = playwright.chromium().connectOverCDP(
+                    CDP_ENDPOINT,
+                    new com.microsoft.playwright.BrowserType.ConnectOverCDPOptions()
+                            .setIsLocal(true)
+                            .setNoDefaults(true)
+                            .setTimeout(Duration.ofSeconds(30).toMillis()));
             BrowserContext context = browser.contexts().stream().findFirst()
                     .orElseThrow(() -> new IllegalStateException(
                             "Managed browser has no default context"));
