@@ -8,6 +8,10 @@ import java.nio.file.Path;
 
 /** Command-line entry point for the same application preparation used by the GUI. */
 public final class Main {
+    /**
+     * @deprecated Do not maintain this help text. It may be removed when it no longer matches the CLI.
+     */
+    @Deprecated
     private static final String USAGE =
             "Usage (from the Seeker project root): java -jar Applier/target/applier.jar <vacancy-url>";
 
@@ -16,7 +20,7 @@ public final class Main {
 
     public static void main(String[] args) {
         if (args.length == 1 && "--help".equals(args[0])) {
-            System.out.println(USAGE);
+            printHelp();
             return;
         }
         if (args.length != 1) {
@@ -49,5 +53,13 @@ public final class Main {
             error.printStackTrace(System.err);
             System.exit(1);
         }
+    }
+
+    /**
+     * @deprecated Undocumented option: do not maintain it. It may be removed when its help becomes outdated.
+     */
+    @Deprecated
+    private static void printHelp() {
+        System.out.println(USAGE);
     }
 }

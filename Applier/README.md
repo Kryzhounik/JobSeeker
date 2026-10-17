@@ -38,7 +38,6 @@ Run from the Seeker project root, using Java 21 or newer:
 
 ```powershell
 java -jar Applier/target/applier.jar "https://www.linkedin.com/jobs/view/1234567890/"
-java -jar Applier/target/applier.jar --help
 ```
 
 The API accepts one positional argument: an absolute HTTP(S) vacancy URL. It uses the existing
@@ -59,7 +58,7 @@ On completion, stdout contains one JSON object, using the existing result fields
   the page when true before taking further action.
 
 Exit code `0` means preparation returned a result (including partially filled
-or skipped), or help was shown. Code `1` means execution failed; the error is
+or skipped). Code `1` means execution failed; the error is
 written to stderr with its exception chain. Code `2` means the argument count
 or URL is invalid.
 The console does not change the vacancy's Applied status.
