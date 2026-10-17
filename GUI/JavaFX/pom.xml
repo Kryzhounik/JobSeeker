@@ -61,6 +61,7 @@
                                 <source>../../Applier/src/main/java</source>
                                 <source>../../Applier/src/app/java</source>
                                 <source>../../ChatEvaluator/src/main/java</source>
+                                <source>../../Tools/src/main/java</source>
                             </sources>
                         </configuration>
                     </execution>

@@ -42,7 +42,10 @@
                         <phase>generate-sources</phase>
                         <goals><goal>add-source</goal></goals>
                         <configuration>
-                            <sources><source>../Applier/src/main/java</source></sources>
+                            <sources>
+                                <source>../Applier/src/main/java</source>
+                                <source>../Tools/src/main/java</source>
+                            </sources>
                         </configuration>
                     </execution>
                 </executions>

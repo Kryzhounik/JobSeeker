@@ -402,12 +402,14 @@ public final class MainController {
         runTask("Loading LinkedIn candidates...", checker::run, summary -> {
             statusLabel.setText(summary.message());
             refreshJobs();
-            if (!summary.error().isBlank()) {
-                Alert alert = new Alert(Alert.AlertType.ERROR, summary.error());
-                alert.setTitle("LinkedIn check stopped");
-                alert.initOwner(stage);
-                alert.show();
-            }
+            boolean stopped = !summary.error().isBlank();
+            Alert alert = new Alert(stopped ? Alert.AlertType.ERROR : Alert.AlertType.INFORMATION);
+            alert.setTitle(stopped ? "LinkedIn check stopped" : "LinkedIn check complete");
+            alert.setHeaderText(stopped ? summary.error() : "LinkedIn check complete");
+            alert.setContentText(summary.details());
+            alert.getDialogPane().setMinWidth(520);
+            alert.initOwner(stage);
+            alert.show();
         }, "LinkedIn check failed");
     }
 

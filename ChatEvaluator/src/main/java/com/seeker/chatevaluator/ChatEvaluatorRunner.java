@@ -6,6 +6,7 @@ import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.microsoft.playwright.options.WaitForSelectorState;
 import com.seeker.applier.shared.ManagedBrowser;
+import com.seeker.tools.LinkedInJobAvailability;
 
 import java.io.IOException;
 import java.net.URI;
@@ -42,6 +43,7 @@ public final class ChatEvaluatorRunner {
         if (!profile.isAbsolute()) profile = root.resolve(profile).normalize();
         String channel = linkedin.getProperty("browserChannel", "chrome").strip();
 
+        requireAvailableVacancy(vacancyUrl);
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             Page page = findConversation(browser.context().pages(), chatUrl);
             boolean openConversation = page == null;
@@ -121,6 +123,25 @@ public final class ChatEvaluatorRunner {
             }
             throw new TimeoutError("Timed out waiting for the completed ChatGPT answer to submitted turn "
                     + submitted.key() + ".");
+        }
+    }
+
+    private static void requireAvailableVacancy(String vacancyUrl) throws IOException, InterruptedException {
+        String outcome;
+        try {
+            var response = LinkedInJobAvailability.fetch(vacancyUrl);
+            outcome = LinkedInJobAvailability.classifyResponse(response.statusCode(), response.uri(),
+                    response.headers().firstValue("Content-Type").orElse(""),
+                    response.body() == null ? "" : response.body());
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (IllegalStateException | IOException error) {
+            throw new IOException("Vacancy availability check failed: " + error.getMessage()
+                    + " The URL was not sent to ChatGPT.", error);
+        }
+        if (!"available".equals(outcome)) {
+            throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
         }
     }
 

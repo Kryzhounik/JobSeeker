@@ -1,6 +1,9 @@
 package com.seeker.guifx;
 
+import com.seeker.tools.LinkedInJobAvailability;
+
 import java.net.URI;
+import java.time.Duration;
 
 public final class LinkedInAvailabilitySmoke {
     public static void main(String[] args) {
@@ -15,7 +18,23 @@ public final class LinkedInAvailabilitySmoke {
         expectError(200, URI.create("https://www.linkedin.com/authwall"), html);
         expectError(200, job, "LinkedIn job " + "a".repeat(1100));
         checkPacing();
-        System.out.println("LinkedIn availability response and pacing checks OK");
+        var summary = new LinkedInAvailabilityChecker.Result("Stopped", Duration.ofSeconds(800),
+                210, 0, 9, 5, 0, 2, 20, 6);
+        if (summary.processed() != 14 || !summary.details().contains("13 min 20 s")
+                || !summary.details().contains("Processed: 14 / 210")
+                || !summary.details().contains("Unavailable: 9")
+                || !summary.details().contains("Closed: 5")
+                || !summary.details().contains("Deleted: 0")
+                || !summary.details().contains("Skipped: 2")
+                || !summary.details().contains("HTTP requests: 20; HTTP 429: 6")) {
+            throw new AssertionError(summary.details());
+        }
+        var empty = new LinkedInAvailabilityChecker.Result("", Duration.ZERO,
+                0, 0, 0, 0, 0, 0, 0, 0);
+        if (empty.processed() != 0 || !empty.details().contains("0 min 00 s")) {
+            throw new AssertionError(empty.details());
+        }
+        System.out.println("LinkedIn availability response, pacing and summary checks OK");
     }
 
     private static void checkPacing() {
@@ -51,13 +70,13 @@ public final class LinkedInAvailabilitySmoke {
     }
 
     private static void expect(String expected, int code, URI url, String body) {
-        String actual = LinkedInAvailabilityChecker.classifyResponse(code, url, "text/html", body);
+        String actual = LinkedInJobAvailability.classifyResponse(code, url, "text/html", body);
         if (!actual.equals(expected)) throw new AssertionError(actual);
     }
 
     private static void expectError(int code, URI url, String body) {
         try {
-            LinkedInAvailabilityChecker.classifyResponse(code, url, "text/html", body);
+            LinkedInJobAvailability.classifyResponse(code, url, "text/html", body);
         } catch (IllegalStateException expected) {
             return;
         }

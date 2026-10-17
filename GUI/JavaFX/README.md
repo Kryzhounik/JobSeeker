@@ -62,7 +62,11 @@ Explicitly closed pages are marked closed. Rate limits, authentication pages,
 and network errors do not change availability. The Unavailable checkbox shows
 closed, unavailable, and deleted records; they are hidden when it is unchecked.
 Its JSONL log is
-`GUI/JavaFX/linkedin_availability_check.log`. Refilter uses the existing
+`GUI/JavaFX/linkedin_availability_check.log`. The completion/stopped dialog shows
+elapsed time, checked/total vacancies, the resulting availability counts,
+skipped records, HTTP requests and 429 responses. Response logs include the
+final URL and Retry-After; completion logs contain the same run totals.
+Refilter uses the existing
 `Tools.filter_database` filter implementation through `GUI.client_data` and
 `jpy`. Refilter detail previews transitions and applies only checked rows.
 

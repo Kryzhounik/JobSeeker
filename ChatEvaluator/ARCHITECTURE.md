@@ -2,7 +2,7 @@
 
 ## Поток работы
 
-`JavaFX GUI → ChatEvaluator → Playwright → существующий диалог ChatGPT → новый ответ → GUI`.
+`JavaFX GUI → ChatEvaluator → HTTP-проверка вакансии → Playwright → существующий диалог ChatGPT → новый ответ → GUI`.
 
 Проверочный вход по пункту 4:
 `CLI (java -jar) → тот же ChatEvaluatorRunner.run(url) → тот же браузерный сценарий → stdout`.
@@ -30,7 +30,8 @@ GUI и CLI различаются получением входного URL и �
 - `ChatEvaluator/pom.xml` по пункту 4: отдельная минимальная сборка запускаемого
   `ChatEvaluator/target/chat-evaluator.jar` с `Main-Class` и необходимыми
   runtime-зависимостями. Она компилирует исходники ChatEvaluator и напрямую
-  подключает оригинальный `ManagedBrowser` из Applier. Исходники не копировать;
+  подключает оригинальный `ManagedBrowser` из Applier и проверку вакансии из
+  `Tools/src/main/java`. Исходники не копировать;
   `ApplierRunner`, JavaFX и jpy в CLI-сборку не включать.
 - `Data/chat_evaluator/config.properties`: локальная настройка `chat.url`
   с предоставленной пользователем ссылкой на рабочий диалог. Для явно
@@ -43,6 +44,13 @@ GUI и CLI различаются получением входного URL и �
   `Applier/src/main/java/com/seeker/applier/shared/ManagedBrowser.java`:
   запуск или подключение к управляемому браузеру. Переиспользовать напрямую,
   без копирования и без переноса общего браузерного кода в рамках этой задачи.
+- `Tools/src/main/java/com/seeker/tools/LinkedInJobAvailability.java`:
+  общий HTTP-запрос и классификация LinkedIn-страницы, вынесенные из
+  `LinkedInAvailabilityChecker`. `Check LinkedIn` и ChatEvaluator используют
+  один оригинал. Общий класс не зависит от Applier, ChatEvaluator, JavaFX,
+  базы и Jackson. Обе сборки подключают `Tools/src/main/java` через
+  `add-source`. Массовые повторы, журнал и изменение статусов остаются
+  в GUI-проверке. Для Tools не создаётся отдельный Maven-проект.
 - JavaFX GUI: кнопка `GPT Eval` рядом с `Apply`, вызов модуля и отдельное окно
   с полным текстом возвращённого ответа. Для длинного текста достаточно
   стандартного многострочного текстового поля с прокруткой.
@@ -82,6 +90,13 @@ GUI/CLI. Сохраняется прямое переиспользование 
 выделение отдельного общего модуля для этого пункта не требуется.
 
 ## Работа с диалогом
+
+До подключения к управляемому браузеру выполнить один HTTP-запрос вакансии
+через `LinkedInJobAvailability.fetch`, затем вызвать общий `classifyResponse`.
+Только `available` разрешает переход к ChatGPT. `closed`, `unavailable`,
+429, необходимость входа, сетевые ошибки и неожиданная страница завершают
+оценивание ошибкой без отправки в чат. ChatEvaluator не запускает массовый
+`LinkedInAvailabilityChecker`, не повторяет запрос и не меняет базу вакансий.
 
 Использовать вкладку с заданным диалогом, если она уже открыта в управляемом
 браузере; иначе открыть указанный адрес. Работать именно с этим диалогом,
