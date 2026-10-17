@@ -36,18 +36,25 @@ final class LinkedInAvailabilityChecker {
         JsonNode candidates = clientData.loadLinkedInAvailabilityCandidates();
         int total = candidates.size();
         int processed = 0, unavailable = 0, skipped = 0, requests = 0;
+        RequestPacing pacing = new RequestPacing();
         String error = "";
-        for (JsonNode candidate : candidates) {
+        for (int index = 0; index < total;) {
+            JsonNode candidate = candidates.get(index);
             String sourceUrl = text(candidate, "source_url");
             String id = text(candidate, "source_job_id");
             if (!id.matches("\\d+")) {
+                index++;
                 skipped++;
                 processed++;
                 appendLog("skip", Map.of("reason", "no_linkedin_id", "source_url", sourceUrl));
                 updateMessage.accept(progress(processed, total, unavailable, skipped));
                 continue;
             }
-            if (requests > 0) Thread.sleep(5000);
+            if (requests > 0) {
+                updateMessage.accept(progress(processed, total, unavailable, skipped)
+                        + "; waiting " + pacing.delayMillis() / 1000.0 + " s; next " + id);
+                Thread.sleep(pacing.delayMillis());
+            }
             requests++;
             appendLog("request", Map.of("job_id", id, "source_url", sourceUrl));
             updateMessage.accept("LinkedIn check " + processed + "/" + total
@@ -69,12 +76,20 @@ final class LinkedInAvailabilityChecker {
                 appendLog("stop_error", Map.of("job_id", id, "error", error));
                 break;
             }
-            processed++;
             int code = response.statusCode();
             String body = response.body() == null ? "" : response.body();
             String contentType = response.headers().firstValue("Content-Type").orElse("");
             appendLog("response", Map.of("job_id", id, "http_status", code,
                     "content_type", contentType, "body_length", body.length()));
+            if (code == 429) {
+                if (pacing.onRateLimit()) {
+                    appendLog("retry", Map.of("job_id", id, "delay_ms", pacing.delayMillis()));
+                    continue;
+                }
+                error = id + ": LinkedIn returned 429 after a 120-second pause; check stopped.";
+                appendLog("stop_error", Map.of("job_id", id, "error", error));
+                break;
+            }
             String outcome;
             try {
                 outcome = classifyResponse(code, response.uri(), contentType, body);
@@ -84,6 +99,13 @@ final class LinkedInAvailabilityChecker {
                 break;
             }
             JsonNode state = clientData.recordLinkedInAvailability(id, outcome);
+            index++;
+            processed++;
+            long previousDelay = pacing.delayMillis();
+            pacing.onSuccess();
+            if (pacing.delayMillis() != previousDelay) {
+                appendLog("speed_up", Map.of("delay_ms", pacing.delayMillis()));
+            }
             if (!outcome.equals("available")) unavailable++;
             appendLog(state.path("availability").asText(), Map.of("job_id", id,
                     "unavailable_checks", state.path("unavailable_checks").asInt()));
@@ -93,6 +115,29 @@ final class LinkedInAvailabilityChecker {
         appendLog("done", Map.of("processed", processed, "total", total,
                 "unavailable", unavailable, "skipped", skipped, "error", error));
         return new Result(finalMessage, error);
+    }
+
+    static final class RequestPacing {
+        private long delayMillis = 5000;
+        private int successes;
+
+        long delayMillis() {
+            return delayMillis;
+        }
+
+        boolean onRateLimit() {
+            successes = 0;
+            if (delayMillis == 120000) return false;
+            delayMillis = Math.min(120000, delayMillis * 2);
+            return true;
+        }
+
+        void onSuccess() {
+            if (++successes == 10) {
+                delayMillis = Math.max(5000, delayMillis / 2);
+                successes = 0;
+            }
+        }
     }
 
     static String classifyResponse(int code, URI url, String contentType, String body) {

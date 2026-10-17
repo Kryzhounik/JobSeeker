@@ -14,7 +14,40 @@ public final class LinkedInAvailabilitySmoke {
         }
         expectError(200, URI.create("https://www.linkedin.com/authwall"), html);
         expectError(200, job, "LinkedIn job " + "a".repeat(1100));
-        System.out.println("LinkedIn availability response checks OK");
+        checkPacing();
+        System.out.println("LinkedIn availability response and pacing checks OK");
+    }
+
+    private static void checkPacing() {
+        var pacing = new LinkedInAvailabilityChecker.RequestPacing();
+        expectDelay(pacing, 5000);
+        for (int i = 0; i < 20; i++) pacing.onSuccess();
+        expectDelay(pacing, 5000);
+        for (long delay : new long[]{10000, 20000, 40000, 80000, 120000}) {
+            if (!pacing.onRateLimit()) throw new AssertionError("Retry stopped too early");
+            expectDelay(pacing, delay);
+        }
+        if (pacing.onRateLimit()) throw new AssertionError("Retried beyond maximum delay");
+        for (long delay : new long[]{60000, 30000, 15000, 7500, 5000}) {
+            long previous = pacing.delayMillis();
+            for (int i = 0; i < 9; i++) pacing.onSuccess();
+            expectDelay(pacing, previous);
+            pacing.onSuccess();
+            expectDelay(pacing, delay);
+        }
+        pacing.onRateLimit();
+        for (int i = 0; i < 9; i++) pacing.onSuccess();
+        pacing.onRateLimit();
+        for (int i = 0; i < 9; i++) pacing.onSuccess();
+        expectDelay(pacing, 20000);
+        pacing.onSuccess();
+        expectDelay(pacing, 10000);
+    }
+
+    private static void expectDelay(LinkedInAvailabilityChecker.RequestPacing pacing, long expected) {
+        if (pacing.delayMillis() != expected) {
+            throw new AssertionError("Expected delay " + expected + ", got " + pacing.delayMillis());
+        }
     }
 
     private static void expect(String expected, int code, URI url, String body) {

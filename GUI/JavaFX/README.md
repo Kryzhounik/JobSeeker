@@ -52,7 +52,10 @@ stage filter are saved in `gui-settings.json`.
 Collect launches the configured Java LinkedIn collector in the background and
 shows its accepted/limit progress. Check LinkedIn checks the original vacancy
 pages for scored New vacancies and rechecks unavailable/closed records,
-sequentially with a five-second interval. Availability is stored separately
+sequentially with an anonymous HTTP client. The interval starts at five seconds,
+doubles after each 429 (retrying the same vacancy), and halves after ten
+consecutive successful checks, between five seconds and two minutes. A 429
+after a two-minute pause stops the check. Availability is stored separately
 from working statuses: a 404 increments the failure count, three consecutive
 404 checks mark the source deleted, and a valid open vacancy resets the count.
 Explicitly closed pages are marked closed. Rate limits, authentication pages,
