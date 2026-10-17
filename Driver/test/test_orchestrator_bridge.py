@@ -15,6 +15,8 @@ if str(DRIVER_ROOT) not in sys.path:
 
 from codex_proxy.backend import Result
 from orchestrator import python_bridge
+from db.job_registry import insert_source_job
+from db.migrate import migrate_database
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
@@ -53,6 +55,11 @@ class OrchestratorBridgeTest(unittest.TestCase):
     def test_mark_nonrelevant_updates_all_ids_in_one_database(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
+            migrate_database(database)
+            with closing(sqlite3.connect(database)) as connection:
+                for job_id in ("1", "2"):
+                    insert_source_job(connection, "linkedin", job_id, "CLEANED")
+                connection.commit()
 
             python_bridge.mark_nonrelevant(
                 str(database),

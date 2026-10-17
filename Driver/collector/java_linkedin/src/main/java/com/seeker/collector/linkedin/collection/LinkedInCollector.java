@@ -231,6 +231,9 @@ final class LinkedInCollector {
                 ));
             }
         } catch (RuntimeException error) {
+            if (message(error).contains("Cannot insert source job ")) {
+                throw error;
+            }
             logOutcome(preview, "incomplete_raw", message(error));
         }
     }

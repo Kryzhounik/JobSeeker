@@ -19,6 +19,7 @@ from db.job_mapper import existing_source_urls
 from db.job_mapper import load_job_json
 from db.job_mapper import save_job_json
 from db.migrate import migrate_database
+from db.job_registry import insert_source_job
 from db.readable_text import save_collected_job
 
 
@@ -60,6 +61,7 @@ class CompanyNormalizationTest(unittest.TestCase):
         }
 
         with closing(self.connect()) as connection:
+            insert_source_job(connection, "linkedin", "123")
             save_collected_job(
                 connection,
                 "linkedin",

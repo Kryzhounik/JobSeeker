@@ -138,6 +138,7 @@ public final class MainController {
     private JobRecord selectedJob;
     private int detailLoadedJobId = -1;
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
+    private final CheckBox unavailableCheck = new CheckBox("Unavailable");
     private final ObjectMapper json = new ObjectMapper();
     private final ThreadPoolExecutor operationExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -278,6 +279,7 @@ public final class MainController {
         statusFilters.getChildren().clear();
         statusChecks.clear();
         for (String status : statuses) {
+            if (status.equalsIgnoreCase("Closed")) continue;
             CheckBox checkBox = new CheckBox(status);
             checkBox.setSelected(settingsStore.statusEnabled(status));
             checkBox.setOnAction(event -> {
@@ -287,6 +289,12 @@ public final class MainController {
             statusChecks.put(status, checkBox);
             statusFilters.getChildren().add(checkBox);
         }
+        unavailableCheck.setSelected(settingsStore.showUnavailable());
+        unavailableCheck.setOnAction(event -> {
+            saveStatusFilters();
+            refreshJobs();
+        });
+        statusFilters.getChildren().add(unavailableCheck);
         showZeroCheck.setSelected(settingsStore.showZero());
         showZeroCheck.setOnAction(event -> {
             saveStatusFilters();
@@ -389,10 +397,8 @@ public final class MainController {
     }
 
     private void startLinkedInCheck() {
-        String closedStatus = availableStatuses.stream()
-                .filter(value -> value.equalsIgnoreCase("closed")).findFirst().orElse("");
         LinkedInAvailabilityChecker checker = new LinkedInAvailabilityChecker(
-                clientData, ClientData.findProjectRoot(), closedStatus);
+                clientData, ClientData.findProjectRoot());
         runTask("Loading LinkedIn candidates...", checker::run, summary -> {
             statusLabel.setText(summary.message());
             refreshJobs();
@@ -612,6 +618,7 @@ public final class MainController {
                             .map(Map.Entry::getKey)
                             .toList(),
                     "show_zero", showZeroCheck.isSelected(),
+                    "show_unavailable", unavailableCheck.isSelected(),
                     "id_query", idFilterField.getText().strip(),
                     "added_from", addedFrom,
                     "reasons", reasons
@@ -728,7 +735,8 @@ public final class MainController {
                 values.put(status, checkBox.isSelected())
         );
         try {
-            settingsStore.saveStatusFilters(values, showZeroCheck.isSelected());
+            settingsStore.saveStatusFilters(values, showZeroCheck.isSelected(),
+                    unavailableCheck.isSelected());
         } catch (IOException error) {
             statusLabel.setText("Settings save failed: " + error.getMessage());
         }

@@ -19,6 +19,7 @@ public final class GuiFeaturesSmoke {
             }
 
             SettingsStore settings = new SettingsStore(root);
+            settings.saveStatusFilters(java.util.Map.of("New", true), false, true);
             settings.saveWindowSize("companies", 812, 631);
             settings.saveTableSort("company", "Applications", true);
             settings.saveCollectedStage("CLEANED");
@@ -27,7 +28,8 @@ public final class GuiFeaturesSmoke {
                     || restored.windowHeight("companies", 620) != 631
                     || !restored.tableSortColumn("company").equals("Applications")
                     || !restored.tableSortDescending("company")
-                    || !restored.collectedStage().equals("CLEANED")) {
+                    || !restored.collectedStage().equals("CLEANED")
+                    || !restored.showUnavailable()) {
                 throw new AssertionError("GUI settings restoration failed");
             }
             System.out.println("GUI feature checks OK");

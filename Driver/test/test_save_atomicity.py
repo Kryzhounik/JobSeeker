@@ -14,6 +14,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from db.migrate import migrate_database
+from db.job_registry import insert_source_job
 from db.readable_text import save_collected_job
 from db.save import save_records
 
@@ -67,6 +68,7 @@ class SaveAtomicityTest(unittest.TestCase):
                 connection.execute("PRAGMA foreign_keys = ON")
                 for job_id in ("1", "2", "3"):
                     value = record(job_id)
+                    insert_source_job(connection, "linkedin", job_id)
                     save_collected_job(
                         connection,
                         "linkedin",

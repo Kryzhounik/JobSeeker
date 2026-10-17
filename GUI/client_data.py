@@ -34,6 +34,7 @@ from db.companies import (  # noqa: E402
     update_company_priority,
 )
 from db.job_mapper import apply_refilter_transitions  # noqa: E402
+from db.job_registry import record_availability_check  # noqa: E402
 from db.migrate import migrate_database  # noqa: E402
 
 
@@ -137,9 +138,15 @@ def load_reason_code_descriptions_from_connection(
 def load_jobs(db_path: str | Path, filters_json: str) -> str:
     filters = json.loads(filters_json or "{}")
     statuses = [str(value) for value in filters.get("statuses", []) if value]
+    # Legacy Closed remains a working status; the new checkbox controls availability.
+    if statuses and "show_unavailable" in filters and "Closed" not in statuses:
+        statuses.append("Closed")
     reasons = [str(value).strip() for value in filters.get("reasons", []) if str(value).strip()]
     where_parts: list[str] = []
     parameters: list[Any] = []
+
+    if "show_unavailable" in filters and not bool(filters["show_unavailable"]):
+        where_parts.append("sj.availability = 'available'")
 
     if statuses:
         placeholders = ", ".join("?" for _ in statuses)
@@ -197,6 +204,8 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
                 jl.salary,
                 jl.added_at,
                 jl.source_url,
+                sj.availability,
+                sj.unavailable_checks,
                 text.company_id,
                 a.id AS application_id,
                 coalesce(company_apps.application_count, 0)
@@ -689,23 +698,41 @@ def load_linkedin_availability_candidates(db_path: str | Path) -> str:
         rows = connection.execute(
             """
             SELECT
+                sj.source_job_id,
                 text.source_url,
                 text.title,
                 coalesce(c.name, '') AS company,
-                CAST(jl.score AS INTEGER) AS score
-            FROM jobs j
-            JOIN job_list jl ON jl.job_id = j.id
+                coalesce(CAST(jl.score AS INTEGER), 0) AS score
+            FROM source_jobs sj
             JOIN source_job_texts text
-                ON text.source_job_ref = j.source_job_ref
+                ON text.source_job_ref = sj.id
+            LEFT JOIN jobs j ON j.source_job_ref = sj.id
+            LEFT JOIN job_list jl ON jl.job_id = j.id
             LEFT JOIN companies c ON c.id = text.company_id
-            WHERE jl.status = ?
-                AND CAST(jl.score AS INTEGER) > 0
+            WHERE sj.source = 'linkedin'
+                AND (
+                    sj.availability IN ('unavailable', 'closed')
+                    OR (sj.availability = 'available' AND jl.status = 'New'
+                        AND CAST(jl.score AS INTEGER) > 0)
+                )
                 AND text.source_url LIKE ?
             ORDER BY CAST(jl.score AS INTEGER) DESC, j.added_at DESC, j.id DESC
             """,
-            ("New", "%linkedin.com/%"),
+            ("%linkedin.com/%",),
         ).fetchall()
     return _json(_rows_as_dicts(rows))
+
+
+def record_linkedin_availability(
+    db_path: str | Path,
+    job_id: str,
+    outcome: str,
+) -> str:
+    with _connection(db_path, readonly=False) as connection:
+        availability, checks = record_availability_check(
+            connection, "linkedin", job_id, outcome
+        )
+    return _json({"availability": availability, "unavailable_checks": checks})
 
 
 def mark_jobs_closed(
@@ -713,6 +740,7 @@ def mark_jobs_closed(
     source_urls_json: str,
     closed_status: str,
 ) -> int:
+    """Legacy GUI entry point; leave working statuses unchanged."""
     source_urls = list(dict.fromkeys(
         url for url in json.loads(source_urls_json or "[]") if url
     ))
@@ -721,20 +749,18 @@ def mark_jobs_closed(
 
     with _connection(db_path, readonly=False) as connection:
         placeholders = ", ".join("?" for _ in source_urls)
-        result = connection.execute(
+        rows = connection.execute(
             f"""
-            UPDATE jobs
-            SET status = ?, updated_at = CURRENT_TIMESTAMP
-            WHERE status = 'New'
-                AND source_job_ref IN (
-                    SELECT source_job_ref
-                    FROM source_job_texts
-                    WHERE source_url IN ({placeholders})
-                )
+            SELECT sj.source, sj.source_job_id
+            FROM source_jobs sj
+            JOIN source_job_texts text ON text.source_job_ref = sj.id
+            WHERE text.source_url IN ({placeholders})
             """,
-            [closed_status, *source_urls],
-        )
-    return int(result.rowcount)
+            source_urls,
+        ).fetchall()
+        for row in rows:
+            record_availability_check(connection, row["source"], row["source_job_id"], "closed")
+    return len(rows)
 
 
 def apply_refilter_candidates(db_path: str | Path, candidates_json: str) -> int:

@@ -34,7 +34,6 @@ from db.config import LANGUAGE_FILTER
 from db.config import TECHNOLOGY_FILTER
 from db.config import TITLE_FILTER
 from db.config import load_filter_switches
-from db.job_registry import is_registered
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 from db.readable_text import load_readable_text
@@ -694,7 +693,11 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
     resolved_db = ensure_migrated_database(db_path)
     with closing(sqlite3.connect(resolved_db)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        return is_registered(connection, "linkedin", job_id)
+        return connection.execute(
+            "SELECT 1 FROM source_jobs WHERE source = ? AND source_job_id = ? "
+            "AND availability <> 'deleted'",
+            ("linkedin", job_id),
+        ).fetchone() is not None
 
 
 def decide_preview(

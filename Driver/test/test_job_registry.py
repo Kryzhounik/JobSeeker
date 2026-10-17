@@ -11,6 +11,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from db.job_registry import is_registered
+from db.job_registry import insert_source_job
 from db.job_registry import mark_status
 from db.job_registry import source_job_id
 
@@ -40,6 +41,7 @@ class JobRegistryTest(unittest.TestCase):
                 collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
                     collection_method IN ('unknown', 'script', 'browser', 'playwright')
                 ),
+                collection_run_id TEXT,
                 UNIQUE(source, source_job_id)
             );
             """
@@ -49,7 +51,7 @@ class JobRegistryTest(unittest.TestCase):
         self.connection.close()
 
     def test_status_only_moves_forward(self) -> None:
-        mark_status(self.connection, "linkedin", "123", "RAW")
+        insert_source_job(self.connection, "linkedin", "123")
         mark_status(self.connection, "linkedin", "123", "CLEANED")
         mark_status(self.connection, "linkedin", "123", "RAW")
 
@@ -60,7 +62,7 @@ class JobRegistryTest(unittest.TestCase):
         self.assertTrue(is_registered(self.connection, "linkedin", "123"))
 
     def test_collection_method_records_first_collector(self) -> None:
-        mark_status(
+        insert_source_job(
             self.connection,
             "linkedin",
             "123",
@@ -81,7 +83,7 @@ class JobRegistryTest(unittest.TestCase):
         self.assertEqual(method, "script")
 
     def test_marks_cleaned_job_nonrelevant(self) -> None:
-        mark_status(self.connection, "linkedin", "123", "CLEANED")
+        insert_source_job(self.connection, "linkedin", "123", "CLEANED")
         mark_status(self.connection, "linkedin", "123", "NONRELEVANT")
 
         status = self.connection.execute(
@@ -90,7 +92,7 @@ class JobRegistryTest(unittest.TestCase):
         self.assertEqual(status, "NONRELEVANT")
 
     def test_marks_cleaned_job_content_rejected(self) -> None:
-        mark_status(self.connection, "linkedin", "123", "CLEANED")
+        insert_source_job(self.connection, "linkedin", "123", "CLEANED")
         mark_status(self.connection, "linkedin", "123", "CONTENT_REJECTED")
 
         status = self.connection.execute(
@@ -99,7 +101,7 @@ class JobRegistryTest(unittest.TestCase):
         self.assertEqual(status, "CONTENT_REJECTED")
 
     def test_collection_method_replaces_legacy_unknown(self) -> None:
-        mark_status(self.connection, "linkedin", "123", "RAW")
+        insert_source_job(self.connection, "linkedin", "123")
         mark_status(
             self.connection,
             "linkedin",
@@ -122,6 +124,16 @@ class JobRegistryTest(unittest.TestCase):
             source_job_id("justjoin", "https://justjoin.it/job-offer/example-slug"),
             "example-slug",
         )
+
+    def test_duplicate_insert_fails_with_identity(self) -> None:
+        insert_source_job(self.connection, "linkedin", "123")
+        with self.assertRaisesRegex(sqlite3.IntegrityError, "linkedin:123.*UNIQUE"):
+            insert_source_job(self.connection, "linkedin", "123")
+
+    def test_update_does_not_create_missing_job(self) -> None:
+        with self.assertRaisesRegex(LookupError, "linkedin:123.*missing"):
+            mark_status(self.connection, "linkedin", "123", "CLEANED")
+        self.assertFalse(is_registered(self.connection, "linkedin", "123"))
 
 
 if __name__ == "__main__":

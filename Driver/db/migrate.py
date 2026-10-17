@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 
 from common.paths import DATA_ROOT
 from db.job_mapper import apply_schema
-from db.job_registry import SOURCE_CODES
+from db.job_registry import SOURCE_CODES, insert_source_job, is_registered
 from db.job_registry import mark_status
 from db.readable_text import save_readable_text
 
@@ -148,6 +148,8 @@ def migration_already_effective(
         )
     if version == "036_source_job_collection_run":
         return column_exists(connection, "source_jobs", "collection_run_id")
+    if version == "037_source_job_availability":
+        return column_exists(connection, "source_jobs", "availability")
     return False
 
 
@@ -170,7 +172,11 @@ def backfill_processing_registry(
             if not directory.exists():
                 continue
             for path in directory.glob(pattern):
-                mark_status(connection, source, path.stem, status)
+                operation = (
+                    mark_status if is_registered(connection, source, path.stem)
+                    else insert_source_job
+                )
+                operation(connection, source, path.stem, status)
     after = int(connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0])
     return after - before
 
@@ -187,6 +193,8 @@ def backfill_legacy_readable_texts(
         if not directory.exists():
             continue
         for path in sorted(directory.glob("*.txt")):
+            if not is_registered(connection, source, path.stem):
+                insert_source_job(connection, source, path.stem, "CLEANED")
             save_readable_text(
                 connection,
                 source,

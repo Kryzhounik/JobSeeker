@@ -37,6 +37,10 @@ final class SettingsStore {
         return values.path("show_zero").asBoolean(false);
     }
 
+    boolean showUnavailable() {
+        return values.path("show_unavailable").asBoolean(false);
+    }
+
     String sortColumn() {
         return values.path("job_sort").path("column").asText("");
     }
@@ -81,12 +85,14 @@ final class SettingsStore {
         return values.path("collected_stage_filter").asText("All");
     }
 
-    synchronized void saveStatusFilters(java.util.Map<String, Boolean> filters, boolean showZero)
+    synchronized void saveStatusFilters(java.util.Map<String, Boolean> filters, boolean showZero,
+                                        boolean showUnavailable)
             throws IOException {
         ObjectNode statusValues = json.createObjectNode();
         filters.forEach(statusValues::put);
         values.set("status_filters", statusValues);
         values.put("show_zero", showZero);
+        values.put("show_unavailable", showUnavailable);
         save();
     }
 

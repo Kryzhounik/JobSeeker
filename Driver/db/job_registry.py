@@ -67,6 +67,42 @@ def is_registered(
     ).fetchone() is not None
 
 
+def insert_source_job(
+    connection: sqlite3.Connection,
+    source: str,
+    job_id: str,
+    status: str = "RAW",
+    *,
+    collection_method: str | None = None,
+    collection_run_id: str | None = None,
+) -> int:
+    """Insert a new identity; an existing identity is an error."""
+    source, job_id = validate_identity(source, job_id)
+    status = status.strip().upper()
+    if status not in STATUS_ORDER:
+        raise ValueError(f"Unsupported processing status: {status!r}")
+    if collection_method is not None:
+        collection_method = collection_method.strip().lower()
+        if collection_method not in COLLECTION_METHODS:
+            raise ValueError(f"Unsupported collection method: {collection_method!r}")
+
+    try:
+        cursor = connection.execute(
+            """
+            INSERT INTO source_jobs (
+                source, source_job_id, processing_status,
+                collection_method, collection_run_id
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (source, job_id, status, collection_method or "unknown", collection_run_id),
+        )
+    except sqlite3.IntegrityError as error:
+        raise sqlite3.IntegrityError(
+            f"Cannot insert source job {source}:{job_id}: {error}"
+        ) from error
+    return int(cursor.lastrowid)
+
+
 def mark_status(
     connection: sqlite3.Connection,
     source: str,
@@ -74,8 +110,8 @@ def mark_status(
     status: str,
     *,
     collection_method: str | None = None,
-    collection_run_id: str | None = None,
 ) -> int:
+    """Update an existing identity without creating a missing registration."""
     source, job_id = validate_identity(source, job_id)
     status = status.strip().upper()
     if status not in STATUS_ORDER:
@@ -94,35 +130,19 @@ def mark_status(
         (source, job_id),
     ).fetchone()
     if row is None:
-        cursor = connection.execute(
-            """
-            INSERT INTO source_jobs (
-                source,
-                source_job_id,
-                processing_status,
-                collection_method,
-                collection_run_id
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-            (source, job_id, status, collection_method or "unknown", collection_run_id),
+        raise LookupError(
+            f"Cannot update source job {source}:{job_id}: registration is missing"
         )
-        return int(cursor.lastrowid)
 
     registry_id, current_status = int(row[0]), str(row[1])
-    if STATUS_ORDER[status] > STATUS_ORDER[current_status]:
-        connection.execute(
-            "UPDATE source_jobs SET processing_status = ? WHERE id = ?",
-            (status, registry_id),
-        )
-    if (
-        collection_method is not None
-        and str(row[2]) == "unknown"
-    ):
-        connection.execute(
-            "UPDATE source_jobs SET collection_method = ? WHERE id = ?",
-            (collection_method, registry_id),
-        )
+    next_status = status if STATUS_ORDER[status] > STATUS_ORDER[current_status] else current_status
+    method = (collection_method or "unknown") if row[2] == "unknown" else row[2]
+    result = connection.execute(
+        "UPDATE source_jobs SET processing_status = ?, collection_method = ? WHERE id = ?",
+        (next_status, method, registry_id),
+    )
+    if result.rowcount != 1:
+        raise LookupError(f"Cannot update source job {source}:{job_id}: registration is missing")
     return registry_id
 
 
@@ -133,7 +153,6 @@ def mark_url_status(
     status: str,
     *,
     collection_method: str | None = None,
-    collection_run_id: str | None = None,
 ) -> int:
     return mark_status(
         connection,
@@ -141,8 +160,31 @@ def mark_url_status(
         source_job_id(source, source_url),
         status,
         collection_method=collection_method,
-        collection_run_id=collection_run_id,
     )
+
+
+def record_availability_check(
+    connection: sqlite3.Connection,
+    source: str,
+    job_id: str,
+    outcome: str,
+) -> tuple[str, int]:
+    source, job_id = validate_identity(source, job_id)
+    if outcome not in {"available", "unavailable", "closed"}:
+        raise ValueError(f"Unsupported availability check outcome: {outcome!r}")
+    row = connection.execute(
+        "SELECT id, unavailable_checks FROM source_jobs WHERE source = ? AND source_job_id = ?",
+        (source, job_id),
+    ).fetchone()
+    if row is None:
+        raise LookupError(f"Cannot check source job {source}:{job_id}: registration is missing")
+    checks = int(row[1]) + 1 if outcome == "unavailable" else 0
+    availability = "deleted" if checks >= 3 else outcome
+    connection.execute(
+        "UPDATE source_jobs SET availability = ?, unavailable_checks = ? WHERE id = ?",
+        (availability, checks, row[0]),
+    )
+    return availability, checks
 
 
 def main() -> None:
@@ -163,7 +205,8 @@ def main() -> None:
     job_id = args.job_id or source_job_id(args.source, args.url)
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        mark_status(
+        operation = insert_source_job if args.status == "RAW" else mark_status
+        operation(
             connection,
             args.source,
             job_id,

@@ -11,6 +11,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from db.readable_text import has_readable_text
+from db.job_registry import insert_source_job
 from db.readable_text import load_readable_text
 from db.readable_text import save_collected_job
 from db.readable_text import save_readable_text
@@ -39,6 +40,7 @@ class ReadableTextTest(unittest.TestCase):
                 collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
                     collection_method IN ('unknown', 'script', 'browser', 'playwright')
                 ),
+                collection_run_id TEXT,
                 UNIQUE(source, source_job_id)
             );
             CREATE TABLE companies (
@@ -60,6 +62,7 @@ class ReadableTextTest(unittest.TestCase):
             );
             """
         )
+        insert_source_job(self.connection, "linkedin", "123")
 
     def tearDown(self) -> None:
         self.connection.close()

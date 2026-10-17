@@ -191,11 +191,8 @@ final class ClientData {
         return readJson(call("load_linkedin_availability_candidates", databasePath.toString()));
     }
 
-    synchronized int markJobsClosed(List<String> sourceUrls, String closedStatus) throws Exception {
-        try (PyObject result = module.call("mark_jobs_closed", databasePath.toString(),
-                json.writeValueAsString(sourceUrls), closedStatus)) {
-            return result.getIntValue();
-        }
+    synchronized JsonNode recordLinkedInAvailability(String jobId, String outcome) throws Exception {
+        return readJson(call("record_linkedin_availability", databasePath.toString(), jobId, outcome));
     }
 
     synchronized JsonNode collectRefilterCandidates() throws Exception {

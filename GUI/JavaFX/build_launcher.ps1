@@ -39,6 +39,10 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX feature check failed with exit code $LASTEXITCODE."
 }
+& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.LinkedInAvailabilitySmoke
+if ($LASTEXITCODE -ne 0) {
+    throw "LinkedIn availability check failed with exit code $LASTEXITCODE."
+}
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.JobSortRefreshSmoke
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX job sorting check failed with exit code $LASTEXITCODE."

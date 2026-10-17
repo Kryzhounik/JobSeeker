@@ -15,6 +15,7 @@ if str(DRIVER_ROOT) not in sys.path:
 from db.applications import create_for_source_urls
 from db.applications import list_applications
 from db.migrate import migrate_database
+from db.job_registry import insert_source_job
 from db.readable_text import save_collected_job
 
 
@@ -25,6 +26,7 @@ class ApplicationsTest(unittest.TestCase):
             migrate_database(db_path)
             with closing(sqlite3.connect(db_path)) as connection:
                 connection.row_factory = sqlite3.Row
+                insert_source_job(connection, "linkedin", "123")
                 source_job_ref = save_collected_job(
                     connection,
                     "linkedin",

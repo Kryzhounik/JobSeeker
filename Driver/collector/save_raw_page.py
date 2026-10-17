@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_registry import mark_url_status
+from db.job_registry import insert_source_job, is_registered, mark_status, source_job_id
 from db.migrate import migrate_database
 
 
@@ -88,26 +88,27 @@ def save_content(
     validate_content(source, content)
 
     pages_dir = out_dir / "pages"
-    pages_dir.mkdir(parents=True, exist_ok=True)
     path = pages_dir / raw_name(url, ext)
-    if path.exists() and not force:
-        print(f"skip existing {path}")
-    else:
-        path.write_text(content, encoding="utf-8")
-        print(f"saved {source} {url} -> {path}")
 
     database = db_path or DATA_ROOT / "jobs.sqlite"
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        mark_url_status(
-            connection,
-            source,
-            url,
-            "RAW",
-            collection_method=collection_method,
-            collection_run_id=collection_run_id,
-        )
+        job_id = source_job_id(source, url)
+        if force and is_registered(connection, source, job_id):
+            mark_status(connection, source, job_id, "RAW", collection_method=collection_method)
+        else:
+            insert_source_job(
+                connection, source, job_id,
+                collection_method=collection_method,
+                collection_run_id=collection_run_id,
+            )
+        pages_dir.mkdir(parents=True, exist_ok=True)
+        if path.exists() and not force:
+            print(f"skip existing {path}")
+        else:
+            path.write_text(content, encoding="utf-8")
+            print(f"saved {source} {url} -> {path}")
         connection.commit()
     return path
 

@@ -50,8 +50,15 @@ shows the full code reference. Window sizes, table sorts and the Collected
 stage filter are saved in `gui-settings.json`.
 
 Collect launches the configured Java LinkedIn collector in the background and
-shows its accepted/limit progress. Check LinkedIn checks scored New vacancies
-sequentially with a five-second interval; its JSONL log is
+shows its accepted/limit progress. Check LinkedIn checks the original vacancy
+pages for scored New vacancies and rechecks unavailable/closed records,
+sequentially with a five-second interval. Availability is stored separately
+from working statuses: a 404 increments the failure count, three consecutive
+404 checks mark the source deleted, and a valid open vacancy resets the count.
+Explicitly closed pages are marked closed. Rate limits, authentication pages,
+and network errors do not change availability. The Unavailable checkbox shows
+closed, unavailable, and deleted records; they are hidden when it is unchecked.
+Its JSONL log is
 `GUI/JavaFX/linkedin_availability_check.log`. Refilter uses the existing
 `Tools.filter_database` filter implementation through `GUI.client_data` and
 `jpy`. Refilter detail previews transitions and applies only checked rows.

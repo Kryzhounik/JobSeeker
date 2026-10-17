@@ -88,6 +88,13 @@ INSERT OR IGNORE INTO processing_statuses (code, sort_order) VALUES
     ('SCORED', 40),
     ('SAVED', 50);
 
+CREATE TABLE IF NOT EXISTS availability_statuses (
+    code TEXT PRIMARY KEY
+);
+
+INSERT OR IGNORE INTO availability_statuses (code) VALUES
+    ('available'), ('unavailable'), ('closed'), ('deleted');
+
 CREATE TABLE IF NOT EXISTS source_jobs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL REFERENCES job_sources(code),
@@ -97,6 +104,8 @@ CREATE TABLE IF NOT EXISTS source_jobs (
         collection_method IN ('unknown', 'script', 'browser', 'playwright')
     ),
     collection_run_id TEXT REFERENCES linkedin_collection_runs(run_id),
+    availability TEXT NOT NULL DEFAULT 'available' REFERENCES availability_statuses(code),
+    unavailable_checks INTEGER NOT NULL DEFAULT 0 CHECK (unavailable_checks >= 0),
     UNIQUE(source, source_job_id)
 );
 
