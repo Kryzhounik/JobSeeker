@@ -43,6 +43,22 @@ created it.
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
 ```
 
+### Check one LinkedIn vacancy
+
+Collects one vacancy with the same duplicate, preview, and content filters as
+batch collection, then runs operations 2–7 for the accepted vacancy.
+
+```powershell
+java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar check-url "<linkedin-job-url>"
+```
+
+The command prints the existing JSON collection report without `pages`.
+`status: "complete"` means processing finished; a duplicate or rejected vacancy
+has an empty `scope`, `accepted_count: 0`, and an explanatory `message`.
+A vacancy accepted by the agent filter remains in `scope` after analysis and
+final save. The resulting facts and scores are stored through the existing
+analysis workflow.
+
 ### Resume after collection
 
 If collection completed but the title filter failed, this reads that run's
@@ -86,4 +102,4 @@ use the orchestrator's `batch linkedin` command.
 
 There are currently no separate Java console commands for the title filter,
 candidate fit, job interest, or database save. They are exposed only as parts
-of `batch`, `resume`, and `finish-analysis`.
+of `batch`, `check-url`, `resume`, and `finish-analysis`.

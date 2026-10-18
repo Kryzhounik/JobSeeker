@@ -92,8 +92,13 @@ final class LinkedInCollector {
                     0,
                     1
             );
-            processHtml(preview, direct.html());
-            return finish("complete", "direct_url_processed", "");
+            ProcessResult result = operate(preview, null, direct.html());
+            recordResult(result);
+            return finish(
+                    "complete",
+                    "direct_url_processed",
+                    result.accepted() ? "" : result.reason()
+            );
         } catch (AuthenticationRequiredException error) {
             return finish("login_required", "authentication_required", message(error));
         } catch (RuntimeException error) {
@@ -150,16 +155,13 @@ final class LinkedInCollector {
                     continue;
                 }
                 Preview preview = card.preview(target.label(), start, index);
-                PreviewDecision decision = python.decidePreview(preview);
-                if (!decision.shouldOpen()) {
-                    outcomes.add("preview_filtered");
-                    continue;
-                }
                 if (scope.size() >= config.limit()) {
-                    logOutcome(preview, "not_processed_due_to_limit", "global limit reached");
+                    recordResult(logOutcome(
+                            preview, "not_processed_due_to_limit", "global limit reached"
+                    ));
                     break;
                 }
-                collectAcceptedCard(materialized, preview);
+                recordResult(operate(preview, materialized, null));
                 if (scope.size() >= config.limit()) {
                     break;
                 }
@@ -194,11 +196,18 @@ final class LinkedInCollector {
         }
     }
 
-    private void collectAcceptedCard(
+    private ProcessResult operate(
+            Preview preview,
             LinkedInPageClient.MaterializedPage materialized,
-            Preview preview
+            String html
     ) {
-        String html;
+        PreviewDecision decision = python.decidePreview(preview);
+        if (!decision.shouldOpen()) {
+            return result(preview, "preview_filtered", decision.reason());
+        }
+        if (html != null) {
+            return processHtml(preview, html);
+        }
         try {
             html = browser.openCard(materialized, preview.jobId());
         } catch (CardClickException clickError) {
@@ -209,36 +218,26 @@ final class LinkedInCollector {
             } catch (RuntimeException fallbackError) {
                 String reason = "search-card click failed: " + message(clickError)
                         + "; direct URL fallback failed: " + message(fallbackError);
-                logOutcome(preview, "open_failed", reason);
-                return;
+                return logOutcome(preview, "open_failed", reason);
             }
         } catch (DetailsNotReadyException error) {
-            logOutcome(preview, "incomplete_raw", message(error));
-            return;
+            return logOutcome(preview, "incomplete_raw", message(error));
         }
-        processHtml(preview, html);
+        return processHtml(preview, html);
     }
 
-    private void processHtml(Preview preview, String html) {
+    private ProcessResult processHtml(Preview preview, String html) {
         try {
-            ProcessResult result = python.processHtml(preview, html);
-            outcomes.add(result.status());
-            if (result.accepted()) {
-                scope.add(new ScopeItem(
-                        result.source(),
-                        result.jobId(),
-                        result.title()
-                ));
-            }
+            return python.processHtml(preview, html);
         } catch (RuntimeException error) {
             if (message(error).contains("Cannot insert source job ")) {
                 throw error;
             }
-            logOutcome(preview, "incomplete_raw", message(error));
+            return logOutcome(preview, "incomplete_raw", message(error));
         }
     }
 
-    private void logOutcome(Preview preview, String status, String reason) {
+    private ProcessResult logOutcome(Preview preview, String status, String reason) {
         try {
             python.logOutcome(preview, status, reason);
         } catch (RuntimeException error) {
@@ -248,7 +247,18 @@ final class LinkedInCollector {
                     error
             );
         }
-        outcomes.add(status);
+        return result(preview, status, reason);
+    }
+
+    private ProcessResult result(Preview preview, String status, String reason) {
+        return new ProcessResult("linkedin", preview.jobId(), preview.title(), status, reason);
+    }
+
+    private void recordResult(ProcessResult result) {
+        outcomes.add(result.status());
+        if (result.accepted()) {
+            scope.add(new ScopeItem(result.source(), result.jobId(), result.title()));
+        }
     }
 
     private int recordPage(
@@ -374,7 +384,7 @@ final class LinkedInCollector {
             Preview preview,
             RuntimeException error
     ) {
-        logOutcome(preview, "open_failed", message(error));
+        recordResult(logOutcome(preview, "open_failed", message(error)));
         return finish("blocked", "direct_url_error", message(error));
     }
 

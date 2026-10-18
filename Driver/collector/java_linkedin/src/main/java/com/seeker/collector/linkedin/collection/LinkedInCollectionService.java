@@ -57,6 +57,8 @@ public final class LinkedInCollectionService {
     public CollectionReport collectFromUrl(String runId, String url) throws IOException {
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, JsonSupport.GSON.toJson(config));
+            // TODO: Check the existing duplicate rule before opening the browser
+            // if starting a session for already collected URLs becomes a problem.
             try (PersistentLinkedInSession session = new PersistentLinkedInSession(
                     paths.profileDirectory(),
                     browserSettings

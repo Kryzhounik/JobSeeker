@@ -560,12 +560,21 @@ final class LinkedInPageClient {
             }
             Locator details = waitForDetails(direct, jobId, false);
             Map<String, Object> fields = stringObjectMap(details.evaluate(DETAIL_PREVIEW_SCRIPT));
-            return new DirectJob(
+            DirectJob job = new DirectJob(
                     wrapHtml(jobId, outerHtml(details)),
                     text(fields.get("title")),
                     text(fields.get("company")),
                     text(fields.get("location"))
             );
+            System.err.printf(
+                    Locale.ROOT,
+                    "LinkedIn details loaded: job_id=%s url=%s title=%s html_chars=%d%n",
+                    jobId,
+                    direct.url(),
+                    job.title().replaceAll("\\s+", " ").trim(),
+                    job.html().length()
+            );
+            return job;
         } finally {
             direct.close();
         }

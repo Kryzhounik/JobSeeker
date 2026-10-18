@@ -49,6 +49,14 @@ The normal `batch linkedin` workflow now enters through the Java workflow
 orchestrator. The direct collector commands below remain available for collector
 development, login, and testing.
 
+`LinkedInApplication.fromUrl(url)` collects one vacancy through the same
+preview and content filters as batch collection. The URL entry loads its HTML
+once and passes it to the common operation; batch collection applies the
+preview filters before loading details. Both return `CollectionReport` with
+only accepted vacancies in `scope`. A skipped URL returns an empty scope and
+the reason in `message`. Existing source IDs are skipped without reanalysis.
+The full URL workflow is exposed by the orchestrator's `check-url` command.
+
 ## Requirements
 
 - JDK 21 or newer;
@@ -89,3 +97,6 @@ java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch
 mvn -f Driver/collector/java_linkedin/pom.xml test
 python -m unittest Driver.test.test_java_linkedin_bridge
 ```
+
+The regular Maven tests do not start a browser, collect real vacancies, or call
+Codex. Running the executable collector or orchestrator is a separate action.

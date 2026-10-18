@@ -61,4 +61,8 @@ public final class LinkedInApplication {
     public CollectionReport fromUrl(String runId, String url) throws IOException {
         return collectionService.collectFromUrl(runId, url);
     }
+
+    public CollectionReport fromUrl(String url) throws IOException {
+        return fromUrl(RUN_ID_TIME.format(Instant.now()) + "-url-linkedin", url);
+    }
 }

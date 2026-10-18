@@ -19,30 +19,49 @@ import java.util.Set;
 /** Top-level Java workflow entry point. */
 public final class WorkflowOrchestrator {
     private final LinkedInBatch linkedinBatch;
+    private final LinkedInSingle linkedinSingle;
     private final AgentFilterGateway agentFilter;
     private final int vacanciesPerAgent;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
         this(
-                new LinkedInApplication(projectRoot)::batch,
+                new LinkedInApplication(projectRoot),
                 new JpyAgentFilterGateway(projectRoot),
                 vacanciesPerAgent(projectRoot)
         );
+    }
+
+    private WorkflowOrchestrator(
+            LinkedInApplication linkedin,
+            AgentFilterGateway agentFilter,
+            int vacanciesPerAgent
+    ) {
+        this(linkedin::batch, linkedin::fromUrl, agentFilter, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
             AgentFilterGateway agentFilter
     ) {
-        this(linkedinBatch, agentFilter, Integer.MAX_VALUE);
+        this(linkedinBatch, ignored -> linkedinBatch.collect(), agentFilter);
+    }
+
+    WorkflowOrchestrator(
+            LinkedInBatch linkedinBatch,
+            LinkedInSingle linkedinSingle,
+            AgentFilterGateway agentFilter
+    ) {
+        this(linkedinBatch, linkedinSingle, agentFilter, Integer.MAX_VALUE);
     }
 
     private WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
+            LinkedInSingle linkedinSingle,
             AgentFilterGateway agentFilter,
             int vacanciesPerAgent
     ) {
         this.linkedinBatch = Objects.requireNonNull(linkedinBatch);
+        this.linkedinSingle = Objects.requireNonNull(linkedinSingle);
         this.agentFilter = Objects.requireNonNull(agentFilter);
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
@@ -52,6 +71,19 @@ public final class WorkflowOrchestrator {
             throw new IllegalArgumentException("Unsupported batch source: " + source);
         }
         return processCollected(linkedinBatch.collect());
+    }
+
+    public CollectionReport checkUrl(String url) throws IOException {
+        CollectionReport report = processCollected(linkedinSingle.collect(url));
+        if (report.scope().isEmpty()
+                && report.outcomes().getOrDefault("agent_filtered", 0) > 0) {
+            return new CollectionReport(
+                    report.source(), report.runId(), report.status(),
+                    report.acceptedCount(), report.scope(), report.outcomes(),
+                    report.pages(), "Vacancy rejected by agent relevance filter"
+            );
+        }
+        return report;
     }
 
     public CollectionReport resume(String runId) {
@@ -236,5 +268,10 @@ public final class WorkflowOrchestrator {
     @FunctionalInterface
     interface LinkedInBatch {
         CollectionReport collect() throws IOException;
+    }
+
+    @FunctionalInterface
+    interface LinkedInSingle {
+        CollectionReport collect(String url) throws IOException;
     }
 }

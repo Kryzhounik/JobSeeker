@@ -40,6 +40,79 @@ class WorkflowOrchestratorTest {
         assertEquals(List.of("1", "3"), ids(actual.scope()));
         assertEquals(2, actual.acceptedCount());
         assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals("", actual.message());
+    }
+
+    @Test
+    void checksUrlAndRunsAllExistingAnalysisStagesForAcceptedVacancy()
+            throws Exception {
+        String url = "https://www.linkedin.com/jobs/view/1";
+        List<String> requestedUrls = new ArrayList<>();
+        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> {
+                    throw new AssertionError("batch collector must not be called");
+                },
+                requestedUrl -> {
+                    requestedUrls.add(requestedUrl);
+                    return report("complete", List.of(item("1", "Java Developer")));
+                },
+                filter
+        );
+
+        CollectionReport actual = orchestrator.checkUrl(url);
+
+        assertEquals(List.of(url), requestedUrls);
+        assertEquals(List.of("1"), ids(actual.scope()));
+        assertEquals(1, actual.acceptedCount());
+        assertEquals(List.of(
+                "filter:run-1",
+                "start-analysis:run-1",
+                "job-facts:1",
+                "candidate-fit:1",
+                "job-interest:1",
+                "save-scored:1"
+        ), filter.calls);
+    }
+
+    @Test
+    void returnsCollectorRejectionWithoutStartingAnalysis() throws Exception {
+        CollectionReport rejected = new CollectionReport(
+                "linkedin", "run-1", "complete", 0, List.of(),
+                Map.of("preview_filtered", 1), List.of(), "duplicate source_job_id"
+        );
+        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> rejected,
+                filter
+        );
+
+        CollectionReport actual = orchestrator.checkUrl(
+                "https://www.linkedin.com/jobs/view/1"
+        );
+
+        assertSame(rejected, actual);
+        assertEquals(List.of(), filter.calls);
+    }
+
+    @Test
+    void explainsAgentRejectionWithoutStartingLaterAnalysis() throws Exception {
+        FakeAgentFilter filter = new FakeAgentFilter(List.of("1"));
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> report("complete", List.of(item("1", "Java Developer"))),
+                filter
+        );
+
+        CollectionReport actual = orchestrator.checkUrl(
+                "https://www.linkedin.com/jobs/view/1"
+        );
+
+        assertEquals("complete", actual.status());
+        assertEquals(0, actual.acceptedCount());
+        assertEquals(List.of(), actual.scope());
+        assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals("Vacancy rejected by agent relevance filter", actual.message());
+        assertEquals(List.of("filter:run-1", "mark-nonrelevant:1"), filter.calls);
     }
 
     @Test
@@ -122,6 +195,7 @@ class WorkflowOrchestratorTest {
 
     private static final class FakeAgentFilter implements AgentFilterGateway {
         private final List<String> rejectedIds;
+        private final List<String> calls = new ArrayList<>();
         private int filterInvocations;
         private String runId;
         private List<ScopeItem> scope = List.of();
@@ -139,6 +213,7 @@ class WorkflowOrchestratorTest {
 
         @Override
         public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
+            calls.add("filter:" + runId);
             filterInvocations++;
             this.runId = runId;
             this.scope = scope;
@@ -147,12 +222,14 @@ class WorkflowOrchestratorTest {
 
         @Override
         public void markNonrelevant(String source, List<String> jobIds) {
+            calls.add("mark-nonrelevant:" + String.join(",", jobIds));
             markedSource = source;
             markedIds = List.copyOf(jobIds);
         }
 
         @Override
         public void startAnalysis(String runId, int vacanciesPerAgent) {
+            calls.add("start-analysis:" + runId);
         }
 
         @Override
@@ -163,6 +240,7 @@ class WorkflowOrchestratorTest {
                 String target,
                 String threadId
         ) {
+            calls.add("job-facts:" + jobId);
             return threadId == null ? target : threadId;
         }
 
@@ -174,15 +252,18 @@ class WorkflowOrchestratorTest {
                 String target,
                 String threadId
         ) {
+            calls.add("candidate-fit:" + jobId);
             return threadId == null ? target : threadId;
         }
 
         @Override
         public void jobInterest(String source, String jobId) {
+            calls.add("job-interest:" + jobId);
         }
 
         @Override
         public void saveScored(String source, List<String> jobIds) {
+            calls.add("save-scored:" + String.join(",", jobIds));
         }
     }
 }

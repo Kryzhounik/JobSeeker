@@ -41,10 +41,13 @@ public final class Main {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
         if (args.length == 2 && (
                 "batch".equals(args[0]) || "resume".equals(args[0])
+                        || "check-url".equals(args[0])
         )) {
-            CollectionReport report = "batch".equals(args[0])
-                    ? orchestrator.batch(args[1])
-                    : orchestrator.resume(args[1]);
+            CollectionReport report = switch (args[0]) {
+                case "batch" -> orchestrator.batch(args[1]);
+                case "check-url" -> orchestrator.checkUrl(args[1]);
+                default -> orchestrator.resume(args[1]);
+            };
             var result = GSON.toJsonTree(report).getAsJsonObject();
             result.remove("pages");
             System.out.println(GSON.toJson(result));
@@ -78,7 +81,7 @@ public final class Main {
             return;
         }
         throw new IllegalArgumentException(
-                "Expected: batch <source>, resume <run-id>, or "
+                "Expected: batch <source>, check-url <url>, resume <run-id>, or "
                         + "job-facts|finish-analysis <run-id> <source> "
                         + "<comma-separated-job-ids>"
         );
