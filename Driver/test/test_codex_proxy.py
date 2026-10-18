@@ -6,6 +6,7 @@ import sqlite3
 from types import SimpleNamespace
 import sys
 import tempfile
+import tomllib
 import unittest
 from unittest.mock import patch
 
@@ -155,6 +156,40 @@ class CodexProxyTest(unittest.TestCase):
         self.assertNotIn("--sandbox", command)
         self.assertNotIn("--add-dir", command)
         self.assertEqual(result.thread_id, "thread-1")
+
+    @patch("codex_proxy.codex_cli.shutil.which")
+    @patch("codex_proxy.codex_cli.subprocess.run")
+    def test_browser_mcp_starts_installed_script_without_npm(self, process_run, which) -> None:
+        which.side_effect = lambda name: {"codex.cmd": "codex", "node": "node"}.get(name)
+        process_run.return_value = SimpleNamespace(returncode=0, stdout="", stderr="")
+        settings = load()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            script = root / "node_modules/@playwright/mcp/cli.js"
+            script.parent.mkdir(parents=True)
+            script.write_text("", encoding="utf-8")
+            with patch.object(codex_cli, "__file__", str(root / "codex_cli.py")):
+                arguments = dict(
+                    config=settings.config,
+                    prompt="PROMPT",
+                    model=settings.model,
+                    reasoning_effort=settings.reasoning_effort,
+                    cwd=DRIVER_ROOT,
+                    output_schema=DRIVER_ROOT.parent / "Applier/result.schema.json",
+                    browser_cdp_endpoint="http://127.0.0.1:9222",
+                )
+                codex_cli.call(**arguments)
+                command = process_run.call_args.args[0]
+                override = next(value for value in command if value.startswith("mcp_servers.playwright="))
+                server = tomllib.loads(override)["mcp_servers"]["playwright"]
+                self.assertEqual(server["command"], "node")
+                self.assertEqual(server["args"], [str(script), "--cdp-endpoint", "http://127.0.0.1:9222"])
+                self.assertTrue(server["required"])
+                self.assertNotIn("npx.cmd", [call.args[0] for call in which.call_args_list])
+                script.unlink()
+                with self.assertRaisesRegex(RuntimeError, "npm ci --prefix Driver/codex_proxy"):
+                    codex_cli.call(**arguments)
+                self.assertEqual(process_run.call_count, 1)
 
     @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
     def test_cli_rejects_resume_in_ephemeral_mode(self, unused_which) -> None:

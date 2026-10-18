@@ -2,6 +2,7 @@ package com.seeker.applier;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
@@ -9,6 +10,7 @@ import com.seeker.applier.shared.ManagedBrowser;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,6 +18,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Predicate;
 
 /** Opens a vacancy, checks for a matching site script, then delegates the form to Codex. */
 public final class ApplierRunner {
@@ -95,18 +98,37 @@ public final class ApplierRunner {
 
     private static Page clickForPopup(Page jobPage, Locator apply) {
         List<Page> pagesBeforeClick = List.copyOf(jobPage.context().pages());
+        String href = apply.getAttribute("href");
+        String destination = applyDestination(jobPage.url(), href);
+        Predicate<Page> isApplyPage = page -> jobPage.equals(page.opener())
+                || destination != null && (destination.equals(page.url()) || href.equals(page.url()));
         int popupTimeoutMs = "_blank".equalsIgnoreCase(apply.getAttribute("target")) ? 30000 : 4000;
         try {
-            return jobPage.waitForPopup(
-                    new Page.WaitForPopupOptions().setTimeout(popupTimeoutMs), apply::click);
+            return jobPage.context().waitForPage(
+                    new BrowserContext.WaitForPageOptions().setTimeout(popupTimeoutMs)
+                            .setPredicate(isApplyPage), apply::click);
         } catch (TimeoutError noPopup) {
             for (Page page : jobPage.context().pages()) {
-                if (!pagesBeforeClick.contains(page) && jobPage.equals(page.opener())) {
+                if (!pagesBeforeClick.contains(page) && isApplyPage.test(page)) {
                     return page;
                 }
             }
             return jobPage;
         }
+    }
+
+    private static String applyDestination(String jobUrl, String href) {
+        if (href == null) return null;
+        URI link = URI.create(jobUrl).resolve(href);
+        if (sameHost(jobUrl, link.toString()) && "/safety/go/".equals(link.getPath())
+                && link.getRawQuery() != null) {
+            for (String parameter : link.getRawQuery().split("&")) {
+                if (parameter.startsWith("url=")) {
+                    return URLDecoder.decode(parameter.substring(4), StandardCharsets.UTF_8);
+                }
+            }
+        }
+        return link.toString();
     }
 
     private Result runCodex(String formUrl, int tabIndex, String step,

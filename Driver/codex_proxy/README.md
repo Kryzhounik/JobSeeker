@@ -43,6 +43,16 @@ Playwright MCP browser tools in its agent instructions. Applier must also pass
 `--browser-cdp-endpoint`; the proxy configures the Playwright MCP server for
 that endpoint for this invocation only. Other operations remain without tools.
 
+Install the browser-tool runtime once from the Seeker project root:
+
+```powershell
+npm ci --prefix Driver/codex_proxy
+```
+
+The proxy starts the installed Playwright MCP script directly with Node.js.
+It does not run npm or npx during application preparation. The dependency
+version is fixed in `package.json` and `package-lock.json`.
+
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
 

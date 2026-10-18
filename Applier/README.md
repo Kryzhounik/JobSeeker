@@ -27,6 +27,15 @@ add choice rules to `fill_form.md`. `Data/` is excluded from Git.
 
 ## Build and console API
 
+Install Playwright MCP once from the Seeker project root, using Node.js/npm:
+
+```powershell
+npm ci --prefix Driver/codex_proxy
+```
+
+Both GUI and console preparation use this installed MCP runtime through the
+existing Codex Proxy.
+
 Build with JDK 21 or newer and Maven from the Seeker project root:
 
 ```powershell

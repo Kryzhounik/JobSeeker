@@ -55,11 +55,17 @@ def call(
         f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ))
     if browser_cdp_endpoint:
-        npx = shutil.which("npx.cmd" if os.name == "nt" else "npx")
-        if not npx:
-            raise RuntimeError("npx was not found on PATH for Playwright MCP.")
-        args = ["-y", "@playwright/mcp", "--cdp-endpoint", browser_cdp_endpoint]
-        server_config = "{command = " + json.dumps(npx) + ", args = [" + ", ".join(
+        node = shutil.which("node")
+        if not node:
+            raise RuntimeError("Node.js was not found on PATH for Playwright MCP.")
+        mcp_script = Path(__file__).resolve().parent / "node_modules/@playwright/mcp/cli.js"
+        if not mcp_script.is_file():
+            raise RuntimeError(
+                "Playwright MCP is not installed. Run npm ci --prefix Driver/codex_proxy "
+                "from the Seeker project root."
+            )
+        args = [str(mcp_script), "--cdp-endpoint", browser_cdp_endpoint]
+        server_config = "{command = " + json.dumps(node) + ", args = [" + ", ".join(
             json.dumps(value) for value in args
         ) + "], default_tools_approval_mode = \"approve\", required = true, startup_timeout_sec = 45}"
         configured_args.extend((
