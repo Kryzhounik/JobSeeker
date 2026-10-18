@@ -53,14 +53,14 @@ class WorkflowOrchestratorTest {
                 () -> {
                     throw new AssertionError("batch collector must not be called");
                 },
-                requestedUrl -> {
-                    requestedUrls.add(requestedUrl);
+                urls -> {
+                    requestedUrls.addAll(urls);
                     return report("complete", List.of(item("1", "Java Developer")));
                 },
                 filter
         );
 
-        CollectionReport actual = orchestrator.checkUrl(url);
+        CollectionReport actual = orchestrator.check(url);
 
         assertEquals(List.of(url), requestedUrls);
         assertEquals(List.of("1"), ids(actual.scope()));
@@ -87,12 +87,82 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.checkUrl(
+        CollectionReport actual = orchestrator.check(
                 "https://www.linkedin.com/jobs/view/1"
         );
 
         assertSame(rejected, actual);
         assertEquals(List.of(), filter.calls);
+    }
+
+    @Test
+    void checksMultipleUrlsAsOneScopeAndRunsAnalysisOnce() throws Exception {
+        List<String> urls = List.of(
+                "https://www.linkedin.com/jobs/view/1",
+                "https://www.linkedin.com/jobs/view/2"
+        );
+        List<String> requestedUrls = new ArrayList<>();
+        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> {
+                    throw new AssertionError("batch collector must not be called");
+                },
+                requested -> {
+                    requestedUrls.addAll(requested);
+                    return report("complete", List.of(
+                            item("1", "Java Developer"),
+                            item("2", "Backend Engineer")
+                    ));
+                },
+                filter
+        );
+
+        CollectionReport actual = orchestrator.check(urls.toArray(String[]::new));
+
+        assertEquals(urls, requestedUrls);
+        assertEquals(List.of("1", "2"), ids(actual.scope()));
+        assertEquals(2, actual.acceptedCount());
+        assertEquals(List.of(
+                "filter:run-1",
+                "start-analysis:run-1",
+                "job-facts:1",
+                "job-facts:2",
+                "candidate-fit:1",
+                "candidate-fit:2",
+                "job-interest:1",
+                "job-interest:2",
+                "save-scored:1,2"
+        ), filter.calls);
+    }
+
+    @Test
+    void keepsCollectorAndAgentRejectionReasonsForMultipleUrls() throws Exception {
+        CollectionReport collected = new CollectionReport(
+                "linkedin", "run-1", "complete", 1,
+                List.of(item("1", "Java Developer")),
+                Map.of("raw_saved", 1, "preview_filtered", 1),
+                List.of(), "2: duplicate source_job_id"
+        );
+        FakeAgentFilter filter = new FakeAgentFilter(List.of("1"));
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> collected,
+                filter
+        );
+
+        CollectionReport actual = orchestrator.check(
+                "https://www.linkedin.com/jobs/view/1",
+                "https://www.linkedin.com/jobs/view/2"
+        );
+
+        assertEquals(List.of(), actual.scope());
+        assertEquals(0, actual.acceptedCount());
+        assertEquals(1, actual.outcomes().get("preview_filtered"));
+        assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals(
+                "2: duplicate source_job_id; Vacancies rejected by agent relevance filter: 1",
+                actual.message()
+        );
+        assertEquals(List.of("filter:run-1", "mark-nonrelevant:1"), filter.calls);
     }
 
     @Test
@@ -103,7 +173,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.checkUrl(
+        CollectionReport actual = orchestrator.check(
                 "https://www.linkedin.com/jobs/view/1"
         );
 

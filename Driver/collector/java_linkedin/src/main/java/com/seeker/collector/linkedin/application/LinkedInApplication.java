@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 /** Entry points for login and collection. */
 public final class LinkedInApplication {
@@ -63,6 +64,14 @@ public final class LinkedInApplication {
     }
 
     public CollectionReport fromUrl(String url) throws IOException {
-        return fromUrl(RUN_ID_TIME.format(Instant.now()) + "-url-linkedin", url);
+        return fromUrls(List.of(url));
+    }
+
+    public CollectionReport fromUrls(List<String> urls) throws IOException {
+        return collectionService.collectFromUrls(
+                RUN_ID_TIME.format(Instant.now())
+                        + (urls.size() == 1 ? "-url-linkedin" : "-urls-linkedin"),
+                urls
+        );
     }
 }

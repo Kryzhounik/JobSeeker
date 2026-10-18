@@ -10,6 +10,7 @@ import com.seeker.collector.linkedin.python.PythonRuntime;
 import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.io.IOException;
+import java.util.List;
 
 /** Application use case for collecting vacancies. It has no CLI dependency. */
 public final class LinkedInCollectionService {
@@ -55,6 +56,10 @@ public final class LinkedInCollectionService {
     }
 
     public CollectionReport collectFromUrl(String runId, String url) throws IOException {
+        return collectFromUrls(runId, List.of(url));
+    }
+
+    public CollectionReport collectFromUrls(String runId, List<String> urls) throws IOException {
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, JsonSupport.GSON.toJson(config));
             // TODO: Check the existing duplicate rule before opening the browser
@@ -66,7 +71,7 @@ public final class LinkedInCollectionService {
                 LinkedInPageClient browser = new LinkedInPageClient(session, config);
                 browser.preflight();
                 return new LinkedInCollector(browser, python, config, runId)
-                        .runFromUrl(url);
+                        .runFromUrls(urls);
             } catch (IOException | RuntimeException error) {
                 python.finishRun(
                         runId,

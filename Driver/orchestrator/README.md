@@ -43,13 +43,17 @@ created it.
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
 ```
 
-### Check one LinkedIn vacancy
+### Check LinkedIn vacancies by URL
 
-Collects one vacancy with the same duplicate, preview, and content filters as
-batch collection, then runs operations 2–7 for the accepted vacancy.
+Accepts one or more URLs with the same duplicate, preview, and content filters
+as batch collection. URLs are collected sequentially in one browser session
+under one `run_id`. After collection, operations 2–7 run for the complete
+accepted scope, preserving the URL order. The search batch limit does not
+truncate an explicit URL list.
 
 ```powershell
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar check-url "<linkedin-job-url>"
+java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar check-url "<url-1>" "<url-2>"
 ```
 
 The command prints the existing JSON collection report without `pages`.
@@ -58,6 +62,15 @@ has an empty `scope`, `accepted_count: 0`, and an explanatory `message`.
 A vacancy accepted by the agent filter remains in `scope` after analysis and
 final save. The resulting facts and scores are stored through the existing
 analysis workflow.
+
+For multiple URLs, `scope` contains all accepted vacancies, `outcomes` contains
+the combined counts, and `message` includes the source IDs and reasons for
+collector skips. The existing error behavior is preserved: a collection failure
+stops the run before analysis.
+
+Java callers use one method, `WorkflowOrchestrator.check(String... urls)`:
+`check(url)` for one URL, `check(url1, url2)` for several, or `check(urlArray)`.
+The CLI only parses arguments and prints the report.
 
 ### Resume after collection
 

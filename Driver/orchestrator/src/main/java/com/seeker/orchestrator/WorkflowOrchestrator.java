@@ -19,7 +19,7 @@ import java.util.Set;
 /** Top-level Java workflow entry point. */
 public final class WorkflowOrchestrator {
     private final LinkedInBatch linkedinBatch;
-    private final LinkedInSingle linkedinSingle;
+    private final LinkedInUrls linkedinUrls;
     private final AgentFilterGateway agentFilter;
     private final int vacanciesPerAgent;
 
@@ -36,7 +36,7 @@ public final class WorkflowOrchestrator {
             AgentFilterGateway agentFilter,
             int vacanciesPerAgent
     ) {
-        this(linkedin::batch, linkedin::fromUrl, agentFilter, vacanciesPerAgent);
+        this(linkedin::batch, linkedin::fromUrls, agentFilter, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
@@ -48,20 +48,20 @@ public final class WorkflowOrchestrator {
 
     WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
-            LinkedInSingle linkedinSingle,
+            LinkedInUrls linkedinUrls,
             AgentFilterGateway agentFilter
     ) {
-        this(linkedinBatch, linkedinSingle, agentFilter, Integer.MAX_VALUE);
+        this(linkedinBatch, linkedinUrls, agentFilter, Integer.MAX_VALUE);
     }
 
     private WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
-            LinkedInSingle linkedinSingle,
+            LinkedInUrls linkedinUrls,
             AgentFilterGateway agentFilter,
             int vacanciesPerAgent
     ) {
         this.linkedinBatch = Objects.requireNonNull(linkedinBatch);
-        this.linkedinSingle = Objects.requireNonNull(linkedinSingle);
+        this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.agentFilter = Objects.requireNonNull(agentFilter);
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
@@ -73,14 +73,18 @@ public final class WorkflowOrchestrator {
         return processCollected(linkedinBatch.collect());
     }
 
-    public CollectionReport checkUrl(String url) throws IOException {
-        CollectionReport report = processCollected(linkedinSingle.collect(url));
-        if (report.scope().isEmpty()
-                && report.outcomes().getOrDefault("agent_filtered", 0) > 0) {
+    public CollectionReport check(String... urls) throws IOException {
+        CollectionReport report = processCollected(linkedinUrls.collect(List.of(urls)));
+        int agentFiltered = report.outcomes().getOrDefault("agent_filtered", 0);
+        if (agentFiltered > 0) {
+            String reason = urls.length == 1
+                    ? "Vacancy rejected by agent relevance filter"
+                    : "Vacancies rejected by agent relevance filter: " + agentFiltered;
             return new CollectionReport(
                     report.source(), report.runId(), report.status(),
                     report.acceptedCount(), report.scope(), report.outcomes(),
-                    report.pages(), "Vacancy rejected by agent relevance filter"
+                    report.pages(), report.message().isEmpty()
+                            ? reason : report.message() + "; " + reason
             );
         }
         return report;
@@ -271,7 +275,7 @@ public final class WorkflowOrchestrator {
     }
 
     @FunctionalInterface
-    interface LinkedInSingle {
-        CollectionReport collect(String url) throws IOException;
+    interface LinkedInUrls {
+        CollectionReport collect(List<String> urls) throws IOException;
     }
 }

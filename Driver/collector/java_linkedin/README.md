@@ -57,6 +57,12 @@ only accepted vacancies in `scope`. A skipped URL returns an empty scope and
 the reason in `message`. Existing source IDs are skipped without reanalysis.
 The full URL workflow is exposed by the orchestrator's `check-url` command.
 
+`LinkedInApplication.fromUrls(urls)` accepts an explicit list in one browser
+session and collection run. It returns one report with the combined scope and
+outcomes; collector skip reasons in `message` include their source IDs when
+multiple URLs were supplied. `fromUrl(url)` delegates to this operation for one
+URL. The orchestrator runs analysis once after collection of the whole list.
+
 ## Requirements
 
 - JDK 21 or newer;

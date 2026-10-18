@@ -65,45 +65,57 @@ final class LinkedInCollector {
     }
 
     CollectionReport runFromUrl(String url) {
-        String jobId = LinkedInPageClient.jobId(url);
-        Preview preview = new Preview(
-                jobId,
-                LinkedInPageClient.canonicalUrl(jobId),
-                "",
-                "",
-                "",
-                "",
-                "",
-                "from-url",
-                0,
-                1
-        );
-        try {
-            LinkedInPageClient.DirectJob direct = browser.openDirect(url, jobId);
-            preview = new Preview(
+        return runFromUrls(List.of(url));
+    }
+
+    CollectionReport runFromUrls(List<String> urls) {
+        List<String> rejections = new ArrayList<>();
+        for (String url : urls) {
+            String jobId = LinkedInPageClient.jobId(url);
+            Preview preview = new Preview(
                     jobId,
                     LinkedInPageClient.canonicalUrl(jobId),
-                    direct.title(),
-                    direct.company(),
-                    direct.location(),
+                    "",
+                    "",
+                    "",
                     "",
                     "",
                     "from-url",
                     0,
                     1
             );
-            ProcessResult result = operate(preview, null, direct.html());
-            recordResult(result);
-            return finish(
-                    "complete",
-                    "direct_url_processed",
-                    result.accepted() ? "" : result.reason()
-            );
-        } catch (AuthenticationRequiredException error) {
-            return finish("login_required", "authentication_required", message(error));
-        } catch (RuntimeException error) {
-            return failedDirectCollection(preview, error);
+            try {
+                LinkedInPageClient.DirectJob direct = browser.openDirect(url, jobId);
+                preview = new Preview(
+                        jobId,
+                        LinkedInPageClient.canonicalUrl(jobId),
+                        direct.title(),
+                        direct.company(),
+                        direct.location(),
+                        "",
+                        "",
+                        "from-url",
+                        0,
+                        1
+                );
+                ProcessResult result = operate(preview, null, direct.html());
+                recordResult(result);
+                if (!result.accepted()) {
+                    rejections.add(urls.size() == 1
+                            ? result.reason()
+                            : jobId + ": " + result.reason());
+                }
+            } catch (AuthenticationRequiredException error) {
+                return finish("login_required", "authentication_required", message(error));
+            } catch (RuntimeException error) {
+                return failedDirectCollection(preview, error);
+            }
         }
+        return finish(
+                "complete",
+                urls.size() == 1 ? "direct_url_processed" : "direct_urls_processed",
+                String.join("; ", rejections)
+        );
     }
 
     private void collectTarget(SearchPlan.Target target) {
