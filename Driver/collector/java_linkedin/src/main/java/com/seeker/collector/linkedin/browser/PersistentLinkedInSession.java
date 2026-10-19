@@ -1,5 +1,6 @@
 package com.seeker.collector.linkedin.browser;
 
+import com.google.gson.JsonObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
 import com.seeker.applier.shared.ManagedBrowser;
@@ -20,6 +21,7 @@ public final class PersistentLinkedInSession implements AutoCloseable {
         context.setDefaultTimeout(settings.pageTimeoutSeconds() * 1000.0);
         context.setDefaultNavigationTimeout(settings.pageTimeoutSeconds() * 1000.0);
         this.primaryPage = managedBrowser.newPage();
+        enableFocusEmulation(primaryPage);
         primaryPage.bringToFront();
     }
 
@@ -28,7 +30,16 @@ public final class PersistentLinkedInSession implements AutoCloseable {
     }
 
     public Page newPage() {
-        return managedBrowser.newBackgroundPage();
+        Page page = managedBrowser.newBackgroundPage();
+        enableFocusEmulation(page);
+        return page;
+    }
+
+    private void enableFocusEmulation(Page page) {
+        JsonObject parameters = new JsonObject();
+        parameters.addProperty("enabled", true);
+        // Keep the CDP session attached for the lifetime of this collector tab.
+        context.newCDPSession(page).send("Emulation.setFocusEmulationEnabled", parameters);
     }
 
     public boolean isAuthenticated(Page page) {
