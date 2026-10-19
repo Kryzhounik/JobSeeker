@@ -32,13 +32,16 @@ public final class LinkedInCollectionService {
     }
 
     public CollectionReport collectBatch(String runId) throws IOException {
+        CollectionProgress.starting(runId, "starting", config.limit());
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, JsonSupport.GSON.toJson(config));
+            CollectionProgress.starting(runId, "starting_browser", config.limit());
             try (PersistentLinkedInSession session = new PersistentLinkedInSession(
                     paths.profileDirectory(),
                     browserSettings
             )) {
                 LinkedInPageClient browser = new LinkedInPageClient(session, config);
+                CollectionProgress.starting(runId, "checking_session", config.limit());
                 browser.preflight();
                 return new LinkedInCollector(browser, python, config, runId)
                         .runBatch();

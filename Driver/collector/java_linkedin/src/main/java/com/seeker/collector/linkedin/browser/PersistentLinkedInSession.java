@@ -28,7 +28,7 @@ public final class PersistentLinkedInSession implements AutoCloseable {
     }
 
     public Page newPage() {
-        return managedBrowser.newPage();
+        return managedBrowser.newBackgroundPage();
     }
 
     public boolean isAuthenticated(Page page) {

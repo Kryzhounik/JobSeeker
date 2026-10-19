@@ -19,6 +19,7 @@
 <?import javafx.scene.layout.Region?>
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.layout.StackPane?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -40,7 +41,8 @@
                 <Button fx:id="collectedButton" text="Collected" />
                 <Button fx:id="configButton" text="⚙" accessibleText="Config" />
                 <Region HBox.hgrow="ALWAYS" />
-                <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" />
+                <ToggleButton fx:id="collectorDock" text="Collect" visible="false" managed="false"
+                              minWidth="100.0" prefWidth="210.0" maxWidth="210.0" />
             </HBox>
             <ScrollPane hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
                         pannable="true" styleClass="filter-scroll">
@@ -64,6 +66,7 @@
         </VBox>
     </top>
     <center>
+        <StackPane fx:id="collectorLayer">
         <SplitPane fx:id="mainSplit" dividerPositions="0.48" orientation="VERTICAL" styleClass="main-split">
             <items>
                 <TableView fx:id="jobsTable">
@@ -164,11 +167,14 @@
                 </VBox>
             </items>
         </SplitPane>
+        </StackPane>
     </center>
     <bottom>
         <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="toolbar">
             <padding><Insets top="5.0" right="10.0" bottom="5.0" left="10.0" /></padding>
             <Button fx:id="blackTitlesButton" text="Black titles" />
+            <Region HBox.hgrow="ALWAYS" />
+            <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" alignment="CENTER_RIGHT" />
         </HBox>
     </bottom>
 </BorderPane>

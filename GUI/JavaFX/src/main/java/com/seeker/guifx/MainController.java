@@ -32,6 +32,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
 import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -89,6 +90,8 @@ public final class MainController {
     @FXML private Button collectedButton;
     @FXML private Button configButton;
     @FXML private Label statusLabel;
+    @FXML private ToggleButton collectorDock;
+    @FXML private StackPane collectorLayer;
     @FXML private HBox statusFilters;
     @FXML private HBox statusActions;
     @FXML private CheckBox showZeroCheck;
@@ -151,6 +154,15 @@ public final class MainController {
     private boolean restoringWindowSettings = true;
     private boolean scoreSaveRunning;
     private boolean operationRunning;
+    private boolean collectionRunning;
+    private CollectorProgressPane collectorProgress;
+    private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
+            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
+                Thread thread = new Thread(runnable, "gui-collector");
+                thread.setDaemon(true);
+                return thread;
+            }
+    );
     private List<String> availableStatuses = List.of();
     private Map<String, String> reasonCodeDescriptions = Map.of();
     private int focusAfterRefreshId = -1;
@@ -330,7 +342,7 @@ public final class MainController {
     }
 
     private void setOperationButtonsDisabled(boolean disabled) {
-        collectButton.setDisable(disabled || operationRunning);
+        collectButton.setDisable(clientData == null || collectionRunning);
         linkedinCheckButton.setDisable(disabled || operationRunning);
         refilterButton.setDisable(disabled || operationRunning);
         refilterDetailButton.setDisable(disabled || operationRunning);
@@ -388,12 +400,35 @@ public final class MainController {
     }
 
     private void startCollect() {
+        if (collectionRunning) return;
+        collectionRunning = true;
+        collectButton.setDisable(true);
+        if (collectorProgress == null) {
+            collectorProgress = new CollectorProgressPane(collectorLayer, collectorDock);
+        }
+        CollectorProgressPane progressPane = collectorProgress;
+        progressPane.begin();
         CollectorRunner collector = new CollectorRunner(ClientData.findProjectRoot());
-        runTask("Starting LinkedIn collector...", collector::run, summary -> {
-            statusLabel.setText(summary);
+        Task<CollectorRunner.Result> task = new Task<>() {
+            @Override protected CollectorRunner.Result call() throws Exception {
+                return collector.run(progress -> Platform.runLater(() -> progressPane.update(progress)));
+            }
+        };
+        task.setOnSucceeded(event -> {
+            collectionRunning = false;
+            collectButton.setDisable(false);
+            progressPane.complete(task.getValue());
             refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
-        }, "LinkedIn collector failed");
+        });
+        task.setOnFailed(event -> {
+            collectionRunning = false;
+            collectButton.setDisable(false);
+            progressPane.fail(task.getException());
+            statusLabel.setText("LinkedIn collector failed");
+            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+        });
+        collectionExecutor.execute(task);
     }
 
     private void startLinkedInCheck() {
@@ -1351,6 +1386,7 @@ public final class MainController {
         if (auxiliaryWindows != null) auxiliaryWindows.shutdown();
         settingsSaveDelay.stop();
         operationExecutor.shutdownNow();
+        collectionExecutor.shutdownNow();
         saveWindowSettings();
         if (pendingDetailTask != null) {
             pendingDetailTask.cancel(true);

@@ -11,11 +11,19 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 
 final class CollectorRunner {
-    private static final Pattern PROGRESS = Pattern.compile("\\baccepted=(\\d+)/(\\d+)\\b");
+    private static final String PROGRESS_PREFIX = "COLLECTOR_PROGRESS ";
+
+    record Progress(String runId, String stage, String location, String search,
+                    int page, int cards, int accepted, int limit,
+                    Map<String, Integer> outcomes, String message) { }
+
+    record Result(String runId, String status, int accepted,
+                  Map<String, Integer> outcomes, String message) { }
 
     private final Path projectRoot;
     private final ObjectMapper json = new ObjectMapper();
@@ -24,12 +32,14 @@ final class CollectorRunner {
         this.projectRoot = projectRoot;
     }
 
-    String run(Consumer<String> updateMessage) throws Exception {
+    Result run(Consumer<Progress> updateProgress) throws Exception {
         Path runtime = projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties");
         Path config = projectRoot.resolve("Driver/collector/config/linkedin.properties");
         String javaExecutable = readProperty(runtime, "java.executable");
         int limit = Integer.parseInt(readProperty(config, "limit"));
         if (limit <= 0) throw new IllegalArgumentException("Collector limit must be positive.");
+        updateProgress.accept(new Progress("", "starting", "", "", 0, 0, 0,
+                limit, Map.of(), ""));
         Path javaPath = Path.of(javaExecutable);
         Path javaw = javaPath.resolveSibling("javaw.exe");
         if (Files.isRegularFile(javaw)) javaPath = javaw;
@@ -45,27 +55,60 @@ final class CollectorRunner {
                 process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
+                if (line.startsWith(PROGRESS_PREFIX)) {
+                    updateProgress.accept(parseProgress(line));
+                    continue;
+                }
                 tail.add(line);
                 if (tail.size() > 40) tail.removeFirst();
-                var matcher = PROGRESS.matcher(line);
-                if (matcher.find()) {
-                    updateMessage.accept("LinkedIn collector accepted "
-                            + matcher.group(1) + "/" + matcher.group(2));
-                }
                 if (line.stripLeading().startsWith("{")) finalJson = line;
             }
         } catch (IOException error) {
             process.destroyForcibly();
             throw error;
         }
-        int exitCode = process.waitFor();
+        int exitCode;
+        try {
+            exitCode = process.waitFor();
+        } catch (InterruptedException error) {
+            process.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw error;
+        }
         if (exitCode != 0) {
             throw new IOException("Java exited " + exitCode + ": " + String.join("\n", tail));
         }
-        JsonNode result = json.readTree(finalJson);
-        int accepted = result.path("accepted_count").asInt(-1);
-        return accepted >= 0 ? "LinkedIn collector complete; accepted " + accepted
-                : "LinkedIn collector complete";
+        return parseResult(finalJson);
+    }
+
+    Progress parseProgress(String line) throws IOException {
+        JsonNode value = json.readTree(line.substring(PROGRESS_PREFIX.length()));
+        if (value == null || !value.isObject() || !value.hasNonNull("run_id")
+                || !value.hasNonNull("stage")) {
+            throw new IOException("Collector returned an invalid progress message.");
+        }
+        return new Progress(value.path("run_id").asText(), value.path("stage").asText(),
+                value.path("location").asText(), value.path("search").asText(),
+                value.path("page").asInt(), value.path("cards").asInt(),
+                value.path("accepted_count").asInt(), value.path("limit").asInt(),
+                counts(value.path("outcomes")), value.path("message").asText());
+    }
+
+    Result parseResult(String text) throws IOException {
+        JsonNode value = json.readTree(text);
+        if (value == null || !value.isObject() || !value.hasNonNull("run_id")
+                || !value.hasNonNull("status") || !value.hasNonNull("accepted_count")) {
+            throw new IOException("Collector did not return a complete result.");
+        }
+        return new Result(value.path("run_id").asText(), value.path("status").asText(),
+                value.path("accepted_count").asInt(), counts(value.path("outcomes")),
+                value.path("message").asText());
+    }
+
+    private static Map<String, Integer> counts(JsonNode value) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        value.fields().forEachRemaining(entry -> counts.put(entry.getKey(), entry.getValue().asInt()));
+        return Map.copyOf(counts);
     }
 
     private static String readProperty(Path path, String key) throws IOException {

@@ -8,6 +8,7 @@ import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
 import com.seeker.collector.linkedin.config.CollectorConfig;
+import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.net.URI;
 import java.net.URLDecoder;
@@ -608,8 +609,24 @@ final class LinkedInPageClient {
             }
             page.waitForTimeout(100);
         }
+        logUnmaterializedCard(layout, card, jobId);
         throw new CollectionBlockedException(
                 "Card " + jobId + " did not materialize; last preview=" + latest
+        );
+    }
+
+    private void logUnmaterializedCard(Layout layout, Locator card, String jobId) {
+        Object diagnostic = card.evaluate("""
+                element => ({
+                  visibility: document.visibilityState,
+                  visible: !!element.getClientRects().length,
+                  text: (element.innerText || '').slice(0, 1000),
+                  html: element.outerHTML.slice(0, 4000)
+                })
+                """);
+        System.err.printf(
+                "LinkedIn card materialization failed: job_id=%s layout=%s url=%s diagnostic=%s%n",
+                jobId, layout, page.url(), JsonSupport.GSON.toJson(diagnostic)
         );
     }
 

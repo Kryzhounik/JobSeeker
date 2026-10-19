@@ -1,6 +1,8 @@
 package com.seeker.applier.shared;
 
+import com.google.gson.JsonObject;
 import com.microsoft.playwright.BrowserContext;
+import com.microsoft.playwright.CDPSession;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
 
@@ -71,6 +73,20 @@ public final class ManagedBrowser implements AutoCloseable {
         Page page = context.newPage();
         ownedPages.add(page);
         return page;
+    }
+
+    public Page newBackgroundPage() {
+        CDPSession cdp = context.browser().newBrowserCDPSession();
+        try {
+            JsonObject parameters = new JsonObject();
+            parameters.addProperty("url", "about:blank");
+            parameters.addProperty("background", true);
+            Page page = context.waitForPage(() -> cdp.send("Target.createTarget", parameters));
+            ownedPages.add(page);
+            return page;
+        } finally {
+            cdp.detach();
+        }
     }
 
     /** Leaves a page open after this client disconnects. */

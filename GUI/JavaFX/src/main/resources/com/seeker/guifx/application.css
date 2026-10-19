@@ -27,6 +27,17 @@
     -fx-text-fill: #50504c;
 }
 
+.collector-progress {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: #929292;
+    -fx-border-width: 1;
+}
+
+.collector-progress-header {
+    -fx-background-color: #e6e7e7;
+    -fx-border-color: transparent transparent #aaa transparent;
+}
+
 .main-split > .split-pane-divider,
 .detail-pane > .split-pane > .split-pane-divider {
     -fx-padding: 0 3px 0 3px;

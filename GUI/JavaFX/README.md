@@ -49,8 +49,19 @@ Notepad. Reason code cells show descriptions on hover, and the column header
 shows the full code reference. Window sizes, table sorts and the Collected
 stage filter are saved in `gui-settings.json`.
 
-Collect launches the configured Java LinkedIn collector in the background and
-shows its accepted/limit progress. Check LinkedIn checks the original vacancy
+Collect launches the configured Java LinkedIn collector in the background.
+A collapsible panel inside the main window shows the run ID, current stage, location, search
+mode, page, and accepted/limit, preview-skip, content-rejection, and failure
+counts. Its top-right toolbar toggle shows the accepted/limit counter and
+expands or minimizes the panel. The usual status text is at the bottom right.
+The panel retains the final result or error and accumulated statistics.
+Collection runs independently of other GUI actions; only another Collect is
+disabled while it is running. The collector sends structured progress on
+stderr prefixed with `COLLECTOR_PROGRESS ` and returns its final JSON report
+on stdout. The run ID is sent before browser startup so an interrupted run
+can still be identified. Collection does not start the analysis workflow.
+
+Check LinkedIn checks the original vacancy
 pages for scored New vacancies and rechecks unavailable/closed records,
 sequentially with an anonymous HTTP client. The interval starts at five seconds,
 doubles after each 429 (retrying the same vacancy), and halves after ten

@@ -23,6 +23,10 @@ final class LinkedInCollector {
     private final List<PageReport> pages = new ArrayList<>();
     private final OutcomeCounter outcomes = new OutcomeCounter();
     private final Set<String> seenIds = new LinkedHashSet<>();
+    private String currentLocation = "";
+    private String currentSearch = "";
+    private int currentPage;
+    private int currentCards;
 
     LinkedInCollector(
             LinkedInPageClient browser,
@@ -47,6 +51,9 @@ final class LinkedInCollector {
                     break;
                 }
                 if (!target.collectsJobs()) {
+                    currentLocation = target.label();
+                    currentSearch = "seed";
+                    progress("opening_seed", "");
                     System.err.println("LinkedIn seed: " + target.label());
                     browser.openSeed(target);
                     continue;
@@ -119,12 +126,18 @@ final class LinkedInCollector {
     }
 
     private void collectTarget(SearchPlan.Target target) {
+        currentLocation = target.label();
+        currentSearch = target.kind().name().toLowerCase(Locale.ROOT);
         Set<String> targetSeenIds = new LinkedHashSet<>();
         int noNewPages = 0;
         int start = 0;
 
         while (scope.size() < config.limit()) {
+            currentPage = start / PAGE_STEP + 1;
+            currentCards = 0;
+            progress("opening_search", "");
             String pageUrl = browser.openSearch(target, start);
+            progress("reading_cards", "");
             LinkedInPageClient.MaterializedPage materialized = materializeWithOneRetry(
                     target,
                     start
@@ -151,6 +164,8 @@ final class LinkedInCollector {
                     stopReason
             );
             printProgress(target, start, materialized, newCards.size());
+            currentCards = materialized.materializedCount();
+            progress("processing", "");
             if (isIncompletePage(materialized)) {
                 throw new CollectionBlockedException(
                         "LinkedIn page materialized "
@@ -213,6 +228,7 @@ final class LinkedInCollector {
             LinkedInPageClient.MaterializedPage materialized,
             String html
     ) {
+        progress("filtering_preview", preview.jobId() + " " + preview.title());
         PreviewDecision decision = python.decidePreview(preview);
         if (!decision.shouldOpen()) {
             return result(preview, "preview_filtered", decision.reason());
@@ -221,6 +237,7 @@ final class LinkedInCollector {
             return processHtml(preview, html);
         }
         try {
+            progress("opening_job", preview.jobId() + " " + preview.title());
             html = browser.openCard(materialized, preview.jobId());
         } catch (CardClickException clickError) {
             try {
@@ -240,6 +257,7 @@ final class LinkedInCollector {
 
     private ProcessResult processHtml(Preview preview, String html) {
         try {
+            progress("filtering_content", preview.jobId() + " " + preview.title());
             return python.processHtml(preview, html);
         } catch (RuntimeException error) {
             if (message(error).contains("Cannot insert source job ")) {
@@ -271,6 +289,14 @@ final class LinkedInCollector {
         if (result.accepted()) {
             scope.add(new ScopeItem(result.source(), result.jobId(), result.title()));
         }
+        progress("processing", result.jobId() + " " + result.title()
+                + (result.reason().isBlank() ? "" : "\n" + result.reason()));
+    }
+
+    private void progress(String stage, String message) {
+        new CollectionProgress(runId, stage, currentLocation, currentSearch,
+                currentPage, currentCards, scope.size(), config.limit(),
+                outcomes.snapshot(), message).emit();
     }
 
     private int recordPage(
@@ -375,6 +401,7 @@ final class LinkedInCollector {
 
     private CollectionReport finish(String status, String stopReason, String message) {
         CollectionReport report = report(status, message);
+        progress(status, message.isBlank() ? stopReason : message);
         python.finishRun(
                 runId,
                 status,
