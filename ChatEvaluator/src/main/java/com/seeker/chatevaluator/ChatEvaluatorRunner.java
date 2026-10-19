@@ -1,5 +1,6 @@
 package com.seeker.chatevaluator;
 
+import com.google.gson.JsonObject;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
@@ -169,22 +170,41 @@ public final class ChatEvaluatorRunner {
     private static void requireAvailableVacancyInBrowser(ManagedBrowser browser, String vacancyUrl)
             throws IOException {
         Page vacancy = browser.newBackgroundPage();
+        String stage = "opening the vacancy page";
         try {
+            JsonObject focus = new JsonObject();
+            focus.addProperty("enabled", true);
+            browser.context().newCDPSession(vacancy).send("Emulation.setFocusEmulationEnabled", focus);
             Response response = vacancy.navigate(vacancyUrl, new Page.NavigateOptions()
                     .setWaitUntil(WaitUntilState.DOMCONTENTLOADED).setTimeout(30_000));
             if (response == null) throw new IOException("The browser returned no vacancy response.");
             if (response.status() == 200) {
+                stage = "waiting for the vacancy description or a closure notice";
                 vacancy.waitForFunction("""
                     () => {
                       if (/\\/(login|authwall|checkpoint)(\\/|$)/i.test(location.pathname)) return true;
                       const text = (document.body?.innerText || '').toLowerCase();
                       if (text.includes('no longer accepting applications')
                           || text.includes('this job is no longer available')) return true;
+                      if (document.querySelector("input[name='session_key'], form[action*='login']")) return true;
+                      const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
                       return [...document.querySelectorAll(
-                        '.show-more-less-html__markup, .description__text, article.jobs-description__container'
-                      )].some(node => node.getClientRects().length && (node.innerText || '').trim());
+                        '.show-more-less-html__markup, .description__text, article.jobs-description__container, '
+                        + '[data-testid="job-details"], [data-view-name="job-details"], .jobs-details, main'
+                      )].some(node => {
+                        if (!visible(node)) return false;
+                        if ([...node.querySelectorAll('[role="progressbar"], [aria-label="In progress"]')].some(visible)) return false;
+                        const content = (node.innerText || '').trim().toLowerCase();
+                        return content && (node.matches('.show-more-less-html__markup, .description__text, article.jobs-description__container')
+                          || ['about the job', 'role overview', 'requirements', 'key responsibilities']
+                            .some(marker => content.includes(marker)));
+                      });
                     }
                     """, null, new Page.WaitForFunctionOptions().setPollingInterval(250).setTimeout(30_000));
+            }
+            stage = "reading the vacancy page";
+            if (vacancy.locator("input[name='session_key'], form[action*='login']").count() > 0) {
+                throw new IOException("LinkedIn requires authentication; the URL was not sent to ChatGPT.");
             }
             String outcome = LinkedInJobAvailability.classifyResponse(response.status(), URI.create(vacancy.url()),
                     response.headers().getOrDefault("content-type", ""), vacancy.content(),
@@ -192,6 +212,9 @@ public final class ChatEvaluatorRunner {
             if (!"available".equals(outcome)) {
                 throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
             }
+        } catch (TimeoutError error) {
+            throw new IOException("Vacancy browser check after HTTP 429 timed out while " + stage
+                    + ". Current URL: " + vacancy.url() + ". The URL was not sent to ChatGPT.", error);
         } catch (PlaywrightException | IllegalStateException error) {
             throw new IOException("Vacancy browser check after HTTP 429 failed: " + error.getMessage()
                     + " The URL was not sent to ChatGPT.", error);

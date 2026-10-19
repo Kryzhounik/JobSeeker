@@ -28,11 +28,16 @@ public final class LinkedInJobAvailability {
     }
 
     public static String classifyResponse(int code, URI url, String contentType, String body) {
-        return classifyResponse(code, url, contentType, body, body);
+        return classifyResponse(code, url, contentType, body, body, false);
     }
 
     /** Browser callers provide rendered text so hidden templates do not mark a job closed. */
     public static String classifyResponse(int code, URI url, String contentType, String body, String visibleText) {
+        return classifyResponse(code, url, contentType, body, visibleText, true);
+    }
+
+    private static String classifyResponse(int code, URI url, String contentType,
+                                          String body, String visibleText, boolean rendered) {
         String path = url.getPath().toLowerCase(Locale.ROOT);
         if (path.contains("/login") || path.contains("/authwall") || path.contains("/checkpoint")) {
             throw new IllegalStateException("LinkedIn requires authentication.");
@@ -50,7 +55,9 @@ public final class LinkedInJobAvailability {
         boolean description = html.contains("show-more-less-html__markup")
                 || html.contains("description__text")
                 || html.contains("jobs-description__container")
-                || Pattern.compile("\"@type\"\\s*:\\s*\"jobposting\"").matcher(html).find();
+                || Pattern.compile("\"@type\"\\s*:\\s*\"jobposting\"").matcher(html).find()
+                || (rendered && (text.contains("about the job") || text.contains("role overview")
+                    || text.contains("requirements") || text.contains("key responsibilities")));
         if ((!contentType.isBlank() && !contentType.toLowerCase(Locale.ROOT).contains("html"))
                 || body.length() < 1000 || !path.contains("/jobs/view/")
                 || !html.contains("linkedin") || !description) {
