@@ -28,6 +28,11 @@ public final class LinkedInJobAvailability {
     }
 
     public static String classifyResponse(int code, URI url, String contentType, String body) {
+        return classifyResponse(code, url, contentType, body, body);
+    }
+
+    /** Browser callers provide rendered text so hidden templates do not mark a job closed. */
+    public static String classifyResponse(int code, URI url, String contentType, String body, String visibleText) {
         String path = url.getPath().toLowerCase(Locale.ROOT);
         if (path.contains("/login") || path.contains("/authwall") || path.contains("/checkpoint")) {
             throw new IllegalStateException("LinkedIn requires authentication.");
@@ -39,10 +44,12 @@ public final class LinkedInJobAvailability {
                     : "LinkedIn returned HTTP " + code + ".");
         }
         String html = body.toLowerCase(Locale.ROOT);
-        if (html.contains("no longer accepting applications")
-                || html.contains("this job is no longer available")) return "closed";
+        String text = visibleText.toLowerCase(Locale.ROOT);
+        if (text.contains("no longer accepting applications")
+                || text.contains("this job is no longer available")) return "closed";
         boolean description = html.contains("show-more-less-html__markup")
                 || html.contains("description__text")
+                || html.contains("jobs-description__container")
                 || Pattern.compile("\"@type\"\\s*:\\s*\"jobposting\"").matcher(html).find();
         if ((!contentType.isBlank() && !contentType.toLowerCase(Locale.ROOT).contains("html"))
                 || body.length() < 1000 || !path.contains("/jobs/view/")

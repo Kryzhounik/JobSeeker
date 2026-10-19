@@ -2,6 +2,8 @@ package com.seeker.chatevaluator;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.Response;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.microsoft.playwright.options.WaitForSelectorState;
@@ -43,8 +45,9 @@ public final class ChatEvaluatorRunner {
         if (!profile.isAbsolute()) profile = root.resolve(profile).normalize();
         String channel = linkedin.getProperty("browserChannel", "chrome").strip();
 
-        requireAvailableVacancy(vacancyUrl);
+        boolean availabilityConfirmed = availableViaHttp(vacancyUrl);
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
+            if (!availabilityConfirmed) requireAvailableVacancyInBrowser(browser, vacancyUrl);
             Page page = findConversation(browser.context().pages(), chatUrl);
             boolean openConversation = page == null;
             if (openConversation) page = browser.newPage();
@@ -141,10 +144,12 @@ public final class ChatEvaluatorRunner {
                 + "within 15 seconds; no send action was attempted.");
     }
 
-    private static void requireAvailableVacancy(String vacancyUrl) throws IOException, InterruptedException {
+    /** False means HTTP 429 requires a check with the existing browser session. */
+    private static boolean availableViaHttp(String vacancyUrl) throws IOException, InterruptedException {
         String outcome;
         try {
             var response = LinkedInJobAvailability.fetch(vacancyUrl);
+            if (response.statusCode() == 429) return false;
             outcome = LinkedInJobAvailability.classifyResponse(response.statusCode(), response.uri(),
                     response.headers().firstValue("Content-Type").orElse(""),
                     response.body() == null ? "" : response.body());
@@ -157,6 +162,41 @@ public final class ChatEvaluatorRunner {
         }
         if (!"available".equals(outcome)) {
             throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
+        }
+        return true;
+    }
+
+    private static void requireAvailableVacancyInBrowser(ManagedBrowser browser, String vacancyUrl)
+            throws IOException {
+        Page vacancy = browser.newBackgroundPage();
+        try {
+            Response response = vacancy.navigate(vacancyUrl, new Page.NavigateOptions()
+                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED).setTimeout(30_000));
+            if (response == null) throw new IOException("The browser returned no vacancy response.");
+            if (response.status() == 200) {
+                vacancy.waitForFunction("""
+                    () => {
+                      if (/\\/(login|authwall|checkpoint)(\\/|$)/i.test(location.pathname)) return true;
+                      const text = (document.body?.innerText || '').toLowerCase();
+                      if (text.includes('no longer accepting applications')
+                          || text.includes('this job is no longer available')) return true;
+                      return [...document.querySelectorAll(
+                        '.show-more-less-html__markup, .description__text, article.jobs-description__container'
+                      )].some(node => node.getClientRects().length && (node.innerText || '').trim());
+                    }
+                    """, null, new Page.WaitForFunctionOptions().setPollingInterval(250).setTimeout(30_000));
+            }
+            String outcome = LinkedInJobAvailability.classifyResponse(response.status(), URI.create(vacancy.url()),
+                    response.headers().getOrDefault("content-type", ""), vacancy.content(),
+                    vacancy.locator("body").innerText());
+            if (!"available".equals(outcome)) {
+                throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
+            }
+        } catch (PlaywrightException | IllegalStateException error) {
+            throw new IOException("Vacancy browser check after HTTP 429 failed: " + error.getMessage()
+                    + " The URL was not sent to ChatGPT.", error);
+        } finally {
+            vacancy.close();
         }
     }
 
