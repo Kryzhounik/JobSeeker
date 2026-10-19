@@ -78,20 +78,12 @@ public final class ChatEvaluatorRunner {
             requireConversation(page, chatUrl);
             awaitReadyHistory(page, chatUrl);
             composer.first().fill(vacancyUrl);
-            Locator sendButton = page.locator("button[type='submit']:visible");
-            try {
-                sendButton.waitFor(new Locator.WaitForOptions()
-                        .setState(WaitForSelectorState.VISIBLE).setTimeout(SUBMISSION_TIMEOUT_MS));
-            } catch (TimeoutError timeout) {
-                throw new IOException("The ChatGPT send button did not become available; submission was not confirmed.", timeout);
-            }
             requireConversation(page, chatUrl);
             List<Turn> before = readTurns(page);
             if (before.isEmpty() || !before.getLast().complete()) {
                 throw new IOException("ChatGPT is not ready for another message; no send action was attempted.");
             }
-            // One explicit submit action. Never follow it with Enter or an automatic retry.
-            sendButton.click(new Locator.ClickOptions().setTimeout(SUBMISSION_TIMEOUT_MS));
+            submitOnce(page, chatUrl);
             Turn submitted = null;
             long submissionDeadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
             while (System.nanoTime() < submissionDeadline) {
@@ -124,6 +116,29 @@ public final class ChatEvaluatorRunner {
             throw new TimeoutError("Timed out waiting for the completed ChatGPT answer to submitted turn "
                     + submitted.key() + ".");
         }
+    }
+
+    private static void submitOnce(Page page, String chatUrl) throws IOException {
+        long deadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
+        Locator sendButton = page.locator("button[type='submit']:visible");
+        while (System.nanoTime() < deadline) {
+            requireConversation(page, chatUrl);
+            // Check readiness and click in one task; background tabs need not produce animation frames.
+            boolean clicked = Boolean.TRUE.equals(sendButton.evaluateAll("""
+                buttons => {
+                  if (buttons.length !== 1) return false;
+                  const button = buttons[0];
+                  if (!button.isConnected || button.matches(':disabled')
+                      || button.closest('[aria-disabled="true" i]')) return false;
+                  button.click();
+                  return true;
+                }
+                """));
+            if (clicked) return;
+            page.waitForTimeout(250);
+        }
+        throw new IOException("The ChatGPT send button did not become uniquely visible and enabled "
+                + "within 15 seconds; no send action was attempted.");
     }
 
     private static void requireAvailableVacancy(String vacancyUrl) throws IOException, InterruptedException {
