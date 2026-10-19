@@ -67,6 +67,8 @@ over legacy behavior. Ask the user if the expected behavior remains unclear.
     owns top-right placement, expansion/minimization, copyable fields, details,
     tooltips, and state colors. Process-specific subclasses supply their fields
     and progress values. Use `RUNNING` (green), `FAILED` (red), `WAITING` (yellow),
-    and `COMPLETED` (neutral). Set `WAITING` when the process reports waiting,
+    and `COMPLETED` (neutral). Apply state colors only to the toolbar badge;
+    the expanded panel, header, and border retain the normal application theme.
+    Set `WAITING` when the process reports waiting,
     stalled work, or a need for user input; a silent interval alone is not a
     stalled-process signal. Keep execution and data access outside these views.

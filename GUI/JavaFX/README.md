@@ -75,7 +75,8 @@ collapses the previously selected panel.
 Subclasses call `beginProcess()`, `setField(...)`, `setDetails(...)`,
 `setSummary(...)`, and `setContext(...)` on the JavaFX Application Thread.
 `setProcessState(...)` selects `RUNNING` (green), `FAILED` (red), `WAITING`
-(yellow), or `COMPLETED` (neutral). Waiting must be reported explicitly by the
+(yellow), or `COMPLETED` (neutral). Only the toolbar badge uses these colors;
+the expanded panel keeps the normal application theme. Waiting must be reported explicitly by the
 process or its controller; the base view does not guess whether it has hung.
 Changing state or minimizing preserves the displayed statistics and details.
 Execution remains in the existing background tasks and runner classes.

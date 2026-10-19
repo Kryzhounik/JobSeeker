@@ -46,37 +46,22 @@
     -fx-text-fill: #242424;
 }
 
-.background-process-dock:running,
-.background-process-header:running {
+.background-process-dock:running {
     -fx-background-color: #bdebc8;
     -fx-border-color: #218740;
     -fx-text-fill: #125b2b;
 }
 
-.background-process:running {
-    -fx-border-color: #218740;
-}
-
-.background-process-dock:failed,
-.background-process-header:failed {
+.background-process-dock:failed {
     -fx-background-color: #ffc6c1;
     -fx-border-color: #bf332c;
     -fx-text-fill: #881a15;
 }
 
-.background-process:failed {
-    -fx-border-color: #bf332c;
-}
-
-.background-process-dock:waiting,
-.background-process-header:waiting {
+.background-process-dock:waiting {
     -fx-background-color: #ffe69a;
     -fx-border-color: #b18400;
     -fx-text-fill: #624a00;
-}
-
-.background-process:waiting {
-    -fx-border-color: #b18400;
 }
 
 .main-split > .split-pane-divider,

@@ -50,8 +50,6 @@ abstract class BackgroundProcessPane {
     private final String title;
     private final ToggleButton dock = new ToggleButton();
     private final Tooltip tooltip = new Tooltip();
-    private final HBox header;
-    private final VBox panel;
     private final Map<String, TextField> fields = new LinkedHashMap<>();
     private final TextArea details = new TextArea();
     private State state = State.RUNNING;
@@ -98,11 +96,11 @@ abstract class BackgroundProcessPane {
         Button minimize = new Button("\u2212");
         minimize.setTooltip(new Tooltip("Minimize progress"));
         minimize.setOnAction(event -> dock.setSelected(false));
-        header = new HBox(8, new Label(title), spacer, minimize);
+        HBox header = new HBox(8, new Label(title), spacer, minimize);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(5, 8, 5, 10));
         header.getStyleClass().add("background-process-header");
-        panel = new VBox(header, scroll);
+        VBox panel = new VBox(header, scroll);
         panel.getStyleClass().add("background-process");
         panel.setPrefSize(570, 620);
         panel.setMinSize(0, 0);
@@ -134,8 +132,6 @@ abstract class BackgroundProcessPane {
         for (State candidate : State.values()) {
             boolean active = candidate == state;
             dock.pseudoClassStateChanged(candidate.style, active);
-            header.pseudoClassStateChanged(candidate.style, active);
-            panel.pseudoClassStateChanged(candidate.style, active);
         }
         refreshDock();
     }
