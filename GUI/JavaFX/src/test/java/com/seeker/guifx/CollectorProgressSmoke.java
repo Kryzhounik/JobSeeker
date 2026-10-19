@@ -28,10 +28,12 @@ public final class CollectorProgressSmoke {
         }
         CollectorRunner.Result stopped = runner.parseResult("""
                 {"run_id":"test-run","status":"blocked","accepted_count":7,
-                "outcomes":{"raw_saved":7,"preview_filtered":12},"message":"Browser disconnected"}
+                "outcomes":{"raw_saved":7,"preview_filtered":12},
+                "message":"Card did not materialize\\nURL: https://www.linkedin.com/jobs/view/123/"}
                 """);
         if (!stopped.status().equals("blocked") || !stopped.runId().equals("test-run")
-                || stopped.accepted() != 7 || !stopped.message().equals("Browser disconnected")) {
+                || stopped.accepted() != 7
+                || !stopped.message().endsWith("\nURL: https://www.linkedin.com/jobs/view/123/")) {
             throw new AssertionError("Stopped collection was not preserved");
         }
         for (String invalid : new String[]{"", "{}", "{\"status\":\"complete\"}"}) {

@@ -27,6 +27,7 @@ final class LinkedInCollector {
     private String currentSearch = "";
     private int currentPage;
     private int currentCards;
+    private String currentUrl = "";
 
     LinkedInCollector(
             LinkedInPageClient browser,
@@ -53,6 +54,7 @@ final class LinkedInCollector {
                 if (!target.collectsJobs()) {
                     currentLocation = target.label();
                     currentSearch = "seed";
+                    currentUrl = target.pageUrl(0);
                     progress("opening_seed", "");
                     System.err.println("LinkedIn seed: " + target.label());
                     browser.openSeed(target);
@@ -65,9 +67,9 @@ final class LinkedInCollector {
                     : "plan_exhausted";
             return finish("complete", stopReason, "");
         } catch (AuthenticationRequiredException error) {
-            return finish("login_required", "authentication_required", message(error));
+            return finish("login_required", "authentication_required", failureMessage(error));
         } catch (RuntimeException error) {
-            return finish("blocked", "collection_error", message(error));
+            return finish("blocked", "collection_error", failureMessage(error));
         }
     }
 
@@ -78,6 +80,7 @@ final class LinkedInCollector {
     CollectionReport runFromUrls(List<String> urls) {
         List<String> rejections = new ArrayList<>();
         for (String url : urls) {
+            currentUrl = url;
             String jobId = LinkedInPageClient.jobId(url);
             Preview preview = new Preview(
                     jobId,
@@ -113,7 +116,7 @@ final class LinkedInCollector {
                             : jobId + ": " + result.reason());
                 }
             } catch (AuthenticationRequiredException error) {
-                return finish("login_required", "authentication_required", message(error));
+                return finish("login_required", "authentication_required", failureMessage(error));
             } catch (RuntimeException error) {
                 return failedDirectCollection(preview, error);
             }
@@ -135,6 +138,7 @@ final class LinkedInCollector {
         while (scope.size() < config.limit()) {
             currentPage = start / PAGE_STEP + 1;
             currentCards = 0;
+            currentUrl = target.pageUrl(start);
             progress("opening_search", "");
             String pageUrl = browser.openSearch(target, start);
             progress("reading_cards", "");
@@ -228,6 +232,7 @@ final class LinkedInCollector {
             LinkedInPageClient.MaterializedPage materialized,
             String html
     ) {
+        currentUrl = preview.sourceUrl();
         progress("filtering_preview", preview.jobId() + " " + preview.title());
         PreviewDecision decision = python.decidePreview(preview);
         if (!decision.shouldOpen()) {
@@ -424,7 +429,14 @@ final class LinkedInCollector {
             RuntimeException error
     ) {
         recordResult(logOutcome(preview, "open_failed", message(error)));
-        return finish("blocked", "direct_url_error", message(error));
+        return finish("blocked", "direct_url_error", failureMessage(error));
+    }
+
+    private String failureMessage(Throwable error) {
+        if (error instanceof CollectionBlockedException blocked && !blocked.url().isBlank()) {
+            return message(error);
+        }
+        return message(error) + (currentUrl.isBlank() ? "" : "\nURL: " + currentUrl);
     }
 
     private String message(Throwable error) {

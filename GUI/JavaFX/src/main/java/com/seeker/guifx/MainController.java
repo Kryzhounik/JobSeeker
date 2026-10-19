@@ -90,8 +90,8 @@ public final class MainController {
     @FXML private Button collectedButton;
     @FXML private Button configButton;
     @FXML private Label statusLabel;
-    @FXML private ToggleButton collectorDock;
-    @FXML private StackPane collectorLayer;
+    @FXML private HBox backgroundProcessDocks;
+    @FXML private StackPane backgroundProcessLayer;
     @FXML private HBox statusFilters;
     @FXML private HBox statusActions;
     @FXML private CheckBox showZeroCheck;
@@ -156,6 +156,7 @@ public final class MainController {
     private boolean operationRunning;
     private boolean collectionRunning;
     private CollectorProgressPane collectorProgress;
+    private BackgroundProcessPane.Area backgroundProcesses;
     private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
                 Thread thread = new Thread(runnable, "gui-collector");
@@ -181,6 +182,7 @@ public final class MainController {
 
     @FXML
     private void initialize() {
+        backgroundProcesses = new BackgroundProcessPane.Area(backgroundProcessLayer, backgroundProcessDocks);
         configureColumns();
         configureSelection();
         sourceLink.setOnAction(event -> openSelectedSource());
@@ -404,7 +406,7 @@ public final class MainController {
         collectionRunning = true;
         collectButton.setDisable(true);
         if (collectorProgress == null) {
-            collectorProgress = new CollectorProgressPane(collectorLayer, collectorDock);
+            collectorProgress = new CollectorProgressPane(backgroundProcesses);
         }
         CollectorProgressPane progressPane = collectorProgress;
         progressPane.begin();

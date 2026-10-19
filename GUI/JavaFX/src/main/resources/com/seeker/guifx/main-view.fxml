@@ -41,8 +41,7 @@
                 <Button fx:id="collectedButton" text="Collected" />
                 <Button fx:id="configButton" text="⚙" accessibleText="Config" />
                 <Region HBox.hgrow="ALWAYS" />
-                <ToggleButton fx:id="collectorDock" text="Collect" visible="false" managed="false"
-                              minWidth="100.0" prefWidth="210.0" maxWidth="210.0" />
+                <HBox fx:id="backgroundProcessDocks" alignment="CENTER_RIGHT" spacing="6.0" />
             </HBox>
             <ScrollPane hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
                         pannable="true" styleClass="filter-scroll">
@@ -66,7 +65,7 @@
         </VBox>
     </top>
     <center>
-        <StackPane fx:id="collectorLayer">
+        <StackPane fx:id="backgroundProcessLayer">
         <SplitPane fx:id="mainSplit" dividerPositions="0.48" orientation="VERTICAL" styleClass="main-split">
             <items>
                 <TableView fx:id="jobsTable">

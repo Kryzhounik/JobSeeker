@@ -506,7 +506,8 @@ final class LinkedInPageClient {
             Locator card = cardLocator(snapshot.layout(), jobId);
             if (card.count() != 1) {
                 throw new CollectionBlockedException(
-                        "Expected one card for " + jobId + ", found " + card.count()
+                        "Expected one card for " + jobId + ", found " + card.count(),
+                        canonicalUrl(jobId)
                 );
             }
             card.evaluate(
@@ -524,7 +525,8 @@ final class LinkedInPageClient {
         Locator card = cardLocator(snapshot.layout(), jobId);
         if (card.count() != 1) {
             throw new CollectionBlockedException(
-                    "Expected one job card for scrolling, found " + card.count()
+                    "Expected one job card for scrolling, found " + card.count(),
+                    canonicalUrl(jobId)
             );
         }
         card.evaluate(
@@ -611,18 +613,44 @@ final class LinkedInPageClient {
         }
         logUnmaterializedCard(layout, card, jobId);
         throw new CollectionBlockedException(
-                "Card " + jobId + " did not materialize; last preview=" + latest
+                "Card " + jobId + " did not materialize; last preview=" + latest,
+                canonicalUrl(jobId)
         );
     }
 
     private void logUnmaterializedCard(Layout layout, Locator card, String jobId) {
         Object diagnostic = card.evaluate("""
-                element => ({
-                  visibility: document.visibilityState,
-                  visible: !!element.getClientRects().length,
-                  text: (element.innerText || '').slice(0, 1000),
-                  html: element.outerHTML.slice(0, 4000)
-                })
+                element => {
+                  const bounds = node => {
+                    const {top, left, bottom, right, width, height} = node.getBoundingClientRect();
+                    return {top, left, bottom, right, width, height};
+                  };
+                  const scrollContainers = [];
+                  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+                    const overflowY = getComputedStyle(parent).overflowY;
+                    if (!/auto|scroll|hidden|clip/.test(overflowY)
+                        && parent !== document.scrollingElement) continue;
+                    scrollContainers.push({
+                      tag: parent.tagName,
+                      id: parent.id,
+                      className: parent.className,
+                      bounds: bounds(parent),
+                      overflowY,
+                      scrollTop: parent.scrollTop,
+                      scrollHeight: parent.scrollHeight,
+                      clientHeight: parent.clientHeight
+                    });
+                  }
+                  return {
+                    visibility: document.visibilityState,
+                    visible: !!element.getClientRects().length,
+                    viewport: {width: innerWidth, height: innerHeight},
+                    cardBounds: bounds(element),
+                    scrollContainers,
+                    text: (element.innerText || '').slice(0, 1000),
+                    html: element.outerHTML.slice(0, 4000)
+                  };
+                }
                 """);
         System.err.printf(
                 "LinkedIn card materialization failed: job_id=%s layout=%s url=%s diagnostic=%s%n",

@@ -61,3 +61,12 @@ over legacy behavior. Ask the user if the expected behavior remains unclear.
 
     - Prefer a local refactor over a complete architectural rewrite when the current structure does not obstruct the task.
     - Do not rewrite working code solely to apply a new pattern, enforce uniformity, or pursue a "cleaner architecture."
+
+11. Background-process progress panels extend `BackgroundProcessPane` and use
+    the shared `backgroundProcesses` area in `MainController`. The base class
+    owns top-right placement, expansion/minimization, copyable fields, details,
+    tooltips, and state colors. Process-specific subclasses supply their fields
+    and progress values. Use `RUNNING` (green), `FAILED` (red), `WAITING` (yellow),
+    and `COMPLETED` (neutral). Set `WAITING` when the process reports waiting,
+    stalled work, or a need for user input; a silent interval alone is not a
+    stalled-process signal. Keep execution and data access outside these views.

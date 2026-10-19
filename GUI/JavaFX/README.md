@@ -55,11 +55,32 @@ mode, page, and accepted/limit, preview-skip, content-rejection, and failure
 counts. Its top-right toolbar toggle shows the accepted/limit counter and
 expands or minimizes the panel. The usual status text is at the bottom right.
 The panel retains the final result or error and accumulated statistics.
+Error details include the failed search or vacancy URL. Card-materialization
+errors show the failing card's canonical LinkedIn URL in the same text block.
 Collection runs independently of other GUI actions; only another Collect is
 disabled while it is running. The collector sends structured progress on
 stderr prefixed with `COLLECTOR_PROGRESS ` and returns its final JSON report
 on stdout. The run ID is sent before browser startup so an interrupted run
 can still be identified. Collection does not start the analysis workflow.
+
+## Background-process panels
+
+New background-process progress views extend `BackgroundProcessPane`, as
+`CollectorProgressPane` does, and receive the main controller's shared
+`backgroundProcesses` area. The base constructor takes a title and field
+names and creates the copyable fields, details area, toolbar toggle, and
+collapsible panel. All toggles appear at the top right; selecting one panel
+collapses the previously selected panel.
+
+Subclasses call `beginProcess()`, `setField(...)`, `setDetails(...)`,
+`setSummary(...)`, and `setContext(...)` on the JavaFX Application Thread.
+`setProcessState(...)` selects `RUNNING` (green), `FAILED` (red), `WAITING`
+(yellow), or `COMPLETED` (neutral). Waiting must be reported explicitly by the
+process or its controller; the base view does not guess whether it has hung.
+Changing state or minimizing preserves the displayed statistics and details.
+Execution remains in the existing background tasks and runner classes.
+
+## Other Actions
 
 Check LinkedIn checks the original vacancy
 pages for scored New vacancies and rechecks unavailable/closed records,

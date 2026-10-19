@@ -43,6 +43,10 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "Collector progress check failed with exit code $LASTEXITCODE."
 }
+& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.BackgroundProcessPaneSmoke
+if ($LASTEXITCODE -ne 0) {
+    throw "Background process panel check failed with exit code $LASTEXITCODE."
+}
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.LinkedInAvailabilitySmoke
 if ($LASTEXITCODE -ne 0) {
     throw "LinkedIn availability check failed with exit code $LASTEXITCODE."
