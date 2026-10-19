@@ -47,9 +47,33 @@
 }
 
 .background-process-dock:running {
+    -fx-background-color: #e5f6e9;
+    -fx-border-color: #80b58f;
+}
+
+.background-process-dock:completed {
     -fx-background-color: #bdebc8;
     -fx-border-color: #218740;
     -fx-text-fill: #125b2b;
+}
+
+.background-process-toggle,
+.background-process-dismiss {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-border-color: transparent;
+    -fx-text-fill: #242424;
+}
+
+.background-process-dismiss {
+    -fx-min-width: 24;
+    -fx-pref-width: 24;
+    -fx-max-width: 24;
+    -fx-padding: 0;
+}
+
+.background-process-dismiss:hover {
+    -fx-background-color: rgba(0, 0, 0, 0.10);
 }
 
 .background-process-dock:failed {

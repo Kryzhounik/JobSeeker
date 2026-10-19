@@ -66,8 +66,10 @@ over legacy behavior. Ask the user if the expected behavior remains unclear.
     the shared `backgroundProcesses` area in `MainController`. The base class
     owns top-right placement, expansion/minimization, copyable fields, details,
     tooltips, and state colors. Process-specific subclasses supply their fields
-    and progress values. Use `RUNNING` (green), `FAILED` (red), `WAITING` (yellow),
-    and `COMPLETED` (neutral). Apply state colors only to the toolbar badge;
+    and progress values. Use `RUNNING` (light green), `FAILED` (red), `WAITING`
+    (yellow), and `COMPLETED` (green). Finished or failed processes have dismiss
+    buttons on both the badge and panel; either hides both until the next run.
+    Apply state colors only to the toolbar badge;
     the expanded panel, header, and border retain the normal application theme.
     Set `WAITING` when the process reports waiting,
     stalled work, or a need for user input; a silent interval alone is not a

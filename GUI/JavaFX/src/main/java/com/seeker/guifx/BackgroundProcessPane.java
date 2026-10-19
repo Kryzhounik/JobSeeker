@@ -49,6 +49,9 @@ abstract class BackgroundProcessPane {
 
     private final String title;
     private final ToggleButton dock = new ToggleButton();
+    private final HBox badge = new HBox();
+    private final Button dismissDock = new Button("\u00d7");
+    private final Button dismissPanel = new Button("\u00d7");
     private final Tooltip tooltip = new Tooltip();
     private final Map<String, TextField> fields = new LinkedHashMap<>();
     private final TextArea details = new TextArea();
@@ -60,13 +63,24 @@ abstract class BackgroundProcessPane {
         this.title = title;
         dock.setTooltip(tooltip);
         dock.setToggleGroup(area.selection());
-        dock.getStyleClass().add("background-process-dock");
-        dock.setMinWidth(100);
-        dock.setPrefWidth(210);
-        dock.setMaxWidth(210);
-        dock.setVisible(false);
-        dock.setManaged(false);
-        area.docks().getChildren().add(dock);
+        dock.getStyleClass().add("background-process-toggle");
+        dock.setMinWidth(0);
+        dock.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(dock, Priority.ALWAYS);
+        dismissDock.getStyleClass().add("background-process-dismiss");
+        dismissDock.setTooltip(new Tooltip("Dismiss finished process"));
+        dismissDock.setOnAction(event -> dismiss());
+        dismissPanel.setTooltip(new Tooltip("Dismiss finished process"));
+        dismissPanel.setOnAction(event -> dismiss());
+        badge.getChildren().addAll(dock, dismissDock);
+        badge.setAlignment(Pos.CENTER_LEFT);
+        badge.getStyleClass().add("background-process-dock");
+        badge.setMinWidth(100);
+        badge.setPrefWidth(210);
+        badge.setMaxWidth(210);
+        badge.setVisible(false);
+        badge.setManaged(false);
+        area.docks().getChildren().add(badge);
 
         GridPane grid = new GridPane();
         grid.setHgap(10);
@@ -96,7 +110,7 @@ abstract class BackgroundProcessPane {
         Button minimize = new Button("\u2212");
         minimize.setTooltip(new Tooltip("Minimize progress"));
         minimize.setOnAction(event -> dock.setSelected(false));
-        HBox header = new HBox(8, new Label(title), spacer, minimize);
+        HBox header = new HBox(8, new Label(title), spacer, minimize, dismissPanel);
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(5, 8, 5, 10));
         header.getStyleClass().add("background-process-header");
@@ -122,8 +136,8 @@ abstract class BackgroundProcessPane {
         summary = "";
         context = "";
         setProcessState(State.RUNNING);
-        dock.setVisible(true);
-        dock.setManaged(true);
+        badge.setVisible(true);
+        badge.setManaged(true);
         dock.setSelected(true);
     }
 
@@ -132,8 +146,21 @@ abstract class BackgroundProcessPane {
         for (State candidate : State.values()) {
             boolean active = candidate == state;
             dock.pseudoClassStateChanged(candidate.style, active);
+            badge.pseudoClassStateChanged(candidate.style, active);
         }
+        boolean finished = state == State.COMPLETED || state == State.FAILED;
+        dismissDock.setVisible(finished);
+        dismissDock.setManaged(finished);
+        dismissPanel.setVisible(finished);
+        dismissPanel.setManaged(finished);
         refreshDock();
+    }
+
+    private void dismiss() {
+        if (state != State.COMPLETED && state != State.FAILED) return;
+        dock.setSelected(false);
+        badge.setVisible(false);
+        badge.setManaged(false);
     }
 
     protected final void setSummary(String summary) {
