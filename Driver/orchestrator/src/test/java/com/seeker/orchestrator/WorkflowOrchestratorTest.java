@@ -5,6 +5,7 @@ import com.seeker.collector.linkedin.collection.ScopeItem;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,6 +68,7 @@ class WorkflowOrchestratorTest {
         assertEquals(1, actual.acceptedCount());
         assertEquals(List.of(
                 "filter:run-1",
+                "mark-relevance:",
                 "start-analysis:run-1",
                 "job-facts:1",
                 "candidate-fit:1",
@@ -124,12 +126,13 @@ class WorkflowOrchestratorTest {
         assertEquals(2, actual.acceptedCount());
         assertEquals(List.of(
                 "filter:run-1",
+                "mark-relevance:",
                 "start-analysis:run-1",
                 "job-facts:1",
                 "job-facts:2",
                 "candidate-fit:1",
-                "candidate-fit:2",
                 "job-interest:1",
+                "candidate-fit:2",
                 "job-interest:2",
                 "save-scored:1,2"
         ), filter.calls);
@@ -162,7 +165,7 @@ class WorkflowOrchestratorTest {
                 "2: duplicate source_job_id; Vacancies rejected by agent relevance filter: 1",
                 actual.message()
         );
-        assertEquals(List.of("filter:run-1", "mark-nonrelevant:1"), filter.calls);
+        assertEquals(List.of("filter:run-1", "mark-relevance:1"), filter.calls);
     }
 
     @Test
@@ -182,7 +185,7 @@ class WorkflowOrchestratorTest {
         assertEquals(List.of(), actual.scope());
         assertEquals(1, actual.outcomes().get("agent_filtered"));
         assertEquals("Vacancy rejected by agent relevance filter", actual.message());
-        assertEquals(List.of("filter:run-1", "mark-nonrelevant:1"), filter.calls);
+        assertEquals(List.of("filter:run-1", "mark-relevance:1"), filter.calls);
     }
 
     @Test
@@ -242,6 +245,40 @@ class WorkflowOrchestratorTest {
         assertEquals(0, invocations.get());
     }
 
+    @Test
+    void resumesMixedStagesAndDoesNoWorkOnCompletedRun() {
+        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        filter.recoveredScope = List.of(
+                item("1", "Java"), item("2", "Java"), item("3", "Java"),
+                item("4", "Java"), item("5", "Java"), item("6", "Marketing")
+        );
+        filter.states.putAll(Map.of(
+                "1", "CLEANED", "2", "RELEVANT", "3", "ANALYZED",
+                "4", "SCORED", "5", "SAVED", "6", "NONRELEVANT"
+        ));
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> { throw new AssertionError("collector must not be called"); }, filter
+        );
+
+        CollectionReport result = orchestrator.resume("run-1");
+
+        assertEquals(List.of("1"), ids(filter.scope));
+        assertEquals(List.of(
+                "filter:run-1", "mark-relevance:", "start-analysis:run-1",
+                "job-facts:1", "job-facts:2",
+                "candidate-fit:1", "job-interest:1",
+                "candidate-fit:2", "job-interest:2",
+                "candidate-fit:3", "job-interest:3",
+                "save-scored:1,2,3", "save-scored:4"
+        ), filter.calls);
+        assertEquals(List.of("1", "2", "3", "4", "5"), ids(result.scope()));
+        assertEquals(1, result.outcomes().get("agent_filtered"));
+        int completedCalls = filter.calls.size();
+
+        assertEquals(result.scope(), orchestrator.resume("run-1").scope());
+        assertEquals(completedCalls, filter.calls.size());
+    }
+
     private static CollectionReport report(String status, List<ScopeItem> scope) {
         return new CollectionReport(
                 "linkedin",
@@ -266,6 +303,8 @@ class WorkflowOrchestratorTest {
     private static final class FakeAgentFilter implements AgentFilterGateway {
         private final List<String> rejectedIds;
         private final List<String> calls = new ArrayList<>();
+        private final Map<String, String> states = new HashMap<>();
+        private List<ScopeItem> recoveredScope = List.of();
         private int filterInvocations;
         private String runId;
         private List<ScopeItem> scope = List.of();
@@ -278,7 +317,15 @@ class WorkflowOrchestratorTest {
 
         @Override
         public List<ScopeItem> collectedScope(String runId) {
-            return List.of();
+            return recoveredScope;
+        }
+
+        @Override
+        public Map<String, String> statuses(String source, List<ScopeItem> scope) {
+            for (ScopeItem item : scope) {
+                states.putIfAbsent(item.jobId(), "CLEANED");
+            }
+            return states;
         }
 
         @Override
@@ -291,10 +338,16 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public void markNonrelevant(String source, List<String> jobIds) {
-            calls.add("mark-nonrelevant:" + String.join(",", jobIds));
+        public void markRelevance(
+                String source, List<ScopeItem> scope, List<String> jobIds
+        ) {
+            calls.add("mark-relevance:" + String.join(",", jobIds));
             markedSource = source;
             markedIds = List.copyOf(jobIds);
+            for (ScopeItem item : scope) {
+                states.put(item.jobId(), jobIds.contains(item.jobId())
+                        ? "NONRELEVANT" : "RELEVANT");
+            }
         }
 
         @Override
@@ -311,6 +364,7 @@ class WorkflowOrchestratorTest {
                 String threadId
         ) {
             calls.add("job-facts:" + jobId);
+            states.put(jobId, "ANALYZED");
             return threadId == null ? target : threadId;
         }
 
@@ -329,11 +383,13 @@ class WorkflowOrchestratorTest {
         @Override
         public void jobInterest(String source, String jobId) {
             calls.add("job-interest:" + jobId);
+            states.put(jobId, "SCORED");
         }
 
         @Override
         public void saveScored(String source, List<String> jobIds) {
             calls.add("save-scored:" + String.join(",", jobIds));
+            jobIds.forEach(jobId -> states.put(jobId, "SAVED"));
         }
     }
 }

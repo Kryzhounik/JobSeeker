@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.PythonRuntime;
@@ -12,6 +13,7 @@ import org.jpy.PyObject;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 final class JpyAgentFilterGateway implements AgentFilterGateway {
     private static final Gson GSON = new Gson();
@@ -49,6 +51,20 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
+    public Map<String, String> statuses(String source, List<ScopeItem> scope) {
+        try (PyModule bridge = bridge();
+             PyObject response = bridge.callMethod(
+                     "load_statuses",
+                     source,
+                     GSON.toJson(scope.stream().map(ScopeItem::jobId).toList()),
+                     paths.databasePath().toString()
+             )) {
+            return GSON.fromJson(response.getStringValue(),
+                    new TypeToken<Map<String, String>>() {}.getType());
+        }
+    }
+
+    @Override
     public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
@@ -75,13 +91,16 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public void markNonrelevant(String source, List<String> jobIds) {
+    public void markRelevance(
+            String source, List<ScopeItem> scope, List<String> nonrelevantIds
+    ) {
         try (PyModule bridge = bridge();
              PyObject ignored = bridge.callMethod(
-                     "mark_nonrelevant",
+                     "mark_relevance",
                      paths.databasePath().toString(),
                      source,
-                     GSON.toJson(jobIds)
+                     GSON.toJson(scope.stream().map(ScopeItem::jobId).toList()),
+                     GSON.toJson(nonrelevantIds)
              )) {
             // The bridge updates all statuses in one SQLite transaction.
         }

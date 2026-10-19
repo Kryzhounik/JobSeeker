@@ -3,7 +3,8 @@
 This module is the Java entry point for the JobSeeker workflow. `batch linkedin`
 calls the existing LinkedIn collector, sends its complete ordered scope to the
 existing agent relevance filter through the metered Codex CLI proxy, validates
-the returned IDs, marks them `NONRELEVANT` in one transaction, runs grouped
+the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
+in one transaction, runs grouped
 `job_facts`, candidate fit, job interest, and the existing database save.
 
 The Python proxy is reached through the process-wide JPy runtime already used
@@ -21,7 +22,7 @@ mvn -f Driver/pom.xml package
 The application performs these operations:
 
 1. Collect LinkedIn vacancies and persist their raw/readable data.
-2. Run the agent title filter and mark rejected vacancies `NONRELEVANT`.
+2. Run the agent filter and atomically mark vacancies `RELEVANT` or `NONRELEVANT`.
 3. Extract `job_facts` in configured groups.
 4. Run the deterministic candidate-fit gate.
 5. Evaluate the remaining vacancies in one persistent candidate-fit agent
@@ -72,11 +73,23 @@ Java callers use one method, `WorkflowOrchestrator.check(String... urls)`:
 `check(url)` for one URL, `check(url1, url2)` for several, or `check(urlArray)`.
 The CLI only parses arguments and prints the report.
 
-### Resume after collection
+### Resume a partially processed run
 
-If collection completed but the title filter failed, this reads that run's
-unprocessed vacancies from SQLite and performs operations 2–7 without
-collecting again. It requires the collection run ID recorded on the vacancies.
+Reads the completed collection's vacancies from SQLite and uses the same
+status-based processing as a fresh batch. It requires the collection run ID
+recorded on the vacancies. Completed stages are skipped:
+
+| Current status | Next operation |
+| --- | --- |
+| `CLEANED` | Agent filter |
+| `RELEVANT` | Job facts |
+| `ANALYZED` | Candidate fit and job interest |
+| `SCORED` | Final database save |
+| `NONRELEVANT`, `SAVED` | No further work |
+
+Candidate fit and job interest form one scoring stage; `SCORED` is written
+after both succeed for a vacancy. When resuming, semantic candidate fit reuses
+the run's existing evaluator session.
 
 ```powershell
 java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar resume <run-id>

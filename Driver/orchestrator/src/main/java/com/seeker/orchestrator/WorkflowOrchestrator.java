@@ -103,29 +103,43 @@ public final class WorkflowOrchestrator {
             return collected;
         }
 
-        AgentFilterResult result = agentFilter.filter(
-                collected.runId(),
-                collected.scope()
+        Map<String, String> statuses = new HashMap<>(
+                agentFilter.statuses(collected.source(), collected.scope())
         );
-        List<String> nonrelevantIds = validateResult(
-                collected.scope(),
-                result.nonrelevantJobIds()
-        );
-        if (!nonrelevantIds.isEmpty()) {
-            agentFilter.markNonrelevant(collected.source(), nonrelevantIds);
+        List<ScopeItem> unfiltered = atStatus(collected.scope(), statuses, "CLEANED");
+        if (!unfiltered.isEmpty()) {
+            AgentFilterResult result = agentFilter.filter(collected.runId(), unfiltered);
+            List<String> nonrelevantIds = validateResult(
+                    unfiltered, result.nonrelevantJobIds()
+            );
+            agentFilter.markRelevance(collected.source(), unfiltered, nonrelevantIds);
+            Set<String> rejected = Set.copyOf(nonrelevantIds);
+            for (ScopeItem item : unfiltered) {
+                statuses.put(item.jobId(), rejected.contains(item.jobId())
+                        ? "NONRELEVANT" : "RELEVANT");
+            }
         }
 
-        Set<String> rejected = Set.copyOf(nonrelevantIds);
+        Set<String> acceptedStatuses = Set.of("RELEVANT", "ANALYZED", "SCORED", "SAVED");
         List<ScopeItem> remaining = collected.scope().stream()
-                .filter(item -> !rejected.contains(item.jobId()))
+                .filter(item -> acceptedStatuses.contains(statuses.get(item.jobId())))
                 .toList();
-        if (!remaining.isEmpty()) {
+        List<ScopeItem> facts = atStatus(remaining, statuses, "RELEVANT");
+        if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
             agentFilter.startAnalysis(collected.runId(), vacanciesPerAgent);
-            runJobFacts(collected.runId(), collected.source(), remaining);
-            runFinishAnalysis(collected.runId(), collected.source(), remaining);
+        }
+        runJobFacts(collected.runId(), collected.source(), facts);
+        for (ScopeItem item : facts) {
+            statuses.put(item.jobId(), "ANALYZED");
+        }
+        runFinishAnalysis(collected.runId(), collected.source(),
+                atStatus(remaining, statuses, "ANALYZED"));
+        List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
+        if (!scored.isEmpty()) {
+            agentFilter.saveScored(collected.source(), scored.stream().map(ScopeItem::jobId).toList());
         }
         Map<String, Integer> outcomes = new LinkedHashMap<>(collected.outcomes());
-        outcomes.put("agent_filtered", nonrelevantIds.size());
+        outcomes.put("agent_filtered", atStatus(collected.scope(), statuses, "NONRELEVANT").size());
 
         return new CollectionReport(
                 collected.source(),
@@ -183,20 +197,29 @@ public final class WorkflowOrchestrator {
             String source,
             List<ScopeItem> scope
     ) {
+        if (scope.isEmpty()) {
+            return;
+        }
         String threadId = null;
         String target = source + ":candidate_fit";
         for (ScopeItem item : scope) {
             threadId = agentFilter.candidateFit(
                     runId, source, item.jobId(), target, threadId
             );
-        }
-        for (ScopeItem item : scope) {
             agentFilter.jobInterest(source, item.jobId());
         }
         agentFilter.saveScored(
                 source,
                 scope.stream().map(ScopeItem::jobId).toList()
         );
+    }
+
+    private static List<ScopeItem> atStatus(
+            List<ScopeItem> scope, Map<String, String> statuses, String status
+    ) {
+        return scope.stream()
+                .filter(item -> status.equals(statuses.get(item.jobId())))
+                .toList();
     }
 
     private static int vacanciesPerAgent(Path projectRoot) throws IOException {

@@ -26,6 +26,7 @@ PROCESSING_STATUSES = (
     "RAW",
     "CLEANED",
     "CONTENT_REJECTED",
+    "RELEVANT",
     "NONRELEVANT",
     "ANALYZED",
     "SCORED",

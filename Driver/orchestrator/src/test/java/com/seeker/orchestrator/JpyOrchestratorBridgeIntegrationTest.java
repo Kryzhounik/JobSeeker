@@ -40,10 +40,10 @@ class JpyOrchestratorBridgeIntegrationTest {
 
         try (PyModule bridge = PyModule.importModule("orchestrator.python_bridge");
              PyObject ignored = bridge.callMethod(
-                     "mark_nonrelevant",
-                     database.toString(),
+                     "load_statuses",
                      "linkedin",
-                     "[\"integration-1\"]"
+                     "[]",
+                     database.toString()
              )) {
             // Import and call through jpy are the integration boundary under test.
         }

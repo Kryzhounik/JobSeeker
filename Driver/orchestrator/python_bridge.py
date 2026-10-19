@@ -55,7 +55,7 @@ def run_agent_filter(run_id: str, scope_json: str, db_path: str) -> str:
 
 
 def load_collected_scope(run_id: str, db_path: str) -> str:
-    """Return the exact unprocessed scope of a completed LinkedIn collection."""
+    """Return the accepted collection scope, including later processing stages."""
     database = Path(db_path)
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
@@ -72,20 +72,38 @@ def load_collected_scope(run_id: str, db_path: str) -> str:
             JOIN source_job_texts text ON text.source_job_ref = job.id
             WHERE job.collection_run_id = ?
               AND job.source = 'linkedin'
-              AND job.processing_status = 'CLEANED'
+              AND job.processing_status IN (
+                  'CLEANED', 'RELEVANT', 'NONRELEVANT', 'ANALYZED', 'SCORED', 'SAVED'
+              )
             ORDER BY job.id
             """,
             (run_id,),
         ).fetchall()
     if len(rows) != run_row[1]:
         raise ValueError(
-            f"Collected scope for {run_id} has {len(rows)} unprocessed jobs, "
+            f"Collected scope for {run_id} has {len(rows)} jobs, "
             f"expected {run_row[1]}"
         )
     return _json([
         {"source": "linkedin", "job_id": job_id, "title": title}
         for job_id, title in rows
     ])
+
+
+def load_statuses(source: str, job_ids_json: str, db_path: str) -> str:
+    job_ids = json.loads(job_ids_json)
+    database = Path(db_path)
+    migrate_database(database)
+    with closing(sqlite3.connect(database)) as connection:
+        placeholders = ",".join("?" for _ in job_ids)
+        rows = connection.execute(
+            f"SELECT source_job_id, processing_status FROM source_jobs "
+            f"WHERE source = ? AND source_job_id IN ({placeholders})",
+            (source, *job_ids),
+        ).fetchall()
+    if len(rows) != len(job_ids):
+        raise ValueError("Scope contains missing or duplicate source-job IDs")
+    return _json(dict(rows))
 
 
 def run_job_facts(
@@ -158,6 +176,20 @@ def run_candidate_fit(
     if not fast_result.passed:
         return requested_thread_id or ""
 
+    if requested_thread_id is None:
+        with closing(sqlite3.connect(database)) as connection:
+            previous = connection.execute(
+                """
+                SELECT thread_id FROM codex_invocations
+                WHERE run_id = ? AND operation = 'candidate_fit' AND target = ?
+                  AND status = 'success' AND thread_id <> ''
+                ORDER BY id DESC LIMIT 1
+                """,
+                (run_id, target),
+            ).fetchone()
+        if previous:
+            requested_thread_id = previous[0]
+
     schema = DRIVER_ROOT / "contracts" / "candidate_fit_result.schema.json"
     analysis = json.loads(analyzed_path.read_text(encoding="utf-8"))
     result = run(
@@ -214,22 +246,36 @@ def save_scored(source: str, job_ids_json: str, db_path: str) -> None:
         raise RuntimeError("Could not save scored jobs: " + "; ".join(errors))
 
 
-def mark_nonrelevant(db_path: str, source: str, job_ids_json: str) -> None:
-    """Persist validated filter decisions atomically."""
+def mark_relevance(
+    db_path: str, source: str, job_ids_json: str, nonrelevant_ids_json: str
+) -> None:
+    """Persist both accepted and rejected filter decisions atomically."""
     job_ids = json.loads(job_ids_json)
+    rejected = set(json.loads(nonrelevant_ids_json))
     if not isinstance(job_ids, list) or not all(
         isinstance(job_id, str) and job_id for job_id in job_ids
     ):
         raise ValueError("job_ids must be a JSON array of non-empty strings")
     if not job_ids:
         return
+    if len(set(job_ids)) != len(job_ids) or not rejected.issubset(job_ids):
+        raise ValueError("Invalid relevance decisions for scope")
 
     database = Path(db_path)
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         for job_id in job_ids:
-            mark_status(connection, source, job_id, "NONRELEVANT")
+            status = "NONRELEVANT" if job_id in rejected else "RELEVANT"
+            updated = connection.execute(
+                """
+                UPDATE source_jobs SET processing_status = ?
+                WHERE source = ? AND source_job_id = ? AND processing_status = 'CLEANED'
+                """,
+                (status, source, job_id),
+            )
+            if updated.rowcount != 1:
+                raise ValueError(f"Expected CLEANED source job: {source}:{job_id}")
         connection.commit()
 
 

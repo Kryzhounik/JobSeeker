@@ -8,8 +8,8 @@ execution order; individual modules own their internal rules.
 
 `orchestrator` is the Java entry point for the workflow. It calls the existing
 LinkedIn collector, sends the complete collected scope to the agent relevance
-filter through the metered Codex CLI proxy, persists validated rejections as
-`NONRELEVANT`, then owns `job_facts`, candidate fit, job interest, and final
+filter through the metered Codex CLI proxy, persists validated decisions as
+`RELEVANT` or `NONRELEVANT`, then owns `job_facts`, candidate fit, job interest, and final
 database save for the remaining ordered scope. Build the collector and
 orchestrator together with:
 
