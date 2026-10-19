@@ -161,7 +161,7 @@ final class ClientData {
                     text(row, "added_at"), text(row, "candidate_fit_reason_code"),
                     text(row, "candidate_fit_reason"), text(row, "company_id"),
                     text(row, "application_id"),
-                    text(row, "source_url")
+                    text(row, "source_url"), row.path("easy_apply").asInt() == 1
             ));
         }
         return jobs;

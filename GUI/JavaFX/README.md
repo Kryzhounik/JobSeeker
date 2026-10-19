@@ -107,7 +107,8 @@ Refilter uses the existing
 
 Apply opens the selected vacancy in the shared logged-in browser, starts
 application preparation in the background, and leaves the form tab open for
-review and manual submission. Approved answers can be added to
+review and manual submission. Apply is disabled for vacancies marked Easy Apply
+by the collector. Approved answers can be added to
 `Data/applier/approved_answers.md`.
 
 The client-data API accepts a database path and primitive values, returning

@@ -90,6 +90,7 @@ def save_collected_job(
     location: Any = None,
     workplace: Any = None,
     salary: Any = None,
+    easy_apply: bool | None = None,
 ) -> int:
     source, job_id = validate_identity(source, job_id)
     if not text.strip():
@@ -114,9 +115,10 @@ def save_collected_job(
             company_id,
             collected_location,
             collected_workplace,
-            collected_salary
+            collected_salary,
+            easy_apply
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(source_job_ref) DO UPDATE SET
             readable_text = excluded.readable_text,
             source_url = excluded.source_url,
@@ -124,7 +126,8 @@ def save_collected_job(
             company_id = excluded.company_id,
             collected_location = excluded.collected_location,
             collected_workplace = excluded.collected_workplace,
-            collected_salary = excluded.collected_salary
+            collected_salary = excluded.collected_salary,
+            easy_apply = coalesce(excluded.easy_apply, source_job_texts.easy_apply)
         """,
         (
             source_job_ref,
@@ -135,6 +138,7 @@ def save_collected_job(
             normalize_collected_text(location),
             normalize_collected_workplace(workplace),
             normalize_collected_text(salary),
+            easy_apply,
         ),
     )
     return source_job_ref

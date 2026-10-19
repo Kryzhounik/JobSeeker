@@ -120,7 +120,8 @@ CREATE TABLE IF NOT EXISTS source_job_texts (
     collected_workplace TEXT NOT NULL DEFAULT 'unknown' CHECK (
         collected_workplace IN ('remote', 'hybrid', 'office', 'unknown')
     ),
-    collected_salary TEXT NOT NULL DEFAULT ''
+    collected_salary TEXT NOT NULL DEFAULT '',
+    easy_apply INTEGER CHECK (easy_apply IN (0, 1))
 );
 
 CREATE TABLE IF NOT EXISTS content_filter_rejections (

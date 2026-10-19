@@ -34,8 +34,10 @@ fix additional problems as they arise in use.
   the console follows the same preparation and manual-submission rules.
 - For version 0.1, Applier opens the vacancy, clicks an external Apply link, and identifies the
   redirect or new tab containing the company's application form. LinkedIn
-  Easy Apply is outside this first implementation. If the selected job has an
-  Easy Apply button, skip it before clicking and report that it was skipped.
+  Easy Apply is outside this first implementation. The collector detects it
+  when reading vacancy details and saves the marker. GUI Apply is disabled for
+  marked vacancies; console Applier skips them before opening the browser.
+  Applier does not repeat detection. Existing records need no reclassification.
 - An adapter is a Playwright script written for a specific application form.
   Choose by the form actually opened, including after a redirect or new tab.
   First check for a matching adapter and run it if present. Only when no

@@ -18,6 +18,45 @@ from collector.java_linkedin import python_bridge
 
 
 class JavaLinkedInBridgeTest(unittest.TestCase):
+    def test_easy_apply_marker_reaches_gui_and_applier(self) -> None:
+        from Applier.vacancy_context import vacancy_context
+        from GUI.client_data import load_jobs
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.addCleanup(python_bridge.close_session)
+            cases = [
+                ('<button id="jobs-apply-button-id" aria-label="Easy Apply to Example">Apply</button>', True),
+                ('<a aria-label="easy apply to Example">Apply</a>', True),
+                ('<button aria-label="Apply to Example on company website">Apply</button>', False),
+                ('<p>Easy Apply</p><button aria-label="Save">Save</button>', False),
+            ]
+            for index, (button, expected) in enumerate(cases):
+                with self.subTest(button=button):
+                    job_id = str(6000000000 + index)
+                    url = f"https://www.linkedin.com/jobs/view/{job_id}/"
+                    preview = {"job_id": job_id, "source_url": url, "title": "Java Developer",
+                               "company": "Example", "location": "Moldova"}
+                    html = (f'<html><head><link rel="canonical" href="{url}"></head><body>'
+                            f'<h1>Java Developer</h1>{button}<h2>About the job</h2>'
+                            '<p>Build backend services in Java.</p></body></html>')
+                    result = json.loads(python_bridge.process_html(json.dumps(preview), html))
+                    self.assertEqual("raw_saved", result["status"])
+                    # The marker is available before analysis creates a jobs row.
+                    self.assertEqual({"location": "Moldova", "easy_apply": expected},
+                                     vacancy_context(url, database))
+                    with closing(sqlite3.connect(database)) as connection:
+                        connection.execute(
+                            "INSERT INTO jobs (source_job_ref, location) "
+                            "SELECT id, 'Moldova' FROM source_jobs WHERE source_job_id = ?", (job_id,)
+                        )
+                        connection.commit()
+                    jobs = json.loads(load_jobs(database, json.dumps({"statuses": ["New"], "show_zero": True})))
+                    job = next(row for row in jobs if row["source_url"] == url)
+                    self.assertEqual(int(expected), job["easy_apply"])
+                    self.assertEqual(expected, vacancy_context(url, database)["easy_apply"])
+
     def test_existing_python_pipeline_is_callable_without_intermediate_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

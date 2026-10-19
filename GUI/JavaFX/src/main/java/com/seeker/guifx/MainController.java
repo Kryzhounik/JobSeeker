@@ -350,7 +350,7 @@ public final class MainController {
         refilterDetailButton.setDisable(disabled || operationRunning);
         statusActions.setDisable(disabled || operationRunning);
         applyButton.setDisable(disabled || operationRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank());
+                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
         chatEvalButton.setDisable(disabled || operationRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
     }
@@ -1041,7 +1041,7 @@ public final class MainController {
                     job.role(), job.seniority(), job.language(), job.salary(),
                     job.addedAt(), job.reasonCode(), job.reason(), job.companyId(),
                     job.applicationId(),
-                    job.sourceUrl()
+                    job.sourceUrl(), job.easyApply()
             );
             for (int index = 0; index < jobsTable.getItems().size(); index++) {
                 if (jobsTable.getItems().get(index).jobId() == job.jobId()) {
@@ -1179,7 +1179,8 @@ public final class MainController {
         setDetailEnabled(true);
         sourceLink.setDisable(job.sourceUrl().isBlank());
         openButton.setDisable(job.sourceUrl().isBlank());
-        applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
+        applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning || job.easyApply());
+        applyButton.setTooltip(job.easyApply() ? new Tooltip("LinkedIn Easy Apply") : null);
         chatEvalButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
@@ -1209,7 +1210,8 @@ public final class MainController {
         skillsPane.setDisable(!enabled);
         sourceLink.setDisable(!enabled);
         openButton.setDisable(!enabled);
-        applyButton.setDisable(!enabled || operationRunning);
+        applyButton.setDisable(!enabled || operationRunning || selectedJob == null
+                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
         chatEvalButton.setDisable(!enabled || operationRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
         textToggle.setDisable(!enabled);
@@ -1236,7 +1238,7 @@ public final class MainController {
 
     private void startApply() {
         JobRecord job = selectedJob;
-        if (job == null || job.sourceUrl().isBlank()) return;
+        if (job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
         ApplierRunner applier = new ApplierRunner(ClientData.findProjectRoot());
         runTask("Opening application form...", updater -> applier.run(job.sourceUrl()), result -> {
             String summary = result.submissionObserved()

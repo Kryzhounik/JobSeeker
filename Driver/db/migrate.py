@@ -150,6 +150,8 @@ def migration_already_effective(
         return column_exists(connection, "source_jobs", "collection_run_id")
     if version == "037_source_job_availability":
         return column_exists(connection, "source_jobs", "availability")
+    if version == "039_source_job_easy_apply":
+        return column_exists(connection, "source_job_texts", "easy_apply")
     return False
 
 

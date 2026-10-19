@@ -3,7 +3,9 @@
 Applier version 0.1 prepares job-application forms from the Java GUI or the console.
 Both entry points pass the vacancy URL to the same Applier runner; it reads
 the stored vacancy location and handles the browser, facts, and form filling.
-LinkedIn Easy Apply vacancies are skipped without calling Codex.
+The collector marks LinkedIn Easy Apply vacancies when reading their details.
+GUI Apply is disabled for marked vacancies; console Applier skips them using
+the same stored marker, without opening the browser or calling Codex.
 It shares the logged-in browser with the independently runnable LinkedIn
 collector. Applier first looks for a host-specific Playwright adapter. If no
 adapter matches, it uses the existing Codex Proxy with Playwright MCP. No

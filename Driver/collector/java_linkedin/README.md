@@ -38,6 +38,9 @@ cases without command-line request wrappers.
   account; collection and application preparation reuse that session.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
   decision JSON, scope files, or checkpoints are created.
+- The common HTML processing step detects the Easy Apply button and stores
+  `source_job_texts.easy_apply`. GUI Apply and console Applier use this saved
+  marker; neither repeats detection. Existing vacancies are not reclassified.
 - For compatibility, Python still saves canonical raw HTML, writes collector
   metadata, readable text, and lifecycle data to SQLite, applies the current
   filters, and records collection events.

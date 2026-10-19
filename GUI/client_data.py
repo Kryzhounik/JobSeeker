@@ -206,6 +206,7 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
                 jl.source_url,
                 sj.availability,
                 sj.unavailable_checks,
+                coalesce(text.easy_apply, 0) AS easy_apply,
                 text.company_id,
                 a.id AS application_id,
                 coalesce(company_apps.application_count, 0)

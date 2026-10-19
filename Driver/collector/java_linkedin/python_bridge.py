@@ -9,6 +9,7 @@ from __future__ import annotations
 from contextlib import closing
 from contextlib import redirect_stdout
 from dataclasses import dataclass
+from html.parser import HTMLParser
 import json
 from pathlib import Path
 import sqlite3
@@ -50,6 +51,16 @@ class Session:
 
 
 _session: Session | None = None
+
+
+class ApplyButtonParser(HTMLParser):
+    easy_apply = False
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag in {"button", "a"} or attributes.get("id") == "jobs-apply-button-id":
+            if (attributes.get("aria-label") or "").lower().startswith("easy apply"):
+                self.easy_apply = True
 
 
 def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
@@ -138,6 +149,8 @@ def process_html(preview_json: str, html: str) -> str:
     title = str(preview.get("title") or "").strip()
     if not job_id or not source_url:
         raise ValueError("Browser result is missing job_id or source_url")
+    apply_button = ApplyButtonParser()
+    apply_button.feed(html)
 
     with redirect_stdout(sys.stderr):
         raw_path = save_content(
@@ -166,6 +179,7 @@ def process_html(preview_json: str, html: str) -> str:
                 location=preview.get("location"),
                 workplace=preview.get("workplace"),
                 salary=preview.get("salary"),
+                easy_apply=apply_button.easy_apply,
             )
             filter_result = session.vacancy_filter.filter_text(title, text)
             if filter_result.rejected:

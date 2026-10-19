@@ -20,5 +20,6 @@ record JobRecord(
         String reason,
         String companyId,
         String applicationId,
-        String sourceUrl
+        String sourceUrl,
+        boolean easyApply
 ) { }
