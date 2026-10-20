@@ -67,10 +67,12 @@ java -jar Driver/orchestrator/workflow-orchestrator.jar process-urls "<url-1>" "
 The command prints a `WorkflowResult` as JSON:
 
 - `source`, `run_id`, `status`, and `message` identify the workflow result.
-- `collection` is the unchanged Collector report (CLI omits its `pages`). Its
-  `accepted_count`, `scope`, and `outcomes` retain their collection-only meaning.
+- `collection` is a `WorkflowResult.CollectionSummary` without page diagnostics.
+  Its `accepted_count`, `scope`, and `outcomes` retain their collection-only meaning.
+  Collector APIs return the full, unchanged `CollectionReport`, including `pages`.
 - `processed_scope` and `processed_count` describe the accepted workflow scope
   after relevance filtering and analysis, including already completed jobs.
+  `processed_count` is a result component computed from `processed_scope` on creation.
 - `agent_filtered_count` counts vacancies rejected by the agent filter.
 
 `status: "complete"` means processing finished, not that any vacancy was
@@ -78,14 +80,15 @@ accepted. A duplicate or rejected vacancy has an empty `processed_scope` and
 an explanatory `message`. For multiple URLs, the workflow scope preserves URL
 order, while `collection` retains the combined collection statistics. A
 collection failure stops the run before analysis and returns an empty
-processed scope alongside the original failed collection report.
+processed scope alongside a summary of the failed collection report.
 
 Java callers use one method, `WorkflowOrchestrator.processUrls(String... urls)`:
 `processUrls(url)` for one URL, `processUrls(url1, url2)` for several, or
 `processUrls(urlArray)`.
 The CLI parses arguments, installs its output policy, and prints the report.
 Java callers receive `WorkflowResult`; Collector APIs still return
-`CollectionReport`. `WorkflowOrchestrator(projectRoot, progressListener)` can
+`CollectionReport`. The CLI serializes `WorkflowResult` directly without editing
+its JSON. `WorkflowOrchestrator(projectRoot, progressListener)` can
 forward Collector callbacks without any console transport. JPy gateways do not
 change global Python stdout; only the CLI temporarily redirects it to stderr.
 
@@ -111,7 +114,7 @@ the run's existing evaluator session.
 java -jar Driver/orchestrator/workflow-orchestrator.jar resume <run-id>
 ```
 
-The resume result has no `collection` report because no new collection took
+The resume result has no `collection` summary because no new collection took
 place. Its `run_id`, `processed_scope`, and filtering count identify the resumed
 work. No synthetic `CollectionReport` is created.
 

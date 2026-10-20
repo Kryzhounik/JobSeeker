@@ -56,10 +56,7 @@ public final class Main {
                 );
                 default -> orchestrator.resume(args[1]);
             };
-            var result = GSON.toJsonTree(report).getAsJsonObject();
-            result.addProperty("processed_count", report.processedCount());
-            if (report.collection() != null) result.getAsJsonObject("collection").remove("pages");
-            System.out.println(GSON.toJson(result));
+            System.out.println(GSON.toJson(report));
             return;
         }
         if (args.length == 4 && (

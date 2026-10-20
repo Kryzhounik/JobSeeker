@@ -30,7 +30,7 @@ Purpose: the single LinkedIn batch-collection entry point.
    validated rejections as `NONRELEVANT`, and runs the remaining analysis and
    save stages. Its `processed_count` is the completed remaining scope size and
    `agent_filtered_count` is the number removed by the agent filter. The nested
-   `collection` report retains the original collection counts and scope.
+   `collection` summary retains the original collection counts and scope.
 
    Start this command exactly once as a foreground process and wait for that
    same process to exit. While it runs, do not inspect the browser, database,

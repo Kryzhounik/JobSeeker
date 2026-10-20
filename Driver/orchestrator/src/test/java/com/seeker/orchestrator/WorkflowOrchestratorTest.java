@@ -1,6 +1,8 @@
 package com.seeker.orchestrator;
 
+import com.google.gson.Gson;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import org.junit.jupiter.api.Test;
 
@@ -11,8 +13,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class WorkflowOrchestratorTest {
@@ -42,7 +44,7 @@ class WorkflowOrchestratorTest {
         assertEquals(List.of("1", "3"), ids(actual.processedScope()));
         assertEquals(2, actual.processedCount());
         assertEquals(1, actual.agentFilteredCount());
-        assertSame(collected, actual.collection());
+        assertEquals(collected.runId(), actual.collection().runId());
         assertEquals(3, actual.collection().acceptedCount());
         assertEquals(List.of("1", "2", "3"), ids(actual.collection().scope()));
         assertEquals(Map.of("raw_saved", 3), actual.collection().outcomes());
@@ -98,7 +100,7 @@ class WorkflowOrchestratorTest {
                 "https://www.linkedin.com/jobs/view/1"
         );
 
-        assertSame(rejected, actual.collection());
+        assertEquals(rejected.message(), actual.collection().message());
         assertEquals(0, actual.processedCount());
         assertEquals(List.of(), filter.calls);
     }
@@ -230,7 +232,7 @@ class WorkflowOrchestratorTest {
 
         WorkflowResult actual = orchestrator.processBatch("linkedin");
 
-        assertSame(blocked, actual.collection());
+        assertEquals(blocked.status(), actual.collection().status());
         assertEquals("blocked", actual.status());
         assertEquals(0, actual.processedCount());
         assertEquals(0, filter.filterInvocations);
@@ -287,6 +289,31 @@ class WorkflowOrchestratorTest {
 
         assertEquals(result.processedScope(), orchestrator.resume("run-1").processedScope());
         assertEquals(completedCalls, filter.calls.size());
+    }
+
+    @Test
+    void serializesWorkflowContractWithoutChangingCollectorReport() {
+        Gson gson = new Gson();
+        CollectionReport collected = new CollectionReport(
+                "linkedin", "run-1", "complete", 2,
+                List.of(item("1", "Java"), item("2", "Marketing")),
+                Map.of("raw_saved", 2),
+                List.of(gson.fromJson("{\"label\":\"Ukraine\"}", PageReport.class)), ""
+        );
+        WorkflowResult result = new WorkflowResult(
+                "linkedin", "run-1", "complete", collected,
+                List.of(item("1", "Java")), 1, ""
+        );
+
+        var json = gson.toJsonTree(result).getAsJsonObject();
+
+        assertEquals(1, result.processedCount());
+        assertEquals(1, json.get("processed_count").getAsInt());
+        assertEquals(2, json.getAsJsonObject("collection").get("accepted_count").getAsInt());
+        assertFalse(json.getAsJsonObject("collection").has("pages"));
+        assertEquals(1, collected.pages().size());
+        assertEquals("Ukraine", collected.pages().getFirst().label());
+        assertEquals(1, gson.toJsonTree(collected).getAsJsonObject().getAsJsonArray("pages").size());
     }
 
     private static CollectionReport report(String status, List<ScopeItem> scope) {
