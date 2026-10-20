@@ -115,7 +115,7 @@ final class AuxiliaryWindows {
                 priority.setEditable(true);
                 priority.setPrefWidth(75);
                 priority.setOnEditCommit(event -> saveCompanyFlag(
-                        event.getRowValue(), "set_company_priority", event.getNewValue(), true
+                        event.getRowValue(), event.getNewValue(), true
                 ));
                 companiesTable.getColumns().add(priority);
                 TableColumn<CompanyRow, String> company = stringColumn("Company", "name");
@@ -128,7 +128,7 @@ final class AuxiliaryWindows {
                     CompanyRow row = event.getRowValue();
                     String value = event.getNewValue().strip();
                     submit(() -> {
-                        data.setCompanyValue("set_company_linkedin_id", row.id, value);
+                        data.setCompanyLinkedInId(row.id, value);
                         return null;
                     }, ignored -> {
                         row.linkedinId.set(value);
@@ -150,7 +150,7 @@ final class AuxiliaryWindows {
                 blacklisted.setEditable(true);
                 blacklisted.setPrefWidth(95);
                 blacklisted.setOnEditCommit(event -> saveCompanyFlag(
-                        event.getRowValue(), "set_company_blacklisted", event.getNewValue(), false
+                        event.getRowValue(), event.getNewValue(), false
                 ));
                 companiesTable.getColumns().add(blacklisted);
                 restoreTableSort(companiesTable, "company");
@@ -210,10 +210,11 @@ final class AuxiliaryWindows {
         }, error -> showError("Companies load failed", error));
     }
 
-    private void saveCompanyFlag(CompanyRow row, String method, Boolean value, boolean priority) {
+    private void saveCompanyFlag(CompanyRow row, boolean value, boolean priority) {
         boolean previous = (priority ? row.priority : row.blacklisted).get();
         submit(() -> {
-            data.setCompanyValue(method, row.id, value);
+            if (priority) data.setCompanyPriority(row.id, value);
+            else data.setCompanyBlacklisted(row.id, value);
             return null;
         }, ignored -> {
             (priority ? row.priority : row.blacklisted).set(value);
@@ -230,9 +231,7 @@ final class AuxiliaryWindows {
             {
                 check.setOnAction(event -> {
                     CompanyRow row = getTableRow() == null ? null : getTableRow().getItem();
-                    if (row != null) saveCompanyFlag(row,
-                            isPriority ? "set_company_priority" : "set_company_blacklisted",
-                            check.isSelected(), isPriority);
+                    if (row != null) saveCompanyFlag(row, check.isSelected(), isPriority);
                 });
             }
             @Override protected void updateItem(Boolean value, boolean empty) {

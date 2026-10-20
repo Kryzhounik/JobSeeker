@@ -82,12 +82,16 @@ final class ClientData {
         }
     }
 
-    synchronized void setCompanyValue(String method, int companyId, Object value) {
-        try (PyObject ignored = module.call(
-                method, databasePath.toString(), companyId, value
-        )) {
-            // Close the Python result wrapper after the immediate database update.
-        }
+    synchronized void setCompanyLinkedInId(int companyId, String linkedinId) {
+        callVoid("set_company_linkedin_id", databasePath.toString(), companyId, linkedinId);
+    }
+
+    synchronized void setCompanyPriority(int companyId, boolean priority) {
+        callVoid("set_company_priority", databasePath.toString(), companyId, priority);
+    }
+
+    synchronized void setCompanyBlacklisted(int companyId, boolean blacklisted) {
+        callVoid("set_company_blacklisted", databasePath.toString(), companyId, blacklisted);
     }
 
     synchronized List<ApplicationDto> loadApplications() throws Exception {
@@ -127,8 +131,8 @@ final class ClientData {
         }
     }
 
-    synchronized List<JobRecord> loadJobs(Map<String, Object> filters) throws Exception {
-        String filterJson = json.writeValueAsString(filters);
+    synchronized List<JobRecord> loadJobs(JobFilters filters) throws Exception {
+        String filterJson = jobFiltersRequest(filters);
         JsonNode rows = readJson(call("load_jobs", databasePath.toString(), filterJson));
         List<JobRecord> jobs = new ArrayList<>();
         for (JsonNode row : rows) {
@@ -227,6 +231,12 @@ final class ClientData {
         }
     }
 
+    private void callVoid(String method, Object... arguments) {
+        try (PyObject ignored = module.call(method, arguments)) {
+            // Release the result wrapper even when the Python operation returns None.
+        }
+    }
+
     private JsonNode readJson(String value) throws Exception {
         return json.readTree(value);
     }
@@ -246,6 +256,10 @@ final class ClientData {
 
     static String refilterRequest(List<RefilterCandidate> candidates) throws IOException {
         return json.writeValueAsString(candidates);
+    }
+
+    static String jobFiltersRequest(JobFilters filters) throws IOException {
+        return json.writeValueAsString(filters);
     }
 
     private static String text(JsonNode object, String field) {

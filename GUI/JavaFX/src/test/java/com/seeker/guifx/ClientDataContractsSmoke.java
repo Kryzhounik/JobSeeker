@@ -3,10 +3,12 @@ package com.seeker.guifx;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ClientDataContractsSmoke {
     public static void main(String[] args) throws Exception {
+        jobFilters();
         companies();
         applications();
         collected();
@@ -16,6 +18,32 @@ public final class ClientDataContractsSmoke {
         refilter();
         invalidResponses();
         System.out.println("Typed client-data contracts OK");
+    }
+
+    private static void jobFilters() throws IOException {
+        List<String> statuses = new ArrayList<>(List.of("New", "Checked"));
+        List<String> reasons = new ArrayList<>(List.of("tech", "lang"));
+        JobFilters filters = new JobFilters(statuses, true, false, "123", "2026-10-20", reasons);
+        statuses.clear();
+        reasons.clear();
+        var request = new ObjectMapper().readTree(ClientData.jobFiltersRequest(filters));
+        check(request.size() == 6 && request.path("statuses").size() == 2
+                        && request.path("reasons").size() == 2,
+                "Filter fields or list snapshots changed");
+        check(request.path("show_zero").isBoolean() && request.path("show_zero").asBoolean()
+                        && request.path("show_unavailable").isBoolean()
+                        && !request.path("show_unavailable").asBoolean()
+                        && request.path("id_query").asText().equals("123")
+                        && request.path("added_from").asText().equals("2026-10-20"),
+                "Typed filters were not serialized with the Python contract");
+        var empty = new ObjectMapper().readTree(ClientData.jobFiltersRequest(
+                new JobFilters(List.of(), false, true, "", "", List.of())));
+        check(empty.size() == 6 && empty.path("statuses").isEmpty()
+                        && empty.path("reasons").isEmpty() && !empty.path("show_zero").asBoolean()
+                        && empty.path("show_unavailable").asBoolean()
+                        && empty.path("id_query").asText().isEmpty()
+                        && empty.path("added_from").asText().isEmpty(),
+                "Empty filters or explicit availability setting changed");
     }
 
     private static void companies() throws IOException {

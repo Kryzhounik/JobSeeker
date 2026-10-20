@@ -1,6 +1,6 @@
 package com.seeker.guifx;
 
-import java.util.Map;
+import java.util.List;
 
 public final class ClientDataSmoke {
     public static void main(String[] args) throws Exception {
@@ -13,13 +13,7 @@ public final class ClientDataSmoke {
         if (reasonCodes.isEmpty()) {
             throw new IllegalStateException("No Reason code descriptions returned from the database.");
         }
-        var jobs = data.loadJobs(Map.of(
-                "statuses", statuses,
-                "show_zero", true,
-                "id_query", "",
-                "added_from", "",
-                "reasons", java.util.List.of()
-        ));
+        var jobs = data.loadJobs(new JobFilters(statuses, true, true, "", "", List.of()));
         if (!jobs.isEmpty()) {
             data.loadDetail(jobs.getFirst().jobId());
             jobs.stream().filter(job -> job.sourceUrl().isBlank()).findFirst()

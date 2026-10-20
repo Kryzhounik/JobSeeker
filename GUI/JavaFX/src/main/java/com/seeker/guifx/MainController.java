@@ -631,7 +631,7 @@ public final class MainController {
             return;
         }
         int selectedId = selectedJob == null ? -1 : selectedJob.jobId();
-        Map<String, Object> filters;
+        JobFilters filters;
         try {
             String date = dateFilterField.getText().strip();
             String addedFrom = date.isEmpty()
@@ -644,16 +644,16 @@ public final class MainController {
                     .filter(value -> !value.isEmpty())
                     .distinct()
                     .toList();
-            filters = Map.of(
-                    "statuses", statusChecks.entrySet().stream()
+            filters = new JobFilters(
+                    statusChecks.entrySet().stream()
                             .filter(entry -> entry.getValue().isSelected())
                             .map(Map.Entry::getKey)
                             .toList(),
-                    "show_zero", showZeroCheck.isSelected(),
-                    "show_unavailable", unavailableCheck.isSelected(),
-                    "id_query", idFilterField.getText().strip(),
-                    "added_from", addedFrom,
-                    "reasons", reasons
+                    showZeroCheck.isSelected(),
+                    unavailableCheck.isSelected(),
+                    idFilterField.getText().strip(),
+                    addedFrom,
+                    reasons
             );
         } catch (RuntimeException error) {
             statusLabel.setText("Date must use DD.MM.YYYY");

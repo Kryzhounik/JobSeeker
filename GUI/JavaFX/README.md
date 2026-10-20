@@ -11,6 +11,10 @@ only the adapter serializes the selected list back to Python field names.
 Nullable database IDs and Fit stay nullable, while nullable display strings
 are normalized to empty strings. `ClientDataContractsSmoke` checks these
 contracts without starting Python, opening windows, or accessing a database.
+Job-list requests use `JobFilters` with six typed fields; the adapter alone
+maps their Java names to Python JSON keys. Company updates have separate
+LinkedIn ID, priority, and blacklist methods, so UI handlers do not choose
+Python function names or pass untyped values.
 
 ## Run on Windows
 
