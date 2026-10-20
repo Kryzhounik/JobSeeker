@@ -176,7 +176,7 @@ URL проверенной вакансии, отправленное сообщ
 **Статус: выполнен.**
 
 Подготовить отдельную минимальную сборку `ChatEvaluator/pom.xml` с результатом
-`ChatEvaluator/target/chat-evaluator.jar`, запускаемым через `java -jar`
+`ChatEvaluator/chat-evaluator.jar`, запускаемым через `java -jar`
 на Java 21 или новее. JAR включает необходимые runtime-зависимости;
 для его запуска не нужны Maven, ручной classpath, JavaFX и jpy.
 Настройки и профиль браузера остаются внешними.
@@ -196,7 +196,7 @@ CLI-процесс из GUI. Оригинальный `ManagedBrowser` подк�
 
 Зафиксированный микро-API:
 
-- `java -jar ChatEvaluator/target/chat-evaluator.jar <vacancy-url>` — один вызов,
+- `java -jar ChatEvaluator/chat-evaluator.jar <vacancy-url>` — один вызов,
   полный исходный ответ в stdout, UTF-8.
 - Отдельная команда справки не нужна; синтаксис и параметр описаны в README.
 - Неверные аргументы — сообщение в stderr, код `2`, без браузера.

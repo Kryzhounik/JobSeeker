@@ -13,7 +13,7 @@ public final class Main {
      */
     @Deprecated
     private static final String USAGE =
-            "Usage (from the Seeker project root): java -jar Applier/target/applier.jar <vacancy-url>";
+            "Usage (from the Seeker project root): java -jar Applier/applier.jar <vacancy-url>";
 
     private Main() {
     }

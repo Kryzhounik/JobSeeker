@@ -17,6 +17,10 @@ Build the collector and orchestrator together from the project root:
 mvn -f Driver/pom.xml package
 ```
 
+The thin runnable JAR is `Driver/orchestrator/workflow-orchestrator.jar`.
+Runtime dependencies are copied to the repository-root `libs/`; the manifest
+references them automatically.
+
 ## Operations
 
 The application performs these operations:
@@ -41,7 +45,7 @@ source. Each saved source job records the ID of the collection run that first
 created it.
 
 ```powershell
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
+java -jar Driver/orchestrator/workflow-orchestrator.jar batch linkedin
 ```
 
 ### Check LinkedIn vacancies by URL
@@ -53,8 +57,8 @@ accepted scope, preserving the URL order. The search batch limit does not
 truncate an explicit URL list.
 
 ```powershell
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar check-url "<linkedin-job-url>"
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar check-url "<url-1>" "<url-2>"
+java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<linkedin-job-url>"
+java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<url-1>" "<url-2>"
 ```
 
 The command prints the existing JSON collection report without `pages`.
@@ -92,7 +96,7 @@ after both succeed for a vacancy. When resuming, semantic candidate fit reuses
 the run's existing evaluator session.
 
 ```powershell
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar resume <run-id>
+java -jar Driver/orchestrator/workflow-orchestrator.jar resume <run-id>
 ```
 
 ### Job-facts only
@@ -101,7 +105,7 @@ Runs operation 3 for an existing explicit scope. It does not collect vacancies
 or continue to candidate fit.
 
 ```powershell
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar job-facts <run-id> <source> <comma-separated-job-ids>
+java -jar Driver/orchestrator/workflow-orchestrator.jar job-facts <run-id> <source> <comma-separated-job-ids>
 ```
 
 ### Finish analysis
@@ -109,7 +113,7 @@ java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar job-facts <run-
 Runs operations 4–7 for a scope whose `job_facts` files already exist.
 
 ```powershell
-java -jar Driver/orchestrator/target/job-seeker-orchestrator.jar finish-analysis <run-id> <source> <comma-separated-job-ids>
+java -jar Driver/orchestrator/workflow-orchestrator.jar finish-analysis <run-id> <source> <comma-separated-job-ids>
 ```
 
 ### LinkedIn collector utilities
@@ -118,8 +122,8 @@ These are lower-level collector commands. They do not run the title filter,
 analysis, scoring, or final save.
 
 ```powershell
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar login
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar login
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar batch
 ```
 
 `login` opens the configured browser profile for LinkedIn authentication.

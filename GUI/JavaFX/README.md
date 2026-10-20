@@ -13,8 +13,10 @@ Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
 ```
 
 Then double-click `SeekerJobs.exe` in this directory. The build generates this
-GUI's icon from `pink_panther_transparent_final.ico`, copies the JavaFX/Jackson/jpy dependencies into
-`target/dependency`, checks the database connection through jpy, runs small
+GUI's icon from `pink_panther_transparent_final.ico`, installs the backend Maven
+artifacts through `Driver`, then builds the independent GUI project. It creates
+the thin `seeker-gui-javafx.jar` in this directory and copies runtime dependencies
+to the repository-root `libs/`. It checks the database connection through jpy, runs small
 GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
 does not need Maven at startup and does not leave a console window. Its startup
 output and errors go to `launch.log` beside the executable. Rebuild after code
@@ -23,7 +25,7 @@ The normal build does not open test windows. To run the interactive UI check,
 add `-UiSmoke` to the build command; it opens the main and auxiliary windows.
 If `SeekerJobs.exe` is open during a rebuild, the script writes
 `SeekerJobs-updated.exe` beside it instead; both launch the current JavaFX
-classes from `target/classes`.
+JAR through `javaw -jar`, with dependencies resolved from its manifest.
 
 For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 
@@ -31,8 +33,20 @@ For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 .\run.ps1
 ```
 
-The project can also be launched directly with `mvn javafx:run` from this
-directory. Maven downloads the JavaFX platform modules on the first build.
+`run.ps1` builds the backend and GUI, then launches the GUI JAR. The equivalent
+commands from the repository root are:
+
+```powershell
+mvn -f Driver/pom.xml install
+mvn -f GUI/JavaFX/pom.xml clean package
+java -jar GUI/JavaFX/seeker-gui-javafx.jar
+```
+
+JavaFX is not a child or reactor module of `Driver`. It uses normal Maven
+dependencies on Applier, ChatEvaluator, and Tools, and imports their managed
+versions from the installed Driver POM. After backend changes, run `install`
+again before building the GUI; both scripts do this automatically. Maven
+downloads the JavaFX platform modules on the first build.
 The Python/JNI library paths come from
 `Driver/collector/java_linkedin/runtime.properties`.
 

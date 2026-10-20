@@ -13,15 +13,36 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.12</javafx.version>
-        <jpy.version>2.1.0</jpy.version>
-        <playwright.version>1.62.0</playwright.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.seeker</groupId>
+                <artifactId>job-seeker-java</artifactId>
+                <version>1.0-SNAPSHOT</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>applier</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>chat-evaluator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>tools</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.microsoft.playwright</groupId>
             <artifactId>playwright</artifactId>
-            <version>${playwright.version}</version>
         </dependency>
         <dependency>
             <groupId>org.openjfx</groupId>
@@ -36,36 +57,63 @@
         <dependency>
             <groupId>org.jpyconsortium</groupId>
             <artifactId>jpy</artifactId>
-            <version>${jpy.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.18.3</version>
         </dependency>
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}</finalName>
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.6.1</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+                <configuration>
+                    <outputDirectory>${project.basedir}</outputDirectory>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.seeker.guifx.SeekerLauncher</mainClass>
+                            <addClasspath>true</addClasspath>
+                            <classpathPrefix>../../libs/</classpathPrefix>
+                            <useUniqueVersions>false</useUniqueVersions>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <version>3.8.1</version>
                 <executions>
                     <execution>
-                        <id>shared-applier-browser</id>
-                        <phase>generate-sources</phase>
-                        <goals><goal>add-source</goal></goals>
+                        <id>copy-runtime-dependencies</id>
+                        <phase>package</phase>
+                        <goals><goal>copy-dependencies</goal></goals>
                         <configuration>
-                            <sources>
-                                <source>../../Applier/src/main/java</source>
-                                <source>../../Applier/src/app/java</source>
-                                <source>../../ChatEvaluator/src/main/java</source>
-                                <source>../../Tools/src/main/java</source>
-                            </sources>
+                            <includeScope>runtime</includeScope>
+                            <outputDirectory>${maven.multiModuleProjectDirectory}/${seeker.libs.relative}</outputDirectory>
+                            <useBaseVersion>true</useBaseVersion>
+                            <overWriteSnapshots>true</overWriteSnapshots>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.4.1</version>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}</directory>
+                            <includes><include>${project.build.finalName}.jar</include></includes>
+                            <followSymlinks>false</followSymlinks>
+                        </fileset>
+                    </filesets>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

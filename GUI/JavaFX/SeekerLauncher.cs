@@ -9,15 +9,13 @@ internal static class SeekerLauncher
     private static int Main()
     {
         string directory = AppDomain.CurrentDomain.BaseDirectory;
-        string classes = Path.Combine(directory, "target", "classes");
-        string dependencies = Path.Combine(directory, "target", "dependency");
+        string jar = Path.Combine(directory, "seeker-gui-javafx.jar");
         string root = Path.GetFullPath(Path.Combine(directory, "..", ".."));
         string log = Path.Combine(directory, "launch.log");
 
         try
         {
-            if (!File.Exists(Path.Combine(classes, "com", "seeker", "guifx", "SeekerLauncher.class"))
-                    || !Directory.Exists(dependencies))
+            if (!File.Exists(jar))
             {
                 throw new FileNotFoundException("JavaFX build is missing. Run build_launcher.ps1 first.");
             }
@@ -35,8 +33,7 @@ internal static class SeekerLauncher
 
             ProcessStartInfo start = new ProcessStartInfo();
             start.FileName = javaw;
-            start.Arguments = "-cp " + Quote(classes + ";" + Path.Combine(dependencies, "*"))
-                    + " com.seeker.guifx.SeekerLauncher";
+            start.Arguments = "-jar " + Quote(jar);
             start.WorkingDirectory = root;
             start.UseShellExecute = false;
             start.CreateNoWindow = true;

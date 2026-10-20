@@ -10,12 +10,29 @@ execution order; individual modules own their internal rules.
 LinkedIn collector, sends the complete collected scope to the agent relevance
 filter through the metered Codex CLI proxy, persists validated decisions as
 `RELEVANT` or `NONRELEVANT`, then owns `job_facts`, candidate fit, job interest, and final
-database save for the remaining ordered scope. Build the collector and
-orchestrator together with:
+database save for the remaining ordered scope. Build the server modules with:
 
 ```powershell
 mvn -f Driver/pom.xml package
 ```
+
+`Driver/pom.xml` is the parent and reactor for Tools, Applier, ChatEvaluator,
+the LinkedIn collector, and the workflow orchestrator. Every module creates a
+thin JAR in its own directory; runnable modules declare their main class in
+the manifest. Runtime dependencies, including copies of required project
+modules, go into the repository-root `libs/`. The manifest supplies their
+relative paths, so no manual classpath is needed.
+
+To build one module and its project dependencies, use the reactor, for example:
+
+```powershell
+mvn -f Driver/pom.xml -pl :applier -am package
+```
+
+JavaFX remains an independent Maven project, outside this parent and reactor.
+Run `mvn -f Driver/pom.xml install` before its separate build so project
+dependencies are available in the local Maven repository. The
+[GUI build scripts](../GUI/JavaFX/README.md) perform both builds.
 
 Java owns the primary workflow order while the existing Python modules keep
 their analysis, scoring, validation, and persistence logic.

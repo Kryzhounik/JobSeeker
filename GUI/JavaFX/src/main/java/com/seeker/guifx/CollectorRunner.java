@@ -43,7 +43,7 @@ final class CollectorRunner {
         Path javaPath = Path.of(javaExecutable);
         Path javaw = javaPath.resolveSibling("javaw.exe");
         if (Files.isRegularFile(javaw)) javaPath = javaw;
-        Path jar = projectRoot.resolve("Driver/collector/java_linkedin/target/linkedin-collector.jar");
+        Path jar = projectRoot.resolve("Driver/collector/java_linkedin/linkedin-collector.jar");
         if (!Files.isRegularFile(javaPath)) throw new IOException("Java not found: " + javaPath);
         if (!Files.isRegularFile(jar)) throw new IOException("Collector jar not found: " + jar);
 

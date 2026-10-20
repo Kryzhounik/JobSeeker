@@ -41,14 +41,15 @@ existing Codex Proxy.
 Build with JDK 21 or newer and Maven from the Seeker project root:
 
 ```powershell
-mvn -f Applier/pom.xml package
+mvn -f Driver/pom.xml -pl :applier -am package
 ```
 
-This creates `Applier/target/applier.jar` with its Java dependencies.
+This creates the thin `Applier/applier.jar`. Runtime dependencies are copied
+to the repository-root `libs/` and referenced by the JAR manifest.
 Run from the Seeker project root, using Java 21 or newer:
 
 ```powershell
-java -jar Applier/target/applier.jar "https://www.linkedin.com/jobs/view/1234567890/"
+java -jar Applier/applier.jar "https://www.linkedin.com/jobs/view/1234567890/"
 ```
 
 The API accepts one positional argument: an absolute HTTP(S) vacancy URL. It uses the existing

@@ -25,5 +25,20 @@ if ($null -eq $mavenCommand) {
 $env:JAVA_HOME = (Resolve-Path -LiteralPath $JavaHome).Path
 $env:Path = (Join-Path $env:JAVA_HOME "bin") + ";" + $env:Path
 $pom = Join-Path $PSScriptRoot "pom.xml"
-& $mavenCommand.Source -f $pom javafx:run
-exit $LASTEXITCODE
+$root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
+& $mavenCommand.Source -f (Join-Path $root "Driver\pom.xml") install
+if ($LASTEXITCODE -ne 0) {
+    throw "Backend Maven install failed with exit code $LASTEXITCODE."
+}
+& $mavenCommand.Source -f $pom clean package
+if ($LASTEXITCODE -ne 0) {
+    throw "JavaFX Maven build failed with exit code $LASTEXITCODE."
+}
+Push-Location $root
+try {
+    & $javaExecutable -jar (Join-Path $PSScriptRoot "seeker-gui-javafx.jar")
+    $exitCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+exit $exitCode

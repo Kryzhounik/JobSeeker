@@ -91,19 +91,22 @@ Run from the project root:
 
 ```powershell
 # Build after changing Java sources
-mvn -f Driver/collector/java_linkedin/pom.xml package
+mvn -f Driver/pom.xml -pl :linkedin-collector -am package
 
 # One-time/manual login for the dedicated profile
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar login
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar login
 
 # Configured batch; JSON scope is returned on stdout
-java -jar Driver/collector/java_linkedin/target/linkedin-collector.jar batch
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar batch
 ```
+
+The runnable JAR is thin. Runtime dependencies are copied to the repository-root
+`libs/` and referenced by its manifest; keep that directory beside the modules.
 
 ## Tests
 
 ```powershell
-mvn -f Driver/collector/java_linkedin/pom.xml test
+mvn -f Driver/pom.xml -pl :linkedin-collector -am test
 python -m unittest Driver.test.test_java_linkedin_bridge
 ```
 

@@ -21,11 +21,11 @@
 фоновой вкладки при HTTP 429 управляет ChatEvaluator; Tools не зависит
 от Playwright или управления браузером.
 
-Отдельного Maven-проекта и собственного JAR у Tools сейчас нет.
-[ChatEvaluator](../ChatEvaluator/pom.xml) и [JavaFX GUI](../GUI/JavaFX/pom.xml)
-подключают каталог исходников через `build-helper-maven-plugin:add-source`.
-Каждая сборка компилирует общий код вместе со своими классами; после его
-изменения нужно пересобрать использующие его модули.
+`Tools` — Maven-модуль `com.seeker:tools` в серверном reactor `Driver`.
+Сборка создаёт тонкий `Tools/tools.jar` без точки входа. ChatEvaluator и
+JavaFX используют обычную Maven-зависимость, не компилируют эти исходники.
+Перед отдельной сборкой GUI выполнить `mvn -f Driver/pom.xml install`;
+скрипты сборки GUI делают это автоматически. Python-скрипты в JAR не входят.
 
 ## Вспомогательные процедуры
 

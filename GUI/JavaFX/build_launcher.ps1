@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $directory = $PSScriptRoot
+$root = (Resolve-Path -LiteralPath (Join-Path $directory "..\..")).Path
 if ([string]::IsNullOrWhiteSpace($JavaHome)) {
     throw "Set JAVA_HOME or pass -JavaHome pointing to JDK 21."
 }
@@ -23,14 +24,17 @@ $env:JAVA_HOME = $javaHomePath
 $env:Path = (Join-Path $javaHomePath "bin") + ";" + $env:Path
 & (Join-Path $directory "create_icon.ps1")
 $pom = Join-Path $directory "pom.xml"
-$dependencies = Join-Path $directory "target\dependency"
-& $maven.Source -f $pom package dependency:copy-dependencies "-DoutputDirectory=$dependencies"
+& $maven.Source -f (Join-Path $root "Driver\pom.xml") install
+if ($LASTEXITCODE -ne 0) {
+    throw "Backend Maven install failed with exit code $LASTEXITCODE."
+}
+& $maven.Source -f $pom clean package
 if ($LASTEXITCODE -ne 0) {
     throw "Maven build failed with exit code $LASTEXITCODE."
 }
 
 $classpath = (Join-Path $directory "target\test-classes") + ";" + `
-    (Join-Path $directory "target\classes") + ";" + (Join-Path $dependencies "*")
+    (Join-Path $directory "seeker-gui-javafx.jar")
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.ClientDataSmoke
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX data connection check failed with exit code $LASTEXITCODE."
@@ -69,9 +73,14 @@ if ($UiSmoke) {
         throw "JavaFX UI check failed with exit code $LASTEXITCODE."
     }
 }
-& python -m unittest GUI.test_client_data_smoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Client data write check failed with exit code $LASTEXITCODE."
+Push-Location $root
+try {
+    & python -m unittest GUI.test_client_data_smoke
+    if ($LASTEXITCODE -ne 0) {
+        throw "Client data write check failed with exit code $LASTEXITCODE."
+    }
+} finally {
+    Pop-Location
 }
 
 $source = Join-Path $directory "SeekerLauncher.cs"

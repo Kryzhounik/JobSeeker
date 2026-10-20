@@ -61,10 +61,11 @@
 Для обычной оценки вручную проще воспользоваться самим интерфейсом ChatGPT;
 отдельный пользовательский продукт вокруг CLI не требуется.
 
-- Сборка из корня репозитория: `mvn -f ChatEvaluator/pom.xml package`.
-  Результат — `ChatEvaluator/target/chat-evaluator.jar`, запускаемый на Java 21
-  или новее командой `java -jar ChatEvaluator/target/chat-evaluator.jar <vacancy-url>`.
-- JAR включает необходимые runtime-зависимости. При запуске не требуются Maven,
+- Сборка из корня репозитория: `mvn -f Driver/pom.xml -pl :chat-evaluator -am package`.
+  Результат — `ChatEvaluator/chat-evaluator.jar`, запускаемый на Java 21
+  или новее командой `java -jar ChatEvaluator/chat-evaluator.jar <vacancy-url>`.
+- Тонкий JAR подключает runtime-зависимости из общего `libs/` через манифест.
+  При запуске не требуются Maven,
   ручное составление classpath, JavaFX или jpy. Локальные настройки
   и существующий профиль браузера остаются внешними.
 - Минимальный интерфейс — одна команда с позиционным аргументом URL вакансии.

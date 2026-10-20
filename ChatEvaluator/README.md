@@ -80,12 +80,13 @@ Chrome с существующей сессией, дожидается опис
 После изменений Java-кода выполнить из корня репозитория:
 
 ```powershell
-mvn -f GUI/JavaFX/pom.xml compile
+mvn -f Driver/pom.xml install
+mvn -f GUI/JavaFX/pom.xml clean package
 ```
 
-Затем открыть `GUI/JavaFX/SeekerJobs.exe`. Существующий лаунчер использует
-классы из `target/classes` и библиотеки из `target/dependency`; при отсутствии
-готовой сборки следовать `GUI/JavaFX/README.md`. Если GUI уже открыт,
+Затем открыть `GUI/JavaFX/SeekerJobs.exe`. Лаунчер использует тонкий
+`GUI/JavaFX/seeker-gui-javafx.jar` и общий `libs/` через манифест; при отсутствии
+готового лаунчера следовать `GUI/JavaFX/README.md`. Если GUI уже открыт,
 перезапустить его, чтобы загрузить новые классы.
 
 Выбрать вакансию и нажать `GPT Eval` рядом с `Apply`. Во время фонового
@@ -111,7 +112,7 @@ CLI предназначен для тестирования и диагност
 Юнит-тесты общего кода запускаются отдельно:
 
 ```powershell
-mvn -f ChatEvaluator/pom.xml test
+mvn -f Driver/pom.xml -pl :chat-evaluator -am test
 ```
 
 Они проверяют идентификаторы сообщений, связь ответа с новым turn,
@@ -148,8 +149,8 @@ ChatGPT в обоих ответах сообщил `UNCERTAIN`: LinkedIn воз
 Сборка JAR и его вызов из корня репозитория:
 
 ```powershell
-mvn -f ChatEvaluator/pom.xml package
-java -jar ChatEvaluator/target/chat-evaluator.jar "<vacancy-url>"
+mvn -f Driver/pom.xml -pl :chat-evaluator -am package
+java -jar ChatEvaluator/chat-evaluator.jar "<vacancy-url>"
 ```
 
 При запуске из другой директории передать тот же корень репозитория:
@@ -164,7 +165,8 @@ java -Dseeker.projectRoot="<absolute-project-root>" -jar "<absolute-jar-path>" "
 аргументы. Отсутствующий, лишний или начинающийся с `-` аргумент отклоняется
 до запуска браузера. Отдельной команды справки нет; синтаксис указан выше.
 
-В JAR должны входить необходимые runtime-зависимости. Для запуска нужен
+JAR содержит только классы модуля; runtime-зависимости лежат в общем `libs/`
+и подключаются через манифест. Для запуска нужен
 Java 21 или новее, локальные настройки и профиль браузера; Maven, ручной
 classpath, JavaFX и jpy при запуске не требуются. Браузер и Playwright
 остаются частью того же сценария.

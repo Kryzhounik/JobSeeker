@@ -22,7 +22,7 @@ Purpose: the single LinkedIn batch-collection entry point.
    Then run:
 
    ```text
-   <java.executable> -jar Driver/orchestrator/target/job-seeker-orchestrator.jar batch linkedin
+   <java.executable> -jar Driver/orchestrator/workflow-orchestrator.jar batch linkedin
    ```
 
    The Java workflow orchestrator delegates collection to the existing
