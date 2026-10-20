@@ -4,28 +4,24 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.seeker</groupId>
-    <artifactId>applier</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <name>Seeker Applier</name>
+    <parent>
+        <groupId>com.seeker</groupId>
+        <artifactId>job-seeker-java</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../Driver/pom.xml</relativePath>
+    </parent>
 
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
-        <playwright.version>1.62.0</playwright.version>
-        <jackson.version>2.18.3</jackson.version>
-    </properties>
+    <artifactId>applier</artifactId>
+    <name>Seeker Applier</name>
 
     <dependencies>
         <dependency>
             <groupId>com.microsoft.playwright</groupId>
             <artifactId>playwright</artifactId>
-            <version>${playwright.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
     </dependencies>
 
@@ -35,7 +31,6 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>build-helper-maven-plugin</artifactId>
-                <version>3.6.1</version>
                 <executions>
                     <execution>
                         <id>application-sources</id>
@@ -50,7 +45,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.14.1</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
