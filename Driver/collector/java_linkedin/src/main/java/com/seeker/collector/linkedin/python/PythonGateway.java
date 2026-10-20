@@ -1,15 +1,17 @@
 package com.seeker.collector.linkedin.python;
 
+import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.Preview;
 import com.seeker.collector.linkedin.collection.PreviewDecision;
 import com.seeker.collector.linkedin.collection.ProcessResult;
+import com.seeker.collector.linkedin.config.CollectorConfig;
 
 import java.util.List;
 
 public interface PythonGateway extends AutoCloseable {
-    void startRun(String runId, String configJson);
+    void startRun(String runId, CollectorConfig config);
 
-    void logPage(String runId, String pageJson);
+    void logPage(String runId, PageReport page);
 
     void finishRun(
             String runId,

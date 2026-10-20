@@ -1,9 +1,11 @@
 package com.seeker.collector.linkedin.python;
 
 import com.google.gson.reflect.TypeToken;
+import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.Preview;
 import com.seeker.collector.linkedin.collection.PreviewDecision;
 import com.seeker.collector.linkedin.collection.ProcessResult;
+import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.support.JsonSupport;
 import com.seeker.python.JpyRuntime;
@@ -42,13 +44,13 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
-    public void startRun(String runId, String configJson) {
-        callVoid("start_run", runId, configJson);
+    public void startRun(String runId, CollectorConfig config) {
+        callVoid("start_run", runId, JsonSupport.GSON.toJson(config));
     }
 
     @Override
-    public void logPage(String runId, String pageJson) {
-        callVoid("log_page", runId, pageJson);
+    public void logPage(String runId, PageReport page) {
+        callVoid("log_page", runId, JsonSupport.GSON.toJson(page));
     }
 
     @Override

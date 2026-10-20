@@ -4,7 +4,6 @@ import com.microsoft.playwright.PlaywrightException;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.python.PythonGateway;
-import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -349,14 +348,14 @@ final class LinkedInCollector {
                 stopReason
         );
         pages.add(report);
-        python.logPage(runId, JsonSupport.GSON.toJson(report));
+        python.logPage(runId, report);
         return pages.size() - 1;
     }
 
     private void updatePageStopReason(int pageIndex, String stopReason) {
         PageReport report = pages.get(pageIndex).withStopReason(stopReason);
         pages.set(pageIndex, report);
-        python.logPage(runId, JsonSupport.GSON.toJson(report));
+        python.logPage(runId, report);
     }
 
     private String pageStopReason(
