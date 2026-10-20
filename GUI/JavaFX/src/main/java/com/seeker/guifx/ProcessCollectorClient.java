@@ -44,7 +44,7 @@ final class ProcessCollectorClient implements CollectorClient {
         if (!Files.isRegularFile(javaPath)) throw new IOException("Java not found: " + javaPath);
         if (!Files.isRegularFile(jar)) throw new IOException("Collector jar not found: " + jar);
 
-        Process process = new ProcessBuilder(javaPath.toString(), "-jar", jar.toString(), "collect")
+        Process process = new ProcessBuilder(javaPath.toString(), "-jar", jar.toString(), "collect-batch")
                 .directory(projectRoot.toFile()).redirectErrorStream(true).start();
         List<String> tail = new ArrayList<>();
         String finalJson = "";

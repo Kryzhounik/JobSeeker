@@ -42,7 +42,7 @@ public final class WorkflowOrchestrator {
             ProcessingGateway processingGateway,
             int vacanciesPerAgent
     ) {
-        this(linkedin::collect, linkedin::fromUrls, processingGateway, vacanciesPerAgent);
+        this(linkedin::collectBatch, linkedin::collectUrls, processingGateway, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
@@ -72,14 +72,14 @@ public final class WorkflowOrchestrator {
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
-    public WorkflowResult process(String source) throws IOException {
+    public WorkflowResult processBatch(String source) throws IOException {
         if (!"linkedin".equals(source)) {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
         return processCollected(linkedinCollection.collect());
     }
 
-    public WorkflowResult check(String... urls) throws IOException {
+    public WorkflowResult processUrls(String... urls) throws IOException {
         WorkflowResult report = processCollected(linkedinUrls.collect(List.of(urls)));
         int agentFiltered = report.agentFilteredCount();
         if (agentFiltered > 0) {
@@ -148,12 +148,12 @@ public final class WorkflowOrchestrator {
                 collected == null ? "" : collected.message());
     }
 
-    public void jobFacts(String runId, String source, List<ScopeItem> scope) {
+    void jobFacts(String runId, String source, List<ScopeItem> scope) {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runJobFacts(runId, source, scope);
     }
 
-    public void finishAnalysis(
+    void finishAnalysis(
             String runId,
             String source,
             List<ScopeItem> scope

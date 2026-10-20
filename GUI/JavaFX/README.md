@@ -79,12 +79,12 @@ can still be identified. Collection does not start the analysis workflow.
 
 `backend.properties` selects `collector.mode`:
 
-- `direct` (default): calls `LinkedInApplication.collect()` in the GUI JVM and
+- `direct` (default): calls `LinkedInApplication.collectBatch()` in the GUI JVM and
   receives immutable `CollectionProgress` snapshots through a Java callback.
   GUI data access and Collector share the process-wide `JpyRuntime`.
-- `process`: preserves the external runnable-jar launch. The CLI encodes the
-  same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on stderr and
-  writes the final `CollectionReport` to stdout.
+- `process`: launches the external collector JAR with `collect-batch`. The CLI
+  encodes the same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on
+  stderr and writes the final `CollectionReport` to stdout.
 
 Both adapters implement `CollectorClient`; the controller and progress panel
 do not depend on the transport. The configuration is read at each Collect

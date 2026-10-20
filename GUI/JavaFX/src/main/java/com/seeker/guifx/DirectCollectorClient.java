@@ -16,6 +16,6 @@ final class DirectCollectorClient implements CollectorClient {
 
     @Override
     public CollectionReport collect(Consumer<CollectionProgress> progress) throws Exception {
-        return new LinkedInApplication(projectRoot, progress).collect();
+        return new LinkedInApplication(projectRoot, progress).collectBatch();
     }
 }

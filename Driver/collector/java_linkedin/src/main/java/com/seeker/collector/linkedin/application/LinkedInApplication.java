@@ -60,21 +60,21 @@ public final class LinkedInApplication {
         return loginService.login();
     }
 
-    public CollectionReport collect() throws IOException {
+    public CollectionReport collectBatch() throws IOException {
         return collectionService.collectBatch(
                 RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin"
         );
     }
 
-    public CollectionReport fromUrl(String runId, String url) throws IOException {
+    public CollectionReport collectUrl(String runId, String url) throws IOException {
         return collectionService.collectFromUrl(runId, url);
     }
 
-    public CollectionReport fromUrl(String url) throws IOException {
-        return fromUrls(List.of(url));
+    public CollectionReport collectUrl(String url) throws IOException {
+        return collectUrls(List.of(url));
     }
 
-    public CollectionReport fromUrls(List<String> urls) throws IOException {
+    public CollectionReport collectUrls(List<String> urls) throws IOException {
         return collectionService.collectFromUrls(
                 RUN_ID_TIME.format(Instant.now())
                         + (urls.size() == 1 ? "-url-linkedin" : "-urls-linkedin"),

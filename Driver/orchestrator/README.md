@@ -1,6 +1,6 @@
 # Java workflow orchestrator
 
-This module is the Java entry point for the JobSeeker workflow. `process linkedin`
+This module is the Java entry point for the JobSeeker workflow. `process-batch linkedin`
 calls the existing LinkedIn collector, sends its complete ordered scope to the
 existing agent relevance filter through the metered Codex CLI proxy, validates
 the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
@@ -45,13 +45,13 @@ source. Each saved source job records the ID of the collection run that first
 created it.
 
 ```powershell
-java -jar Driver/orchestrator/workflow-orchestrator.jar process linkedin
+java -jar Driver/orchestrator/workflow-orchestrator.jar process-batch linkedin
 ```
 
-Java callers use `WorkflowOrchestrator.process("linkedin")` and receive a
+Java callers use `WorkflowOrchestrator.processBatch("linkedin")` and receive a
 `WorkflowResult`.
 
-### Check LinkedIn vacancies by URL
+### Process LinkedIn vacancies by URL
 
 Accepts one or more URLs with the same duplicate, preview, and content filters
 as batch collection. URLs are collected sequentially in one browser session
@@ -60,8 +60,8 @@ accepted scope, preserving the URL order. The search batch limit does not
 truncate an explicit URL list.
 
 ```powershell
-java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<linkedin-job-url>"
-java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<url-1>" "<url-2>"
+java -jar Driver/orchestrator/workflow-orchestrator.jar process-urls "<linkedin-job-url>"
+java -jar Driver/orchestrator/workflow-orchestrator.jar process-urls "<url-1>" "<url-2>"
 ```
 
 The command prints a `WorkflowResult` as JSON:
@@ -80,8 +80,9 @@ order, while `collection` retains the combined collection statistics. A
 collection failure stops the run before analysis and returns an empty
 processed scope alongside the original failed collection report.
 
-Java callers use one method, `WorkflowOrchestrator.check(String... urls)`:
-`check(url)` for one URL, `check(url1, url2)` for several, or `check(urlArray)`.
+Java callers use one method, `WorkflowOrchestrator.processUrls(String... urls)`:
+`processUrls(url)` for one URL, `processUrls(url1, url2)` for several, or
+`processUrls(urlArray)`.
 The CLI parses arguments, installs its output policy, and prints the report.
 Java callers receive `WorkflowResult`; Collector APIs still return
 `CollectionReport`. `WorkflowOrchestrator(projectRoot, progressListener)` can
@@ -141,13 +142,13 @@ analysis, scoring, or final save.
 
 ```powershell
 java -jar Driver/collector/java_linkedin/linkedin-collector.jar login
-java -jar Driver/collector/java_linkedin/linkedin-collector.jar collect
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar collect-batch
 ```
 
 `login` opens the configured browser profile for LinkedIn authentication.
-Collector `collect` performs collection only. Normal production execution should
-use the orchestrator's `process linkedin` command.
+Collector `collect-batch` performs collection only. Normal production execution
+should use the orchestrator's `process-batch linkedin` command.
 
 There are currently no separate Java console commands for the title filter,
 candidate fit, job interest, or database save. They are exposed only as parts
-of `process`, `check-url`, `resume`, and `finish-analysis`.
+of `process-batch`, `process-urls`, `resume`, and `finish-analysis`.

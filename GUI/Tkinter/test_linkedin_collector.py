@@ -72,7 +72,7 @@ class LinkedInCollectorTest(unittest.TestCase):
         with patch.object(jobs_viewer.subprocess, "Popen", return_value=process):
             jobs_viewer.JobsViewer._linkedin_collection_worker(
                 viewer,
-                ["java", "-jar", "collector.jar", "collect"],
+                ["java", "-jar", "collector.jar", "collect-batch"],
             )
 
         self.assertEqual(viewer.collector_queue.get_nowait(), ("progress", 31, 100))
@@ -93,7 +93,7 @@ class LinkedInCollectorTest(unittest.TestCase):
         with patch.object(jobs_viewer.subprocess, "Popen", return_value=process):
             jobs_viewer.JobsViewer._linkedin_collection_worker(
                 viewer,
-                ["java", "-jar", "collector.jar", "collect"],
+                ["java", "-jar", "collector.jar", "collect-batch"],
             )
 
         self.assertEqual(

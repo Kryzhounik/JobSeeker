@@ -33,7 +33,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.process("linkedin");
+        WorkflowResult actual = orchestrator.processBatch("linkedin");
 
         assertEquals("run-1", filter.runId);
         assertEquals(collected.scope(), filter.scope);
@@ -50,7 +50,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void checksUrlAndRunsAllExistingAnalysisStagesForAcceptedVacancy()
+    void processesUrlAndRunsAllExistingAnalysisStagesForAcceptedVacancy()
             throws Exception {
         String url = "https://www.linkedin.com/jobs/view/1";
         List<String> requestedUrls = new ArrayList<>();
@@ -66,7 +66,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.check(url);
+        WorkflowResult actual = orchestrator.processUrls(url);
 
         assertEquals(List.of(url), requestedUrls);
         assertEquals(List.of("1"), ids(actual.processedScope()));
@@ -94,7 +94,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.processUrls(
                 "https://www.linkedin.com/jobs/view/1"
         );
 
@@ -104,7 +104,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void checksMultipleUrlsAsOneScopeAndRunsAnalysisOnce() throws Exception {
+    void processesMultipleUrlsAsOneScopeAndRunsAnalysisOnce() throws Exception {
         List<String> urls = List.of(
                 "https://www.linkedin.com/jobs/view/1",
                 "https://www.linkedin.com/jobs/view/2"
@@ -125,7 +125,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.check(urls.toArray(String[]::new));
+        WorkflowResult actual = orchestrator.processUrls(urls.toArray(String[]::new));
 
         assertEquals(urls, requestedUrls);
         assertEquals(List.of("1", "2"), ids(actual.processedScope()));
@@ -158,7 +158,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.processUrls(
                 "https://www.linkedin.com/jobs/view/1",
                 "https://www.linkedin.com/jobs/view/2"
         );
@@ -183,7 +183,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.processUrls(
                 "https://www.linkedin.com/jobs/view/1"
         );
 
@@ -206,7 +206,7 @@ class WorkflowOrchestratorTest {
 
         IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
-                () -> orchestrator.process("linkedin")
+                () -> orchestrator.processBatch("linkedin")
         );
 
         assertEquals(
@@ -228,7 +228,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.process("linkedin");
+        WorkflowResult actual = orchestrator.processBatch("linkedin");
 
         assertSame(blocked, actual.collection());
         assertEquals("blocked", actual.status());
@@ -249,7 +249,7 @@ class WorkflowOrchestratorTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> orchestrator.process("unknown")
+                () -> orchestrator.processBatch("unknown")
         );
         assertEquals(0, invocations.get());
     }

@@ -126,7 +126,7 @@ Every column header sorts the list, and the selected sorting is preserved.
 ## LinkedIn collection
 
 The green `Collect` button is the first toolbar action. It starts the existing
-Java collector with `linkedin-collector.jar collect` in a background thread, with
+Java collector with `linkedin-collector.jar collect-batch` in a background thread, with
 the project root as its working directory. The Java process has no console
 window, while its Playwright browser remains visible. During collection the GUI
 shows the collector's post-page `accepted X/Y` count and prevents overlapping

@@ -45,13 +45,13 @@ public final class Main {
 
     private static void runWorkflow(String[] args) throws IOException {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."), CliOutput::printProgress);
-        if ((args.length >= 2 && "check-url".equals(args[0]))
+        if ((args.length >= 2 && "process-urls".equals(args[0]))
                 || (args.length == 2 && (
-                        "process".equals(args[0]) || "resume".equals(args[0])
+                        "process-batch".equals(args[0]) || "resume".equals(args[0])
                 ))) {
             WorkflowResult report = switch (args[0]) {
-                case "process" -> orchestrator.process(args[1]);
-                case "check-url" -> orchestrator.check(
+                case "process-batch" -> orchestrator.processBatch(args[1]);
+                case "process-urls" -> orchestrator.processUrls(
                         Arrays.copyOfRange(args, 1, args.length)
                 );
                 default -> orchestrator.resume(args[1]);
@@ -90,7 +90,7 @@ public final class Main {
             return;
         }
         throw new IllegalArgumentException(
-                "Expected: process <source>, check-url <url> [<url> ...], resume <run-id>, or "
+                "Expected: process-batch <source>, process-urls <url> [<url> ...], resume <run-id>, or "
                         + "job-facts|finish-analysis <run-id> <source> "
                         + "<comma-separated-job-ids>"
         );
