@@ -1,6 +1,6 @@
 # Java workflow orchestrator
 
-This module is the Java entry point for the JobSeeker workflow. `batch linkedin`
+This module is the Java entry point for the JobSeeker workflow. `process linkedin`
 calls the existing LinkedIn collector, sends its complete ordered scope to the
 existing agent relevance filter through the metered Codex CLI proxy, validates
 the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
@@ -45,8 +45,11 @@ source. Each saved source job records the ID of the collection run that first
 created it.
 
 ```powershell
-java -jar Driver/orchestrator/workflow-orchestrator.jar batch linkedin
+java -jar Driver/orchestrator/workflow-orchestrator.jar process linkedin
 ```
+
+Java callers use `WorkflowOrchestrator.process("linkedin")` and receive a
+`WorkflowResult`.
 
 ### Check LinkedIn vacancies by URL
 
@@ -138,13 +141,13 @@ analysis, scoring, or final save.
 
 ```powershell
 java -jar Driver/collector/java_linkedin/linkedin-collector.jar login
-java -jar Driver/collector/java_linkedin/linkedin-collector.jar batch
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar collect
 ```
 
 `login` opens the configured browser profile for LinkedIn authentication.
-Collector `batch` performs collection only. Normal production execution should
-use the orchestrator's `batch linkedin` command.
+Collector `collect` performs collection only. Normal production execution should
+use the orchestrator's `process linkedin` command.
 
 There are currently no separate Java console commands for the title filter,
 candidate fit, job interest, or database save. They are exposed only as parts
-of `batch`, `check-url`, `resume`, and `finish-analysis`.
+of `process`, `check-url`, `resume`, and `finish-analysis`.

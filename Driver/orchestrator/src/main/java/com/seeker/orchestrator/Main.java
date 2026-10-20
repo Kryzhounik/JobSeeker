@@ -47,10 +47,10 @@ public final class Main {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."), CliOutput::printProgress);
         if ((args.length >= 2 && "check-url".equals(args[0]))
                 || (args.length == 2 && (
-                        "batch".equals(args[0]) || "resume".equals(args[0])
+                        "process".equals(args[0]) || "resume".equals(args[0])
                 ))) {
             WorkflowResult report = switch (args[0]) {
-                case "batch" -> orchestrator.batch(args[1]);
+                case "process" -> orchestrator.process(args[1]);
                 case "check-url" -> orchestrator.check(
                         Arrays.copyOfRange(args, 1, args.length)
                 );
@@ -90,7 +90,7 @@ public final class Main {
             return;
         }
         throw new IllegalArgumentException(
-                "Expected: batch <source>, check-url <url> [<url> ...], resume <run-id>, or "
+                "Expected: process <source>, check-url <url> [<url> ...], resume <run-id>, or "
                         + "job-facts|finish-analysis <run-id> <source> "
                         + "<comma-separated-job-ids>"
         );

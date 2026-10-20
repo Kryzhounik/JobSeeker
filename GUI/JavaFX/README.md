@@ -79,7 +79,7 @@ can still be identified. Collection does not start the analysis workflow.
 
 `backend.properties` selects `collector.mode`:
 
-- `direct` (default): calls `LinkedInApplication.batch()` in the GUI JVM and
+- `direct` (default): calls `LinkedInApplication.collect()` in the GUI JVM and
   receives immutable `CollectionProgress` snapshots through a Java callback.
   GUI data access and Collector share the process-wide `JpyRuntime`.
 - `process`: preserves the external runnable-jar launch. The CLI encodes the

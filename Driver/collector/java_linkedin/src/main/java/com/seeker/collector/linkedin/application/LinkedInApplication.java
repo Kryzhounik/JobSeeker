@@ -60,7 +60,7 @@ public final class LinkedInApplication {
         return loginService.login();
     }
 
-    public CollectionReport batch() throws IOException {
+    public CollectionReport collect() throws IOException {
         return collectionService.collectBatch(
                 RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin"
         );

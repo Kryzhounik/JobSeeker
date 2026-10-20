@@ -3776,7 +3776,7 @@ class JobsViewer(tk.Tk):
             str(java_executable),
             "-jar",
             str(LINKEDIN_COLLECTOR_JAR_PATH),
-            "batch",
+            "collect",
         ]
         self.collector_running = True
         self.collector_queue = queue.SimpleQueue()

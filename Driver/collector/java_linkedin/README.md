@@ -14,7 +14,7 @@ available to agents, tests, and the GUI.
 
 The Java code is split by responsibility:
 
-- `Main` chooses between the two supported commands: `login` and `batch`;
+- `Main` chooses between the two supported commands: `login` and `collect`;
 - `login` owns the one-time browser authentication bootstrap;
 - `collection` owns search planning, pagination, cards, limits, and run reports;
 - `browser` connects to the shared browser and closes only collector-owned tabs;
@@ -65,9 +65,12 @@ Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
   retain their normal Java stack trace. Analysis and scoring remain the caller's
   next stages and are never run by this module.
 
-The normal `batch linkedin` workflow now enters through the Java workflow
+The normal `process linkedin` workflow now enters through the Java workflow
 orchestrator. The direct collector commands below remain available for collector
 development, login, and testing.
+
+`LinkedInApplication.collect()` performs configured collection and returns a
+`CollectionReport`.
 
 `LinkedInApplication.fromUrl(url)` collects one vacancy through the same
 preview and content filters as batch collection. The URL entry loads its HTML
@@ -114,7 +117,7 @@ mvn -f Driver/pom.xml -pl :linkedin-collector -am package
 java -jar Driver/collector/java_linkedin/linkedin-collector.jar login
 
 # Configured batch; JSON scope is returned on stdout
-java -jar Driver/collector/java_linkedin/linkedin-collector.jar batch
+java -jar Driver/collector/java_linkedin/linkedin-collector.jar collect
 ```
 
 The runnable JAR is thin. Runtime dependencies are copied to the repository-root

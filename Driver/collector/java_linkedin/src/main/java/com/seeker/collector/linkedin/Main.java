@@ -38,12 +38,12 @@ public final class Main {
         Object result;
         if (args.length == 1 && "login".equals(args[0])) {
             result = application.login();
-        } else if (args.length == 1 && "batch".equals(args[0])) {
+        } else if (args.length == 1 && "collect".equals(args[0])) {
             try (CliOutput ignored = CliOutput.redirectPython(Path.of("."))) {
-                result = application.batch();
+                result = application.collect();
             }
         } else {
-            throw new IllegalArgumentException("Expected login or batch");
+            throw new IllegalArgumentException("Expected login or collect");
         }
         System.out.println(JsonSupport.GSON.toJson(result));
     }

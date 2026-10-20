@@ -33,7 +33,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.batch("linkedin");
+        WorkflowResult actual = orchestrator.process("linkedin");
 
         assertEquals("run-1", filter.runId);
         assertEquals(collected.scope(), filter.scope);
@@ -57,7 +57,7 @@ class WorkflowOrchestratorTest {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> {
-                    throw new AssertionError("batch collector must not be called");
+                    throw new AssertionError("collector must not be called");
                 },
                 urls -> {
                     requestedUrls.addAll(urls);
@@ -113,7 +113,7 @@ class WorkflowOrchestratorTest {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> {
-                    throw new AssertionError("batch collector must not be called");
+                    throw new AssertionError("collector must not be called");
                 },
                 requested -> {
                     requestedUrls.addAll(requested);
@@ -206,7 +206,7 @@ class WorkflowOrchestratorTest {
 
         IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,
-                () -> orchestrator.batch("linkedin")
+                () -> orchestrator.process("linkedin")
         );
 
         assertEquals(
@@ -228,7 +228,7 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        WorkflowResult actual = orchestrator.batch("linkedin");
+        WorkflowResult actual = orchestrator.process("linkedin");
 
         assertSame(blocked, actual.collection());
         assertEquals("blocked", actual.status());
@@ -237,7 +237,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void rejectsUnsupportedBatchSourceBeforeCallingCollector() {
+    void rejectsUnsupportedProcessSourceBeforeCallingCollector() {
         AtomicInteger invocations = new AtomicInteger();
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> {
@@ -249,7 +249,7 @@ class WorkflowOrchestratorTest {
 
         assertThrows(
                 IllegalArgumentException.class,
-                () -> orchestrator.batch("unknown")
+                () -> orchestrator.process("unknown")
         );
         assertEquals(0, invocations.get());
     }

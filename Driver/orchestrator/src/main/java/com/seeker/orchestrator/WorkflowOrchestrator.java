@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 
 /** Top-level Java workflow entry point. */
 public final class WorkflowOrchestrator {
-    private final LinkedInBatch linkedinBatch;
+    private final LinkedInCollection linkedinCollection;
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
     private final int vacanciesPerAgent;
@@ -42,41 +42,41 @@ public final class WorkflowOrchestrator {
             ProcessingGateway processingGateway,
             int vacanciesPerAgent
     ) {
-        this(linkedin::batch, linkedin::fromUrls, processingGateway, vacanciesPerAgent);
+        this(linkedin::collect, linkedin::fromUrls, processingGateway, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
-            LinkedInBatch linkedinBatch,
+            LinkedInCollection linkedinCollection,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinBatch, ignored -> linkedinBatch.collect(), processingGateway);
+        this(linkedinCollection, ignored -> linkedinCollection.collect(), processingGateway);
     }
 
     WorkflowOrchestrator(
-            LinkedInBatch linkedinBatch,
+            LinkedInCollection linkedinCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinBatch, linkedinUrls, processingGateway, Integer.MAX_VALUE);
+        this(linkedinCollection, linkedinUrls, processingGateway, Integer.MAX_VALUE);
     }
 
     private WorkflowOrchestrator(
-            LinkedInBatch linkedinBatch,
+            LinkedInCollection linkedinCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
             int vacanciesPerAgent
     ) {
-        this.linkedinBatch = Objects.requireNonNull(linkedinBatch);
+        this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
-    public WorkflowResult batch(String source) throws IOException {
+    public WorkflowResult process(String source) throws IOException {
         if (!"linkedin".equals(source)) {
-            throw new IllegalArgumentException("Unsupported batch source: " + source);
+            throw new IllegalArgumentException("Unsupported process source: " + source);
         }
-        return processCollected(linkedinBatch.collect());
+        return processCollected(linkedinCollection.collect());
     }
 
     public WorkflowResult check(String... urls) throws IOException {
@@ -288,7 +288,7 @@ public final class WorkflowOrchestrator {
     }
 
     @FunctionalInterface
-    interface LinkedInBatch {
+    interface LinkedInCollection {
         CollectionReport collect() throws IOException;
     }
 
