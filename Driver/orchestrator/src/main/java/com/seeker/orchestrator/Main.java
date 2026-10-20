@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.collector.linkedin.support.ProcessLog;
@@ -12,7 +13,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public final class Main {
-    private static final Gson GSON = new Gson();
+    static final Gson GSON = new GsonBuilder().serializeNulls().create();
 
     private Main() {
     }

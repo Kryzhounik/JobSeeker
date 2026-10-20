@@ -114,9 +114,10 @@ the run's existing evaluator session.
 java -jar Driver/orchestrator/workflow-orchestrator.jar resume <run-id>
 ```
 
-The resume result has no `collection` summary because no new collection took
-place. Its `run_id`, `processed_scope`, and filtering count identify the resumed
-work. No synthetic `CollectionReport` is created.
+The resume JSON includes `"collection": null` because no new collection took
+place. CLI serialization retains null fields. Its `run_id`, `processed_scope`,
+and filtering count identify the resumed work. No synthetic `CollectionReport`
+is created.
 
 ### Job-facts only
 

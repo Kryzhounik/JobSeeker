@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonNull;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
@@ -285,6 +286,7 @@ class WorkflowOrchestratorTest {
         assertEquals(List.of("1", "2", "3", "4", "5"), ids(result.processedScope()));
         assertEquals(1, result.agentFilteredCount());
         assertNull(result.collection());
+        assertEquals(JsonNull.INSTANCE, Main.GSON.toJsonTree(result).getAsJsonObject().get("collection"));
         int completedCalls = filter.calls.size();
 
         assertEquals(result.processedScope(), orchestrator.resume("run-1").processedScope());
@@ -293,7 +295,7 @@ class WorkflowOrchestratorTest {
 
     @Test
     void serializesWorkflowContractWithoutChangingCollectorReport() {
-        Gson gson = new Gson();
+        Gson gson = Main.GSON;
         CollectionReport collected = new CollectionReport(
                 "linkedin", "run-1", "complete", 2,
                 List.of(item("1", "Java"), item("2", "Marketing")),
@@ -323,7 +325,7 @@ class WorkflowOrchestratorTest {
                 new FakeProcessingGateway(List.of())
         );
         List<ScopeItem> scope = List.of(item("1", "Java"));
-        Gson gson = new Gson();
+        Gson gson = Main.GSON;
         var expected = gson.fromJson("""
                 {"source":"linkedin","run_id":"run-1","status":"complete",
                  "processed_count":1,"message":"",
