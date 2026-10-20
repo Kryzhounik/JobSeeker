@@ -4,6 +4,10 @@
 # Java collector build artifacts
 **/target/
 
+# Thin module JARs and shared runtime dependencies
+*.jar
+/libs/
+
 # Machine-local Java/Python runtime paths
 /Driver/collector/java_linkedin/runtime.properties
 

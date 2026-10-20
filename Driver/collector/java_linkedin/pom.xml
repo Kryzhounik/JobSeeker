@@ -14,7 +14,15 @@
     <artifactId>linkedin-collector</artifactId>
     <name>Seeker LinkedIn Collector</name>
 
+    <properties>
+        <seeker.libs.classpathPrefix>../../../libs/</seeker.libs.classpathPrefix>
+    </properties>
+
     <dependencies>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>applier</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.microsoft.playwright</groupId>
             <artifactId>playwright</artifactId>
@@ -37,20 +45,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>build-helper-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>shared-applier-browser</id>
-                        <phase>generate-sources</phase>
-                        <goals><goal>add-source</goal></goals>
-                        <configuration>
-                            <sources><source>../../../Applier/src/main/java</source></sources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
@@ -63,25 +57,14 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.6.1</version>
-                <executions>
-                    <execution>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>shade</goal>
-                        </goals>
-                        <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <finalName>linkedin-collector</finalName>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.seeker.collector.linkedin.Main</mainClass>
-                                </transformer>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.seeker.collector.linkedin.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
             </plugin>
         </plugins>
     </build>
