@@ -21,7 +21,7 @@ import java.util.function.Consumer;
 public final class WorkflowOrchestrator {
     private final LinkedInBatch linkedinBatch;
     private final LinkedInUrls linkedinUrls;
-    private final AgentFilterGateway agentFilter;
+    private final ProcessingGateway processingGateway;
     private final int vacanciesPerAgent;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
@@ -32,43 +32,43 @@ public final class WorkflowOrchestrator {
             throws IOException {
         this(
                 new LinkedInApplication(projectRoot, progress),
-                new JpyAgentFilterGateway(projectRoot),
+                new JpyProcessingGateway(projectRoot),
                 vacanciesPerAgent(projectRoot)
         );
     }
 
     private WorkflowOrchestrator(
             LinkedInApplication linkedin,
-            AgentFilterGateway agentFilter,
+            ProcessingGateway processingGateway,
             int vacanciesPerAgent
     ) {
-        this(linkedin::batch, linkedin::fromUrls, agentFilter, vacanciesPerAgent);
+        this(linkedin::batch, linkedin::fromUrls, processingGateway, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
-            AgentFilterGateway agentFilter
+            ProcessingGateway processingGateway
     ) {
-        this(linkedinBatch, ignored -> linkedinBatch.collect(), agentFilter);
+        this(linkedinBatch, ignored -> linkedinBatch.collect(), processingGateway);
     }
 
     WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
             LinkedInUrls linkedinUrls,
-            AgentFilterGateway agentFilter
+            ProcessingGateway processingGateway
     ) {
-        this(linkedinBatch, linkedinUrls, agentFilter, Integer.MAX_VALUE);
+        this(linkedinBatch, linkedinUrls, processingGateway, Integer.MAX_VALUE);
     }
 
     private WorkflowOrchestrator(
             LinkedInBatch linkedinBatch,
             LinkedInUrls linkedinUrls,
-            AgentFilterGateway agentFilter,
+            ProcessingGateway processingGateway,
             int vacanciesPerAgent
     ) {
         this.linkedinBatch = Objects.requireNonNull(linkedinBatch);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
-        this.agentFilter = Objects.requireNonNull(agentFilter);
+        this.processingGateway = Objects.requireNonNull(processingGateway);
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
@@ -94,7 +94,7 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult resume(String runId) {
-        List<ScopeItem> scope = agentFilter.collectedScope(runId);
+        List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
         return processScope("linkedin", runId, scope, null);
     }
 
@@ -109,15 +109,15 @@ public final class WorkflowOrchestrator {
     private WorkflowResult processScope(String source, String runId, List<ScopeItem> scope,
                                         CollectionReport collected) {
         Map<String, String> statuses = new HashMap<>(
-                agentFilter.statuses(source, scope)
+                processingGateway.loadStatuses(source, scope)
         );
         List<ScopeItem> unfiltered = atStatus(scope, statuses, "CLEANED");
         if (!unfiltered.isEmpty()) {
-            AgentFilterResult result = agentFilter.filter(runId, unfiltered);
+            AgentFilterResult result = processingGateway.runRelevanceFilter(runId, unfiltered);
             List<String> nonrelevantIds = validateResult(
                     unfiltered, result.nonrelevantJobIds()
             );
-            agentFilter.markRelevance(source, unfiltered, nonrelevantIds);
+            processingGateway.markRelevance(source, unfiltered, nonrelevantIds);
             Set<String> rejected = Set.copyOf(nonrelevantIds);
             for (ScopeItem item : unfiltered) {
                 statuses.put(item.jobId(), rejected.contains(item.jobId())
@@ -131,7 +131,7 @@ public final class WorkflowOrchestrator {
                 .toList();
         List<ScopeItem> facts = atStatus(remaining, statuses, "RELEVANT");
         if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
-            agentFilter.startAnalysis(runId, vacanciesPerAgent);
+            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         }
         runJobFacts(runId, source, facts);
         for (ScopeItem item : facts) {
@@ -141,7 +141,7 @@ public final class WorkflowOrchestrator {
                 atStatus(remaining, statuses, "ANALYZED"));
         List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
         if (!scored.isEmpty()) {
-            agentFilter.saveScored(source, scored.stream().map(ScopeItem::jobId).toList());
+            processingGateway.saveScored(source, scored.stream().map(ScopeItem::jobId).toList());
         }
         return new WorkflowResult(source, runId, "complete", collected, remaining,
                 atStatus(scope, statuses, "NONRELEVANT").size(),
@@ -149,7 +149,7 @@ public final class WorkflowOrchestrator {
     }
 
     public void jobFacts(String runId, String source, List<ScopeItem> scope) {
-        agentFilter.startAnalysis(runId, vacanciesPerAgent);
+        processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runJobFacts(runId, source, scope);
     }
 
@@ -158,7 +158,7 @@ public final class WorkflowOrchestrator {
             String source,
             List<ScopeItem> scope
     ) {
-        agentFilter.startAnalysis(runId, vacanciesPerAgent);
+        processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runFinishAnalysis(runId, source, scope);
     }
 
@@ -175,7 +175,7 @@ public final class WorkflowOrchestrator {
             )) {
                 System.err.println("Job facts start: job_id=" + item.jobId());
                 long started = System.nanoTime();
-                threadId = agentFilter.jobFacts(
+                threadId = processingGateway.extractJobFacts(
                         runId, source, item.jobId(), target, threadId
                 );
                 System.err.printf(
@@ -198,12 +198,12 @@ public final class WorkflowOrchestrator {
         String threadId = null;
         String target = source + ":candidate_fit";
         for (ScopeItem item : scope) {
-            threadId = agentFilter.candidateFit(
+            threadId = processingGateway.evaluateCandidateFit(
                     runId, source, item.jobId(), target, threadId
             );
-            agentFilter.jobInterest(source, item.jobId());
+            processingGateway.calculateJobInterest(source, item.jobId());
         }
-        agentFilter.saveScored(
+        processingGateway.saveScored(
                 source,
                 scope.stream().map(ScopeItem::jobId).toList()
         );

@@ -27,7 +27,7 @@ class WorkflowOrchestratorTest {
                         item("3", "Backend Engineer")
                 )
         );
-        FakeAgentFilter filter = new FakeAgentFilter(List.of("2"));
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of("2"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> collected,
                 filter
@@ -54,7 +54,7 @@ class WorkflowOrchestratorTest {
             throws Exception {
         String url = "https://www.linkedin.com/jobs/view/1";
         List<String> requestedUrls = new ArrayList<>();
-        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> {
                     throw new AssertionError("batch collector must not be called");
@@ -88,7 +88,7 @@ class WorkflowOrchestratorTest {
                 "linkedin", "run-1", "complete", 0, List.of(),
                 Map.of("preview_filtered", 1), List.of(), "duplicate source_job_id"
         );
-        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> rejected,
                 filter
@@ -110,7 +110,7 @@ class WorkflowOrchestratorTest {
                 "https://www.linkedin.com/jobs/view/2"
         );
         List<String> requestedUrls = new ArrayList<>();
-        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> {
                     throw new AssertionError("batch collector must not be called");
@@ -152,7 +152,7 @@ class WorkflowOrchestratorTest {
                 Map.of("raw_saved", 1, "preview_filtered", 1),
                 List.of(), "2: duplicate source_job_id"
         );
-        FakeAgentFilter filter = new FakeAgentFilter(List.of("1"));
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> collected,
                 filter
@@ -177,7 +177,7 @@ class WorkflowOrchestratorTest {
 
     @Test
     void explainsAgentRejectionWithoutStartingLaterAnalysis() throws Exception {
-        FakeAgentFilter filter = new FakeAgentFilter(List.of("1"));
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
@@ -198,7 +198,7 @@ class WorkflowOrchestratorTest {
     @Test
     void rejectsFilterIdsOutsideCollectedScopeBeforeUpdatingStatuses()
             throws Exception {
-        FakeAgentFilter filter = new FakeAgentFilter(List.of("outside"));
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of("outside"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
@@ -222,7 +222,7 @@ class WorkflowOrchestratorTest {
                 "blocked",
                 List.of(item("1", "Java Developer"))
         );
-        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 () -> blocked,
                 filter
@@ -244,7 +244,7 @@ class WorkflowOrchestratorTest {
                     invocations.incrementAndGet();
                     throw new AssertionError("collector must not be called");
                 },
-                new FakeAgentFilter(List.of())
+                new FakeProcessingGateway(List.of())
         );
 
         assertThrows(
@@ -256,7 +256,7 @@ class WorkflowOrchestratorTest {
 
     @Test
     void resumesMixedStagesAndDoesNoWorkOnCompletedRun() {
-        FakeAgentFilter filter = new FakeAgentFilter(List.of());
+        FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         filter.recoveredScope = List.of(
                 item("1", "Java"), item("2", "Java"), item("3", "Java"),
                 item("4", "Java"), item("5", "Java"), item("6", "Marketing")
@@ -310,7 +310,7 @@ class WorkflowOrchestratorTest {
         return scope.stream().map(ScopeItem::jobId).toList();
     }
 
-    private static final class FakeAgentFilter implements AgentFilterGateway {
+    private static final class FakeProcessingGateway implements ProcessingGateway {
         private final List<String> rejectedIds;
         private final List<String> calls = new ArrayList<>();
         private final Map<String, String> states = new HashMap<>();
@@ -321,17 +321,17 @@ class WorkflowOrchestratorTest {
         private String markedSource;
         private List<String> markedIds = new ArrayList<>();
 
-        private FakeAgentFilter(List<String> rejectedIds) {
+        private FakeProcessingGateway(List<String> rejectedIds) {
             this.rejectedIds = rejectedIds;
         }
 
         @Override
-        public List<ScopeItem> collectedScope(String runId) {
+        public List<ScopeItem> loadCollectedScope(String runId) {
             return recoveredScope;
         }
 
         @Override
-        public Map<String, String> statuses(String source, List<ScopeItem> scope) {
+        public Map<String, String> loadStatuses(String source, List<ScopeItem> scope) {
             for (ScopeItem item : scope) {
                 states.putIfAbsent(item.jobId(), "CLEANED");
             }
@@ -339,7 +339,7 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
+        public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope) {
             calls.add("filter:" + runId);
             filterInvocations++;
             this.runId = runId;
@@ -361,12 +361,12 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public void startAnalysis(String runId, int vacanciesPerAgent) {
+        public void initializeAnalysisRun(String runId, int vacanciesPerAgent) {
             calls.add("start-analysis:" + runId);
         }
 
         @Override
-        public String jobFacts(
+        public String extractJobFacts(
                 String runId,
                 String source,
                 String jobId,
@@ -379,7 +379,7 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public String candidateFit(
+        public String evaluateCandidateFit(
                 String runId,
                 String source,
                 String jobId,
@@ -391,7 +391,7 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public void jobInterest(String source, String jobId) {
+        public void calculateJobInterest(String source, String jobId) {
             calls.add("job-interest:" + jobId);
             states.put(jobId, "SCORED");
         }

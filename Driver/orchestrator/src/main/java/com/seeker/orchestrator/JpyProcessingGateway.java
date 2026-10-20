@@ -14,13 +14,13 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
-final class JpyAgentFilterGateway implements AgentFilterGateway {
+final class JpyProcessingGateway implements ProcessingGateway {
     private static final Gson GSON = new Gson();
 
     private final ProjectPaths paths;
     private final PythonRuntime runtime;
 
-    JpyAgentFilterGateway(Path projectRoot) throws IOException {
+    JpyProcessingGateway(Path projectRoot) throws IOException {
         this.paths = ProjectPaths.fromProjectRoot(projectRoot);
         this.runtime = PythonRuntime.load(
                 paths.collectorRoot().resolve("java_linkedin/runtime.properties")
@@ -28,7 +28,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public List<ScopeItem> collectedScope(String runId) {
+    public List<ScopeItem> loadCollectedScope(String runId) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
                      "load_collected_scope",
@@ -50,7 +50,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public Map<String, String> statuses(String source, List<ScopeItem> scope) {
+    public Map<String, String> loadStatuses(String source, List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
                      "load_statuses",
@@ -64,7 +64,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public AgentFilterResult filter(String runId, List<ScopeItem> scope) {
+    public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
                      "run_agent_filter",
@@ -106,7 +106,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public String jobFacts(
+    public String extractJobFacts(
             String runId,
             String source,
             String jobId,
@@ -141,7 +141,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public void startAnalysis(String runId, int vacanciesPerAgent) {
+    public void initializeAnalysisRun(String runId, int vacanciesPerAgent) {
         try (PyModule bridge = bridge();
              PyObject ignored = bridge.callMethod(
                      "start_analysis",
@@ -154,7 +154,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public String candidateFit(
+    public String evaluateCandidateFit(
             String runId,
             String source,
             String jobId,
@@ -189,7 +189,7 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
     }
 
     @Override
-    public void jobInterest(String source, String jobId) {
+    public void calculateJobInterest(String source, String jobId) {
         try (PyModule bridge = bridge();
              PyObject ignored = bridge.callMethod(
                      "run_job_interest",
