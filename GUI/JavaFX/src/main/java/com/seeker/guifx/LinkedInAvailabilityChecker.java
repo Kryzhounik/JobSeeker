@@ -1,6 +1,5 @@
 package com.seeker.guifx;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seeker.tools.LinkedInJobAvailability;
 
@@ -12,6 +11,7 @@ import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
@@ -27,7 +27,7 @@ final class LinkedInAvailabilityChecker {
 
     Result run(Consumer<String> updateMessage) throws Exception {
         long started = System.nanoTime();
-        JsonNode candidates = clientData.loadLinkedInAvailabilityCandidates();
+        List<AvailabilityCandidate> candidates = clientData.loadLinkedInAvailabilityCandidates();
         int total = candidates.size();
         int processed = 0, unavailable = 0, skipped = 0, requests = 0;
         int available = 0, closed = 0, deleted = 0, rateLimits = 0;
@@ -35,9 +35,9 @@ final class LinkedInAvailabilityChecker {
         String error = "";
         appendLog("start", Map.of("total", total));
         for (int index = 0; index < total;) {
-            JsonNode candidate = candidates.get(index);
-            String sourceUrl = text(candidate, "source_url");
-            String id = text(candidate, "source_job_id");
+            AvailabilityCandidate candidate = candidates.get(index);
+            String sourceUrl = candidate.sourceUrl();
+            String id = candidate.sourceJobId();
             if (!id.matches("\\d+")) {
                 index++;
                 skipped++;
@@ -91,7 +91,7 @@ final class LinkedInAvailabilityChecker {
                 appendLog("stop_error", Map.of("job_id", id, "error", error));
                 break;
             }
-            JsonNode state = clientData.recordLinkedInAvailability(id, outcome);
+            AvailabilityUpdateResult state = clientData.recordLinkedInAvailability(id, outcome);
             index++;
             processed++;
             long previousDelay = pacing.delayMillis();
@@ -100,13 +100,13 @@ final class LinkedInAvailabilityChecker {
                 appendLog("speed_up", Map.of("delay_ms", pacing.delayMillis()));
             }
             if (!outcome.equals("available")) unavailable++;
-            switch (state.path("availability").asText()) {
+            switch (state.availability()) {
                 case "available" -> available++;
                 case "closed" -> closed++;
                 case "deleted" -> deleted++;
             }
-            appendLog(state.path("availability").asText(), Map.of("job_id", id,
-                    "unavailable_checks", state.path("unavailable_checks").asInt()));
+            appendLog(state.availability(), Map.of("job_id", id,
+                    "unavailable_checks", state.unavailableChecks()));
             updateMessage.accept(progress(processed, total, unavailable, skipped));
         }
         Result result = new Result(error, Duration.ofNanos(System.nanoTime() - started),
@@ -141,11 +141,6 @@ final class LinkedInAvailabilityChecker {
                 successes = 0;
             }
         }
-    }
-
-    private static String text(JsonNode row, String key) {
-        JsonNode value = row.get(key);
-        return value == null || value.isNull() ? "" : value.asText();
     }
 
     private static String progress(int processed, int total, int unavailable, int skipped) {

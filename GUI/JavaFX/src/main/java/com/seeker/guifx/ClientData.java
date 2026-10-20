@@ -1,12 +1,16 @@
 package com.seeker.guifx;
 
+import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.annotation.Nulls;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.seeker.collector.linkedin.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -14,10 +18,17 @@ import java.util.List;
 import java.util.Map;
 
 final class ClientData {
+    private static final ObjectMapper json = new ObjectMapper()
+            .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+
+    static {
+        json.configOverride(String.class)
+                .setSetterInfo(JsonSetter.Value.forValueNulls(Nulls.AS_EMPTY));
+    }
+
     private final Path projectRoot;
     private final Path databasePath;
     private final PyModule module;
-    private final ObjectMapper json = new ObjectMapper();
 
     ClientData() throws Exception {
         projectRoot = findProjectRoot();
@@ -59,8 +70,8 @@ final class ClientData {
         return descriptions;
     }
 
-    synchronized JsonNode loadCompanies() throws Exception {
-        return readJson(call("load_companies", databasePath.toString()));
+    synchronized List<CompanyDto> loadCompanies() throws Exception {
+        return readRows(call("load_companies", databasePath.toString()), CompanyDto.class);
     }
 
     synchronized int createCompany(String name, String linkedinId) {
@@ -79,8 +90,8 @@ final class ClientData {
         }
     }
 
-    synchronized JsonNode loadApplications() throws Exception {
-        return readJson(call("load_applications", databasePath.toString()));
+    synchronized List<ApplicationDto> loadApplications() throws Exception {
+        return readRows(call("load_applications", databasePath.toString()), ApplicationDto.class);
     }
 
     synchronized List<String> loadApplicationStatuses() throws Exception {
@@ -100,12 +111,12 @@ final class ClientData {
         }
     }
 
-    synchronized JsonNode loadCollectedJobs() throws Exception {
-        return readJson(call("load_collected_jobs", databasePath.toString()));
+    synchronized List<CollectedJobDto> loadCollectedJobs() throws Exception {
+        return readRows(call("load_collected_jobs", databasePath.toString()), CollectedJobDto.class);
     }
 
-    synchronized JsonNode loadConfigRows() throws Exception {
-        return readJson(call("load_config_rows", databasePath.toString()));
+    synchronized List<ConfigEntryDto> loadConfigRows() throws Exception {
+        return readRows(call("load_config_rows", databasePath.toString()), ConfigEntryDto.class);
     }
 
     synchronized void setConfigValue(int key, boolean enabled) {
@@ -150,33 +161,36 @@ final class ClientData {
         }
     }
 
-    synchronized JsonNode setJobStatus(List<String> sourceUrls, String status, String appliedAt)
+    synchronized StatusUpdateResult setJobStatus(List<String> sourceUrls, String status, String appliedAt)
             throws Exception {
-        return readJson(call("set_job_status", databasePath.toString(),
-                json.writeValueAsString(sourceUrls), status, appliedAt));
+        return readResponse(call("set_job_status", databasePath.toString(),
+                json.writeValueAsString(sourceUrls), status, appliedAt), StatusUpdateResult.class);
     }
 
-    synchronized JsonNode setJobStatusByIds(List<Integer> jobIds, String status, String appliedAt)
+    synchronized StatusUpdateResult setJobStatusByIds(List<Integer> jobIds, String status, String appliedAt)
             throws Exception {
-        return readJson(call("set_job_status_by_ids", databasePath.toString(),
-                json.writeValueAsString(jobIds), status, appliedAt));
+        return readResponse(call("set_job_status_by_ids", databasePath.toString(),
+                json.writeValueAsString(jobIds), status, appliedAt), StatusUpdateResult.class);
     }
 
-    synchronized JsonNode loadLinkedInAvailabilityCandidates() throws Exception {
-        return readJson(call("load_linkedin_availability_candidates", databasePath.toString()));
+    synchronized List<AvailabilityCandidate> loadLinkedInAvailabilityCandidates() throws Exception {
+        return readRows(call("load_linkedin_availability_candidates", databasePath.toString()),
+                AvailabilityCandidate.class);
     }
 
-    synchronized JsonNode recordLinkedInAvailability(String jobId, String outcome) throws Exception {
-        return readJson(call("record_linkedin_availability", databasePath.toString(), jobId, outcome));
+    synchronized AvailabilityUpdateResult recordLinkedInAvailability(String jobId, String outcome)
+            throws Exception {
+        return readResponse(call("record_linkedin_availability", databasePath.toString(), jobId, outcome),
+                AvailabilityUpdateResult.class);
     }
 
-    synchronized JsonNode collectRefilterCandidates() throws Exception {
-        return readJson(call("collect_refilter_candidates", databasePath.toString()));
+    synchronized List<RefilterCandidate> collectRefilterCandidates() throws Exception {
+        return readRows(call("collect_refilter_candidates", databasePath.toString()), RefilterCandidate.class);
     }
 
-    synchronized int applyRefilterCandidates(JsonNode candidates) throws Exception {
+    synchronized int applyRefilterCandidates(List<RefilterCandidate> candidates) throws Exception {
         try (PyObject result = module.call("apply_refilter_candidates",
-                databasePath.toString(), json.writeValueAsString(candidates))) {
+                databasePath.toString(), refilterRequest(candidates))) {
             return result.getIntValue();
         }
     }
@@ -215,6 +229,23 @@ final class ClientData {
 
     private JsonNode readJson(String value) throws Exception {
         return json.readTree(value);
+    }
+
+    static <T> T readResponse(String value, Class<T> type) throws IOException {
+        T result = json.readValue(value, type);
+        if (result == null) throw new IOException("Expected " + type.getSimpleName() + ", got null");
+        return result;
+    }
+
+    static <T> List<T> readRows(String value, Class<T> type) throws IOException {
+        List<T> result = json.readValue(value,
+                json.getTypeFactory().constructCollectionType(List.class, type));
+        if (result == null) throw new IOException("Expected rows of " + type.getSimpleName() + ", got null");
+        return List.copyOf(result);
+    }
+
+    static String refilterRequest(List<RefilterCandidate> candidates) throws IOException {
+        return json.writeValueAsString(candidates);
     }
 
     private static String text(JsonNode object, String field) {

@@ -1,6 +1,5 @@
 package com.seeker.guifx;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -195,11 +194,10 @@ final class AuxiliaryWindows {
     private void refreshCompanies(Integer focusId) {
         submit(data::loadCompanies, rows -> {
             companyRows = new ArrayList<>();
-            for (JsonNode row : rows) {
+            for (CompanyDto row : rows) {
                 companyRows.add(new CompanyRow(
-                        integer(row, "id"), text(row, "name"), text(row, "linkedin_id"),
-                        integer(row, "application_count"), integer(row, "priority") != 0,
-                        integer(row, "blacklisted") != 0
+                        row.id(), row.name(), row.linkedinId(), row.applicationCount(),
+                        row.priority() != 0, row.blacklisted() != 0
                 ));
             }
             companiesTable.setItems(FXCollections.observableArrayList(companyRows));
@@ -249,11 +247,9 @@ final class AuxiliaryWindows {
         submit(() -> {
             List<String> statuses = data.loadApplicationStatuses();
             List<ApplicationRow> rows = new ArrayList<>();
-            for (JsonNode row : data.loadApplications()) {
-                rows.add(new ApplicationRow(integer(row, "id"), integer(row, "job_id"),
-                        text(row, "title"), text(row, "company"),
-                        nullableInteger(row, "company_id"), text(row, "applied_at"),
-                        text(row, "status")));
+            for (ApplicationDto row : data.loadApplications()) {
+                rows.add(new ApplicationRow(row.id(), row.jobId(), row.title(), row.company(),
+                        row.companyId(), row.appliedAt(), row.status()));
             }
             return new ApplicationsData(statuses, rows);
         }, loaded -> buildApplications(loaded, focusId),
@@ -330,40 +326,31 @@ final class AuxiliaryWindows {
     }
 
     void showCollected() {
-        submit(() -> {
-            List<CollectedRow> rows = new ArrayList<>();
-            for (JsonNode row : data.loadCollectedJobs()) {
-                rows.add(new CollectedRow(text(row, "source_job_id"), text(row, "processing_status"),
-                        text(row, "collection_method"), text(row, "title"), text(row, "company"),
-                        text(row, "collected_location"), text(row, "collected_workplace"),
-                        text(row, "collected_salary"), text(row, "source_url"),
-                        text(row, "readable_text")));
-            }
-            return rows;
-        }, this::buildCollected, error -> showError("Collected jobs load failed", error));
+        submit(data::loadCollectedJobs, this::buildCollected,
+                error -> showError("Collected jobs load failed", error));
     }
 
-    private void buildCollected(List<CollectedRow> rows) {
-            TableView<CollectedRow> table = new TableView<>(FXCollections.observableArrayList(rows));
+    private void buildCollected(List<CollectedJobDto> rows) {
+            TableView<CollectedJobDto> table = new TableView<>(FXCollections.observableArrayList(rows));
             FillLastColumnResizePolicy.install(table);
-            TableColumn<CollectedRow, String> titleColumn = collectedColumn("Title", row -> row.title);
+            TableColumn<CollectedJobDto, String> titleColumn = collectedColumn("Title", CollectedJobDto::title);
             titleColumn.setPrefWidth(300);
             TitleTextCell.install(titleColumn, addTitleToBlacklist);
-            TableColumn<CollectedRow, String> sourceId = collectedColumn("Source ID", row -> row.sourceId);
+            TableColumn<CollectedJobDto, String> sourceId = collectedColumn("Source ID", CollectedJobDto::sourceJobId);
             sourceId.setPrefWidth(130);
-            TableColumn<CollectedRow, String> stage = collectedColumn("Stage", row -> row.stage);
+            TableColumn<CollectedJobDto, String> stage = collectedColumn("Stage", CollectedJobDto::processingStatus);
             stage.setPrefWidth(155);
-            TableColumn<CollectedRow, String> collector = collectedColumn("Collector", row -> row.collector);
+            TableColumn<CollectedJobDto, String> collector = collectedColumn("Collector", CollectedJobDto::collectionMethod);
             collector.setPrefWidth(105);
-            TableColumn<CollectedRow, String> company = collectedColumn("Company", row -> row.company);
+            TableColumn<CollectedJobDto, String> company = collectedColumn("Company", CollectedJobDto::company);
             company.setPrefWidth(190);
-            TableColumn<CollectedRow, String> location = collectedColumn("Location", row -> row.location);
+            TableColumn<CollectedJobDto, String> location = collectedColumn("Location", CollectedJobDto::collectedLocation);
             location.setPrefWidth(230);
-            TableColumn<CollectedRow, String> workplace = collectedColumn("Workplace", row -> row.workplace);
+            TableColumn<CollectedJobDto, String> workplace = collectedColumn("Workplace", CollectedJobDto::collectedWorkplace);
             workplace.setPrefWidth(100);
-            TableColumn<CollectedRow, String> salary = collectedColumn("Salary", row -> row.salary);
+            TableColumn<CollectedJobDto, String> salary = collectedColumn("Salary", CollectedJobDto::collectedSalary);
             salary.setPrefWidth(135);
-            TableColumn<CollectedRow, String> url = collectedColumn("URL", row -> row.url);
+            TableColumn<CollectedJobDto, String> url = collectedColumn("URL", CollectedJobDto::sourceUrl);
             url.setPrefWidth(280);
             table.getColumns().setAll(
                     sourceId,
@@ -378,14 +365,14 @@ final class AuxiliaryWindows {
             );
             restoreTableSort(table, "collected");
             ComboBox<String> stageFilter = new ComboBox<>();
-            List<String> stages = rows.stream().map(row -> row.stage).distinct().sorted().toList();
+            List<String> stages = rows.stream().map(CollectedJobDto::processingStatus).distinct().sorted().toList();
             stageFilter.getItems().add("All");
             stageFilter.getItems().addAll(stages);
             String savedStage = settingsStore.collectedStage();
             stageFilter.setValue(stageFilter.getItems().contains(savedStage) ? savedStage : "All");
             java.util.function.Consumer<String> applyStage = value -> {
                 table.setItems(FXCollections.observableArrayList(rows.stream().filter(row ->
-                        "All".equals(value) || row.stage.equals(value)).toList()));
+                        "All".equals(value) || row.processingStatus().equals(value)).toList()));
                 table.sort();
             };
             applyStage.accept(stageFilter.getValue());
@@ -398,13 +385,13 @@ final class AuxiliaryWindows {
             text.setEditable(false);
             text.setWrapText(true);
             table.getSelectionModel().selectedItemProperty().addListener((obs, old, row) ->
-                    text.setText(row == null ? "" : row.text));
+                    text.setText(row == null ? "" : row.readableText()));
             table.setRowFactory(view -> {
-                var row = new javafx.scene.control.TableRow<CollectedRow>();
+                var row = new javafx.scene.control.TableRow<CollectedJobDto>();
                 row.setOnMouseClicked(event -> {
                     if (event.getClickCount() == 2 && !row.isEmpty()
                             && !TitleTextCell.isTitleTarget(event.getTarget())) {
-                        openUrl(row.getItem().url);
+                        openUrl(row.getItem().sourceUrl());
                     }
                 });
                 return row;
@@ -413,8 +400,8 @@ final class AuxiliaryWindows {
             refresh.setOnAction(event -> showCollected());
             Button open = new Button("Open");
             open.setOnAction(event -> {
-                CollectedRow row = table.getSelectionModel().getSelectedItem();
-                if (row != null) openUrl(row.url);
+                CollectedJobDto row = table.getSelectionModel().getSelectedItem();
+                if (row != null) openUrl(row.sourceUrl());
             });
             if (collectedStage == null) collectedStage = stage("Collected jobs", 1300, 760);
             collectedStage.setScene(new Scene(new BorderPane(table, new HBox(8, refresh, open,
@@ -430,10 +417,10 @@ final class AuxiliaryWindows {
 
     private void buildConfig(ConfigData config) {
             VBox content = new VBox(8);
-            for (JsonNode row : config.rows) {
-                int key = integer(row, "key");
-                CheckBox check = new CheckBox(text(row, "config_name"));
-                check.setSelected("1".equals(text(row, "value")));
+            for (ConfigEntryDto row : config.rows) {
+                int key = row.key();
+                CheckBox check = new CheckBox(row.configName());
+                check.setSelected("1".equals(row.value()));
                 check.setOnAction(event -> {
                     boolean enabled = check.isSelected();
                     check.setDisable(true);
@@ -507,10 +494,10 @@ final class AuxiliaryWindows {
         return column;
     }
 
-    private TableColumn<CollectedRow, String> collectedColumn(
-            String title, java.util.function.Function<CollectedRow, String> value
+    private TableColumn<CollectedJobDto, String> collectedColumn(
+            String title, java.util.function.Function<CollectedJobDto, String> value
     ) {
-        TableColumn<CollectedRow, String> column = new TableColumn<>(title);
+        TableColumn<CollectedJobDto, String> column = new TableColumn<>(title);
         column.setCellValueFactory(cell -> new SimpleStringProperty(value.apply(cell.getValue())));
         CopyableTextCell.install(column);
         return column;
@@ -604,20 +591,6 @@ final class AuxiliaryWindows {
         catch (RuntimeException ignored) { return value; }
     }
 
-    private static String text(JsonNode row, String key) {
-        JsonNode value = row.get(key);
-        return value == null || value.isNull() ? "" : value.asText();
-    }
-
-    private static int integer(JsonNode row, String key) {
-        return row.path(key).asInt(0);
-    }
-
-    private static Integer nullableInteger(JsonNode row, String key) {
-        JsonNode value = row.get(key);
-        return value == null || value.isNull() ? null : value.asInt();
-    }
-
     private static void openUrl(String value) {
         try { if (Desktop.isDesktopSupported() && !value.isBlank()) Desktop.getDesktop().browse(URI.create(value)); }
         catch (Exception error) { showError("Could not open link", error); }
@@ -686,9 +659,6 @@ final class AuxiliaryWindows {
         }
     }
 
-    private record CollectedRow(String sourceId, String stage, String collector, String title,
-                                String company, String location, String workplace, String salary,
-                                String url, String text) { }
     private record ApplicationsData(List<String> statuses, List<ApplicationRow> rows) { }
-    private record ConfigData(JsonNode rows, String limit) { }
+    private record ConfigData(List<ConfigEntryDto> rows, String limit) { }
 }

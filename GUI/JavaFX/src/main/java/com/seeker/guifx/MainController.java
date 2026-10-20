@@ -4,9 +4,6 @@ import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
@@ -143,7 +140,6 @@ public final class MainController {
     private int detailLoadedJobId = -1;
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
     private final CheckBox unavailableCheck = new CheckBox("Unavailable");
-    private final ObjectMapper json = new ObjectMapper();
     private final ThreadPoolExecutor operationExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
                 Thread thread = new Thread(runnable, "gui-long-operation");
@@ -333,8 +329,8 @@ public final class MainController {
         if (jobIds.isEmpty()) return;
         runOperation("Saving status...", () -> clientData.setJobStatusByIds(
                 jobIds, status, LocalDate.now().toString()), result -> {
-            int updated = result.path("updated_count").asInt();
-            int created = result.path("created_applications").asInt();
+            int updated = result.updatedCount();
+            int created = result.createdApplications();
             refreshJobs();
             if (created > 0 && auxiliaryWindows != null) {
                 auxiliaryWindows.refreshApplicationsIfOpen();
@@ -457,7 +453,7 @@ public final class MainController {
                     this::showRefilterPreview, "Refilter failed");
         } else {
             runOperation("Running Refilter...", () -> {
-                JsonNode candidates = clientData.collectRefilterCandidates();
+                List<RefilterCandidate> candidates = clientData.collectRefilterCandidates();
                 return clientData.applyRefilterCandidates(candidates);
             }, count -> {
                 refreshJobs();
@@ -478,9 +474,9 @@ public final class MainController {
                 "Title blacklist failed");
     }
 
-    private void showRefilterPreview(JsonNode candidates) {
+    private void showRefilterPreview(List<RefilterCandidate> candidates) {
         List<RefilterRow> rows = new ArrayList<>();
-        candidates.forEach(candidate -> rows.add(new RefilterRow(candidate.deepCopy())));
+        candidates.forEach(candidate -> rows.add(new RefilterRow(candidate)));
         TableView<RefilterRow> table = new TableView<>(FXCollections.observableArrayList(rows));
         table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         FillLastColumnResizePolicy.install(table);
@@ -512,10 +508,10 @@ public final class MainController {
             });
         }
         all.setOnAction(event -> rows.forEach(row -> row.selected.set(all.isSelected())));
-        TableColumn<RefilterRow, String> sourceId = refilterColumn("Source ID", "source_job_id");
+        TableColumn<RefilterRow, String> sourceId = refilterColumn("Source ID", RefilterCandidate::sourceJobId);
         selected.setPrefWidth(36);
         sourceId.setPrefWidth(125);
-        TableColumn<RefilterRow, String> title = refilterColumn("Title", "title");
+        TableColumn<RefilterRow, String> title = refilterColumn("Title", RefilterCandidate::title);
         title.setPrefWidth(280);
         title.setCellFactory(column -> new TableCell<>() {
             private final TextField linkedText = linkedTextField();
@@ -527,21 +523,22 @@ public final class MainController {
                 linkedText.setText(value);
                 linkedText.setOnMouseClicked(event -> {
                     if (isLinkClick(linkedText, event.getClickCount())) {
-                        openUrl(text(row.candidate, "source_url"));
+                        openUrl(row.candidate.sourceUrl());
                     }
                 });
                 setGraphic(linkedText);
             }
         });
-        TableColumn<RefilterRow, String> previous = refilterColumn("Previous", "previous_status");
+        TableColumn<RefilterRow, String> previous = refilterColumn("Previous", RefilterCandidate::previousStatus);
         previous.setPrefWidth(105);
-        TableColumn<RefilterRow, String> action = refilterColumn("Action", "action");
+        TableColumn<RefilterRow, String> action = refilterColumn("Action", RefilterCandidate::action);
         action.setPrefWidth(105);
-        TableColumn<RefilterRow, String> fit = refilterColumn("Fit", "fit");
+        TableColumn<RefilterRow, String> fit = refilterColumn("Fit",
+                candidate -> candidate.fit() == null ? "" : candidate.fit().toString());
         fit.setPrefWidth(60);
-        TableColumn<RefilterRow, String> original = refilterColumn("Original", "original");
+        TableColumn<RefilterRow, String> original = refilterColumn("Original", RefilterCandidate::original);
         original.setPrefWidth(440);
-        TableColumn<RefilterRow, String> matched = refilterColumn("Match", "matched");
+        TableColumn<RefilterRow, String> matched = refilterColumn("Match", RefilterCandidate::matched);
         matched.setPrefWidth(260);
         for (TableColumn<RefilterRow, String> column : List.of(
                 sourceId, previous, action, fit)) {
@@ -557,9 +554,8 @@ public final class MainController {
         dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
         dialog.setTitle("Refilter detail");
         confirm.setOnAction(event -> {
-            ArrayNode chosen = json.createArrayNode();
-            rows.stream().filter(row -> row.selected.get())
-                    .forEach(row -> chosen.add(row.candidate.deepCopy()));
+            List<RefilterCandidate> chosen = rows.stream().filter(row -> row.selected.get())
+                    .map(row -> row.candidate).toList();
             if (chosen.isEmpty()) return;
             dialog.close();
             runOperation("Applying selected Refilter transitions...",
@@ -590,22 +586,18 @@ public final class MainController {
         dialog.show();
     }
 
-    private TableColumn<RefilterRow, String> refilterColumn(String title, String key) {
+    private TableColumn<RefilterRow, String> refilterColumn(
+            String title, java.util.function.Function<RefilterCandidate, String> value) {
         TableColumn<RefilterRow, String> column = new TableColumn<>(title);
         column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(
-                text(cell.getValue().candidate, key)));
+                value.apply(cell.getValue().candidate)));
         return column;
     }
 
-    private static String text(JsonNode row, String key) {
-        JsonNode value = row.get(key);
-        return value == null || value.isNull() ? "" : value.asText();
-    }
-
     private static final class RefilterRow {
-        final JsonNode candidate;
+        final RefilterCandidate candidate;
         final SimpleBooleanProperty selected = new SimpleBooleanProperty(true);
-        RefilterRow(JsonNode candidate) { this.candidate = candidate; }
+        RefilterRow(RefilterCandidate candidate) { this.candidate = candidate; }
     }
 
     @FunctionalInterface private interface TaskWork<T> {

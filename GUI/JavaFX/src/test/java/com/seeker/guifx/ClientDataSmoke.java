@@ -31,7 +31,14 @@ public final class ClientDataSmoke {
                         }
                     });
         }
+        var companies = data.loadCompanies();
+        var applications = data.loadApplications();
+        var collected = data.loadCollectedJobs();
+        var config = data.loadConfigRows();
+        var availability = data.loadLinkedInAvailabilityCandidates();
         System.out.println("Data connection OK: " + statuses + "; jobs " + jobs.size()
-                + "; reason codes " + reasonCodes.size());
+                + "; reason codes " + reasonCodes.size() + "; companies " + companies.size()
+                + "; applications " + applications.size() + "; collected " + collected.size()
+                + "; config " + config.size() + "; availability candidates " + availability.size());
     }
 }

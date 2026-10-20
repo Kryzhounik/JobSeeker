@@ -4,6 +4,14 @@ This is the Maven project for the JavaFX version of Seeker Jobs. It targets
 Java 21, uses OpenJFX controls and FXML, and has `jpy` on its classpath for the
 shared Python client-data module at `GUI/client_data.py`.
 
+`ClientData` converts JSON to Java records at the JPy boundary. Auxiliary
+tables, status/availability updates, and Refilter use typed DTOs rather than
+JSON nodes. Refilter selection keeps immutable `RefilterCandidate` values;
+only the adapter serializes the selected list back to Python field names.
+Nullable database IDs and Fit stay nullable, while nullable display strings
+are normalized to empty strings. `ClientDataContractsSmoke` checks these
+contracts without starting Python, opening windows, or accessing a database.
+
 ## Run on Windows
 
 Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
