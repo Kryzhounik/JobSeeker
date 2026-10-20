@@ -2,19 +2,16 @@ package com.seeker.guifx;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.jpy.PyLib;
-import org.jpy.PyLibInitializer;
+import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.JpyRuntime;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 final class ClientData {
     private final Path projectRoot;
@@ -30,9 +27,6 @@ final class ClientData {
         }
         try {
             initializePythonRuntime();
-            if (!PyLib.isPythonRunning()) {
-                PyLib.startPython(projectRoot.toString());
-            }
         } catch (LinkageError error) {
             throw new IllegalStateException(
                     "jpy could not load its configured Python runtime: " + error.getMessage(),
@@ -43,30 +37,11 @@ final class ClientData {
     }
 
     private void initializePythonRuntime() throws Exception {
-        Path runtime = projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties");
-        Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(runtime, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        if (!PyLibInitializer.isPyLibInitialized()) {
-            PyLibInitializer.initPyLib(
-                    runtimePath(properties, "python.library"),
-                    runtimePath(properties, "jpy.library"),
-                    runtimePath(properties, "jdl.library")
-            );
-        }
-        if (!PyLib.isPythonRunning()) {
-            PyLib.setProgramName(runtimePath(properties, "python.executable"));
-            PyLib.setPythonHome(runtimePath(properties, "python.home"));
-        }
-    }
-
-    private static String runtimePath(Properties properties, String key) {
-        String value = properties.getProperty(key, "").strip();
-        if (value.isEmpty()) {
-            throw new IllegalStateException("Missing " + key + " in Python runtime configuration.");
-        }
-        return Path.of(value).toAbsolutePath().normalize().toString();
+        PythonRuntime runtime = PythonRuntime.load(
+                projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties"));
+        JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
+                runtime.pythonHome(), runtime.pythonExecutable(), projectRoot,
+                projectRoot.resolve("Driver"), projectRoot.resolve("Driver/collector"));
     }
 
     synchronized List<String> loadStatusValues() throws Exception {

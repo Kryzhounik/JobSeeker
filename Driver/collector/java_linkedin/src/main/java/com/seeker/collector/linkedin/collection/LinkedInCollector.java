@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.Consumer;
 
 final class LinkedInCollector {
     private static final int PAGE_STEP = 25;
@@ -19,6 +20,7 @@ final class LinkedInCollector {
     private final PythonGateway python;
     private final CollectorConfig config;
     private final String runId;
+    private final Consumer<CollectionProgress> progressListener;
     private final List<ScopeItem> scope = new ArrayList<>();
     private final List<PageReport> pages = new ArrayList<>();
     private final OutcomeCounter outcomes = new OutcomeCounter();
@@ -35,10 +37,16 @@ final class LinkedInCollector {
             CollectorConfig config,
             String runId
     ) {
+        this(browser, python, config, runId, ignored -> { });
+    }
+
+    LinkedInCollector(LinkedInPageClient browser, PythonGateway python, CollectorConfig config,
+                      String runId, Consumer<CollectionProgress> progressListener) {
         this.browser = browser;
         this.python = python;
         this.config = config;
         this.runId = runId;
+        this.progressListener = progressListener;
     }
 
     CollectionReport runBatch() {
@@ -299,9 +307,9 @@ final class LinkedInCollector {
     }
 
     private void progress(String stage, String message) {
-        new CollectionProgress(runId, stage, currentLocation, currentSearch,
+        progressListener.accept(new CollectionProgress(runId, stage, currentLocation, currentSearch,
                 currentPage, currentCards, scope.size(), config.limit(),
-                outcomes.snapshot(), message).emit();
+                outcomes.snapshot(), message));
     }
 
     private int recordPage(

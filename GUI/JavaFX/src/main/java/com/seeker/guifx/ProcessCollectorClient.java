@@ -1,7 +1,11 @@
 package com.seeker.guifx;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,33 +16,26 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
+import java.util.Properties;
 import java.util.function.Consumer;
 
-final class CollectorRunner {
+final class ProcessCollectorClient implements CollectorClient {
     private static final String PROGRESS_PREFIX = "COLLECTOR_PROGRESS ";
 
-    record Progress(String runId, String stage, String location, String search,
-                    int page, int cards, int accepted, int limit,
-                    Map<String, Integer> outcomes, String message) { }
-
-    record Result(String runId, String status, int accepted,
-                  Map<String, Integer> outcomes, String message) { }
-
     private final Path projectRoot;
-    private final ObjectMapper json = new ObjectMapper();
 
-    CollectorRunner(Path projectRoot) {
+    ProcessCollectorClient(Path projectRoot) {
         this.projectRoot = projectRoot;
     }
 
-    Result run(Consumer<Progress> updateProgress) throws Exception {
+    @Override
+    public CollectionReport collect(Consumer<CollectionProgress> updateProgress) throws Exception {
         Path runtime = projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties");
         Path config = projectRoot.resolve("Driver/collector/config/linkedin.properties");
         String javaExecutable = readProperty(runtime, "java.executable");
         int limit = Integer.parseInt(readProperty(config, "limit"));
         if (limit <= 0) throw new IllegalArgumentException("Collector limit must be positive.");
-        updateProgress.accept(new Progress("", "starting", "", "", 0, 0, 0,
+        updateProgress.accept(new CollectionProgress("", "starting", "", "", 0, 0, 0,
                 limit, Map.of(), ""));
         Path javaPath = Path.of(javaExecutable);
         Path javaw = javaPath.resolveSibling("javaw.exe");
@@ -63,7 +60,7 @@ final class CollectorRunner {
                 if (tail.size() > 40) tail.removeFirst();
                 if (line.stripLeading().startsWith("{")) finalJson = line;
             }
-        } catch (IOException error) {
+        } catch (IOException | RuntimeException | Error error) {
             process.destroyForcibly();
             throw error;
         }
@@ -81,41 +78,37 @@ final class CollectorRunner {
         return parseResult(finalJson);
     }
 
-    Progress parseProgress(String line) throws IOException {
-        JsonNode value = json.readTree(line.substring(PROGRESS_PREFIX.length()));
-        if (value == null || !value.isObject() || !value.hasNonNull("run_id")
-                || !value.hasNonNull("stage")) {
-            throw new IOException("Collector returned an invalid progress message.");
-        }
-        return new Progress(value.path("run_id").asText(), value.path("stage").asText(),
-                value.path("location").asText(), value.path("search").asText(),
-                value.path("page").asInt(), value.path("cards").asInt(),
-                value.path("accepted_count").asInt(), value.path("limit").asInt(),
-                counts(value.path("outcomes")), value.path("message").asText());
+    CollectionProgress parseProgress(String line) throws IOException {
+        if (!line.startsWith(PROGRESS_PREFIX)) throw new IOException("Invalid progress prefix.");
+        return parse(line.substring(PROGRESS_PREFIX.length()), CollectionProgress.class,
+                "run_id", "stage");
     }
 
-    Result parseResult(String text) throws IOException {
-        JsonNode value = json.readTree(text);
-        if (value == null || !value.isObject() || !value.hasNonNull("run_id")
-                || !value.hasNonNull("status") || !value.hasNonNull("accepted_count")) {
-            throw new IOException("Collector did not return a complete result.");
-        }
-        return new Result(value.path("run_id").asText(), value.path("status").asText(),
-                value.path("accepted_count").asInt(), counts(value.path("outcomes")),
-                value.path("message").asText());
+    CollectionReport parseResult(String text) throws IOException {
+        return parse(text, CollectionReport.class, "source", "run_id", "status", "accepted_count");
     }
 
-    private static Map<String, Integer> counts(JsonNode value) {
-        Map<String, Integer> counts = new LinkedHashMap<>();
-        value.fields().forEachRemaining(entry -> counts.put(entry.getKey(), entry.getValue().asInt()));
-        return Map.copyOf(counts);
+    private static <T> T parse(String text, Class<T> type, String... required) throws IOException {
+        try {
+            JsonObject value = JsonParser.parseString(text).getAsJsonObject();
+            for (String key : required) {
+                if (!value.has(key) || value.get(key).isJsonNull()) {
+                    throw new IOException("Collector response is missing " + key);
+                }
+            }
+            return JsonSupport.GSON.fromJson(value, type);
+        } catch (JsonParseException | IllegalStateException error) {
+            throw new IOException("Collector returned invalid JSON.", error);
+        }
     }
 
     private static String readProperty(Path path, String key) throws IOException {
-        for (String line : Files.readAllLines(path, StandardCharsets.UTF_8)) {
-            String item = line.strip();
-            if (item.startsWith(key + "=")) return item.substring(key.length() + 1).strip();
+        Properties properties = new Properties();
+        try (var reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            properties.load(reader);
         }
-        throw new IOException("Missing " + key + " in " + path);
+        String value = properties.getProperty(key, "").strip();
+        if (value.isEmpty()) throw new IOException("Missing " + key + " in " + path);
+        return value;
     }
 }

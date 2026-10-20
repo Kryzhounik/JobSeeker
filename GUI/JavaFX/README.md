@@ -43,7 +43,7 @@ java -jar GUI/JavaFX/seeker-gui-javafx.jar
 ```
 
 JavaFX is not a child or reactor module of `Driver`. It uses normal Maven
-dependencies on Applier, ChatEvaluator, and Tools, and imports their managed
+dependencies on Collector, Applier, ChatEvaluator, and Tools, and imports their managed
 versions from the installed Driver POM. After backend changes, run `install`
 again before building the GUI; both scripts do this automatically. Maven
 downloads the JavaFX platform modules on the first build.
@@ -72,10 +72,27 @@ The panel retains the final result or error and accumulated statistics.
 Error details include the failed search or vacancy URL. Card-materialization
 errors show the failing card's canonical LinkedIn URL in the same text block.
 Collection runs independently of other GUI actions; only another Collect is
-disabled while it is running. The collector sends structured progress on
-stderr prefixed with `COLLECTOR_PROGRESS ` and returns its final JSON report
-on stdout. The run ID is sent before browser startup so an interrupted run
+disabled while it is running. The run ID is sent before browser startup so an interrupted run
 can still be identified. Collection does not start the analysis workflow.
+
+### Collector connection
+
+`backend.properties` selects `collector.mode`:
+
+- `direct` (default): calls `LinkedInApplication.batch()` in the GUI JVM and
+  receives immutable `CollectionProgress` snapshots through a Java callback.
+  GUI data access and Collector share the process-wide `JpyRuntime`.
+- `process`: preserves the external runnable-jar launch. The CLI encodes the
+  same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on stderr and
+  writes the final `CollectionReport` to stdout.
+
+Both adapters implement `CollectorClient`; the controller and progress panel
+do not depend on the transport. The configuration is read at each Collect
+start. An unknown mode is reported as an error rather than falling back.
+A future client for a persistent Driver process can implement this boundary;
+no server protocol or general Driver facade is introduced here.
+Python stdout redirection belongs only to CLI entry points, not to the direct
+library calls.
 
 ## Background-process panels
 

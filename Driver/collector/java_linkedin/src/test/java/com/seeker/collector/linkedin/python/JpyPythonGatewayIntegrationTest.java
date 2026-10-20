@@ -2,6 +2,10 @@ package com.seeker.collector.linkedin.python;
 
 import com.seeker.collector.linkedin.collection.Preview;
 import com.seeker.collector.linkedin.config.ProjectPaths;
+import com.seeker.collector.linkedin.support.CliOutput;
+import com.seeker.python.JpyRuntime;
+import org.jpy.PyModule;
+import org.jpy.PyObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,6 +41,9 @@ class JpyPythonGatewayIntegrationTest {
                 Path.of(required("seeker.python.home")),
                 Path.of(required("seeker.python.executable"))
         );
+        JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
+                runtime.pythonHome(), runtime.pythonExecutable(), projectRoot);
+        String originalStdout = stdoutId();
         Preview preview = new Preview(
                 "4444444444",
                 "https://www.linkedin.com/jobs/view/4444444444/",
@@ -57,17 +64,40 @@ class JpyPythonGatewayIntegrationTest {
                 """;
 
         try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+            assertEquals(originalStdout, stdoutId());
             assertTrue(python.priorityCompanyIds().isEmpty());
             assertTrue(python.decidePreview(preview).shouldOpen());
             assertEquals("raw_saved", python.processHtml(preview, html).status());
+            assertEquals(originalStdout, stdoutId());
         }
         try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
             assertTrue(python.priorityCompanyIds().isEmpty());
         }
+        assertEquals(originalStdout, stdoutId());
+        try (CliOutput ignored = CliOutput.redirectPython(projectRoot);
+             PyModule sys = PyModule.importModule("sys");
+             PyObject stderr = sys.getAttribute("stderr")) {
+            assertEquals(objectId(stderr), stdoutId());
+        }
+        assertEquals(originalStdout, stdoutId());
 
         assertTrue(Files.isRegularFile(
                 rawDirectory.resolve("pages/4444444444.html")
         ));
+    }
+
+    private static String stdoutId() {
+        try (PyModule sys = PyModule.importModule("sys");
+             PyObject stdout = sys.getAttribute("stdout")) {
+            return objectId(stdout);
+        }
+    }
+
+    private static String objectId(PyObject value) {
+        try (PyModule builtins = PyModule.importModule("builtins");
+             PyObject id = builtins.callMethod("id", value)) {
+            return id.repr();
+        }
     }
 
     private String required(String name) {

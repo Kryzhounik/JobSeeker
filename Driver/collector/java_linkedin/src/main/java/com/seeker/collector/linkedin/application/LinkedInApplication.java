@@ -2,6 +2,7 @@ package com.seeker.collector.linkedin.application;
 
 import com.seeker.collector.linkedin.browser.BrowserSettings;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.LinkedInCollectionService;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.function.Consumer;
 
 /** Entry points for login and collection. */
 public final class LinkedInApplication {
@@ -26,6 +28,10 @@ public final class LinkedInApplication {
     private final LinkedInCollectionService collectionService;
 
     public LinkedInApplication(Path projectRoot) throws IOException {
+        this(projectRoot, ignored -> { });
+    }
+
+    public LinkedInApplication(Path projectRoot, Consumer<CollectionProgress> progress) throws IOException {
         ProjectPaths paths = ProjectPaths.fromProjectRoot(projectRoot);
         CollectorConfig config = CollectorConfig.load(paths.configPath());
         BrowserSettings browserSettings = new BrowserSettings(
@@ -45,7 +51,8 @@ public final class LinkedInApplication {
                 paths,
                 config,
                 browserSettings,
-                pythonRuntime
+                pythonRuntime,
+                progress
         );
     }
 

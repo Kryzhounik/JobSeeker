@@ -30,6 +30,10 @@
     <dependencies>
         <dependency>
             <groupId>com.seeker</groupId>
+            <artifactId>linkedin-collector</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
             <artifactId>applier</artifactId>
         </dependency>
         <dependency>

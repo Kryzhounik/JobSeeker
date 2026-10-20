@@ -15,4 +15,10 @@ public record CollectionReport(
         List<PageReport> pages,
         String message
 ) {
+    public CollectionReport {
+        scope = scope == null ? List.of() : List.copyOf(scope);
+        outcomes = outcomes == null ? Map.of() : Map.copyOf(outcomes);
+        pages = pages == null ? List.of() : List.copyOf(pages);
+        message = message == null ? "" : message;
+    }
 }

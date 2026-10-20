@@ -1,8 +1,8 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
-import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.collector.linkedin.support.ProcessLog;
 
 import java.io.IOException;
@@ -38,12 +38,18 @@ public final class Main {
     }
 
     private static void run(String[] args) throws IOException {
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
+        try (CliOutput ignored = CliOutput.redirectPython(Path.of("."))) {
+            runWorkflow(args);
+        }
+    }
+
+    private static void runWorkflow(String[] args) throws IOException {
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."), CliOutput::printProgress);
         if ((args.length >= 2 && "check-url".equals(args[0]))
                 || (args.length == 2 && (
                         "batch".equals(args[0]) || "resume".equals(args[0])
                 ))) {
-            CollectionReport report = switch (args[0]) {
+            WorkflowResult report = switch (args[0]) {
                 case "batch" -> orchestrator.batch(args[1]);
                 case "check-url" -> orchestrator.check(
                         Arrays.copyOfRange(args, 1, args.length)
@@ -51,7 +57,8 @@ public final class Main {
                 default -> orchestrator.resume(args[1]);
             };
             var result = GSON.toJsonTree(report).getAsJsonObject();
-            result.remove("pages");
+            result.addProperty("processed_count", report.processedCount());
+            if (report.collection() != null) result.getAsJsonObject("collection").remove("pages");
             System.out.println(GSON.toJson(result));
             return;
         }
@@ -76,8 +83,8 @@ public final class Main {
             result.addProperty("source", args[2]);
             result.addProperty("run_id", args[1]);
             result.addProperty("status", "complete");
-            result.addProperty("accepted_count", scope.size());
-            result.add("scope", GSON.toJsonTree(scope));
+            result.addProperty("processed_count", scope.size());
+            result.add("processed_scope", GSON.toJsonTree(scope));
             result.addProperty("message", "");
             System.out.println(GSON.toJson(result));
             return;

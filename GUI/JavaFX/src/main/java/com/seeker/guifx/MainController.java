@@ -2,6 +2,7 @@ package com.seeker.guifx;
 
 import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
+import com.seeker.collector.linkedin.collection.CollectionReport;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -410,10 +411,10 @@ public final class MainController {
         }
         CollectorProgressPane progressPane = collectorProgress;
         progressPane.begin();
-        CollectorRunner collector = new CollectorRunner(ClientData.findProjectRoot());
-        Task<CollectorRunner.Result> task = new Task<>() {
-            @Override protected CollectorRunner.Result call() throws Exception {
-                return collector.run(progress -> Platform.runLater(() -> progressPane.update(progress)));
+        Task<CollectionReport> task = new Task<>() {
+            @Override protected CollectionReport call() throws Exception {
+                CollectorClient collector = CollectorClient.configured(ClientData.findProjectRoot());
+                return collector.collect(progress -> Platform.runLater(() -> progressPane.update(progress)));
             }
         };
         task.setOnSucceeded(event -> {

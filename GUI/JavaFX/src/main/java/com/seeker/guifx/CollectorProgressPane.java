@@ -1,5 +1,8 @@
 package com.seeker.guifx;
 
+import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.collector.linkedin.collection.CollectionReport;
+
 import java.util.Map;
 
 final class CollectorProgressPane extends BackgroundProcessPane {
@@ -20,7 +23,7 @@ final class CollectorProgressPane extends BackgroundProcessPane {
         updateDock();
     }
 
-    void update(CollectorRunner.Progress progress) {
+    void update(CollectionProgress progress) {
         if (!progress.runId().isBlank()) setField("Run ID", progress.runId());
         if (progress.limit() > 0) limit = progress.limit();
         setProcessState(switch (progress.stage()) {
@@ -39,7 +42,7 @@ final class CollectorProgressPane extends BackgroundProcessPane {
         });
         setField("Page", progress.page() > 0 ? Integer.toString(progress.page()) : "");
         setField("Cards on page", Integer.toString(progress.cards()));
-        showCounts(progress.accepted(), progress.outcomes());
+        showCounts(progress.acceptedCount(), progress.outcomes());
         setDetails(switch (progress.message()) {
             case "limit_reached" -> "Accepted-vacancy limit reached.";
             case "plan_exhausted" -> "Search plan exhausted.";
@@ -47,10 +50,10 @@ final class CollectorProgressPane extends BackgroundProcessPane {
         });
     }
 
-    void complete(CollectorRunner.Result result) {
+    void complete(CollectionReport result) {
         if (!result.runId().isBlank()) setField("Run ID", result.runId());
         setField("Stage", stageName(result.status()));
-        showCounts(result.accepted(), result.outcomes());
+        showCounts(result.acceptedCount(), result.outcomes());
         if (!result.message().isBlank()) setDetails(result.message());
         setProcessState("complete".equals(result.status()) ? State.COMPLETED : State.FAILED);
         updateDock();

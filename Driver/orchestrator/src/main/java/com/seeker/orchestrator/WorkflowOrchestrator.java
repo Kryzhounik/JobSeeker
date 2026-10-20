@@ -2,6 +2,7 @@ package com.seeker.orchestrator;
 
 import com.seeker.collector.linkedin.application.LinkedInApplication;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 
 import java.io.IOException;
@@ -10,11 +11,11 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** Top-level Java workflow entry point. */
 public final class WorkflowOrchestrator {
@@ -24,8 +25,13 @@ public final class WorkflowOrchestrator {
     private final int vacanciesPerAgent;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
+        this(projectRoot, ignored -> { });
+    }
+
+    public WorkflowOrchestrator(Path projectRoot, Consumer<CollectionProgress> progress)
+            throws IOException {
         this(
-                new LinkedInApplication(projectRoot),
+                new LinkedInApplication(projectRoot, progress),
                 new JpyAgentFilterGateway(projectRoot),
                 vacanciesPerAgent(projectRoot)
         );
@@ -66,53 +72,52 @@ public final class WorkflowOrchestrator {
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
-    public CollectionReport batch(String source) throws IOException {
+    public WorkflowResult batch(String source) throws IOException {
         if (!"linkedin".equals(source)) {
             throw new IllegalArgumentException("Unsupported batch source: " + source);
         }
         return processCollected(linkedinBatch.collect());
     }
 
-    public CollectionReport check(String... urls) throws IOException {
-        CollectionReport report = processCollected(linkedinUrls.collect(List.of(urls)));
-        int agentFiltered = report.outcomes().getOrDefault("agent_filtered", 0);
+    public WorkflowResult check(String... urls) throws IOException {
+        WorkflowResult report = processCollected(linkedinUrls.collect(List.of(urls)));
+        int agentFiltered = report.agentFilteredCount();
         if (agentFiltered > 0) {
             String reason = urls.length == 1
                     ? "Vacancy rejected by agent relevance filter"
                     : "Vacancies rejected by agent relevance filter: " + agentFiltered;
-            return new CollectionReport(
-                    report.source(), report.runId(), report.status(),
-                    report.acceptedCount(), report.scope(), report.outcomes(),
-                    report.pages(), report.message().isEmpty()
+            return report.withMessage(report.message().isEmpty()
                             ? reason : report.message() + "; " + reason
             );
         }
         return report;
     }
 
-    public CollectionReport resume(String runId) {
+    public WorkflowResult resume(String runId) {
         List<ScopeItem> scope = agentFilter.collectedScope(runId);
-        return processCollected(new CollectionReport(
-                "linkedin", runId, "complete", scope.size(), scope,
-                Map.of(), List.of(), ""
-        ));
+        return processScope("linkedin", runId, scope, null);
     }
 
-    private CollectionReport processCollected(CollectionReport collected) {
+    private WorkflowResult processCollected(CollectionReport collected) {
         if (!"complete".equals(collected.status()) || collected.scope().isEmpty()) {
-            return collected;
+            return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
+                    collected, List.of(), 0, collected.message());
         }
+        return processScope(collected.source(), collected.runId(), collected.scope(), collected);
+    }
 
+    private WorkflowResult processScope(String source, String runId, List<ScopeItem> scope,
+                                        CollectionReport collected) {
         Map<String, String> statuses = new HashMap<>(
-                agentFilter.statuses(collected.source(), collected.scope())
+                agentFilter.statuses(source, scope)
         );
-        List<ScopeItem> unfiltered = atStatus(collected.scope(), statuses, "CLEANED");
+        List<ScopeItem> unfiltered = atStatus(scope, statuses, "CLEANED");
         if (!unfiltered.isEmpty()) {
-            AgentFilterResult result = agentFilter.filter(collected.runId(), unfiltered);
+            AgentFilterResult result = agentFilter.filter(runId, unfiltered);
             List<String> nonrelevantIds = validateResult(
                     unfiltered, result.nonrelevantJobIds()
             );
-            agentFilter.markRelevance(collected.source(), unfiltered, nonrelevantIds);
+            agentFilter.markRelevance(source, unfiltered, nonrelevantIds);
             Set<String> rejected = Set.copyOf(nonrelevantIds);
             for (ScopeItem item : unfiltered) {
                 statuses.put(item.jobId(), rejected.contains(item.jobId())
@@ -121,36 +126,26 @@ public final class WorkflowOrchestrator {
         }
 
         Set<String> acceptedStatuses = Set.of("RELEVANT", "ANALYZED", "SCORED", "SAVED");
-        List<ScopeItem> remaining = collected.scope().stream()
+        List<ScopeItem> remaining = scope.stream()
                 .filter(item -> acceptedStatuses.contains(statuses.get(item.jobId())))
                 .toList();
         List<ScopeItem> facts = atStatus(remaining, statuses, "RELEVANT");
         if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
-            agentFilter.startAnalysis(collected.runId(), vacanciesPerAgent);
+            agentFilter.startAnalysis(runId, vacanciesPerAgent);
         }
-        runJobFacts(collected.runId(), collected.source(), facts);
+        runJobFacts(runId, source, facts);
         for (ScopeItem item : facts) {
             statuses.put(item.jobId(), "ANALYZED");
         }
-        runFinishAnalysis(collected.runId(), collected.source(),
+        runFinishAnalysis(runId, source,
                 atStatus(remaining, statuses, "ANALYZED"));
         List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
         if (!scored.isEmpty()) {
-            agentFilter.saveScored(collected.source(), scored.stream().map(ScopeItem::jobId).toList());
+            agentFilter.saveScored(source, scored.stream().map(ScopeItem::jobId).toList());
         }
-        Map<String, Integer> outcomes = new LinkedHashMap<>(collected.outcomes());
-        outcomes.put("agent_filtered", atStatus(collected.scope(), statuses, "NONRELEVANT").size());
-
-        return new CollectionReport(
-                collected.source(),
-                collected.runId(),
-                collected.status(),
-                remaining.size(),
-                remaining,
-                Map.copyOf(outcomes),
-                collected.pages(),
-                collected.message()
-        );
+        return new WorkflowResult(source, runId, "complete", collected, remaining,
+                atStatus(scope, statuses, "NONRELEVANT").size(),
+                collected == null ? "" : collected.message());
     }
 
     public void jobFacts(String runId, String source, List<ScopeItem> scope) {

@@ -24,6 +24,23 @@ The Java code is split by responsibility:
 `LinkedInLoginService` and `LinkedInCollectionService` contain the two use
 cases without command-line request wrappers.
 
+`new LinkedInApplication(projectRoot, progressListener)` accepts a
+`Consumer<CollectionProgress>`. Callbacks run synchronously on the calling
+worker thread, before browser startup and during collection, including the
+final state. A UI caller marshals snapshots to its UI thread. The constructor
+without a listener keeps the same API with progress ignored. The snapshots
+contain the run ID, stage, location/search, page/card counters, accepted/limit,
+outcomes, and details. They do not write a console protocol themselves.
+
+The CLI alone encodes callbacks as `COLLECTOR_PROGRESS ` JSON lines on stderr
+and temporarily redirects Python stdout to stderr, restoring it afterwards.
+The JPy gateways and `python_bridge.py` leave Python stdout unchanged when
+called as a library. All in-process consumers use the common `JpyRuntime`.
+
+`CollectionReport` describes collection only: `accepted_count` is the number
+accepted by Collector and `outcomes` contains only Collector outcomes.
+Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
+
 ## Runtime behavior
 
 - Only the classic logged-in `/jobs/search/` UI is collected. There is no guest

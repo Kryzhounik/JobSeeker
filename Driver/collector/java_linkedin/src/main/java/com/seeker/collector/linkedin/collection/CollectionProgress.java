@@ -1,7 +1,6 @@
 package com.seeker.collector.linkedin.collection;
 
 import com.google.gson.annotations.SerializedName;
-import com.seeker.collector.linkedin.support.JsonSupport;
 
 import java.util.Map;
 
@@ -17,11 +16,14 @@ public record CollectionProgress(
         Map<String, Integer> outcomes,
         String message
 ) {
-    public void emit() {
-        System.err.println("COLLECTOR_PROGRESS " + JsonSupport.GSON.toJson(this));
+    public CollectionProgress {
+        location = location == null ? "" : location;
+        search = search == null ? "" : search;
+        message = message == null ? "" : message;
+        outcomes = outcomes == null ? Map.of() : Map.copyOf(outcomes);
     }
 
-    static void starting(String runId, String stage, int limit) {
-        new CollectionProgress(runId, stage, "", "", 0, 0, 0, limit, Map.of(), "").emit();
+    static CollectionProgress starting(String runId, String stage, int limit) {
+        return new CollectionProgress(runId, stage, "", "", 0, 0, 0, limit, Map.of(), "");
     }
 }

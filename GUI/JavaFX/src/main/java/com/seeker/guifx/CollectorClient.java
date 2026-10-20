@@ -1,0 +1,32 @@
+package com.seeker.guifx;
+
+import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.collector.linkedin.collection.CollectionReport;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Properties;
+import java.util.function.Consumer;
+
+/** Collect operation independent of its transport and of JavaFX. */
+interface CollectorClient {
+    CollectionReport collect(Consumer<CollectionProgress> progress) throws Exception;
+
+    static CollectorClient configured(Path projectRoot) throws IOException {
+        Path config = projectRoot.resolve("GUI/JavaFX/backend.properties");
+        Properties values = new Properties();
+        if (Files.exists(config)) {
+            try (Reader reader = Files.newBufferedReader(config, StandardCharsets.UTF_8)) {
+                values.load(reader);
+            }
+        }
+        return switch (values.getProperty("collector.mode", "direct").strip()) {
+            case "direct" -> new DirectCollectorClient(projectRoot);
+            case "process" -> new ProcessCollectorClient(projectRoot);
+            default -> throw new IOException("Unknown collector.mode in " + config);
+        };
+    }
+}

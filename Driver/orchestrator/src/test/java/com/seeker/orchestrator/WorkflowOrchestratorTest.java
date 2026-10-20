@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -32,15 +33,19 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.batch("linkedin");
+        WorkflowResult actual = orchestrator.batch("linkedin");
 
         assertEquals("run-1", filter.runId);
         assertEquals(collected.scope(), filter.scope);
         assertEquals("linkedin", filter.markedSource);
         assertEquals(List.of("2"), filter.markedIds);
-        assertEquals(List.of("1", "3"), ids(actual.scope()));
-        assertEquals(2, actual.acceptedCount());
-        assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals(List.of("1", "3"), ids(actual.processedScope()));
+        assertEquals(2, actual.processedCount());
+        assertEquals(1, actual.agentFilteredCount());
+        assertSame(collected, actual.collection());
+        assertEquals(3, actual.collection().acceptedCount());
+        assertEquals(List.of("1", "2", "3"), ids(actual.collection().scope()));
+        assertEquals(Map.of("raw_saved", 3), actual.collection().outcomes());
         assertEquals("", actual.message());
     }
 
@@ -61,11 +66,11 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.check(url);
+        WorkflowResult actual = orchestrator.check(url);
 
         assertEquals(List.of(url), requestedUrls);
-        assertEquals(List.of("1"), ids(actual.scope()));
-        assertEquals(1, actual.acceptedCount());
+        assertEquals(List.of("1"), ids(actual.processedScope()));
+        assertEquals(1, actual.processedCount());
         assertEquals(List.of(
                 "filter:run-1",
                 "mark-relevance:",
@@ -89,11 +94,12 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.check(
                 "https://www.linkedin.com/jobs/view/1"
         );
 
-        assertSame(rejected, actual);
+        assertSame(rejected, actual.collection());
+        assertEquals(0, actual.processedCount());
         assertEquals(List.of(), filter.calls);
     }
 
@@ -119,11 +125,11 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.check(urls.toArray(String[]::new));
+        WorkflowResult actual = orchestrator.check(urls.toArray(String[]::new));
 
         assertEquals(urls, requestedUrls);
-        assertEquals(List.of("1", "2"), ids(actual.scope()));
-        assertEquals(2, actual.acceptedCount());
+        assertEquals(List.of("1", "2"), ids(actual.processedScope()));
+        assertEquals(2, actual.processedCount());
         assertEquals(List.of(
                 "filter:run-1",
                 "mark-relevance:",
@@ -152,15 +158,16 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.check(
                 "https://www.linkedin.com/jobs/view/1",
                 "https://www.linkedin.com/jobs/view/2"
         );
 
-        assertEquals(List.of(), actual.scope());
-        assertEquals(0, actual.acceptedCount());
-        assertEquals(1, actual.outcomes().get("preview_filtered"));
-        assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals(List.of(), actual.processedScope());
+        assertEquals(0, actual.processedCount());
+        assertEquals(1, actual.collection().outcomes().get("preview_filtered"));
+        assertEquals(1, actual.agentFilteredCount());
+        assertEquals(1, actual.collection().acceptedCount());
         assertEquals(
                 "2: duplicate source_job_id; Vacancies rejected by agent relevance filter: 1",
                 actual.message()
@@ -176,14 +183,14 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.check(
+        WorkflowResult actual = orchestrator.check(
                 "https://www.linkedin.com/jobs/view/1"
         );
 
         assertEquals("complete", actual.status());
-        assertEquals(0, actual.acceptedCount());
-        assertEquals(List.of(), actual.scope());
-        assertEquals(1, actual.outcomes().get("agent_filtered"));
+        assertEquals(0, actual.processedCount());
+        assertEquals(List.of(), actual.processedScope());
+        assertEquals(1, actual.agentFilteredCount());
         assertEquals("Vacancy rejected by agent relevance filter", actual.message());
         assertEquals(List.of("filter:run-1", "mark-relevance:1"), filter.calls);
     }
@@ -221,9 +228,11 @@ class WorkflowOrchestratorTest {
                 filter
         );
 
-        CollectionReport actual = orchestrator.batch("linkedin");
+        WorkflowResult actual = orchestrator.batch("linkedin");
 
-        assertSame(blocked, actual);
+        assertSame(blocked, actual.collection());
+        assertEquals("blocked", actual.status());
+        assertEquals(0, actual.processedCount());
         assertEquals(0, filter.filterInvocations);
     }
 
@@ -260,7 +269,7 @@ class WorkflowOrchestratorTest {
                 () -> { throw new AssertionError("collector must not be called"); }, filter
         );
 
-        CollectionReport result = orchestrator.resume("run-1");
+        WorkflowResult result = orchestrator.resume("run-1");
 
         assertEquals(List.of("1"), ids(filter.scope));
         assertEquals(List.of(
@@ -271,11 +280,12 @@ class WorkflowOrchestratorTest {
                 "candidate-fit:3", "job-interest:3",
                 "save-scored:1,2,3", "save-scored:4"
         ), filter.calls);
-        assertEquals(List.of("1", "2", "3", "4", "5"), ids(result.scope()));
-        assertEquals(1, result.outcomes().get("agent_filtered"));
+        assertEquals(List.of("1", "2", "3", "4", "5"), ids(result.processedScope()));
+        assertEquals(1, result.agentFilteredCount());
+        assertNull(result.collection());
         int completedCalls = filter.calls.size();
 
-        assertEquals(result.scope(), orchestrator.resume("run-1").scope());
+        assertEquals(result.processedScope(), orchestrator.resume("run-1").processedScope());
         assertEquals(completedCalls, filter.calls.size());
     }
 

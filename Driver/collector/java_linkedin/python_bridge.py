@@ -7,7 +7,6 @@ standalone lifecycle. The regular Python CLI entry points remain unchanged.
 from __future__ import annotations
 
 from contextlib import closing
-from contextlib import redirect_stdout
 from dataclasses import dataclass
 from html.parser import HTMLParser
 import json
@@ -130,13 +129,12 @@ def finish_run(
 def decide_preview(preview_json: str) -> str:
     session = _require_session()
     preview = _object(preview_json)
-    with redirect_stdout(sys.stderr):
-        result = apply_preview_decision_with_filter(
-            preview,
-            session.preview_config,
-            session.vacancy_filter,
-            session.db_path,
-        )
+    result = apply_preview_decision_with_filter(
+        preview,
+        session.preview_config,
+        session.vacancy_filter,
+        session.db_path,
+    )
     return _json(result)
 
 
@@ -152,59 +150,58 @@ def process_html(preview_json: str, html: str) -> str:
     apply_button = ApplyButtonParser()
     apply_button.feed(html)
 
-    with redirect_stdout(sys.stderr):
-        raw_path = save_content(
-            source="linkedin",
-            url=source_url,
-            content=html,
-            out_dir=session.raw_dir,
-            ext="html",
-            force=False,
-            db_path=session.db_path,
-            collection_method="playwright",
-            collection_run_id=session.run_id,
-        )
-        text = readable_text("linkedin", raw_path)
+    raw_path = save_content(
+        source="linkedin",
+        url=source_url,
+        content=html,
+        out_dir=session.raw_dir,
+        ext="html",
+        force=False,
+        db_path=session.db_path,
+        collection_method="playwright",
+        collection_run_id=session.run_id,
+    )
+    text = readable_text("linkedin", raw_path)
 
-        with closing(sqlite3.connect(session.db_path)) as connection:
-            connection.execute("PRAGMA foreign_keys = ON")
-            save_collected_job(
+    with closing(sqlite3.connect(session.db_path)) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        save_collected_job(
+            connection,
+            "linkedin",
+            job_id,
+            text,
+            source_url=source_url,
+            title=title,
+            company=preview.get("company"),
+            location=preview.get("location"),
+            workplace=preview.get("workplace"),
+            salary=preview.get("salary"),
+            easy_apply=apply_button.easy_apply,
+        )
+        filter_result = session.vacancy_filter.filter_text(title, text)
+        if filter_result.rejected:
+            save_content_filter_rejection(
                 connection,
                 "linkedin",
                 job_id,
-                text,
-                source_url=source_url,
-                title=title,
-                company=preview.get("company"),
-                location=preview.get("location"),
-                workplace=preview.get("workplace"),
-                salary=preview.get("salary"),
-                easy_apply=apply_button.easy_apply,
+                rule=filter_result.rule,
+                matched_text=filter_result.match,
+                keyword_patterns=filter_result.keyword_patterns,
             )
-            filter_result = session.vacancy_filter.filter_text(title, text)
-            if filter_result.rejected:
-                save_content_filter_rejection(
-                    connection,
-                    "linkedin",
-                    job_id,
-                    rule=filter_result.rule,
-                    matched_text=filter_result.match,
-                    keyword_patterns=filter_result.keyword_patterns,
-                )
-                mark_status(connection, "linkedin", job_id, "CONTENT_REJECTED")
-            connection.commit()
+            mark_status(connection, "linkedin", job_id, "CONTENT_REJECTED")
+        connection.commit()
 
-        decision = content_response(filter_result)
-        status = (
-            "raw_saved"
-            if decision["content_decision"] == "analyze"
-            else "content_filtered"
-        )
-        reason = str(decision.get("content_reason", ""))
-        record_collection_event(
-            {**preview, "status": status, "reason": reason},
-            session.db_path,
-        )
+    decision = content_response(filter_result)
+    status = (
+        "raw_saved"
+        if decision["content_decision"] == "analyze"
+        else "content_filtered"
+    )
+    reason = str(decision.get("content_reason", ""))
+    record_collection_event(
+        {**preview, "status": status, "reason": reason},
+        session.db_path,
+    )
 
     return _json(
         {
@@ -220,15 +217,14 @@ def process_html(preview_json: str, html: str) -> str:
 def log_outcome(preview_json: str, status: str, reason: str) -> None:
     session = _require_session()
     preview = _object(preview_json)
-    with redirect_stdout(sys.stderr):
-        record_collection_event(
-            {
-                **preview,
-                "status": _normalize_unicode(status),
-                "reason": _normalize_unicode(reason),
-            },
-            session.db_path,
-        )
+    record_collection_event(
+        {
+            **preview,
+            "status": _normalize_unicode(status),
+            "reason": _normalize_unicode(reason),
+        },
+        session.db_path,
+    )
 
 
 def close_session() -> None:

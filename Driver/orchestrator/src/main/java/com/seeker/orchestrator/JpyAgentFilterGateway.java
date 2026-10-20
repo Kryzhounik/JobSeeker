@@ -6,7 +6,6 @@ import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
-import org.jpy.PyInputMode;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
@@ -224,12 +223,6 @@ final class JpyAgentFilterGateway implements AgentFilterGateway {
                 runtime.pythonExecutable(),
                 paths.driverRoot()
         );
-        try (PyObject ignored = PyObject.executeCode(
-                "import sys\nsys.stdout = sys.stderr",
-                PyInputMode.SCRIPT
-        )) {
-            // Keep stdout reserved for the Java command's final JSON result.
-        }
         return PyModule.importModule("orchestrator.python_bridge");
     }
 }

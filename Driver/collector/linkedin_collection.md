@@ -28,8 +28,9 @@ Purpose: the single LinkedIn batch-collection entry point.
    The Java workflow orchestrator delegates collection to the existing
    collector, runs the agent relevance filter once through Codex CLI, persists
    validated rejections as `NONRELEVANT`, and runs the remaining analysis and
-   save stages. Its `accepted_count` is the completed remaining scope size and
-   `outcomes.agent_filtered` is the number removed by the agent filter.
+   save stages. Its `processed_count` is the completed remaining scope size and
+   `agent_filtered_count` is the number removed by the agent filter. The nested
+   `collection` report retains the original collection counts and scope.
 
    Start this command exactly once as a foreground process and wait for that
    same process to exit. While it runs, do not inspect the browser, database,
@@ -40,7 +41,7 @@ Purpose: the single LinkedIn batch-collection entry point.
    exit and receipt of its final JSON.
 
    Consume the command's JSON result directly from stdout. Continue only when
-   `status` is `complete`; use its `run_id` and ordered `scope` as the collection
+   `status` is `complete`; use its `run_id` and ordered `processed_scope` as the workflow
    result. On any other status, stop and report it. Never fall back to the agent
    implementation automatically.
 3. If `collectorMode=agent`, only then read and execute

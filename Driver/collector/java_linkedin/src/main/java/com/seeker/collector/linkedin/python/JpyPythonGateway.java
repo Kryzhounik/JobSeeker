@@ -7,7 +7,6 @@ import com.seeker.collector.linkedin.collection.ProcessResult;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.support.JsonSupport;
 import com.seeker.python.JpyRuntime;
-import org.jpy.PyInputMode;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
@@ -31,12 +30,6 @@ public final class JpyPythonGateway implements PythonGateway {
                 paths.driverRoot(),
                 paths.collectorRoot()
         );
-        try (PyObject ignored = PyObject.executeCode(
-                "import sys\nsys.stdout = sys.stderr",
-                PyInputMode.SCRIPT
-        )) {
-            // Keep stdout reserved for the Java command's final JSON result.
-        }
         this.bridge = PyModule.importModule(
                 "collector.java_linkedin.python_bridge"
         );

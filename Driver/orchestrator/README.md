@@ -61,21 +61,29 @@ java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<linkedin-job
 java -jar Driver/orchestrator/workflow-orchestrator.jar check-url "<url-1>" "<url-2>"
 ```
 
-The command prints the existing JSON collection report without `pages`.
-`status: "complete"` means processing finished; a duplicate or rejected vacancy
-has an empty `scope`, `accepted_count: 0`, and an explanatory `message`.
-A vacancy accepted by the agent filter remains in `scope` after analysis and
-final save. The resulting facts and scores are stored through the existing
-analysis workflow.
+The command prints a `WorkflowResult` as JSON:
 
-For multiple URLs, `scope` contains all accepted vacancies, `outcomes` contains
-the combined counts, and `message` includes the source IDs and reasons for
-collector skips. The existing error behavior is preserved: a collection failure
-stops the run before analysis.
+- `source`, `run_id`, `status`, and `message` identify the workflow result.
+- `collection` is the unchanged Collector report (CLI omits its `pages`). Its
+  `accepted_count`, `scope`, and `outcomes` retain their collection-only meaning.
+- `processed_scope` and `processed_count` describe the accepted workflow scope
+  after relevance filtering and analysis, including already completed jobs.
+- `agent_filtered_count` counts vacancies rejected by the agent filter.
+
+`status: "complete"` means processing finished, not that any vacancy was
+accepted. A duplicate or rejected vacancy has an empty `processed_scope` and
+an explanatory `message`. For multiple URLs, the workflow scope preserves URL
+order, while `collection` retains the combined collection statistics. A
+collection failure stops the run before analysis and returns an empty
+processed scope alongside the original failed collection report.
 
 Java callers use one method, `WorkflowOrchestrator.check(String... urls)`:
 `check(url)` for one URL, `check(url1, url2)` for several, or `check(urlArray)`.
-The CLI only parses arguments and prints the report.
+The CLI parses arguments, installs its output policy, and prints the report.
+Java callers receive `WorkflowResult`; Collector APIs still return
+`CollectionReport`. `WorkflowOrchestrator(projectRoot, progressListener)` can
+forward Collector callbacks without any console transport. JPy gateways do not
+change global Python stdout; only the CLI temporarily redirects it to stderr.
 
 ### Resume a partially processed run
 
@@ -99,6 +107,10 @@ the run's existing evaluator session.
 java -jar Driver/orchestrator/workflow-orchestrator.jar resume <run-id>
 ```
 
+The resume result has no `collection` report because no new collection took
+place. Its `run_id`, `processed_scope`, and filtering count identify the resumed
+work. No synthetic `CollectionReport` is created.
+
 ### Job-facts only
 
 Runs operation 3 for an existing explicit scope. It does not collect vacancies
@@ -115,6 +127,9 @@ Runs operations 4–7 for a scope whose `job_facts` files already exist.
 ```powershell
 java -jar Driver/orchestrator/workflow-orchestrator.jar finish-analysis <run-id> <source> <comma-separated-job-ids>
 ```
+
+The explicit-scope commands return `processed_count` and `processed_scope`,
+not collection acceptance counters.
 
 ### LinkedIn collector utilities
 
