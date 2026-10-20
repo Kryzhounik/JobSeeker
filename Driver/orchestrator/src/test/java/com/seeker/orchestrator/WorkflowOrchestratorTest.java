@@ -316,6 +316,24 @@ class WorkflowOrchestratorTest {
         assertEquals(1, gson.toJsonTree(collected).getAsJsonObject().getAsJsonArray("pages").size());
     }
 
+    @Test
+    void partialMethodsReturnTheirJsonContract() {
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> { throw new AssertionError("collector must not be called"); },
+                new FakeProcessingGateway(List.of())
+        );
+        List<ScopeItem> scope = List.of(item("1", "Java"));
+        Gson gson = new Gson();
+        var expected = gson.fromJson("""
+                {"source":"linkedin","run_id":"run-1","status":"complete",
+                 "processed_count":1,"message":"",
+                 "processed_scope":[{"source":"linkedin","job_id":"1","title":"Java"}]}
+                """, com.google.gson.JsonObject.class);
+
+        assertEquals(expected, gson.toJsonTree(orchestrator.jobFacts("run-1", "linkedin", scope)));
+        assertEquals(expected, gson.toJsonTree(orchestrator.finishAnalysis("run-1", "linkedin", scope)));
+    }
+
     private static CollectionReport report(String status, List<ScopeItem> scope) {
         return new CollectionReport(
                 "linkedin",

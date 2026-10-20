@@ -71,18 +71,9 @@ public final class Main {
             if (scope.isEmpty()) {
                 throw new IllegalArgumentException(args[0] + " scope is empty");
             }
-            if ("job-facts".equals(args[0])) {
-                orchestrator.jobFacts(args[1], args[2], scope);
-            } else {
-                orchestrator.finishAnalysis(args[1], args[2], scope);
-            }
-            var result = new com.google.gson.JsonObject();
-            result.addProperty("source", args[2]);
-            result.addProperty("run_id", args[1]);
-            result.addProperty("status", "complete");
-            result.addProperty("processed_count", scope.size());
-            result.add("processed_scope", GSON.toJsonTree(scope));
-            result.addProperty("message", "");
+            StageResult result = "job-facts".equals(args[0])
+                    ? orchestrator.jobFacts(args[1], args[2], scope)
+                    : orchestrator.finishAnalysis(args[1], args[2], scope);
             System.out.println(GSON.toJson(result));
             return;
         }

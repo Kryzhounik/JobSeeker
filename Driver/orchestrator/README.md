@@ -135,8 +135,11 @@ Runs operations 4–7 for a scope whose `job_facts` files already exist.
 java -jar Driver/orchestrator/workflow-orchestrator.jar finish-analysis <run-id> <source> <comma-separated-job-ids>
 ```
 
-The explicit-scope commands return `processed_count` and `processed_scope`,
-not collection acceptance counters.
+Both explicit-scope commands serialize their `StageResult` directly as JSON:
+`source`, `run_id`, `status`, `processed_scope`, `processed_count`, and `message`.
+`processed_count` is computed from `processed_scope` when the result is created.
+`StageResult`, `jobFacts()`, and `finishAnalysis()` are package-private;
+these commands do not add a public Orchestrator API.
 
 ### LinkedIn collector utilities
 

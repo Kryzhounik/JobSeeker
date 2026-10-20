@@ -148,18 +148,20 @@ public final class WorkflowOrchestrator {
                 collected == null ? "" : collected.message());
     }
 
-    void jobFacts(String runId, String source, List<ScopeItem> scope) {
+    StageResult jobFacts(String runId, String source, List<ScopeItem> scope) {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runJobFacts(runId, source, scope);
+        return new StageResult(source, runId, scope);
     }
 
-    void finishAnalysis(
+    StageResult finishAnalysis(
             String runId,
             String source,
             List<ScopeItem> scope
     ) {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runFinishAnalysis(runId, source, scope);
+        return new StageResult(source, runId, scope);
     }
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope) {
