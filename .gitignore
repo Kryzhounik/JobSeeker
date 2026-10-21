@@ -39,3 +39,6 @@ tmp/
 
 # Local candidate-fit research
 /Tools/fit_baseline/
+
+# Local review notes, intentionally not shared in Git
+/local-review-notes/

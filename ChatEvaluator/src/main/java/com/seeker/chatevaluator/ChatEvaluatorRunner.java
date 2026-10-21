@@ -344,18 +344,25 @@ public final class ChatEvaluatorRunner {
     }
 
     public static void main(String[] args) {
+        int exitCode = execute(args);
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
+    }
+
+    public static int execute(String[] args) {
         if (args.length != 1 || !isHttpUrl(args[0])) {
             write(System.err, "Expected one vacancy URL argument. See ChatEvaluator/README.md.\n");
-            System.exit(2);
-            return;
+            return 2;
         }
         try {
             write(System.out, run(args[0]));
+            return 0;
         } catch (Exception error) {
             String message = error.getMessage();
             if (message == null || message.isBlank()) message = error.getClass().getSimpleName();
             write(System.err, "ChatEvaluator failed: " + message + System.lineSeparator());
-            System.exit(1);
+            return 1;
         }
     }
 

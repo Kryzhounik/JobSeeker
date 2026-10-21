@@ -19,14 +19,20 @@ public final class Main {
     }
 
     public static void main(String[] args) {
+        int exitCode = execute(args);
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
+    }
+
+    public static int execute(String[] args) {
         if (args.length == 1 && "--help".equals(args[0])) {
             printHelp();
-            return;
+            return 0;
         }
         if (args.length != 1) {
             System.err.println(USAGE);
-            System.exit(2);
-            return;
+            return 2;
         }
         try {
             URI url = URI.create(args[0]);
@@ -37,8 +43,7 @@ public final class Main {
         } catch (IllegalArgumentException invalidUrl) {
             System.err.println("Invalid vacancy URL: " + invalidUrl.getMessage());
             System.err.println(USAGE);
-            System.exit(2);
-            return;
+            return 2;
         }
 
         try {
@@ -49,9 +54,10 @@ public final class Main {
             }
             ApplierRunner.Result result = new ApplierRunner(projectRoot).run(args[0]);
             System.out.println(new ObjectMapper().writeValueAsString(result));
+            return 0;
         } catch (Exception error) {
             error.printStackTrace(System.err);
-            System.exit(1);
+            return 1;
         }
     }
 

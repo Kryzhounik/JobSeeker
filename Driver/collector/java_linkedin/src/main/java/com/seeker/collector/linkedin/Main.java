@@ -14,6 +14,13 @@ public final class Main {
     }
 
     public static void main(String[] args) {
+        int exitCode = execute(args);
+        if (exitCode != 0) {
+            System.exit(exitCode);
+        }
+    }
+
+    public static int execute(String[] args) {
         PrintStream consoleErr = System.err;
         int exitCode = 0;
         try (ProcessLog log = ProcessLog.install(Path.of("."))) {
@@ -28,9 +35,7 @@ public final class Main {
             error.printStackTrace(consoleErr);
             exitCode = 1;
         }
-        if (exitCode != 0) {
-            System.exit(exitCode);
-        }
+        return exitCode;
     }
 
     private static void run(String[] args) throws IOException {
