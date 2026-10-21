@@ -34,11 +34,7 @@
         </dependency>
         <dependency>
             <groupId>com.seeker</groupId>
-            <artifactId>applier</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.seeker</groupId>
-            <artifactId>chat-evaluator</artifactId>
+            <artifactId>job-seeker-api</artifactId>
         </dependency>
         <dependency>
             <groupId>com.seeker</groupId>

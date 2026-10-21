@@ -1,7 +1,6 @@
 package com.seeker.guifx;
 
-import com.seeker.applier.ApplierRunner;
-import com.seeker.chatevaluator.ChatEvaluatorRunner;
+import com.seeker.api.DriverApi;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
@@ -1232,8 +1231,8 @@ public final class MainController {
     private void startApply() {
         JobRecord job = selectedJob;
         if (job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
-        ApplierRunner applier = new ApplierRunner(ClientData.findProjectRoot());
-        runTask("Opening application form...", updater -> applier.run(job.sourceUrl()), result -> {
+        runTask("Opening application form...", updater ->
+                new DriverApi(ClientData.findProjectRoot()).prepareApplication(job.sourceUrl()), result -> {
             String summary = result.submissionObserved()
                     ? "Application may already have been submitted. " + result.note()
                     : ("filled".equals(result.status()) ? "Filled. "
@@ -1251,10 +1250,8 @@ public final class MainController {
         JobRecord job = selectedJob;
         if (job == null || job.sourceUrl().isBlank()) return;
         String vacancyTitle = job.title();
-        runTask("Waiting for ChatGPT evaluation...", updater -> {
-            System.setProperty("seeker.projectRoot", ClientData.findProjectRoot().toString());
-            return ChatEvaluatorRunner.run(job.sourceUrl());
-        }, answer -> {
+        runTask("Waiting for ChatGPT evaluation...", updater ->
+                new DriverApi(ClientData.findProjectRoot()).evaluateWithChatGPT(job.sourceUrl()), answer -> {
             statusLabel.setText("ChatGPT evaluation complete");
             showChatEvaluation(vacancyTitle, answer);
         }, "GPT Eval failed");

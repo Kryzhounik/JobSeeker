@@ -55,7 +55,7 @@ java -jar GUI/JavaFX/seeker-gui-javafx.jar
 ```
 
 JavaFX is not a child or reactor module of `Driver`. It uses normal Maven
-dependencies on Collector, Applier, ChatEvaluator, and Tools, and imports their managed
+dependencies on Driver API, Collector result types, and Tools, and imports their managed
 versions from the installed Driver POM. After backend changes, run `install`
 again before building the GUI; both scripts do this automatically. Maven
 downloads the JavaFX platform modules on the first build.
@@ -91,7 +91,7 @@ can still be identified. Collection does not start the analysis workflow.
 
 `backend.properties` selects `collector.mode`:
 
-- `direct` (default): calls `LinkedInApplication.collectBatch()` in the GUI JVM and
+- `direct` (default): calls `DriverApi.collectBatch()` in the GUI JVM and
   receives immutable `CollectionProgress` snapshots through a Java callback.
   GUI data access and Collector share the process-wide `JpyRuntime`.
 - `process`: launches the external collector JAR with `collect-batch`. The CLI
@@ -101,10 +101,17 @@ can still be identified. Collection does not start the analysis workflow.
 Both adapters implement `CollectorClient`; the controller and progress panel
 do not depend on the transport. The configuration is read at each Collect
 start. An unknown mode is reported as an error rather than falling back.
-A future client for a persistent Driver process can implement this boundary;
-no server protocol or general Driver facade is introduced here.
+The direct adapter delegates to the shared Java API; process mode remains a
+diagnostic option, not the default path. No server protocol is introduced.
 Python stdout redirection belongs only to CLI entry points, not to the direct
 library calls.
+
+Collect, Apply, and GPT Eval use `DriverApi` inside their existing background
+tasks. A facade is created for each operation so saved collector settings,
+including the limit, take effect without restarting the GUI. Construction does
+not start a browser or Python. Apply and GPT Eval call the Java API directly,
+not a CLI; GPT Eval passes the project root without changing JVM properties.
+Database operations remain in `ClientData`.
 
 ## Background-process panels
 

@@ -48,7 +48,8 @@ one persistent blind evaluator per run so all vacancies share one scoring scale.
 `Driver/api/job-seeker-api.jar`. Java calls delegate to module APIs and return
 their existing results. CLI commands delegate to module CLI handlers in the
 same JVM, preserving output and exit codes. Individual modules remain usable
-without this facade. JavaFX integration is a separate implementation stage.
+without this facade. JavaFX delegates collection, application preparation, and
+ChatGPT evaluation to this Java API; database access remains in `ClientData`.
 
 ## Agent Relevance Filter
 

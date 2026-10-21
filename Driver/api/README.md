@@ -37,4 +37,6 @@ command name before delegation. Missing or unknown commands return code `2`.
 No child Java process or additional result serialization is used.
 
 Routing tests use stub handlers and do not start Python, a browser, or external
-services. JavaFX integration is a separate implementation stage.
+services. JavaFX calls this Java API for collection, application preparation,
+and ChatGPT evaluation, while keeping its database access in `ClientData`.
+Its optional process-mode collector continues to use the independent CLI.
