@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 
 /** Provisional rules exercised by synthetic fixtures; real sender fixtures are still required. */
 final class LinkedInRecommendations {
-    private static final Pattern JOB_PATH = Pattern.compile("^/jobs/view/(?:[^/]*-)?([0-9]+)/?$");
+    private static final Pattern JOB_PATH = Pattern.compile("^/(?:comm/)?jobs/view/(?:[^/]*-)?([0-9]+)/?$");
     private static final Pattern RECOMMENDATION = Pattern.compile(
             "(?i)\\b(?:recommended jobs?|jobs? (?:recommended )?for you|job recommendations?|job alert)\\b");
     private static final Set<String> DESTINATION_KEYS = Set.of("url", "dest", "destination", "redirect", "redirect_uri");
@@ -80,5 +80,9 @@ final class LinkedInRecommendations {
 
     private static String decode(String value) {
         return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    }
+
+    static String normalize(String link) {
+        return canonical(link, 0);
     }
 }

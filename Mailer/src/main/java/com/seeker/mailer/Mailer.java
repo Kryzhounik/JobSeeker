@@ -30,4 +30,9 @@ public final class Mailer {
     public MailExport exportMessage(String folder, String id, Path output) throws MailException {
         return mailAccess.exportMessage(folder, id, output);
     }
+
+    /** Returns new recommendation URLs and commits one UID only after a successful complete pass. */
+    public List<String> getRecommendationUrls() throws MailException {
+        return mailAccess.getRecommendationUrls();
+    }
 }

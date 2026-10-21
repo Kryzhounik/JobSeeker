@@ -11,7 +11,8 @@ import java.util.Set;
 /** Credentials are intentionally absent from toString and diagnostics. */
 final class MailSettings {
     private static final Set<String> KEYS = Set.of("imap.host", "imap.port", "imap.username",
-            "imap.appPassword", "imap.timeoutMillis");
+            "imap.appPassword", "imap.timeoutMillis", "recommendations.folder",
+            "recommendations.originalRecipient", "recommendations.startAfterUid");
     final String host;
     final int port;
     final String username;
@@ -27,16 +28,7 @@ final class MailSettings {
     }
 
     static MailSettings load(Path projectRoot) throws MailException {
-        var properties = new Properties();
-        try (var reader = Files.newBufferedReader(projectRoot.resolve("Data/mailer/config.properties"), StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        } catch (IOException | IllegalArgumentException e) {
-            throw new MailException("Cannot read Data/mailer/config.properties", e);
-        }
-        if (!KEYS.containsAll(properties.stringPropertyNames())) {
-            // Do not echo unknown keys: a misplaced secret may have become a key.
-            throw new MailException("Unknown setting in Data/mailer/config.properties");
-        }
+        var properties = readProperties(projectRoot);
         String host = required(properties, "imap.host");
         // This implementation is scoped to the Gmail account selected by the user.
         if (!host.equalsIgnoreCase("imap.gmail.com")) {
@@ -55,7 +47,21 @@ final class MailSettings {
         return new MailSettings(host, port, username, password, timeout);
     }
 
-    private static String required(Properties properties, String key) throws MailException {
+    static Properties readProperties(Path projectRoot) throws MailException {
+        var properties = new Properties();
+        try (var reader = Files.newBufferedReader(projectRoot.resolve("Data/mailer/config.properties"), StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        } catch (IOException | IllegalArgumentException e) {
+            throw new MailException("Cannot read Data/mailer/config.properties", e);
+        }
+        if (!KEYS.containsAll(properties.stringPropertyNames())) {
+            // Do not echo unknown keys: a misplaced secret may have become a key.
+            throw new MailException("Unknown setting in Data/mailer/config.properties");
+        }
+        return properties;
+    }
+
+    static String required(Properties properties, String key) throws MailException {
         String value = properties.getProperty(key, "").strip();
         if (value.isEmpty()) {
             throw new MailException("Missing setting: " + key);

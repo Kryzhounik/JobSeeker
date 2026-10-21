@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -25,7 +26,13 @@ import static org.junit.jupiter.api.Assertions.*;
 class MessageInterpreterTest {
     private static final String FIRST = "https://www.linkedin.com/jobs/view/12345/";
     private static final String SECOND = "https://www.linkedin.com/jobs/view/67890/";
-    private final MessageInterpreter interpreter = new MessageInterpreter();
+    @org.junit.jupiter.api.io.TempDir Path root;
+    private MessageInterpreter interpreter;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setupInterpreter() {
+        interpreter = new MessageInterpreter(root);
+    }
 
     // TODO: Verify the recommendation/link assertions with an actual LinkedIn HTML email.
     @Test

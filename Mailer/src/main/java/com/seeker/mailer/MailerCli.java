@@ -34,17 +34,23 @@ public final class MailerCli {
         MailExport export(String folder, String id, Path output) throws MailException;
     }
 
+    @FunctionalInterface
+    interface RecommendationSource {
+        List<String> getUrls() throws MailException;
+    }
+
     public static void main(String[] args) {
         var stdout = new PrintStream(System.out, true, StandardCharsets.UTF_8);
         var stderr = new PrintStream(System.err, true, StandardCharsets.UTF_8);
         var mailer = new Mailer(Path.of(""));
         int code = run(args, stdout, stderr, mailer::listFolders, mailer::listMessages,
-                mailer::readMessage, mailer::exportMessage);
+                mailer::readMessage, mailer::exportMessage, mailer::getRecommendationUrls);
         System.exit(code);
     }
 
     static int run(String[] args, PrintStream stdout, PrintStream stderr, FolderSource source, MessageSource messages,
-                   MessageReader reader, MessageExporter exporter) {
+                   MessageReader reader, MessageExporter exporter, RecommendationSource recommendations) {
+        boolean recommendationCommand = args.length == 1 && args[0].equals("recommendation-urls");
         boolean foldersCommand = args.length == 1 && args[0].equals("folders");
         boolean messagesCommand = args.length == 3 && args[0].equals("messages") && args[1].equals("--folder")
                 && !args[2].isBlank() && !args[2].startsWith("--")
@@ -69,14 +75,16 @@ public final class MailerCli {
             stderr.println("Invalid folder, message selector or export path");
             return 2;
         }
-        if (!foldersCommand && !messagesCommand && !readCommand && !exportCommand) {
+        if (!foldersCommand && !messagesCommand && !readCommand && !exportCommand && !recommendationCommand) {
             stderr.println("Usage: java -jar Mailer/mailer.jar folders | messages --folder <folder> | "
-                    + "message --folder <folder> --id <id> | export --folder <folder> --id <id> --output <path.eml>");
+                    + "message --folder <folder> --id <id> | export --folder <folder> --id <id> --output <path.eml> | recommendation-urls");
             return 2;
         }
         try {
             Object result;
-            if (foldersCommand) {
+            if (recommendationCommand) {
+                result = recommendations.getUrls();
+            } else if (foldersCommand) {
                 result = source.listFolders();
             } else if (messagesCommand) {
                 result = messages.listMessages(args[2]);

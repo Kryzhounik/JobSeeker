@@ -7,7 +7,7 @@ independent review follow [PLAN.md](PLAN.md).
 ## R1. Responsibility boundary
 
 Mailer receives, searches, classifies, and interprets email. It extracts useful
-message data and keeps its own processed-message record.
+message data and keeps one progress checkpoint per application operation.
 
 Mailer does not collect vacancies, check the JobSeeker vacancy database for
 duplicates, calculate Fit, match messages to applications, change vacancy or
@@ -22,7 +22,7 @@ LinkedIn. Application-response tracking is not part of this implementation.
 - Connect to the configured IMAP mailbox and search the configured folder and
   message range. Do not use the unread flag as the processing record.
 - Read messages without marking them read, moving them, deleting them, or
-  sending mail. Processed-message tracking is local to Mailer.
+  sending mail. Operation checkpoints are local to Mailer.
 - Keep account settings and credentials outside tracked source files. Do not
   print credentials or complete private messages in routine diagnostics.
 - Connection, authentication, retrieval, and local-state failures must be
@@ -30,17 +30,25 @@ LinkedIn. Application-response tracking is not part of this implementation.
 - Constructing the module must not open a mailbox connection. Unrelated
   JobSeeker operations must not require Mailer configuration or credentials.
 
-The mailbox provider, authentication method, folder, and initial search range
-have not been supplied. Obtain those details when needed to configure the
-connection; do not invent an account, login flow, or mailbox-wide default scan.
-Offline implementation and verification can proceed without a real account.
+The selected provider is Gmail with an app password and IMAPS. The current
+recommendation folder is explicitly INBOX, and the user selected an initial
+boundary after UID 425. Keep these values in local configuration, not source.
+Do not invent an initial range for another account or automatically reset a
+checkpoint with a different scope.
 
 ## R3. Interpretation
 
 - Decode message headers, character sets, transfer encoding, plain text, HTML,
   and multipart bodies into Mailer-owned Java DTOs.
-- Recognize LinkedIn vacancy-recommendation messages using their sender and
-  contents. Interpretation belongs in Mailer, including sender-specific rules.
+- Filter recommendation candidates by the agreed sender, forwarding headers,
+  and subject. Skip nonmatching messages without interpreting their bodies.
+- Parse matching messages using a known, verified format. A parsing error
+  stops the pass immediately and is logged with the message subject and
+  identifier. Propagate the exception; do not continue with later messages.
+  For the currently supported messages, X-LinkedIn-Template replaces localized
+  subject matching: three verified templates cover the four inspected variants.
+  Exact sender/template pairing, original To recipient and X-Forwarded-To/For
+  determine whether a message belongs to this operation.
 - Extract vacancy links from the actual recommendation content. Account,
   unsubscribe, search, and unrelated links are not vacancy recommendations.
 - Return direct LinkedIn vacancy URLs accepted by the existing URL workflow.
@@ -60,7 +68,8 @@ with a real LinkedIn message format on their own.
 The scenario entry point is `Mailer.getRecommendationUrls()`, returning
 `List<String>`.
 
-- Return URLs from matching messages that Mailer has not already processed.
+- Return URLs from matching messages after the operation's last successful UID
+  checkpoint.
 - Return each canonical URL once per call, preserving a deterministic order.
   This only removes repeated links in Mailer's output; existing-vacancy
   detection remains Collector's responsibility.
@@ -72,22 +81,38 @@ Mail-level access uses typed Mailer DTOs rather than Jakarta Mail objects.
 It must not consume recommendation messages merely because another caller
 searches or reads them.
 
-## R5. Processed-message record
+## R5. One progress checkpoint per operation
 
-- Keep the record inside Mailer and persist it across process restarts.
-- Distinguish messages reliably within the configured account and folder.
-- Mark a message processed after Mailer successfully classifies it and extracts
-  its data. A failed message must not be recorded as successfully processed.
-- A successfully interpreted message with no applicable vacancy URLs may be
-  recorded as processed.
-- Ordinary subsequent recommendation calls do not extract the same processed
-  message again. Reading a message through the general mail API does not mark
-  it processed for recommendations.
+- Persist one last successfully scanned IMAP UID per operation, scoped to the
+  configured account, folder, and UIDVALIDITY. There is no table of all messages.
+- Visit new messages in ascending UID order. Skip candidates that do not match
+  the agreed sender, forwarding and subject criteria; parse matching candidates.
+- Update the checkpoint only after the entire pass, retrieval, parsing and
+  cleanup succeed. Advance past skipped messages as well as parsed messages.
+- On any failure, stop, propagate the exception and leave the old checkpoint
+  unchanged. Do not return a partial URL list as a successful result.
+- A retry may repeat earlier successful work from the failed pass. This is
+  intentional; no per-message progress, queue or recovery protocol is needed.
+- Server read/unread flags and timestamps are not the progress record. Ordinary
+  mail listing, reading and export do not advance the operation checkpoint.
+- A changed account, folder or UIDVALIDITY must not silently reuse an old UID.
+  Obtain an explicit initial range for a new operation or changed scope.
 
-Here, "processed" refers to Mailer's work. Downstream vacancy processing does
-not participate in this record. A pipeline failure does not roll Mailer's
-record back. There is no acknowledgement API or coordinated transaction between
-the modules. Do not add recovery queues or delivery protocols for this task.
+Mailer only returns URLs. It does not start a browser or an analyzer for either
+empty or nonempty results. Downstream handling of URLs is outside Mailer, and
+does not participate in its checkpoint or require acknowledgement.
+
+## R5a. Local operation log
+
+Append UTF-8 JSON lines to `Data/mailer/mailer.log`. Record the operation,
+message identifier, subject, available server read/unread flag, whether only
+headers or the body were read, filtering reason, extracted URLs or body counts,
+export outcome, and errors. Do not log credentials or full message bodies.
+Log parse failures before propagating them; preserve their subject and ID.
+
+Low-level operations and the recommendation pass log their actual actions.
+Recommendation filtering logs its reason without reading the body. Extraction
+logs canonical URLs; a failure logs the current subject, selector and cause.
 
 ## R6. Orchestrator operation
 
@@ -115,7 +140,7 @@ separate analysis path or application-history report.
 - Provide a small standalone Mailer CLI:
   `java -jar Mailer/mailer.jar recommendation-urls`. It calls the same Mailer
   API, prints the URL list as a JSON array, and does not start the pipeline.
-  This command updates Mailer's processed-message record just like the API.
+  This command updates Mailer's operation checkpoint just like the API.
 - For the standalone Mailer CLI, use exit code `0` for a successful result,
   `1` for an execution failure, and `2` for invalid arguments. Reject invalid
   syntax before opening the mailbox or changing Mailer state.
@@ -132,8 +157,8 @@ Acceptance evidence must cover:
 | --- | --- |
 | Interpretation | Representative recommendation emails yield the expected canonical vacancy URLs; unrelated links are excluded. |
 | MIME handling | HTML/plain-text and multipart fixtures are decoded without losing the links needed by the scenario. |
-| Repeated calls | Processed messages stay skipped after reconstructing Mailer with the same temporary state. |
-| Failures | A retrieval or interpretation failure is visible and the failed message is not marked successfully processed. |
+| Repeated calls | UIDs through the last successful pass stay skipped after reconstructing Mailer with the same temporary checkpoint. |
+| Failures | A retrieval or interpretation failure stops the pass, is logged and propagated, and leaves the previous checkpoint unchanged. |
 | Orchestration | Nonempty URLs reach the existing URL workflow once; empty output and mail failures do not start it. |
 | Entry points | Java facade and CLI delegate to the common implementation and preserve results and diagnostics. |
 | Isolation | Existing non-mail commands do not require mailbox settings and their relevant tests still pass. |

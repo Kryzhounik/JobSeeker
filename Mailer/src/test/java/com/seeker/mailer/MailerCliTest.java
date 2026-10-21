@@ -121,6 +121,7 @@ class MailerCliTest {
                             MailerCli.FolderSource folders, MailerCli.MessageSource messages) {
         return MailerCli.run(args, out, err, folders, messages,
                 (folder, id) -> { fail("Must not read a body"); return null; },
-                (folder, id, path) -> { fail("Must not export a message"); return null; });
+                (folder, id, path) -> { fail("Must not export a message"); return null; },
+                () -> { fail("Must not scan recommendations"); return null; });
     }
 }

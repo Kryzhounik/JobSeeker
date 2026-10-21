@@ -20,7 +20,8 @@ class MessageContentCliTest {
     private int run(String[] args, MailerCli.MessageReader reader, MailerCli.MessageExporter exporter) {
         return MailerCli.run(args, stdout, stderr,
                 () -> { fail("Must not list folders"); return null; },
-                folder -> { fail("Must not list headers"); return null; }, reader, exporter);
+                folder -> { fail("Must not list headers"); return null; }, reader, exporter,
+                () -> { fail("Must not scan recommendations"); return null; });
     }
 
     @Test

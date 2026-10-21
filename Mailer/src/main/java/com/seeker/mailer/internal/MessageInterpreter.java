@@ -10,6 +10,7 @@ import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +22,15 @@ import org.jsoup.Jsoup;
 /** Internal offline decoder, shared by future mail access and recommendation operations. */
 public final class MessageInterpreter {
     private static final Pattern TEXT_URL = Pattern.compile("https?://[^\\s<>\"']+", Pattern.CASE_INSENSITIVE);
+    private final MailLog log;
+
+    public MessageInterpreter() {
+        this(Path.of(""));
+    }
+
+    public MessageInterpreter(Path projectRoot) {
+        log = new MailLog(Objects.requireNonNull(projectRoot, "projectRoot"));
+    }
 
     /**
      * The caller owns the stream and supplies an opaque identifier and receipt time.
@@ -29,25 +39,33 @@ public final class MessageInterpreter {
     public MailMessage interpret(InputStream source, String identifier, Instant receivedAt) throws MailException {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(identifier, "identifier");
+        String subject = null;
         try {
+            log.write("PARSE_START", identifier, null, null, "Reading message for interpretation");
             var message = new MimeMessage(Session.getInstance(new Properties()), source);
             Address[] from = message.getFrom();
             String sender = "";
             if (from != null && from.length == 1 && from[0] instanceof InternetAddress address) {
                 sender = address.getAddress();
             }
-            String subject = Objects.requireNonNullElse(message.getSubject(), "");
+            subject = Objects.requireNonNullElse(message.getSubject(), "");
             var body = new Body();
             decode(message, body);
             String text = String.join("\n", body.text);
             boolean recommendation = LinkedInRecommendations.recognizes(sender, subject, text);
+            List<String> urls = recommendation ? LinkedInRecommendations.extract(body.links) : List.of();
+            log.write(recommendation ? "EXTRACTED" : "FILTERED", identifier, subject, null,
+                    recommendation ? "Vacancy URLs: " + urls : "Provisional sender/content recognition did not match");
             return new MailMessage(identifier, sender, subject, receivedAt, text,
                     recommendation ? MailMessageType.LINKEDIN_RECOMMENDATION : MailMessageType.OTHER,
-                    recommendation ? LinkedInRecommendations.extract(body.links) : List.of());
+                    urls);
         } catch (MailException e) {
+            log.failure("PARSE_ERROR", identifier, subject, null, e);
             throw e;
         } catch (jakarta.mail.MessagingException | IOException | RuntimeException e) {
-            throw new MailException("Cannot decode email message", e);
+            var failure = new MailException("Cannot decode email message", e);
+            log.failure("PARSE_ERROR", identifier, subject, null, failure);
+            throw failure;
         }
     }
 

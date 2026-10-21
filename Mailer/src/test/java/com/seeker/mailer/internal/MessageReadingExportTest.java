@@ -53,6 +53,9 @@ class MessageReadingExportTest {
         assertEquals(List.of(), contentType.equals("text/html") ? message.plainTextBodies() : message.htmlBodies());
         assertFalse(store.message.isSet(Flags.Flag.SEEN));
         assertClosed(store);
+        String log = Files.readString(root.resolve("Data/mailer/mailer.log"));
+        assertTrue(log.contains("READ_COMPLETE"));
+        assertTrue(log.contains(id));
     }
 
     @ParameterizedTest
@@ -129,6 +132,10 @@ class MessageReadingExportTest {
         var broken = setup(raw);
         assertThrows(MailException.class, () -> access(broken).readMessage("INBOX", id));
         assertClosed(broken);
+        String log = Files.readString(root.resolve("Data/mailer/mailer.log"));
+        assertTrue(log.contains("READ_ERROR"));
+        assertTrue(log.contains("Private"));
+        assertTrue(log.contains(id));
         var export = setup(raw);
         var target = root.resolve("undecodable.eml");
         access(export).exportMessage("INBOX", id, target);

@@ -31,10 +31,10 @@ class MailSettingsTest {
     }
 
     @Test
-    void missingSettingsFailAtOperationTimeWithoutCreatingData() {
+    void missingSettingsFailAtOperationTimeAndAreLogged() {
         MailException error = assertThrows(MailException.class, () -> new Mailer(root).listFolders());
         assertNotNull(error.getCause());
-        assertFalse(Files.exists(root.resolve("Data")));
+        assertTrue(Files.exists(root.resolve("Data/mailer/mailer.log")));
     }
 
     @Test
