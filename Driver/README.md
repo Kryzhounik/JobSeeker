@@ -17,7 +17,7 @@ mvn -f Driver/pom.xml package
 ```
 
 `Driver/pom.xml` is the parent and reactor for Tools, Applier, ChatEvaluator,
-the LinkedIn collector, and the workflow orchestrator. Every module creates a
+the LinkedIn collector, the workflow orchestrator, and the API module. Every module creates a
 thin JAR in its own directory; runnable modules declare their main class in
 the manifest. Runtime dependencies, including copies of required project
 modules, go into the repository-root `libs/`. The manifest supplies their
@@ -41,6 +41,14 @@ Analyzer worker counts and group size live in
 `analyzer/config/execution.ini`. Java currently processes job-facts groups
 sequentially; bounded parallel groups remain a backlog item. Candidate fit uses
 one persistent blind evaluator per run so all vacancies share one scoring scale.
+
+## Java API and CLI
+
+[`api`](api/README.md) provides `com.seeker.api.DriverApi` and the thin runnable
+`Driver/api/job-seeker-api.jar`. Java calls delegate to module APIs and return
+their existing results. CLI commands delegate to module CLI handlers in the
+same JVM, preserving output and exit codes. Individual modules remain usable
+without this facade. JavaFX integration is a separate implementation stage.
 
 ## Agent Relevance Filter
 

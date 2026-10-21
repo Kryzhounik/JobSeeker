@@ -28,6 +28,7 @@
         <module>../ChatEvaluator</module>
         <module>collector/java_linkedin</module>
         <module>orchestrator</module>
+        <module>api</module>
     </modules>
 
     <dependencyManagement>
@@ -55,6 +56,11 @@
             <dependency>
                 <groupId>com.seeker</groupId>
                 <artifactId>workflow-orchestrator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.seeker</groupId>
+                <artifactId>job-seeker-api</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

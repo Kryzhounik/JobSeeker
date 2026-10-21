@@ -32,11 +32,14 @@ public final class ChatEvaluatorRunner {
     private ChatEvaluatorRunner() { }
 
     public static String run(String vacancyUrl) throws Exception {
+        return run(Path.of(System.getProperty("seeker.projectRoot", ".")), vacancyUrl);
+    }
+
+    public static String run(Path projectRoot, String vacancyUrl) throws Exception {
         if (vacancyUrl == null || vacancyUrl.isBlank()) {
             throw new IllegalArgumentException("Vacancy URL must not be blank.");
         }
-        Path root = Path.of(System.getProperty("seeker.projectRoot", "."))
-                .toAbsolutePath().normalize();
+        Path root = projectRoot.toAbsolutePath().normalize();
         Properties chat = load(root.resolve(CHAT_CONFIG));
         String chatUrl = required(chat, "chat.url", root.resolve(CHAT_CONFIG));
         Properties runtime = load(root.resolve(LINKEDIN_RUNTIME));

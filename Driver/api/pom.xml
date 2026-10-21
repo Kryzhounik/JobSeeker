@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.seeker</groupId>
+        <artifactId>job-seeker-java</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>job-seeker-api</artifactId>
+    <name>Job Seeker API</name>
+
+    <properties>
+        <seeker.libs.classpathPrefix>../../libs/</seeker.libs.classpathPrefix>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>workflow-orchestrator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>linkedin-collector</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>applier</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>chat-evaluator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>com.seeker.api.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

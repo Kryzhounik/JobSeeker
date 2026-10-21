@@ -5,7 +5,7 @@ import com.seeker.collector.linkedin.collection.ScopeItem;
 
 import java.util.List;
 
-record StageResult(
+public record StageResult(
         String source,
         @SerializedName("run_id") String runId,
         String status,
@@ -13,7 +13,7 @@ record StageResult(
         @SerializedName("processed_count") int processedCount,
         String message
 ) {
-    StageResult {
+    public StageResult {
         processedScope = List.copyOf(processedScope);
         processedCount = processedScope.size();
         message = message == null ? "" : message;
