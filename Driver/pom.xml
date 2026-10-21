@@ -23,6 +23,7 @@
     </properties>
 
     <modules>
+        <module>../Mailer</module>
         <module>../Tools</module>
         <module>../Applier</module>
         <module>../ChatEvaluator</module>

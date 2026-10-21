@@ -1,0 +1,19 @@
+From: =?UTF-8?B?TGlua2VkSW4=?= <jobs-noreply@linkedin.com>
+To: fixture@example.invalid
+Subject: =?UTF-8?B?Sm9icyBmb3IgeW91?=
+Date: Wed, 21 Oct 2026 09:00:00 +0000
+MIME-Version: 1.0
+Content-Type: text/html; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+
+<html><body><h1>Recommended jobs</h1><p>Java =D0=A0=D0=B0=D0=B7=D1=80=D0=B0=D0=B1=D0=BE=D1=82=D1=87=D0=B8=D0=BA</p>
+<a href=3D"https://www.linkedin.com/jobs/view/12345/?trackingId=3Dtest&amp;refId=3Dtest">First job</a>
+<a href=3D"http://de.linkedin.com/jobs/view/java-developer-67890?trk=3Demail">Second job</a>
+<a href=3D"https://www.linkedin.com/jobs/view/12345/">Repeated job</a>
+<a href=3D"https://www.linkedin.com/jobs/search/?keywords=3Djava">Search jobs</a>
+<a href=3D"https://www.linkedin.com/psettings/">Account</a>
+<a href=3D"https://www.linkedin.com/e/v2/email-unsubscribe">Unsubscribe</a>
+<a href=3D"https://linkedin.com.evil.invalid/jobs/view/999/">Unrelated</a>
+<a href=3D"https://example.invalid/jobs/view/888/">Other site</a>
+<script>https://www.linkedin.com/jobs/view/777/</script>
+</body></html>

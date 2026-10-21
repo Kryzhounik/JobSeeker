@@ -1,0 +1,33 @@
+From: LinkedIn <jobs-noreply@linkedin.com>
+Subject: Recommended jobs
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary=outer
+
+--outer
+Content-Type: multipart/alternative; boundary=inner
+
+--inner
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+Sm9icyBmb3IgeW91OiBodHRwczovL3d3dy5saW5rZWRpbi5jb20vam9icy92aWV3LzEyMzQ1Lw==
+--inner
+Content-Type: text/html; charset=UTF-8
+
+<p>Jobs for you</p><a href="https://www.linkedin.com/jobs/view/12345/?trk=html">Same job</a>
+<a href="https://www.linkedin.com/redir/redirect?url=https%3A%2F%2Fwww.linkedin.com%2Fjobs%2Fview%2F67890%2F%3Ftrk%3Dredirect&amp;trk=mail">Another job</a>
+--inner--
+--outer
+Content-Type: text/plain; charset=UTF-8
+Content-Disposition: attachment; filename=links.txt
+
+https://www.linkedin.com/jobs/view/99999/
+--outer
+Content-Type: message/rfc822
+
+From: someone@example.invalid
+Subject: Forwarded link
+Content-Type: text/plain
+
+https://www.linkedin.com/jobs/view/88888/
+--outer--

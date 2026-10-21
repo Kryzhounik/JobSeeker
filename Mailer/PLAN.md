@@ -69,117 +69,152 @@ No item is complete merely because it is described here.
 An independent reviewer checks the module boundary, fixture evidence, and
 extraction behavior. Report, stop, and wait for the user's instruction.
 
-## 2. IMAP access, configuration, and typed mail API
+## Scope of the remaining items
+
+Items 2-4 stop at working low-level mail access: connect to the actual account,
+enumerate messages, read them, and export complete `.eml` files for inspection.
+They do not implement an application scenario.
+
+The broader requirements and architecture still describe the intended Mailer
+boundary. Their recommendation-related deliverables are deferred for these
+items. Do not implement `getRecommendationUrls()`, processed-message storage,
+vacancy checks, or Orchestrator/DriverApi integration just because those
+documents mention them. Leave README, REQUIREMENTS, and ARCHITECTURE unchanged
+for this work; record actual configuration and command usage in the item's
+completion report.
+
+Low-level reading and export must work independently of the provisional
+LinkedIn recognition and extraction code from item 1. Reading an unfamiliar
+message must not fail because its recommendation format is unknown.
+
+Use a small standalone CLI alongside the Java API so the user and reviewer can
+see what Java actually receives. Both entry points use the same implementation.
+The commands below specify the required operations; keep their syntax small
+and report the final syntax with each completed item. Use UTF-8 JSON for
+structured console results, stderr for diagnostics, and exit codes `0` for
+success, `1` for operational failures, and `2` for invalid arguments. Reject
+invalid syntax before connecting to mail.
+
+Ordinary automated checks use fixtures, stubs, or a local fixture server. Each
+item also requires evidence from the real configured mailbox for its stated
+outcome. Obtain missing provider, authentication, or folder details when they
+are needed; do not invent values or claim that a simulated connection proves
+real access. An assigned item and the supplied account/folder scope cover its
+described read-only verification. Reviewers can use the recorded results and
+local checks without independently accessing the real mailbox.
+
+## 2. Real mailbox connection and folder inspection
 
 **Deliverable**
 
-- Implement local settings, IMAP connection/search/retrieval, and cleanup.
-- Expose `findMessages(MailQuery)` using the DTOs and interpretation from item 1.
-- Keep mailbox access read-only and separate from processed-message tracking.
-- Load connection settings when needed. Missing mail settings must not affect
-  unrelated operations or module construction.
-- Document the concrete local configuration keys in the architecture document
-  or a small tracked example. Do not place account secrets in tracked files.
-- Obtain the actual provider/authentication details when required. Do not add
-  alternate login flows without a concrete need.
+- Obtain the actual provider and supported authentication method. Implement
+  the connection path needed for that account, without additional login flows.
+- Load local settings and credentials from Git-ignored `Data/mailer/` or the
+  chosen local credential source. Do not connect during module construction.
+- Add a typed Java operation to list the server's folders and identify which
+  folders can contain messages. Preserve their actual names and hierarchy.
+- Produce the runnable thin `Mailer/mailer.jar` with a minimal `folders`
+  command calling that operation. Follow the existing shared `libs/` convention.
+- Close connections and folders reliably. Do not change mail flags, send mail,
+  move messages, or modify any JobSeeker business state.
 
 **Checks**
 
-- Verify query-to-search mapping, successful retrieval, visible failures, and
-  connection/folder cleanup using replaceable mail access or a local fixture
-  server. Ordinary tests must not use the real mailbox.
-- Verify that a mail-level search does not change processed-message state or
-  mark server messages read.
-- Build the module and run its relevant tests. If the user separately requests
-  a live read, report its settings scope and actual result without exposing
-  credentials or private message contents.
+- Verify configuration validation, visible authentication/connection errors,
+  resource cleanup, and CLI output using offline checks.
+- Run `mvn -f Driver/pom.xml -pl :mailer -am package`.
+- Using the provided real account, demonstrate a successful connection and
+  folder listing. Report the selected account scope without disclosing secrets.
+  If access details are missing or connection fails, report that limitation;
+  do not mark the real-connection outcome complete.
 
 **Review gate**
 
-An independent reviewer checks the public types, configuration boundary,
-resource handling, and read-only behavior. Report and stop.
+An independent reviewer checks connection handling, API/CLI delegation, build
+results, and the evidence of real access. Report and stop for the user.
 
-## 3. Recommendation API, local processed record, and Mailer CLI
+## 3. Complete message enumeration and header inspection
 
 **Deliverable**
 
-- Implement `Mailer.getRecommendationUrls()` by composing the existing mail
-  access and interpretation components.
-- Add the small Mailer-owned processed-message table under `Data/mailer/`.
-  Apply the success/failure semantics in requirements R4-R5.
-- Add the standalone `recommendation-urls` CLI, using the same API and state.
-  Produce the runnable thin `Mailer/mailer.jar`.
-- Keep all message identities and tracking inside Mailer. Do not add caller
-  acknowledgement, recovery queues, or vacancy-database access.
+- Add a typed Java operation and a `messages --folder <folder>` CLI command
+  that enumerate every message in the explicitly selected folder.
+- Return message selectors plus available headers such as sender, subject,
+  received time, and Message-ID. Do not fetch all bodies merely to list headers.
+- Include read and unread messages. Do not silently restrict the result to
+  recent messages, LinkedIn senders, a first page, or an arbitrary count.
+- Retrieval may use batches, but the default operation must traverse the
+  complete selected folder. Handle an empty folder successfully.
+- Message selectors must identify the same message after reconnect, because
+  listing and reading are separate CLI invocations. Retain folder context and
+  use IMAP UID/UIDVALIDITY or an equivalent stable identity rather than a
+  mutable sequence index. A stale selector must not select a different message.
+- Keep all access read-only. Do not create a processed-message database or
+  decide which messages belong to the future recommendation scenario.
 
 **Checks**
 
-- With stubbed mail access and temporary state, verify first extraction,
-  repeated calls, reconstruction with persisted state, empty results, multiple
-  messages, repeated URLs, and visible interpretation/storage failures.
-- Verify that failed messages are not marked successfully processed and that
-  ordinary `findMessages()` calls do not consume recommendations.
-- Verify CLI argument rejection without opening mail, JSON output, error
-  output, and exit codes without a real mailbox.
-- Run `mvn -f Driver/pom.xml -pl :mailer -am package` and inspect the JAR's
-  runtime dependency paths.
+- Verify empty folders, mixed read/unread messages, non-LinkedIn senders,
+  multiple retrieval batches, complete enumeration, and visible retrieval
+  errors using offline cases.
+- Verify selector stability across connections and detection of stale or
+  missing messages. Confirm listing does not change read flags.
+- Build and run relevant tests. Enumerate the real folder chosen for this
+  verification and demonstrate that the complete message set is accessible.
+  State the folder and count; do not copy private subjects into the report.
 
 **Review gate**
 
-An independent reviewer checks the observable API behavior and storage
-semantics, including their deliberately local scope. Report and stop.
+An independent reviewer checks completeness, message identity, read-only
+behavior, and the real-mail evidence. Report and stop for the user.
 
-## 4. Orchestrator recommendation operation
+## 4. Message reading and full .eml export
 
 **Deliverable**
 
-- Add `WorkflowOrchestrator.checkRecommendations()` and the small injectable
-  recommendation source needed for offline verification.
-- Pass a nonempty URL list to the existing `processUrls()` exactly once and
-  return its result. Implement the agreed successful empty result separately.
-- Propagate Mailer errors before the pipeline starts.
-- Keep existing constructors and operations usable without Mailer settings.
-  Do not add mail DTOs, application matching, or a second pipeline here.
+- Add a typed Java operation and a `message --folder <folder> --id <id>` CLI
+  command to read a selected message using the selector from item 3.
+- Expose the headers and decoded plain-text and HTML bodies, separately when
+  both exist. Reuse generic MIME handling where appropriate, without requiring
+  sender classification, recommendation wording, or successful URL extraction.
+- Add an `export --folder <folder> --id <id> --output <path>` CLI command and
+  the matching Java operation to save a complete message as `.eml` locally.
+- Export the full RFC 822/MIME message: headers, body parts, multipart
+  boundaries, declared charsets, transfer encodings, and attachment content.
+  Do not replace it with HTML-only output or a reconstruction from decoded DTOs.
+- Prefer the original message stream available from the server/library. If
+  library serialization changes headers or line endings, verify and report
+  that behavior rather than claiming byte-for-byte original preservation.
+- Raw export must remain available even if decoded-body interpretation fails
+  or the message type is unknown. Store real samples under Git-ignored
+  `Data/mailer/`; do not commit private messages.
+- Keep CLI and Java reading/export behavior shared and mailbox access read-only.
 
 **Checks**
 
-- With stubs, verify URL order, one invocation of the existing URL workflow,
-  result propagation, empty output, and mail errors.
-- Confirm that empty results and Mailer failures do not start collection or
-  analysis, and existing operations do not initialize the mailbox.
-- Run the relevant existing Orchestrator tests and
-  `mvn -f Driver/pom.xml -pl :workflow-orchestrator -am test`.
+- Verify plain-text, HTML, multipart alternatives, character/transfer encoding,
+  missing bodies, and attachments with generic MIME fixtures.
+- Verify that export preserves the complete MIME structure and attachment
+  payload, and that a decoding failure does not prevent raw export.
+- Verify argument/file-output errors and unchanged server read flags. Build
+  the executable JAR and run the relevant tests.
+- Read and export actual user-selected messages from the configured mailbox,
+  including a recommendation email selected for later inspection. Compare
+  Java's decoded output with its `.eml` source and record the local sample
+  paths. Do not infer recommendation-selection or link-extraction rules yet.
 
 **Review gate**
 
-An independent reviewer checks delegation, dependency direction, result
-semantics, and compatibility with the existing workflow. Report and stop.
+An independent reviewer checks the Java API/CLI behavior, MIME/export fidelity,
+and evidence from the actual messages. Report and stop for the user's acceptance.
 
-## 5. DriverApi and workflow CLI exposure
+## Decision after the low-level items
 
-**Deliverable**
+After items 2-4 are implemented, independently reviewed, and accepted by the
+user, stop implementation. The user and reviewer inspect the real `.eml`
+samples and the data returned by Java.
 
-- Add the thin `DriverApi.checkRecommendations()` delegation.
-- Add `check-recommendations` to the Orchestrator CLI and the Driver API CLI
-  router. Route within the same JVM and use the existing result serialization.
-- Update the relevant API/Orchestrator usage documentation with the new
-  operation. Keep `Mailer/README.md` short; put technical details in the
-  architecture or requirements document.
-
-**Checks**
-
-- Verify Java delegation and CLI routing with stubs. Verify that extra
-  arguments are rejected before mail access and that stdout remains valid
-  workflow JSON with diagnostics on stderr.
-- Run the relevant existing API routing tests and
-  `mvn -f Driver/pom.xml -pl :job-seeker-api -am package`.
-- Confirm that the standalone Mailer command and the integrated workflow share
-  the same Mailer implementation and do not duplicate interpretation logic.
-- Report whether any user-requested live verification ran. Do not start the
-  real recommendation workflow as an implicit final test.
-
-**Review gate**
-
-An independent reviewer checks the complete implemented path and the remaining
-verification limits. Report and stop for the user's acceptance. Do not start
-additional features after this item.
+Only then agree which specific messages the application scenario should use
+and how their links or other useful data should be extracted. Use that evidence
+to define the high-level requirements and a subsequent implementation plan.
+No high-level work is authorized by completion of the low-level items.

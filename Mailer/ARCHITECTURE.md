@@ -168,6 +168,43 @@ existing stdout/stderr conventions; mailbox diagnostics must not corrupt JSON.
 
 ## Verification boundary
 
+### Item 1 implementation status
+
+The offline module uses Java 21 bytecode, Eclipse Angus Jakarta Mail for MIME
+decoding, and jsoup for local HTML parsing. It has no business-module dependency.
+The inherited reactor build produces a thin `Mailer/mailer.jar` with manifest
+references to repository-root `libs/`. It is a library at this stage; a main
+class and the standalone CLI belong to item 3.
+
+`MailQuery`, `MailMessage`, `MailMessageType`, and `MailException` are owned by
+`com.seeker.mailer`. Null query criteria omit that restriction; `receivedAfter`
+is exclusive. A null message receipt time means unavailable, not the sender's
+Date header. The list of extracted URLs is defensively copied.
+
+`internal.MessageInterpreter` decodes an input stream with a caller-supplied
+opaque identifier and receipt time. The caller owns the stream. Jakarta Mail
+types are confined to the internal implementation. MIME body parts are visited
+in wire order, including both multipart alternatives, then canonical links are
+deduplicated in first-occurrence order. Attachments, named file parts, and
+encapsulated forwarded messages are excluded from recommendation content.
+HTML is parsed locally without loading external resources.
+
+LinkedIn-specific rules are **provisional**: only synthetic fixtures are
+available. Recognition currently requires a single From address under
+`linkedin.com` and English recommendation wording in the subject or body.
+This is classification, not sender authentication. Direct numeric or slugged
+`/jobs/view/<id>` URLs are normalized. Explicit LinkedIn `/redir/redirect` and
+`/safety/go` wrappers can be decoded locally with bounded recursion; unknown
+wrappers are not fetched. A recognized recommendation with no interpretable
+vacancy link raises `MailException`. Other messages return type `OTHER` and an
+empty URL list. These rules do not establish support for actual sender
+templates, languages, or wrappers until representative sanitized messages are
+provided and verified. Fixture provenance is recorded in
+`src/test/resources/mail/README.md`.
+
+No mailbox connection, local configuration loading, processed-message storage,
+Mailer scan facade, or workflow integration is implemented in item 1.
+
 Test MIME and sender interpretation with email fixtures, processed tracking
 with temporary Mailer state, and workflow routing with injected stubs. Real
 mail access is not part of normal unit tests. A live recommendation workflow
