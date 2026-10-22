@@ -15,7 +15,7 @@ import java.util.function.Consumer;
 interface CollectorClient {
     CollectionReport collect(Consumer<CollectionProgress> progress) throws Exception;
 
-    static CollectorClient configured(Path projectRoot) throws IOException {
+    static CollectorClient configured(Path projectRoot, CollectorClient direct) throws IOException {
         Path config = projectRoot.resolve("GUI/JavaFX/backend.properties");
         Properties values = new Properties();
         if (Files.exists(config)) {
@@ -24,7 +24,7 @@ interface CollectorClient {
             }
         }
         return switch (values.getProperty("collector.mode", "direct").strip()) {
-            case "direct" -> new DirectCollectorClient(projectRoot);
+            case "direct" -> java.util.Objects.requireNonNull(direct);
             case "process" -> new ProcessCollectorClient(projectRoot);
             default -> throw new IOException("Unknown collector.mode in " + config);
         };

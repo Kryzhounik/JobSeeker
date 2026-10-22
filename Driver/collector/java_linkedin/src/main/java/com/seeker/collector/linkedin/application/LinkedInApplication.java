@@ -24,15 +24,21 @@ public final class LinkedInApplication {
             .ofPattern("yyyyMMdd'T'HHmmss'Z'")
             .withZone(ZoneOffset.UTC);
 
-    private final LinkedInLoginService loginService;
+    private final ProjectPaths paths;
     private final LinkedInCollectionService collectionService;
 
     public LinkedInApplication(Path projectRoot) throws IOException {
-        this(projectRoot, ignored -> { });
+        this.paths = ProjectPaths.fromProjectRoot(projectRoot);
+        PythonRuntime pythonRuntime = PythonRuntime.load(
+                paths.collectorRoot().resolve("java_linkedin/runtime.properties")
+        );
+        this.collectionService = new LinkedInCollectionService(
+                paths,
+                pythonRuntime
+        );
     }
 
-    public LinkedInApplication(Path projectRoot, Consumer<CollectionProgress> progress) throws IOException {
-        ProjectPaths paths = ProjectPaths.fromProjectRoot(projectRoot);
+    public LoginResult login() throws IOException {
         CollectorConfig config = CollectorConfig.load(paths.configPath());
         BrowserSettings browserSettings = new BrowserSettings(
                 config.browserChannel(),
@@ -40,50 +46,55 @@ public final class LinkedInApplication {
                 config.browserLaunchTimeoutSeconds(),
                 config.pageTimeoutSeconds()
         );
-        PythonRuntime pythonRuntime = PythonRuntime.load(
-                paths.collectorRoot().resolve("java_linkedin/runtime.properties")
-        );
-        this.loginService = new LinkedInLoginService(
-                paths.profileDirectory(),
-                browserSettings
-        );
-        this.collectionService = new LinkedInCollectionService(
-                paths,
-                config,
-                browserSettings,
-                pythonRuntime,
-                progress
-        );
-    }
-
-    public LoginResult login() throws IOException {
-        return loginService.login();
+        return new LinkedInLoginService(paths.profileDirectory(), browserSettings).login();
     }
 
     public CollectionReport collectBatch() throws IOException {
+        return collectBatch(ignored -> { });
+    }
+
+    public CollectionReport collectBatch(Consumer<CollectionProgress> progress) throws IOException {
         return collectionService.collectBatch(
-                RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin"
+                RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin", progress
         );
     }
 
     public CollectionReport collectUrl(String runId, String url) throws IOException {
-        return collectionService.collectFromUrl(runId, url);
+        return collectUrl(runId, url, ignored -> { });
+    }
+
+    public CollectionReport collectUrl(String runId, String url, Consumer<CollectionProgress> progress)
+            throws IOException {
+        return collectionService.collectFromUrl(runId, url, progress);
     }
 
     public CollectionReport collectUrl(String url) throws IOException {
         return collectUrls(List.of(url));
     }
 
+    public CollectionReport collectUrl(String url, Consumer<CollectionProgress> progress) throws IOException {
+        return collectUrls(List.of(url), progress);
+    }
+
     public CollectionReport collectUrls(List<String> urls) throws IOException {
         return collectUrls(urls, "");
     }
 
+    public CollectionReport collectUrls(List<String> urls, Consumer<CollectionProgress> progress) throws IOException {
+        return collectUrls(urls, "", progress);
+    }
+
     public CollectionReport collectUrls(List<String> urls, String runPrefix) throws IOException {
+        return collectUrls(urls, runPrefix, ignored -> { });
+    }
+
+    public CollectionReport collectUrls(List<String> urls, String runPrefix,
+                                       Consumer<CollectionProgress> progress) throws IOException {
         return collectionService.collectFromUrls(
                 (runPrefix.isBlank() ? "" : runPrefix.strip() + "-")
                         + RUN_ID_TIME.format(Instant.now())
                         + (urls.size() == 1 ? "-url-linkedin" : "-urls-linkedin"),
-                urls
+                urls, progress
         );
     }
 }

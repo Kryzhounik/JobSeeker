@@ -59,22 +59,23 @@ public final class CollectorProgressSmoke {
     private static void checkModeSelection() throws IOException {
         Path root = Files.createTempDirectory("collector-mode-");
         Path config = root.resolve("GUI/JavaFX/backend.properties");
+        CollectorClient direct = progress -> { throw new AssertionError("Collection must not run in mode selection"); };
         try {
-            if (!(CollectorClient.configured(root) instanceof DirectCollectorClient)) {
+            if (CollectorClient.configured(root, direct) != direct) {
                 throw new AssertionError("Default collector mode must be direct");
             }
             Files.createDirectories(config.getParent());
             Files.writeString(config, "collector.mode=process\n");
-            if (!(CollectorClient.configured(root) instanceof ProcessCollectorClient)) {
+            if (!(CollectorClient.configured(root, direct) instanceof ProcessCollectorClient)) {
                 throw new AssertionError("Process adapter was not selected");
             }
             Files.writeString(config, "collector.mode=direct\n");
-            if (!(CollectorClient.configured(root) instanceof DirectCollectorClient)) {
+            if (CollectorClient.configured(root, direct) != direct) {
                 throw new AssertionError("Direct adapter was not selected");
             }
             Files.writeString(config, "collector.mode=unknown\n");
             try {
-                CollectorClient.configured(root);
+                CollectorClient.configured(root, direct);
                 throw new AssertionError("Unknown mode silently accepted");
             } catch (IOException expected) {
                 // Configuration mistakes must not silently select another transport.

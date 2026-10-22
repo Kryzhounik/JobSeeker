@@ -35,6 +35,10 @@ if ($LASTEXITCODE -ne 0) {
 
 $classpath = (Join-Path $directory "target\test-classes") + ";" + `
     (Join-Path $directory "seeker-gui-javafx.jar")
+& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.FatJarSmoke
+if ($LASTEXITCODE -ne 0) {
+    throw "Fat GUI jar isolation check failed with exit code $LASTEXITCODE."
+}
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.ClientDataSmoke
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX data connection check failed with exit code $LASTEXITCODE."

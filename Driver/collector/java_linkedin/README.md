@@ -24,11 +24,18 @@ The Java code is split by responsibility:
 `LinkedInLoginService` and `LinkedInCollectionService` contain the two use
 cases without command-line request wrappers.
 
-`new LinkedInApplication(projectRoot, progressListener)` accepts a
-`Consumer<CollectionProgress>`. Callbacks run synchronously on the calling
-worker thread, before browser startup and during collection, including the
-final state. A UI caller marshals snapshots to its UI thread. The constructor
-without a listener keeps the same API with progress ignored. The snapshots
+`new LinkedInApplication(projectRoot)` keeps no progress handler. Pass a
+`Consumer<CollectionProgress>` to the collection call, for example
+`collectBatch(handler)` or `collectUrls(urls, runPrefix, handler)`.
+`LinkedInCollectionService` also receives the handler per call; only the
+single-run `LinkedInCollector` retains it. Collection settings are loaded from
+`linkedin.properties` at the start of each collection call and remain fixed
+for that run. Reusing the application picks up file changes on the next call;
+login also reads current browser settings when called.
+Callbacks run synchronously on the
+calling worker thread, before browser startup and during collection, including
+the final state. A UI caller marshals snapshots to its UI thread. Calls without
+a listener remain available with progress ignored. The snapshots
 contain the run ID, stage, location/search, page/card counters, accepted/limit,
 outcomes, and details. They do not write a console protocol themselves.
 

@@ -125,8 +125,7 @@ public final class BackgroundProcessPaneSmoke {
                     + height + "; viewport=" + scroll.getViewportBounds()
                     + "; content=" + scroll.getContent().getLayoutBounds());
         }
-        batch.update(new CollectionProgress("batch-run", "complete", "Poland", "general",
-                3, 25, 7, 100, Map.of("raw_saved", 7, "preview_filtered", 3), "plan_exhausted"));
+        batch.update(new WorkflowProgress("batch-run", "collection", 7, 100, "", 0, "plan_exhausted"));
         assertState(badge, "running");
         if (dismiss.isVisible()) throw new AssertionError("Collection completion finished the batch");
         batch.update(new WorkflowProgress("batch-run", "relevance_filter", 7, 7, "", 1, ""));

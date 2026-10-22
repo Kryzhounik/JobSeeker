@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 final class ClientData {
     private static final ObjectMapper json = new ObjectMapper()
@@ -53,6 +54,15 @@ final class ClientData {
         JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
                 runtime.pythonHome(), runtime.pythonExecutable(), projectRoot,
                 projectRoot.resolve("Driver"), projectRoot.resolve("Driver/collector"));
+    }
+
+    synchronized void saveGptEvaluation(int jobId, String answer, String evaluatedAt) {
+        callVoid("save_gpt_evaluation", databasePath.toString(), jobId, answer, evaluatedAt);
+    }
+
+    synchronized Optional<JobGptEvaluation> loadGptEvaluation(int jobId) throws IOException {
+        return Optional.ofNullable(json.readValue(
+                call("load_gpt_evaluation", databasePath.toString(), jobId), JobGptEvaluation.class));
     }
 
     synchronized List<String> loadStatusValues() throws Exception {

@@ -11,6 +11,7 @@ import java.io.PrintStream;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 public final class Main {
     static final Gson GSON = new GsonBuilder().serializeNulls().create();
@@ -50,19 +51,21 @@ public final class Main {
     }
 
     private static void runWorkflow(String[] args) throws IOException {
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."), CliOutput::printProgress);
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
+        Consumer<WorkflowProgress> progress = update ->
+                System.err.println("WORKFLOW_PROGRESS " + GSON.toJson(update));
         if ((args.length == 1 && "check-recommendations".equals(args[0]))
                 || (args.length >= 2 && "process-urls".equals(args[0]))
                 || (args.length == 2 && (
                         "process-batch".equals(args[0]) || "resume".equals(args[0])
                 ))) {
             WorkflowResult report = switch (args[0]) {
-                case "check-recommendations" -> orchestrator.checkRecommendations();
-                case "process-batch" -> orchestrator.processBatch(args[1]);
+                case "check-recommendations" -> orchestrator.checkRecommendations(progress);
+                case "process-batch" -> orchestrator.processBatch(args[1], progress);
                 case "process-urls" -> orchestrator.processUrls(
-                        Arrays.copyOfRange(args, 1, args.length)
+                        Arrays.asList(Arrays.copyOfRange(args, 1, args.length)), progress
                 );
-                default -> orchestrator.resume(args[1]);
+                default -> orchestrator.resume(args[1], progress);
             };
             System.out.println(GSON.toJson(report));
             return;
@@ -80,8 +83,8 @@ public final class Main {
                 throw new IllegalArgumentException(args[0] + " scope is empty");
             }
             StageResult result = "job-facts".equals(args[0])
-                    ? orchestrator.jobFacts(args[1], args[2], scope)
-                    : orchestrator.finishAnalysis(args[1], args[2], scope);
+                    ? orchestrator.jobFacts(args[1], args[2], scope, progress)
+                    : orchestrator.finishAnalysis(args[1], args[2], scope, progress);
             System.out.println(GSON.toJson(result));
             return;
         }

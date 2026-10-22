@@ -39,13 +39,13 @@ public final class Main {
     }
 
     private static void run(String[] args) throws IOException {
-        LinkedInApplication application = new LinkedInApplication(Path.of("."), CliOutput::printProgress);
+        LinkedInApplication application = new LinkedInApplication(Path.of("."));
         Object result;
         if (args.length == 1 && "login".equals(args[0])) {
             result = application.login();
         } else if (args.length == 1 && "collect-batch".equals(args[0])) {
             try (CliOutput ignored = CliOutput.redirectPython(Path.of("."))) {
-                result = application.collectBatch();
+                result = application.collectBatch(CliOutput::printProgress);
             }
         } else {
             throw new IllegalArgumentException("Expected login or collect-batch");

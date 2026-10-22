@@ -25,24 +25,13 @@ public final class WorkflowOrchestrator {
     private final ProcessingGateway processingGateway;
     private final RecommendationSource recommendations;
     private final int vacanciesPerAgent;
-    private final Consumer<WorkflowProgress> progress;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
-        this(projectRoot, ignored -> { });
-    }
-
-    public WorkflowOrchestrator(Path projectRoot, Consumer<CollectionProgress> progress)
-            throws IOException {
-        this(projectRoot, progress, ignored -> { });
-    }
-
-    public WorkflowOrchestrator(Path projectRoot, Consumer<CollectionProgress> collectionProgress,
-                                Consumer<WorkflowProgress> progress) throws IOException {
         this(
-                new LinkedInApplication(projectRoot, collectionProgress),
+                new LinkedInApplication(projectRoot),
                 new JpyProcessingGateway(projectRoot),
                 new Mailer(projectRoot)::getRecommendationUrls,
-                vacanciesPerAgent(projectRoot), progress
+                vacanciesPerAgent(projectRoot)
         );
     }
 
@@ -50,24 +39,17 @@ public final class WorkflowOrchestrator {
             LinkedInApplication linkedin,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
-            int vacanciesPerAgent,
-            Consumer<WorkflowProgress> progress
+            int vacanciesPerAgent
     ) {
         this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
-                recommendations, vacanciesPerAgent, progress);
+                recommendations, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
             LinkedInCollection linkedinCollection,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, (urls, prefix) -> linkedinCollection.collect(), processingGateway);
-    }
-
-    WorkflowOrchestrator(LinkedInCollection collection, ProcessingGateway gateway,
-                         Consumer<WorkflowProgress> progress) {
-        this(collection, (urls, prefix) -> collection.collect(), gateway, List::of,
-                Integer.MAX_VALUE, progress);
+        this(linkedinCollection, (urls, prefix, progress) -> linkedinCollection.collect(progress), processingGateway);
     }
 
     WorkflowOrchestrator(
@@ -94,45 +76,49 @@ public final class WorkflowOrchestrator {
             RecommendationSource recommendations,
             int vacanciesPerAgent
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, recommendations,
-                vacanciesPerAgent, ignored -> { });
-    }
-
-    private WorkflowOrchestrator(
-            LinkedInCollection linkedinCollection, LinkedInUrls linkedinUrls,
-            ProcessingGateway processingGateway, RecommendationSource recommendations,
-            int vacanciesPerAgent, Consumer<WorkflowProgress> progress
-    ) {
         this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
         this.recommendations = Objects.requireNonNull(recommendations);
         this.vacanciesPerAgent = vacanciesPerAgent;
-        this.progress = Objects.requireNonNull(progress);
     }
 
     public WorkflowResult processBatch(String source) throws IOException {
+        return processBatch(source, ignored -> { });
+    }
+
+    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress) throws IOException {
         if (!"linkedin".equals(source)) {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
-        return processCollected(linkedinCollection.collect());
+        return processCollected(linkedinCollection.collect(collectionHandler(progress)), progress);
     }
 
     public WorkflowResult processUrls(String... urls) throws IOException {
-        return processUrls(List.of(urls), "");
+        return processUrls(List.of(urls), ignored -> { });
+    }
+
+    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress) throws IOException {
+        return processUrls(urls, "", progress);
     }
 
     public WorkflowResult checkRecommendations() throws IOException {
+        return checkRecommendations(ignored -> { });
+    }
+
+    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress) throws IOException {
         List<String> urls = recommendations.load();
         if (urls.isEmpty()) {
             return new WorkflowResult("linkedin", null, "complete", null,
                     List.of(), 0, "No new recommendations");
         }
-        return processUrls(urls, "recommendations");
+        return processUrls(urls, "recommendations", progress);
     }
 
-    private WorkflowResult processUrls(List<String> urls, String runPrefix) throws IOException {
-        WorkflowResult report = processCollected(linkedinUrls.collect(urls, runPrefix));
+    private WorkflowResult processUrls(List<String> urls, String runPrefix,
+                                       Consumer<WorkflowProgress> progress) throws IOException {
+        WorkflowResult report = processCollected(
+                linkedinUrls.collect(urls, runPrefix, collectionHandler(progress)), progress);
         int agentFiltered = report.agentFilteredCount();
         if (agentFiltered > 0) {
             String reason = urls.size() == 1
@@ -146,27 +132,31 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult resume(String runId) {
-        List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
-        return processScope("linkedin", runId, scope, null);
+        return resume(runId, ignored -> { });
     }
 
-    private WorkflowResult processCollected(CollectionReport collected) {
+    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) {
+        List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
+        return processScope("linkedin", runId, scope, null, progress);
+    }
+
+    private WorkflowResult processCollected(CollectionReport collected, Consumer<WorkflowProgress> progress) {
         if (!"complete".equals(collected.status()) || collected.scope().isEmpty()) {
             return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
                     collected, List.of(), 0, collected.message());
         }
-        return processScope(collected.source(), collected.runId(), collected.scope(), collected);
+        return processScope(collected.source(), collected.runId(), collected.scope(), collected, progress);
     }
 
     private WorkflowResult processScope(String source, String runId, List<ScopeItem> scope,
-                                        CollectionReport collected) {
-        reportProgress(runId, "loading_statuses", 0, scope.size(), "");
+                                        CollectionReport collected, Consumer<WorkflowProgress> progress) {
+        reportProgress(progress, runId, "loading_statuses", 0, scope.size(), "");
         Map<String, String> statuses = new HashMap<>(
                 processingGateway.loadStatuses(source, scope)
         );
         List<ScopeItem> unfiltered = atStatus(scope, statuses, "CLEANED");
         if (!unfiltered.isEmpty()) {
-            reportProgress(runId, "relevance_filter", 0, unfiltered.size(), "");
+            reportProgress(progress, runId, "relevance_filter", 0, unfiltered.size(), "");
             AgentFilterResult result = processingGateway.runRelevanceFilter(runId, unfiltered);
             List<String> nonrelevantIds = validateResult(
                     unfiltered, result.nonrelevantJobIds()
@@ -187,30 +177,35 @@ public final class WorkflowOrchestrator {
                 .toList();
         List<ScopeItem> facts = atStatus(remaining, statuses, "RELEVANT");
         if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
-            reportProgress(runId, "initializing_analysis", 0, remaining.size(), "");
+            reportProgress(progress, runId, "initializing_analysis", 0, remaining.size(), "");
             processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         }
-        runJobFacts(runId, source, facts);
+        runJobFacts(runId, source, facts, progress);
         for (ScopeItem item : facts) {
             statuses.put(item.jobId(), "ANALYZED");
         }
         runFinishAnalysis(runId, source,
-                atStatus(remaining, statuses, "ANALYZED"));
+                atStatus(remaining, statuses, "ANALYZED"), progress);
         List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
         if (!scored.isEmpty()) {
-            reportProgress(runId, "saving", 0, scored.size(), "");
+            reportProgress(progress, runId, "saving", 0, scored.size(), "");
             processingGateway.saveScored(source, scored.stream().map(ScopeItem::jobId).toList());
-            reportProgress(runId, "saving", scored.size(), scored.size(), "");
+            reportProgress(progress, runId, "saving", scored.size(), scored.size(), "");
         }
-        reportProgress(runId, "complete", remaining.size(), remaining.size(), "");
+        reportProgress(progress, runId, "complete", remaining.size(), remaining.size(), "");
         return new WorkflowResult(source, runId, "complete", collected, remaining,
                 atStatus(scope, statuses, "NONRELEVANT").size(),
                 collected == null ? "" : collected.message());
     }
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) {
+        return jobFacts(runId, source, scope, ignored -> { });
+    }
+
+    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
+                                Consumer<WorkflowProgress> progress) {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
-        runJobFacts(runId, source, scope);
+        runJobFacts(runId, source, scope, progress);
         return new StageResult(source, runId, scope);
     }
 
@@ -219,12 +214,18 @@ public final class WorkflowOrchestrator {
             String source,
             List<ScopeItem> scope
     ) {
+        return finishAnalysis(runId, source, scope, ignored -> { });
+    }
+
+    public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
+                                      Consumer<WorkflowProgress> progress) {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
-        runFinishAnalysis(runId, source, scope);
+        runFinishAnalysis(runId, source, scope, progress);
         return new StageResult(source, runId, scope);
     }
 
-    private void runJobFacts(String runId, String source, List<ScopeItem> scope) {
+    private void runJobFacts(String runId, String source, List<ScopeItem> scope,
+                              Consumer<WorkflowProgress> progress) {
         int completed = 0;
         // TODO: process groups in parallel using parallel_agents.
         for (int start = 0, group = 1;
@@ -236,13 +237,13 @@ public final class WorkflowOrchestrator {
                     start,
                     Math.min(start + vacanciesPerAgent, scope.size())
             )) {
-                reportProgress(runId, "job_facts", completed, scope.size(), item.jobId());
+                reportProgress(progress, runId, "job_facts", completed, scope.size(), item.jobId());
                 System.err.println("Job facts start: job_id=" + item.jobId());
                 long started = System.nanoTime();
                 threadId = processingGateway.extractJobFacts(
                         runId, source, item.jobId(), target, threadId
                 );
-                reportProgress(runId, "job_facts", ++completed, scope.size(), item.jobId());
+                reportProgress(progress, runId, "job_facts", ++completed, scope.size(), item.jobId());
                 System.err.printf(
                         "Job facts complete: job_id=%s duration_ms=%d%n",
                         item.jobId(),
@@ -255,7 +256,8 @@ public final class WorkflowOrchestrator {
     private void runFinishAnalysis(
             String runId,
             String source,
-            List<ScopeItem> scope
+            List<ScopeItem> scope,
+            Consumer<WorkflowProgress> progress
     ) {
         if (scope.isEmpty()) {
             return;
@@ -264,24 +266,32 @@ public final class WorkflowOrchestrator {
         String target = source + ":candidate_fit";
         int completed = 0;
         for (ScopeItem item : scope) {
-            reportProgress(runId, "candidate_fit", completed, scope.size(), item.jobId());
+            reportProgress(progress, runId, "candidate_fit", completed, scope.size(), item.jobId());
             threadId = processingGateway.evaluateCandidateFit(
                     runId, source, item.jobId(), target, threadId
             );
-            reportProgress(runId, "job_interest", completed, scope.size(), item.jobId());
+            reportProgress(progress, runId, "job_interest", completed, scope.size(), item.jobId());
             processingGateway.calculateJobInterest(source, item.jobId());
-            reportProgress(runId, "job_interest", ++completed, scope.size(), item.jobId());
+            reportProgress(progress, runId, "job_interest", ++completed, scope.size(), item.jobId());
         }
-        reportProgress(runId, "saving", 0, scope.size(), "");
+        reportProgress(progress, runId, "saving", 0, scope.size(), "");
         processingGateway.saveScored(
                 source,
                 scope.stream().map(ScopeItem::jobId).toList()
         );
-        reportProgress(runId, "saving", scope.size(), scope.size(), "");
+        reportProgress(progress, runId, "saving", scope.size(), scope.size(), "");
     }
 
-    private void reportProgress(String runId, String stage, int completed, int total, String jobId) {
+    private static void reportProgress(Consumer<WorkflowProgress> progress,
+                                       String runId, String stage, int completed, int total, String jobId) {
         progress.accept(new WorkflowProgress(runId, stage, completed, total, jobId, 0, ""));
+    }
+
+    private static Consumer<CollectionProgress> collectionHandler(Consumer<WorkflowProgress> progress) {
+        Objects.requireNonNull(progress);
+        return update -> progress.accept(new WorkflowProgress(update.runId(), "collection",
+                update.acceptedCount(), update.limit(), "", 0,
+                update.stage() + (update.message().isEmpty() ? "" : ": " + update.message())));
     }
 
     private static List<ScopeItem> atStatus(
@@ -364,12 +374,13 @@ public final class WorkflowOrchestrator {
 
     @FunctionalInterface
     interface LinkedInCollection {
-        CollectionReport collect() throws IOException;
+        CollectionReport collect(Consumer<CollectionProgress> progress) throws IOException;
     }
 
     @FunctionalInterface
     interface LinkedInUrls {
-        CollectionReport collect(List<String> urls, String runPrefix) throws IOException;
+        CollectionReport collect(List<String> urls, String runPrefix, Consumer<CollectionProgress> progress)
+                throws IOException;
     }
 
     @FunctionalInterface

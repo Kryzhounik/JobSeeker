@@ -25,18 +25,9 @@ public final class DriverApi {
     private final ApplierRunner applier;
 
     public DriverApi(Path projectRoot) throws IOException {
-        this(projectRoot, ignored -> { });
-    }
-
-    public DriverApi(Path projectRoot, Consumer<CollectionProgress> progress) throws IOException {
-        this(projectRoot, progress, ignored -> { });
-    }
-
-    public DriverApi(Path projectRoot, Consumer<CollectionProgress> progress,
-                     Consumer<WorkflowProgress> workflowProgress) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
-        this.linkedin = new LinkedInApplication(this.projectRoot, progress);
-        this.orchestrator = new WorkflowOrchestrator(this.projectRoot, progress, workflowProgress);
+        this.linkedin = new LinkedInApplication(this.projectRoot);
+        this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
         this.applier = new ApplierRunner(this.projectRoot);
     }
 
@@ -48,28 +39,58 @@ public final class DriverApi {
         return linkedin.collectBatch();
     }
 
+    public CollectionReport collectBatch(Consumer<CollectionProgress> progress) throws IOException {
+        return linkedin.collectBatch(progress);
+    }
+
     public WorkflowResult processBatch(String source) throws IOException {
         return orchestrator.processBatch(source);
+    }
+
+    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress) throws IOException {
+        return orchestrator.processBatch(source, progress);
     }
 
     public WorkflowResult processUrls(String... urls) throws IOException {
         return orchestrator.processUrls(urls);
     }
 
+    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress) throws IOException {
+        return orchestrator.processUrls(urls, progress);
+    }
+
     public WorkflowResult checkRecommendations() throws IOException {
         return orchestrator.checkRecommendations();
+    }
+
+    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress) throws IOException {
+        return orchestrator.checkRecommendations(progress);
     }
 
     public WorkflowResult resume(String runId) {
         return orchestrator.resume(runId);
     }
 
+    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) {
+        return orchestrator.resume(runId, progress);
+    }
+
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) {
         return orchestrator.jobFacts(runId, source, scope);
     }
 
+    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
+                                Consumer<WorkflowProgress> progress) {
+        return orchestrator.jobFacts(runId, source, scope, progress);
+    }
+
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope) {
         return orchestrator.finishAnalysis(runId, source, scope);
+    }
+
+    public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
+                                      Consumer<WorkflowProgress> progress) {
+        return orchestrator.finishAnalysis(runId, source, scope, progress);
     }
 
     public ApplierRunner.Result prepareApplication(String url) throws Exception {

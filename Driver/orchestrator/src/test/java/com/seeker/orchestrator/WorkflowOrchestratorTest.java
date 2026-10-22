@@ -3,6 +3,7 @@ package com.seeker.orchestrator;
 import com.google.gson.Gson;
 import com.google.gson.JsonNull;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import org.junit.jupiter.api.Test;
@@ -26,10 +27,10 @@ class WorkflowOrchestratorTest {
         List<WorkflowProgress> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of("2"));
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
-                () -> report("complete", List.of(item("1", "Java"), item("2", "Marketing"),
-                        item("3", "Backend"))), gateway, updates::add);
+                progress -> report("complete", List.of(item("1", "Java"), item("2", "Marketing"),
+                        item("3", "Backend"))), gateway);
 
-        WorkflowResult result = workflow.processBatch("linkedin");
+        WorkflowResult result = workflow.processBatch("linkedin", updates::add);
 
         assertEquals(List.of("loading_statuses", "relevance_filter", "initializing_analysis",
                 "job_facts", "candidate_fit", "job_interest", "saving", "complete"),
@@ -51,10 +52,10 @@ class WorkflowOrchestratorTest {
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.factsFailure = new IllegalStateException("analysis failed");
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
-                () -> report("complete", List.of(item("1", "Java"))), gateway, updates::add);
+                progress -> report("complete", List.of(item("1", "Java"))), gateway);
 
         assertEquals(gateway.factsFailure, assertThrows(IllegalStateException.class,
-                () -> workflow.processBatch("linkedin")));
+                () -> workflow.processBatch("linkedin", updates::add)));
         assertEquals("job_facts", updates.getLast().stage());
         assertEquals("1", updates.getLast().jobId());
         assertEquals("run-1", updates.getLast().runId());
@@ -75,7 +76,7 @@ class WorkflowOrchestratorTest {
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("2"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> collected,
+                progress -> collected,
                 filter
         );
 
@@ -102,10 +103,10 @@ class WorkflowOrchestratorTest {
         List<String> requestedUrls = new ArrayList<>();
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> {
+                progress -> {
                     throw new AssertionError("collector must not be called");
                 },
-                (urls, prefix) -> {
+                (urls, prefix, progress) -> {
                     assertEquals("", prefix);
                     requestedUrls.addAll(urls);
                     return report("complete", List.of(item("1", "Java Developer")));
@@ -137,7 +138,7 @@ class WorkflowOrchestratorTest {
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> rejected,
+                progress -> rejected,
                 filter
         );
 
@@ -159,10 +160,10 @@ class WorkflowOrchestratorTest {
         List<String> requestedUrls = new ArrayList<>();
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> {
+                progress -> {
                     throw new AssertionError("collector must not be called");
                 },
-                (requested, prefix) -> {
+                (requested, prefix, progress) -> {
                     requestedUrls.addAll(requested);
                     return report("complete", List.of(
                             item("1", "Java Developer"),
@@ -201,7 +202,7 @@ class WorkflowOrchestratorTest {
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> collected,
+                progress -> collected,
                 filter
         );
 
@@ -226,7 +227,7 @@ class WorkflowOrchestratorTest {
     void explainsAgentRejectionWithoutStartingLaterAnalysis() throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> report("complete", List.of(item("1", "Java Developer"))),
+                progress -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
         );
 
@@ -247,7 +248,7 @@ class WorkflowOrchestratorTest {
             throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("outside"));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> report("complete", List.of(item("1", "Java Developer"))),
+                progress -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
         );
 
@@ -271,7 +272,7 @@ class WorkflowOrchestratorTest {
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> blocked,
+                progress -> blocked,
                 filter
         );
 
@@ -287,7 +288,7 @@ class WorkflowOrchestratorTest {
     void rejectsUnsupportedProcessSourceBeforeCallingCollector() {
         AtomicInteger invocations = new AtomicInteger();
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> {
+                progress -> {
                     invocations.incrementAndGet();
                     throw new AssertionError("collector must not be called");
                 },
@@ -313,7 +314,7 @@ class WorkflowOrchestratorTest {
                 "4", "SCORED", "5", "SAVED", "6", "NONRELEVANT"
         ));
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> { throw new AssertionError("collector must not be called"); }, filter
+                progress -> { throw new AssertionError("collector must not be called"); }, filter
         );
 
         WorkflowResult result = orchestrator.resume("run-1");
@@ -369,8 +370,8 @@ class WorkflowOrchestratorTest {
         AtomicInteger collections = new AtomicInteger();
         AtomicInteger mailCalls = new AtomicInteger();
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> { throw new AssertionError("search must not be called"); },
-                (requested, prefix) -> {
+                progress -> { throw new AssertionError("search must not be called"); },
+                (requested, prefix, progress) -> {
                     collections.incrementAndGet();
                     assertEquals(urls, requested);
                     assertEquals("recommendations", prefix);
@@ -390,9 +391,9 @@ class WorkflowOrchestratorTest {
     @Test
     void emptyRecommendationsAndMailErrorsDoNotStartCollection() throws Exception {
         WorkflowOrchestrator.LinkedInCollection search =
-                () -> { throw new AssertionError("search must not be called"); };
+                progress -> { throw new AssertionError("search must not be called"); };
         WorkflowOrchestrator.LinkedInUrls urls =
-                (requested, prefix) -> { throw new AssertionError("URLs must not be collected"); };
+                (requested, prefix, progress) -> { throw new AssertionError("URLs must not be collected"); };
         WorkflowOrchestrator empty = new WorkflowOrchestrator(
                 search, urls, new FakeProcessingGateway(List.of()), List::of);
 
@@ -411,7 +412,7 @@ class WorkflowOrchestratorTest {
     @Test
     void partialMethodsReturnTheirJsonContract() {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
-                () -> { throw new AssertionError("collector must not be called"); },
+                progress -> { throw new AssertionError("collector must not be called"); },
                 new FakeProcessingGateway(List.of())
         );
         List<ScopeItem> scope = List.of(item("1", "Java"));
@@ -424,6 +425,35 @@ class WorkflowOrchestratorTest {
 
         assertEquals(expected, gson.toJsonTree(orchestrator.jobFacts("run-1", "linkedin", scope)));
         assertEquals(expected, gson.toJsonTree(orchestrator.finishAnalysis("run-1", "linkedin", scope)));
+    }
+
+    @Test
+    void reusedOrchestratorKeepsCollectionAndWorkflowHandlersLocalToEachCall() throws Exception {
+        AtomicInteger runs = new AtomicInteger();
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(progress -> {
+            String runId = "run-" + runs.incrementAndGet();
+            progress.accept(new CollectionProgress(runId, "processing", "", "", 1, 25,
+                    1, 100, Map.of("raw_saved", 1), "collecting"));
+            return new CollectionReport("linkedin", runId, "complete", 1,
+                    List.of(item("1", "Java")), Map.of("raw_saved", 1), List.of(), "");
+        }, new FakeProcessingGateway(List.of()));
+        List<WorkflowProgress> first = new ArrayList<>();
+        List<WorkflowProgress> second = new ArrayList<>();
+
+        workflow.processBatch("linkedin", first::add);
+        int firstCount = first.size();
+        workflow.processBatch("linkedin", second::add);
+        int secondCount = second.size();
+        workflow.processBatch("linkedin");
+
+        assertEquals(firstCount, first.size());
+        assertEquals(secondCount, second.size());
+        assertTrue(first.stream().allMatch(update -> update.runId().equals("run-1")));
+        assertTrue(second.stream().allMatch(update -> update.runId().equals("run-2")));
+        assertEquals("collection", first.getFirst().stage());
+        assertEquals(1, first.getFirst().completedCount());
+        assertEquals(100, first.getFirst().totalCount());
+        assertEquals("complete", second.getLast().stage());
     }
 
     private static CollectionReport report(String status, List<ScopeItem> scope) {

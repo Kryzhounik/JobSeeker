@@ -35,6 +35,7 @@ from db.companies import (  # noqa: E402
 )
 from db.job_mapper import apply_refilter_transitions  # noqa: E402
 from db.job_registry import record_availability_check  # noqa: E402
+from db.gpt_evaluations import load_evaluation, save_evaluation  # noqa: E402
 from db.migrate import migrate_database  # noqa: E402
 
 
@@ -86,6 +87,18 @@ def _json(value: Any) -> str:
 
 def _rows_as_dicts(rows: Any) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
+
+
+def save_gpt_evaluation(
+    db_path: str | Path, job_id: int, answer: str, evaluated_at: str,
+) -> None:
+    with _connection(db_path, readonly=False) as connection:
+        save_evaluation(connection, job_id, answer, evaluated_at)
+
+
+def load_gpt_evaluation(db_path: str | Path, job_id: int) -> str:
+    with _connection(db_path, readonly=True) as connection:
+        return _json(load_evaluation(connection, job_id))
 
 
 def load_status_values(db_path: str | Path) -> str:

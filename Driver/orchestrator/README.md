@@ -88,8 +88,14 @@ Java callers use one method, `WorkflowOrchestrator.processUrls(String... urls)`:
 The CLI parses arguments, installs its output policy, and prints the report.
 Java callers receive `WorkflowResult`; Collector APIs still return
 `CollectionReport`. The CLI serializes `WorkflowResult` directly without editing
-its JSON. `WorkflowOrchestrator(projectRoot, progressListener)` can
-forward Collector callbacks without any console transport. JPy gateways do not
+its JSON. `WorkflowOrchestrator(projectRoot)` keeps no progress handler.
+Pass `Consumer<WorkflowProgress>` to the individual operation, for example
+`processBatch("linkedin", handler)` or `processUrls(urlsList, handler)`.
+Orchestrator creates its own per-call Collector handler and adapts collection
+notifications to the existing workflow snapshot. Lower modules never receive
+the caller's workflow handler. The detailed workflow event contract is a separate
+task; this change does not add snapshot fields. CLI notifications are emitted as
+`WORKFLOW_PROGRESS ` JSON lines on stderr. JPy gateways do not
 change global Python stdout; only the CLI temporarily redirects it to stderr.
 
 ### Check email recommendations

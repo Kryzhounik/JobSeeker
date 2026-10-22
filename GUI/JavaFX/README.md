@@ -27,8 +27,10 @@ Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
 Then double-click `SeekerJobs.exe` in this directory. The build generates this
 GUI's icon from `pink_panther_transparent_final.ico`, installs the backend Maven
 artifacts through `Driver`, then builds the independent GUI project. It creates
-the thin `seeker-gui-javafx.jar` in this directory and copies runtime dependencies
-to the repository-root `libs/`. It checks the database connection through jpy, runs small
+the fat `seeker-gui-javafx.jar` in this directory, bundling all Java runtime
+dependencies instead of loading them from the repository-root `libs/`.
+This lets other Java modules be rebuilt while the GUI stays open on Windows.
+It checks the database connection through jpy, runs small
 GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
 does not need Maven at startup and does not leave a console window. Its startup
 output and errors go to `launch.log` beside the executable. Rebuild after code
@@ -37,7 +39,10 @@ The normal build does not open test windows. To run the interactive UI check,
 add `-UiSmoke` to the build command; it opens the main and auxiliary windows.
 If `SeekerJobs.exe` is open during a rebuild, the script writes
 `SeekerJobs-updated.exe` beside it instead; both launch the current JavaFX
-JAR through `javaw -jar`, with dependencies resolved from its manifest.
+JAR through `javaw -jar`, with dependencies bundled inside it.
+An already running thin GUI needs one restart to switch to the isolated fat jar.
+Changes to the GUI or its bundled Java code still require a GUI rebuild/restart;
+configuration and Python modules remain external. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 
@@ -61,6 +66,11 @@ again before building the GUI; both scripts do this automatically. Maven
 downloads the JavaFX platform modules on the first build.
 The Python/JNI library paths come from
 `Driver/collector/java_linkedin/runtime.properties`.
+
+The GUI constructs one `DriverApi` during background initialization and reuses
+it for Batch, direct Collect, Apply, and GPT Eval. Progress handlers are scoped
+to each call. Collector settings are read by the backend at operation start,
+so changing the Config limit affects the next call on the existing facade.
 
 The main window loads vacancies through the shared data API, displays details,
 skills and full text, and supports filters, sorting, copyable text and editable
@@ -89,7 +99,10 @@ can still be identified. Collection does not start the analysis workflow.
 
 Batch runs the complete `DriverApi.processBatch("linkedin")` workflow in a
 background task: collection, agent relevance filtering, job facts, candidate
-fit, job interest, and saving. Its panel shares the Collect counters and adds
+fit, job interest, and saving. Its operation-scoped handler receives only
+`WorkflowProgress`; Orchestrator handles Collector events internally. During
+collection the panel shows accepted/limit; the detailed workflow event contract
+is deferred to the separate event task. The panel also shows
 the current processing stage, per-stage completed/total, current source job ID,
 agent-rejection count, and saved count. Collection completion alone does not
 mark Batch complete. Failures retain the run ID and accumulated counters;
@@ -101,7 +114,7 @@ a brighter green than Collect.
 
 `backend.properties` selects `collector.mode`:
 
-- `direct` (default): calls `DriverApi.collectBatch()` in the GUI JVM and
+- `direct` (default): calls `DriverApi.collectBatch(handler)` in the GUI JVM and
   receives immutable `CollectionProgress` snapshots through a Java callback.
   GUI data access and Collector share the process-wide `JpyRuntime`.
 - `process`: launches the external collector JAR with `collect-batch`. The CLI

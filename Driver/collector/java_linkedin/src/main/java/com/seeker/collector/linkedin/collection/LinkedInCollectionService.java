@@ -16,32 +16,27 @@ import java.util.function.Consumer;
 /** Application use case for collecting vacancies. It has no CLI dependency. */
 public final class LinkedInCollectionService {
     private final ProjectPaths paths;
-    private final CollectorConfig config;
-    private final BrowserSettings browserSettings;
     private final PythonRuntime pythonRuntime;
-    private final Consumer<CollectionProgress> progress;
 
     public LinkedInCollectionService(
             ProjectPaths paths,
-            CollectorConfig config,
-            BrowserSettings browserSettings,
             PythonRuntime pythonRuntime
     ) {
-        this(paths, config, browserSettings, pythonRuntime, ignored -> { });
-    }
-
-    public LinkedInCollectionService(
-            ProjectPaths paths, CollectorConfig config, BrowserSettings browserSettings,
-            PythonRuntime pythonRuntime, Consumer<CollectionProgress> progress
-    ) {
         this.paths = paths;
-        this.config = config;
-        this.browserSettings = browserSettings;
         this.pythonRuntime = pythonRuntime;
-        this.progress = Objects.requireNonNull(progress);
     }
 
     public CollectionReport collectBatch(String runId) throws IOException {
+        return collectBatch(runId, ignored -> { });
+    }
+
+    public CollectionReport collectBatch(String runId, Consumer<CollectionProgress> progress) throws IOException {
+        Objects.requireNonNull(progress);
+        CollectorConfig config = CollectorConfig.load(paths.configPath());
+        BrowserSettings browserSettings = new BrowserSettings(
+                config.browserChannel(), false,
+                config.browserLaunchTimeoutSeconds(), config.pageTimeoutSeconds()
+        );
         progress.accept(CollectionProgress.starting(runId, "starting", config.limit()));
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, config);
@@ -72,7 +67,23 @@ public final class LinkedInCollectionService {
         return collectFromUrls(runId, List.of(url));
     }
 
+    public CollectionReport collectFromUrl(String runId, String url, Consumer<CollectionProgress> progress)
+            throws IOException {
+        return collectFromUrls(runId, List.of(url), progress);
+    }
+
     public CollectionReport collectFromUrls(String runId, List<String> urls) throws IOException {
+        return collectFromUrls(runId, urls, ignored -> { });
+    }
+
+    public CollectionReport collectFromUrls(String runId, List<String> urls,
+                                           Consumer<CollectionProgress> progress) throws IOException {
+        Objects.requireNonNull(progress);
+        CollectorConfig config = CollectorConfig.load(paths.configPath());
+        BrowserSettings browserSettings = new BrowserSettings(
+                config.browserChannel(), false,
+                config.browserLaunchTimeoutSeconds(), config.pageTimeoutSeconds()
+        );
         progress.accept(CollectionProgress.starting(runId, "starting", config.limit()));
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, config);

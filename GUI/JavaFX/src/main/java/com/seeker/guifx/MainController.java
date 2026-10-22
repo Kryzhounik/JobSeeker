@@ -47,6 +47,8 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -132,6 +134,8 @@ public final class MainController {
     @FXML private TextField addedField;
 
     private ClientData clientData;
+    private DriverApi driverApi;
+    private CollectorClient directCollector;
     private AuxiliaryWindows auxiliaryWindows;
     private SettingsStore settingsStore;
     private TitleBlacklist titleBlacklist;
@@ -152,6 +156,14 @@ public final class MainController {
     private boolean scoreSaveRunning;
     private boolean operationRunning;
     private boolean collectionRunning;
+    private boolean chatEvalRunning;
+    private Task<JobGptEvaluation> chatEvalTask;
+    private GptEvaluationProgressPane chatEvalProgress;
+    private final ExecutorService chatEvalExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "gui-gpt-evaluation");
+        thread.setDaemon(true);
+        return thread;
+    });
     private CollectorProgressPane collectorProgress;
     private BatchProgressPane batchProgress;
     private BackgroundProcessPane.Area backgroundProcesses;
@@ -235,12 +247,14 @@ public final class MainController {
             @Override
             protected ClientSession call() throws Exception {
                 ClientData data = new ClientData();
-                return new ClientSession(data, data.loadStatusValues(),
-                        data.loadReasonCodeDescriptions());
+                DriverApi api = new DriverApi(ClientData.findProjectRoot());
+                return new ClientSession(data, api, data.loadStatusValues(), data.loadReasonCodeDescriptions());
             }
         };
         connectionTask.setOnSucceeded(event -> {
             clientData = connectionTask.getValue().clientData();
+            driverApi = connectionTask.getValue().driverApi();
+            directCollector = new DirectCollectorClient(driverApi);
             auxiliaryWindows = new AuxiliaryWindows(
                     clientData, this::focusJobFromAuxiliary, settingsStore,
                     this::addTitleToBlacklist
@@ -349,8 +363,7 @@ public final class MainController {
         statusActions.setDisable(disabled || operationRunning);
         applyButton.setDisable(disabled || operationRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
-        chatEvalButton.setDisable(disabled || operationRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank());
+        updateChatEvalButton();
     }
 
     private <T> void runOperation(
@@ -410,7 +423,7 @@ public final class MainController {
         progressPane.begin();
         Task<CollectionReport> task = new Task<>() {
             @Override protected CollectionReport call() throws Exception {
-                CollectorClient collector = CollectorClient.configured(ClientData.findProjectRoot());
+                CollectorClient collector = CollectorClient.configured(ClientData.findProjectRoot(), directCollector);
                 return collector.collect(progress -> Platform.runLater(() -> progressPane.update(progress)));
             }
         };
@@ -446,10 +459,8 @@ public final class MainController {
         progressPane.begin();
         Task<WorkflowResult> task = new Task<>() {
             @Override protected WorkflowResult call() throws Exception {
-                return new DriverApi(ClientData.findProjectRoot(),
-                        progress -> Platform.runLater(() -> progressPane.update(progress)),
-                        progress -> Platform.runLater(() -> progressPane.update(progress)))
-                        .processBatch("linkedin");
+                return driverApi.processBatch("linkedin",
+                        progress -> Platform.runLater(() -> progressPane.update(progress)));
             }
         };
         task.setOnSucceeded(event -> {
@@ -901,7 +912,7 @@ public final class MainController {
         }
     }
 
-    private record ClientSession(ClientData clientData, List<String> statuses,
+    private record ClientSession(ClientData clientData, DriverApi driverApi, List<String> statuses,
                                  Map<String, String> reasonCodeDescriptions) { }
 
     private void configureColumns() {
@@ -1211,7 +1222,7 @@ public final class MainController {
         openButton.setDisable(job.sourceUrl().isBlank());
         applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning || job.easyApply());
         applyButton.setTooltip(job.easyApply() ? new Tooltip("LinkedIn Easy Apply") : null);
-        chatEvalButton.setDisable(job.sourceUrl().isBlank() || operationRunning);
+        updateChatEvalButton();
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
         showText(textToggle.isSelected());
@@ -1242,7 +1253,7 @@ public final class MainController {
         openButton.setDisable(!enabled);
         applyButton.setDisable(!enabled || operationRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
-        chatEvalButton.setDisable(!enabled || operationRunning || selectedJob == null
+        chatEvalButton.setDisable(!enabled || chatEvalRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
         textToggle.setDisable(!enabled);
     }
@@ -1270,7 +1281,7 @@ public final class MainController {
         JobRecord job = selectedJob;
         if (job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
         runTask("Opening application form...", updater ->
-                new DriverApi(ClientData.findProjectRoot()).prepareApplication(job.sourceUrl()), result -> {
+                driverApi.prepareApplication(job.sourceUrl()), result -> {
             String summary = result.submissionObserved()
                     ? "Application may already have been submitted. " + result.note()
                     : ("filled".equals(result.status()) ? "Filled. "
@@ -1286,13 +1297,47 @@ public final class MainController {
 
     private void startChatEval() {
         JobRecord job = selectedJob;
-        if (job == null || job.sourceUrl().isBlank()) return;
+        if (chatEvalRunning || clientData == null || job == null || job.sourceUrl().isBlank()) return;
         String vacancyTitle = job.title();
-        runTask("Waiting for ChatGPT evaluation...", updater ->
-                new DriverApi(ClientData.findProjectRoot()).evaluateWithChatGPT(job.sourceUrl()), answer -> {
-            statusLabel.setText("ChatGPT evaluation complete");
-            showChatEvaluation(vacancyTitle, answer);
-        }, "GPT Eval failed");
+        int jobId = job.jobId();
+        String url = job.sourceUrl();
+        chatEvalRunning = true;
+        updateChatEvalButton();
+        if (chatEvalProgress == null) chatEvalProgress = new GptEvaluationProgressPane(backgroundProcesses);
+        GptEvaluationProgressPane progressPane = chatEvalProgress;
+        progressPane.begin(jobId, url);
+        Task<JobGptEvaluation> task = new Task<>() {
+            @Override protected JobGptEvaluation call() throws Exception {
+                GptEvaluation evaluation = new GptEvaluation(driverApi::evaluateWithChatGPT,
+                        clientData::saveGptEvaluation);
+                return evaluation.run(jobId, url);
+            }
+        };
+        chatEvalTask = task;
+        task.setOnSucceeded(event -> {
+            chatEvalRunning = false;
+            chatEvalTask = null;
+            updateChatEvalButton();
+            JobGptEvaluation result = task.getValue();
+            progressPane.complete(result);
+            showChatEvaluation(vacancyTitle, result.answer());
+        });
+        task.setOnFailed(event -> {
+            chatEvalRunning = false;
+            chatEvalTask = null;
+            updateChatEvalButton();
+            Throwable error = task.getException();
+            progressPane.fail(error);
+            if (error instanceof GptEvaluation.SaveException saving) {
+                showChatEvaluation(vacancyTitle, saving.answer());
+            }
+        });
+        chatEvalExecutor.execute(task);
+    }
+
+    private void updateChatEvalButton() {
+        chatEvalButton.setDisable(clientData == null || chatEvalRunning || selectedJob == null
+                || selectedJob.sourceUrl().isBlank());
     }
 
     private void showChatEvaluation(String vacancyTitle, String answer) {
@@ -1419,6 +1464,8 @@ public final class MainController {
         settingsSaveDelay.stop();
         operationExecutor.shutdownNow();
         collectionExecutor.shutdownNow();
+        if (chatEvalTask != null) chatEvalTask.cancel(true);
+        chatEvalExecutor.shutdownNow();
         saveWindowSettings();
         if (pendingDetailTask != null) {
             pendingDetailTask.cancel(true);

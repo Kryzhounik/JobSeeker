@@ -1,6 +1,5 @@
 package com.seeker.guifx;
 
-import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.orchestrator.WorkflowResult;
 
@@ -16,19 +15,10 @@ final class BatchProgressPane extends CollectorProgressPane {
         setField("Saved", "0");
     }
 
-    @Override
-    void update(CollectionProgress progress) {
-        super.update(progress);
-        if ("complete".equals(progress.stage())) {
-            setField("Stage", "Collection complete; preparing analysis");
-            setProcessState(State.RUNNING);
-            setContext(fieldText("Stage") + "\n" + progress.runId());
-        }
-    }
-
     void update(WorkflowProgress progress) {
         setField("Run ID", progress.runId());
         String stage = switch (progress.stage()) {
+            case "collection" -> "Collecting vacancies";
             case "loading_statuses" -> "Loading processing scope";
             case "relevance_filter" -> "Agent relevance filter";
             case "initializing_analysis" -> "Preparing analysis";
@@ -42,6 +32,9 @@ final class BatchProgressPane extends CollectorProgressPane {
         setField("Stage", stage);
         setField("Workflow progress", progress.completedCount() + " / " + progress.totalCount());
         setField("Current job", progress.jobId());
+        if ("collection".equals(progress.stage())) {
+            setField("Accepted / limit", progress.completedCount() + " / " + progress.totalCount());
+        }
         if ("relevance_filter".equals(progress.stage())) {
             setField("Rejected by agent", Integer.toString(progress.rejectedCount()));
         }
