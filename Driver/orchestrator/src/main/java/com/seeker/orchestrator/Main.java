@@ -2,6 +2,7 @@ package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.collector.linkedin.support.ProcessLog;
@@ -33,6 +34,10 @@ public final class Main {
             System.err.println("Java workflow log: " + log.path());
             try {
                 run(args);
+            } catch (UsageLimitExceededException limit) {
+                System.err.println("Codex usage limit: " + limit.getMessage());
+                if (limit.getRetryAt() != null) System.err.println("Retry at: " + limit.getRetryAt());
+                exitCode = 3;
             } catch (Throwable error) {
                 error.printStackTrace(System.err);
                 exitCode = 1;
@@ -44,13 +49,13 @@ public final class Main {
         return exitCode;
     }
 
-    private static void run(String[] args) throws IOException {
+    private static void run(String[] args) throws IOException, UsageLimitExceededException {
         try (CliOutput ignored = CliOutput.redirectPython(Path.of("."))) {
             runWorkflow(args);
         }
     }
 
-    private static void runWorkflow(String[] args) throws IOException {
+    private static void runWorkflow(String[] args) throws IOException, UsageLimitExceededException {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
         Consumer<WorkflowProgress> progress = update ->
                 System.err.println("WORKFLOW_PROGRESS " + GSON.toJson(update));

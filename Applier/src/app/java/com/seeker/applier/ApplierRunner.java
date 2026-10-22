@@ -8,6 +8,8 @@ import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
 import com.seeker.applier.shared.LinkedInJobPage;
 import com.seeker.applier.shared.ManagedBrowser;
+import com.seeker.codex.CodexClient;
+import com.seeker.codex.UsageLimitExceededException;
 
 import java.io.IOException;
 import java.net.URI;
@@ -30,7 +32,7 @@ public final class ApplierRunner {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
     }
 
-    public Result run(String jobUrl) throws Exception {
+    public Result run(String jobUrl) throws IOException, InterruptedException, UsageLimitExceededException {
         Properties runtime = load(projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties"));
         Properties collector = load(projectRoot.resolve("Driver/collector/config/linkedin.properties"));
         Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
@@ -131,7 +133,8 @@ public final class ApplierRunner {
     }
 
     private Result runCodex(String formUrl, int tabIndex, String step,
-                            String vacancyLocation, String python) throws Exception {
+                            String vacancyLocation, String python)
+            throws IOException, InterruptedException, UsageLimitExceededException {
         Path proxy = projectRoot.resolve("Driver/codex_proxy/metrics_proxy.py");
         Path instruction = projectRoot.resolve("Applier/fill_form.md");
         Path schema = projectRoot.resolve("Applier/result.schema.json");
@@ -165,13 +168,7 @@ public final class ApplierRunner {
                 command.add("--context");
                 command.add(facts.toString());
             }
-            Process process = new ProcessBuilder(command).directory(projectRoot.toFile())
-                    .redirectErrorStream(true).start();
-            String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
-            int exitCode = process.waitFor();
-            if (exitCode != 0) {
-                throw new IOException("Codex Proxy failed (" + exitCode + "): " + output.strip());
-            }
+            String output = CodexClient.call(command, projectRoot);
             JsonNode result = JSON.readTree(output);
             return new Result(result.path("status").asText("partially_filled"),
                     result.path("note").asText("Preparation finished; inspect the open form."),
@@ -181,7 +178,7 @@ public final class ApplierRunner {
         }
     }
 
-    private Result runAdapter(Path adapter, int tabIndex, String formUrl) throws Exception {
+    private Result runAdapter(Path adapter, int tabIndex, String formUrl) throws IOException, InterruptedException {
         String node = System.getenv().getOrDefault("NODE", "node");
         Process process = new ProcessBuilder(node, adapter.toString(),
                 ManagedBrowser.CDP_ENDPOINT, Integer.toString(tabIndex), formUrl).directory(projectRoot.toFile())
@@ -195,7 +192,7 @@ public final class ApplierRunner {
                 result.path("submission_observed").asBoolean(false));
     }
 
-    private Path matchingAdapter(String formUrl) throws Exception {
+    private Path matchingAdapter(String formUrl) throws IOException {
         Path adapterDirectory = projectRoot.resolve("Applier/adapters");
         if (!Files.isDirectory(adapterDirectory)) return null;
         String host = URI.create(formUrl).getHost();

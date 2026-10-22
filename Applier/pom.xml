@@ -16,6 +16,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.seeker</groupId>
+            <artifactId>tools</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.microsoft.playwright</groupId>
             <artifactId>playwright</artifactId>
         </dependency>

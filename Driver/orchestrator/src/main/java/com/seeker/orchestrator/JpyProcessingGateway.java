@@ -2,6 +2,8 @@ package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.seeker.codex.CodexClient;
+import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.PythonRuntime;
@@ -64,22 +66,17 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
-    public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope) {
-        try (PyModule bridge = bridge();
-             PyObject response = bridge.callMethod(
+    public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope)
+            throws UsageLimitExceededException {
+        try (PyModule bridge = bridge()) {
+            String response = CodexClient.call(bridge,
                      "run_agent_filter",
                      runId,
                      GSON.toJson(scope),
                      paths.databasePath().toString()
-             )) {
-            if (!response.isString()) {
-                throw new IllegalStateException(
-                        "Agent filter bridge returned " + response.repr()
-                                + " instead of String"
-                );
-            }
+             );
             AgentFilterResult result = GSON.fromJson(
-                    response.getStringValue(),
+                    response,
                     AgentFilterResult.class
             );
             if (result == null) {
@@ -112,9 +109,9 @@ final class JpyProcessingGateway implements ProcessingGateway {
             String jobId,
             String target,
             String threadId
-    ) {
-        try (PyModule bridge = bridge();
-             PyObject response = bridge.callMethod(
+    ) throws UsageLimitExceededException {
+        try (PyModule bridge = bridge()) {
+            String response = CodexClient.call(bridge,
                      "run_job_facts",
                      runId,
                      source,
@@ -122,14 +119,8 @@ final class JpyProcessingGateway implements ProcessingGateway {
                      target,
                      threadId == null ? "" : threadId,
                      paths.databasePath().toString()
-             )) {
-            if (!response.isString()) {
-                throw new IllegalStateException(
-                        "Job facts bridge returned " + response.repr()
-                                + " instead of String"
-                );
-            }
-            String returnedThreadId = response.getStringValue().strip();
+             );
+            String returnedThreadId = response.strip();
             if (returnedThreadId.isEmpty()) {
                 throw new IllegalStateException("Job facts returned no thread ID");
             }
@@ -160,9 +151,9 @@ final class JpyProcessingGateway implements ProcessingGateway {
             String jobId,
             String target,
             String threadId
-    ) {
-        try (PyModule bridge = bridge();
-             PyObject response = bridge.callMethod(
+    ) throws UsageLimitExceededException {
+        try (PyModule bridge = bridge()) {
+            String response = CodexClient.call(bridge,
                      "run_candidate_fit",
                      runId,
                      source,
@@ -170,14 +161,8 @@ final class JpyProcessingGateway implements ProcessingGateway {
                      target,
                      threadId == null ? "" : threadId,
                      paths.databasePath().toString()
-             )) {
-            if (!response.isString()) {
-                throw new IllegalStateException(
-                        "Candidate fit bridge returned " + response.repr()
-                                + " instead of String"
-                );
-            }
-            String returnedThreadId = response.getStringValue().strip();
+             );
+            String returnedThreadId = response.strip();
             if (returnedThreadId.isEmpty()) {
                 return threadId;
             }

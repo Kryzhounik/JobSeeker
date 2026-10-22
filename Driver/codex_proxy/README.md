@@ -56,6 +56,21 @@ version is fixed in `package.json` and `package-lock.json`.
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
 
+Java callers use `com.seeker.codex.CodexClient` from `Tools` for both JPy agent
+operations and Python-process calls. The client performs the call and unwraps
+the response in one step. It throws the checked `UsageLimitExceededException`
+when Codex usage is exhausted. `getRetryAt()` returns an `Instant`, or `null`
+when the reset time was not supplied or recognized. Callers decide how to
+handle or retry the operation.
+
+The proxy records metrics before raising its Python `UsageLimitExceededError`.
+`codex_proxy.bridge` carries that failure across JPy as a structured response;
+`--json-result` provides the same protocol for process callers. Normal CLI
+output stays unchanged when that flag is absent. Limit recognition and reset
+time parsing are centralized in `errors.py`; Java callers never parse CLI text.
+Time-only reset messages use the CLI process's local timezone and the next
+occurrence of that time. Unrecognized formats leave the reset time unset.
+
 In `codex_invocations`, the token columns, `weighted_tokens`, and
 `estimated_credits` record usage for that invocation only and can be summed
 directly by operation, model, target, or date. The `cumulative_*_tokens` columns

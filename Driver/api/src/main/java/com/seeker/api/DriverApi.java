@@ -1,6 +1,7 @@
 package com.seeker.api;
 
 import com.seeker.applier.ApplierRunner;
+import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.application.LinkedInApplication;
@@ -44,57 +45,61 @@ public final class DriverApi {
         return linkedin.collectBatch(progress);
     }
 
-    public WorkflowResult processBatch(String source) throws IOException {
+    public WorkflowResult processBatch(String source) throws IOException, UsageLimitExceededException {
         return orchestrator.processBatch(source);
     }
 
-    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         return orchestrator.processBatch(source, progress);
     }
 
-    public WorkflowResult processUrls(String... urls) throws IOException {
+    public WorkflowResult processUrls(String... urls) throws IOException, UsageLimitExceededException {
         return orchestrator.processUrls(urls);
     }
 
-    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         return orchestrator.processUrls(urls, progress);
     }
 
-    public WorkflowResult checkRecommendations() throws IOException {
+    public WorkflowResult checkRecommendations() throws IOException, UsageLimitExceededException {
         return orchestrator.checkRecommendations();
     }
 
-    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         return orchestrator.checkRecommendations(progress);
     }
 
-    public WorkflowResult resume(String runId) {
+    public WorkflowResult resume(String runId) throws UsageLimitExceededException {
         return orchestrator.resume(runId);
     }
 
-    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) {
+    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         return orchestrator.resume(runId, progress);
     }
 
-    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) {
+    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) throws UsageLimitExceededException {
         return orchestrator.jobFacts(runId, source, scope);
     }
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
-                                Consumer<WorkflowProgress> progress) {
+                                Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         return orchestrator.jobFacts(runId, source, scope, progress);
     }
 
-    public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope) {
+    public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope) throws UsageLimitExceededException {
         return orchestrator.finishAnalysis(runId, source, scope);
     }
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
-                                      Consumer<WorkflowProgress> progress) {
+                                      Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         return orchestrator.finishAnalysis(runId, source, scope, progress);
     }
 
-    public ApplierRunner.Result prepareApplication(String url) throws Exception {
+    public ApplierRunner.Result prepareApplication(String url)
+            throws IOException, InterruptedException, UsageLimitExceededException {
         return applier.run(url);
     }
 

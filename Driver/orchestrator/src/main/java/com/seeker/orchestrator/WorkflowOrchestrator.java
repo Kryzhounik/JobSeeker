@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.seeker.collector.linkedin.application.LinkedInApplication;
+import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.ScopeItem;
@@ -83,30 +84,33 @@ public final class WorkflowOrchestrator {
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
-    public WorkflowResult processBatch(String source) throws IOException {
+    public WorkflowResult processBatch(String source) throws IOException, UsageLimitExceededException {
         return processBatch(source, ignored -> { });
     }
 
-    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         if (!"linkedin".equals(source)) {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
         return processCollected(linkedinCollection.collect(collectionHandler(progress)), progress);
     }
 
-    public WorkflowResult processUrls(String... urls) throws IOException {
+    public WorkflowResult processUrls(String... urls) throws IOException, UsageLimitExceededException {
         return processUrls(List.of(urls), ignored -> { });
     }
 
-    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         return processUrls(urls, "", progress);
     }
 
-    public WorkflowResult checkRecommendations() throws IOException {
+    public WorkflowResult checkRecommendations() throws IOException, UsageLimitExceededException {
         return checkRecommendations(ignored -> { });
     }
 
-    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress) throws IOException {
+    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress)
+            throws IOException, UsageLimitExceededException {
         List<String> urls = recommendations.load();
         if (urls.isEmpty()) {
             return new WorkflowResult("linkedin", null, "complete", null,
@@ -116,7 +120,7 @@ public final class WorkflowOrchestrator {
     }
 
     private WorkflowResult processUrls(List<String> urls, String runPrefix,
-                                       Consumer<WorkflowProgress> progress) throws IOException {
+                                       Consumer<WorkflowProgress> progress) throws IOException, UsageLimitExceededException {
         WorkflowResult report = processCollected(
                 linkedinUrls.collect(urls, runPrefix, collectionHandler(progress)), progress);
         int agentFiltered = report.agentFilteredCount();
@@ -131,16 +135,17 @@ public final class WorkflowOrchestrator {
         return report;
     }
 
-    public WorkflowResult resume(String runId) {
+    public WorkflowResult resume(String runId) throws UsageLimitExceededException {
         return resume(runId, ignored -> { });
     }
 
-    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) {
+    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
         return processScope("linkedin", runId, scope, null, progress);
     }
 
-    private WorkflowResult processCollected(CollectionReport collected, Consumer<WorkflowProgress> progress) {
+    private WorkflowResult processCollected(CollectionReport collected, Consumer<WorkflowProgress> progress)
+            throws UsageLimitExceededException {
         if (!"complete".equals(collected.status()) || collected.scope().isEmpty()) {
             return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
                     collected, List.of(), 0, collected.message());
@@ -149,7 +154,8 @@ public final class WorkflowOrchestrator {
     }
 
     private WorkflowResult processScope(String source, String runId, List<ScopeItem> scope,
-                                        CollectionReport collected, Consumer<WorkflowProgress> progress) {
+                                        CollectionReport collected, Consumer<WorkflowProgress> progress)
+            throws UsageLimitExceededException {
         reportProgress(progress, runId, "loading_statuses", 0, scope.size(), "");
         Map<String, String> statuses = new HashMap<>(
                 processingGateway.loadStatuses(source, scope)
@@ -198,12 +204,12 @@ public final class WorkflowOrchestrator {
                 collected == null ? "" : collected.message());
     }
 
-    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) {
+    public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) throws UsageLimitExceededException {
         return jobFacts(runId, source, scope, ignored -> { });
     }
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
-                                Consumer<WorkflowProgress> progress) {
+                                Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runJobFacts(runId, source, scope, progress);
         return new StageResult(source, runId, scope);
@@ -213,19 +219,19 @@ public final class WorkflowOrchestrator {
             String runId,
             String source,
             List<ScopeItem> scope
-    ) {
+    ) throws UsageLimitExceededException {
         return finishAnalysis(runId, source, scope, ignored -> { });
     }
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
-                                      Consumer<WorkflowProgress> progress) {
+                                      Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         runFinishAnalysis(runId, source, scope, progress);
         return new StageResult(source, runId, scope);
     }
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope,
-                              Consumer<WorkflowProgress> progress) {
+                              Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
         int completed = 0;
         // TODO: process groups in parallel using parallel_agents.
         for (int start = 0, group = 1;
@@ -258,7 +264,7 @@ public final class WorkflowOrchestrator {
             String source,
             List<ScopeItem> scope,
             Consumer<WorkflowProgress> progress
-    ) {
+    ) throws UsageLimitExceededException {
         if (scope.isEmpty()) {
             return;
         }

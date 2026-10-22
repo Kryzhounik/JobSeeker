@@ -3,12 +3,14 @@ package com.seeker.orchestrator;
 import com.google.gson.Gson;
 import com.google.gson.JsonNull;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -303,7 +306,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void resumesMixedStagesAndDoesNoWorkOnCompletedRun() {
+    void resumesMixedStagesAndDoesNoWorkOnCompletedRun() throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         filter.recoveredScope = List.of(
                 item("1", "Java"), item("2", "Java"), item("3", "Java"),
@@ -339,7 +342,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void serializesWorkflowContractWithoutChangingCollectorReport() {
+    void serializesWorkflowContractWithoutChangingCollectorReport() throws Exception {
         Gson gson = Main.GSON;
         CollectionReport collected = new CollectionReport(
                 "linkedin", "run-1", "complete", 2,
@@ -410,7 +413,7 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void partialMethodsReturnTheirJsonContract() {
+    void partialMethodsReturnTheirJsonContract() throws Exception {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 progress -> { throw new AssertionError("collector must not be called"); },
                 new FakeProcessingGateway(List.of())
@@ -456,6 +459,28 @@ class WorkflowOrchestratorTest {
         assertEquals("complete", second.getLast().stage());
     }
 
+    @Test
+    void propagatesUsageLimitUnchangedAndAllowsTheNextCall() throws Exception {
+        for (String stage : List.of("filter", "job_facts", "candidate_fit")) {
+            FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
+            UsageLimitExceededException limit = new UsageLimitExceededException(
+                    "Quota exhausted", Instant.parse("2026-10-22T12:20:00Z"));
+            gateway.usageLimit = limit;
+            gateway.limitStage = stage;
+            WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                    progress -> report("complete", List.of(item("1", "Java"))), gateway);
+            List<WorkflowProgress> updates = new ArrayList<>();
+
+            assertSame(limit, assertThrows(UsageLimitExceededException.class,
+                    () -> workflow.processBatch("linkedin", updates::add)));
+            assertFalse(updates.stream().anyMatch(update -> "complete".equals(update.stage())));
+            int previousCount = updates.size();
+            gateway.usageLimit = null;
+            assertEquals("complete", workflow.processBatch("linkedin").status());
+            assertEquals(previousCount, updates.size());
+        }
+    }
+
     private static CollectionReport report(String status, List<ScopeItem> scope) {
         return new CollectionReport(
                 "linkedin",
@@ -488,6 +513,8 @@ class WorkflowOrchestratorTest {
         private String markedSource;
         private List<String> markedIds = new ArrayList<>();
         private RuntimeException factsFailure;
+        private UsageLimitExceededException usageLimit;
+        private String limitStage;
 
         private FakeProcessingGateway(List<String> rejectedIds) {
             this.rejectedIds = rejectedIds;
@@ -507,7 +534,9 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope) {
+        public AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope)
+                throws UsageLimitExceededException {
+            if (usageLimit != null && "filter".equals(limitStage)) throw usageLimit;
             calls.add("filter:" + runId);
             filterInvocations++;
             this.runId = runId;
@@ -540,7 +569,8 @@ class WorkflowOrchestratorTest {
                 String jobId,
                 String target,
                 String threadId
-        ) {
+        ) throws UsageLimitExceededException {
+            if (usageLimit != null && "job_facts".equals(limitStage)) throw usageLimit;
             calls.add("job-facts:" + jobId);
             if (factsFailure != null) throw factsFailure;
             states.put(jobId, "ANALYZED");
@@ -554,7 +584,8 @@ class WorkflowOrchestratorTest {
                 String jobId,
                 String target,
                 String threadId
-        ) {
+        ) throws UsageLimitExceededException {
+            if (usageLimit != null && "candidate_fit".equals(limitStage)) throw usageLimit;
             calls.add("candidate-fit:" + jobId);
             return threadId == null ? target : threadId;
         }

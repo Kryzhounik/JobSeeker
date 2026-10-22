@@ -1,6 +1,7 @@
 package com.seeker.applier;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seeker.codex.UsageLimitExceededException;
 
 import java.net.URI;
 import java.nio.file.Files;
@@ -55,6 +56,10 @@ public final class Main {
             ApplierRunner.Result result = new ApplierRunner(projectRoot).run(args[0]);
             System.out.println(new ObjectMapper().writeValueAsString(result));
             return 0;
+        } catch (UsageLimitExceededException limit) {
+            System.err.println("Codex usage limit: " + limit.getMessage());
+            if (limit.getRetryAt() != null) System.err.println("Retry at: " + limit.getRetryAt());
+            return 3;
         } catch (Exception error) {
             error.printStackTrace(System.err);
             return 1;

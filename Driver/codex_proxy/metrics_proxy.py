@@ -10,6 +10,8 @@ scoring, or save vacancies.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
+import json
 from pathlib import Path
 import sys
 import time
@@ -23,6 +25,7 @@ from common.paths import DATA_ROOT
 from codex_proxy import codex_cli
 from codex_proxy import metrics
 from codex_proxy.backend import Result
+from codex_proxy.errors import UsageLimitExceededError, usage_limit_error
 from codex_proxy.settings import load
 
 
@@ -140,6 +143,10 @@ def run(
         duration_ms=round((time.monotonic() - started) * 1000),
         result=result,
     )
+    if result.exit_code != 0:
+        error = usage_limit_error(result.errors, datetime.fromisoformat(finished_at).astimezone())
+        if error is not None:
+            raise error
     return result
 
 
@@ -159,6 +166,7 @@ def main() -> None:
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     parser.add_argument("--model")
     parser.add_argument("--reasoning-effort")
+    parser.add_argument("--json-result", action="store_true", help="Return a structured transport result.")
     parser.add_argument("--allow-browser-tools", action="store_true")
     parser.add_argument("--browser-cdp-endpoint")
     parser.add_argument(
@@ -177,7 +185,31 @@ def main() -> None:
         input_text = input_path.read_text(encoding="utf-8")
         input_name = input_path.name
 
-    result = run(
+    try:
+        result = run_from_args(args, input_text, input_name)
+    except UsageLimitExceededError as error:
+        if args.json_result:
+            print(json.dumps({"error": error.payload()}))
+        else:
+            print(str(error), file=sys.stderr)
+        raise SystemExit(1)
+    if args.json_result:
+        response = ({"result": result.final_message} if result.exit_code == 0 else {
+            "error": {"code": "codex_error", "message": "\n".join(result.errors).strip()
+                      or f"Codex CLI exited with code {result.exit_code}."}
+        })
+        print(json.dumps(response))
+    else:
+        if result.final_message:
+            print(result.final_message)
+        if result.exit_code != 0:
+            print("\n".join(result.errors).strip() or
+                  f"Codex CLI exited with code {result.exit_code}.", file=sys.stderr)
+    raise SystemExit(result.exit_code)
+
+
+def run_from_args(args, input_text: str, input_name: str) -> Result:
+    return run(
         run_id=args.run_id,
         operation=args.operation,
         target=args.target,
@@ -193,12 +225,6 @@ def main() -> None:
         allow_browser_tools=args.allow_browser_tools,
         browser_cdp_endpoint=args.browser_cdp_endpoint,
     )
-    if result.final_message:
-        print(result.final_message)
-    if result.exit_code != 0:
-        print("\n".join(result.errors).strip() or
-              f"Codex CLI exited with code {result.exit_code}.", file=sys.stderr)
-    raise SystemExit(result.exit_code)
 
 
 if __name__ == "__main__":

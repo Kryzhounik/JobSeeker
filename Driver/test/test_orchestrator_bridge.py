@@ -52,7 +52,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
             DRIVER_ROOT / "contracts" / "agent_filter_result.schema.json",
         )
 
-    def test_mark_nonrelevant_updates_all_ids_in_one_database(self) -> None:
+    def test_mark_relevance_updates_all_ids_in_one_database(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
             migrate_database(database)
@@ -61,9 +61,10 @@ class OrchestratorBridgeTest(unittest.TestCase):
                     insert_source_job(connection, "linkedin", job_id, "CLEANED")
                 connection.commit()
 
-            python_bridge.mark_nonrelevant(
+            python_bridge.mark_relevance(
                 str(database),
                 "linkedin",
+                '["1","2"]',
                 '["1","2"]',
             )
 

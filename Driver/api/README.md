@@ -20,6 +20,13 @@ their UI thread. No handler is retained by the facade or its services.
 Components are initialized once; browser and Python operations start only
 when the corresponding operation is called. Methods return the original
 module DTOs or the ChatEvaluator string and propagate module exceptions.
+
+Codex-backed workflow operations and application preparation can throw
+`com.seeker.codex.UsageLimitExceededException` (a checked exception from
+`Tools`). It is propagated without conversion to a generic error. Its
+`getRetryAt()` returns the reset time as an `Instant`, or `null` when unknown.
+The API does not schedule retries. The workflow and Applier CLI commands use
+exit code `3` for this condition and print it without an error stack trace.
 ChatEvaluator receives the project root explicitly, without changing JVM
 properties. This module does not contain GUI data access.
 
