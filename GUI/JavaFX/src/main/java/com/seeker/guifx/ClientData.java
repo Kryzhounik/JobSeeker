@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.seeker.collector.linkedin.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
+import com.seeker.chatevaluator.GptEvaluation;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
@@ -56,13 +57,9 @@ final class ClientData {
                 projectRoot.resolve("Driver"), projectRoot.resolve("Driver/collector"));
     }
 
-    synchronized void saveGptEvaluation(int jobId, String answer, String evaluatedAt) {
-        callVoid("save_gpt_evaluation", databasePath.toString(), jobId, answer, evaluatedAt);
-    }
-
-    synchronized Optional<JobGptEvaluation> loadGptEvaluation(int jobId) throws IOException {
+    synchronized Optional<GptEvaluation.Result> loadGptEvaluation(int jobId) throws IOException {
         return Optional.ofNullable(json.readValue(
-                call("load_gpt_evaluation", databasePath.toString(), jobId), JobGptEvaluation.class));
+                call("load_gpt_evaluation", databasePath.toString(), jobId), GptEvaluation.Result.class));
     }
 
     synchronized List<String> loadStatusValues() throws Exception {

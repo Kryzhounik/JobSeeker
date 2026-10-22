@@ -231,6 +231,16 @@ execution contract; the Java orchestrator owns pipeline behavior.
   manual runs are stable, so collection and analysis can start automatically
   at configured times without opening the GUI.
 
+## ChatEvaluator
+
+- **GPT-001: Подтянуть отсутствующую вакансию и сохранить ответ GPT.**
+  Сейчас вызов с URL, которого нет среди сохранённых вакансий, возвращает ответ
+  ChatGPT без сохранения. Нужно получать вакансию по ссылке, создавать её запись
+  в БД и привязывать уже полученный ответ к новому `job_id`. Не запускать агентные
+  оценки и полный оценочный конвейер: оценка GPT уже получена. Повторная отправка
+  в ChatGPT для такого сохранения не нужна. Сейчас эта задача не реализуется;
+  соответствующий TODO находится в `GptEvaluation`.
+
 ## Rules We Agreed On
 
 - Data stays local under `Data/` and is ignored by Git.

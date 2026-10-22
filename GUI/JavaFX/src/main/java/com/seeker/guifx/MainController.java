@@ -1,6 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
+import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.orchestrator.WorkflowResult;
 
@@ -157,7 +158,7 @@ public final class MainController {
     private boolean operationRunning;
     private boolean collectionRunning;
     private boolean chatEvalRunning;
-    private Task<JobGptEvaluation> chatEvalTask;
+    private Task<GptEvaluation.Result> chatEvalTask;
     private GptEvaluationProgressPane chatEvalProgress;
     private final ExecutorService chatEvalExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "gui-gpt-evaluation");
@@ -1306,11 +1307,9 @@ public final class MainController {
         if (chatEvalProgress == null) chatEvalProgress = new GptEvaluationProgressPane(backgroundProcesses);
         GptEvaluationProgressPane progressPane = chatEvalProgress;
         progressPane.begin(jobId, url);
-        Task<JobGptEvaluation> task = new Task<>() {
-            @Override protected JobGptEvaluation call() throws Exception {
-                GptEvaluation evaluation = new GptEvaluation(driverApi::evaluateWithChatGPT,
-                        clientData::saveGptEvaluation);
-                return evaluation.run(jobId, url);
+        Task<GptEvaluation.Result> task = new Task<>() {
+            @Override protected GptEvaluation.Result call() throws Exception {
+                return driverApi.evaluateWithChatGPT(url, jobId);
             }
         };
         chatEvalTask = task;
@@ -1318,7 +1317,7 @@ public final class MainController {
             chatEvalRunning = false;
             chatEvalTask = null;
             updateChatEvalButton();
-            JobGptEvaluation result = task.getValue();
+            GptEvaluation.Result result = task.getValue();
             progressPane.complete(result);
             showChatEvaluation(vacancyTitle, result.answer());
         });

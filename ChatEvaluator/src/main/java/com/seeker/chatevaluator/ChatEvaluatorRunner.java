@@ -36,6 +36,19 @@ public final class ChatEvaluatorRunner {
     }
 
     public static String run(Path projectRoot, String vacancyUrl) throws Exception {
+        return evaluation(projectRoot).run(vacancyUrl).answer();
+    }
+
+    public static GptEvaluation.Result run(Path projectRoot, String vacancyUrl, int jobId) throws Exception {
+        return evaluation(projectRoot).run(vacancyUrl, jobId);
+    }
+
+    private static GptEvaluation evaluation(Path projectRoot) {
+        Path root = projectRoot.toAbsolutePath().normalize();
+        return new GptEvaluation(url -> evaluateInBrowser(root, url), new PythonEvaluationStore(root));
+    }
+
+    private static String evaluateInBrowser(Path projectRoot, String vacancyUrl) throws Exception {
         if (vacancyUrl == null || vacancyUrl.isBlank()) {
             throw new IllegalArgumentException("Vacancy URL must not be blank.");
         }

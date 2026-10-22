@@ -47,6 +47,7 @@ DEFAULT_TECHNOLOGY_RULES = Path(__file__).with_name("technology_rules.py")
 DEFAULT_RESUME_CONFIG = default_resume_path()
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"
 MIGRATED_DATABASES: set[Path] = set()
+TITLE_ID_PATTERN = re.compile(r"(?<!\w)ID\s*[:#-]?\s*[0-9]+(?!\w)", re.IGNORECASE)
 REQUIRED_TECHNOLOGY_RULE_NAMES = (
     "HARD_REQUIREMENT_TEMPLATES",
     "ALTERNATIVE_TECHNOLOGY_LIST_TEMPLATES",
@@ -700,6 +701,34 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
         ).fetchone() is not None
 
 
+def is_duplicate_company_title(preview: dict[str, Any], db_path: Path = DEFAULT_DB) -> bool:
+    title = " ".join(str(preview.get("title") or "").split()).casefold()
+    company = normalize_company_name(preview.get("company"))
+    if not TITLE_ID_PATTERN.search(title) or not company or not db_path.exists():
+        return False
+
+    resolved_db = ensure_migrated_database(db_path)
+    with closing(sqlite3.connect(resolved_db)) as connection:
+        titles = connection.execute(
+            """
+            SELECT text.title
+            FROM source_job_texts AS text
+            JOIN source_jobs AS source ON source.id = text.source_job_ref
+            JOIN companies AS company ON company.id = text.company_id
+            JOIN linkedin_collection_runs AS run ON run.run_id = source.collection_run_id
+            WHERE source.source = 'linkedin'
+                AND source.availability <> 'deleted'
+                AND company.name = ? COLLATE NOCASE
+                AND run.started_at >= datetime('now', '-7 days')
+            """,
+            (company,),
+        )
+        return any(
+            " ".join(stored_title.split()).casefold() == title
+            for (stored_title,) in titles
+        )
+
+
 def decide_preview(
     preview: dict[str, Any],
     config_path: Path = DEFAULT_PREVIEW_CONFIG,
@@ -740,6 +769,13 @@ def decide_preview_with_filter(
             "preview_decision": "skip",
             "preview_reason": "duplicate source_job_id",
             "preview_rule": "duplicate_source_job_id",
+            "preview_blocked_terms": [],
+        }
+    if is_duplicate_company_title(preview, db_path):
+        return {
+            "preview_decision": "skip",
+            "preview_reason": "duplicate company and title with ID collected within 7 days",
+            "preview_rule": "duplicate_company_title_id",
             "preview_blocked_terms": [],
         }
 

@@ -1,5 +1,7 @@
 package com.seeker.guifx;
 
+import com.seeker.chatevaluator.GptEvaluation;
+
 final class GptEvaluationProgressPane extends BackgroundProcessPane {
     GptEvaluationProgressPane(Area area) {
         super(area, "GPT Eval", "Job ID", "URL", "Stage", "Evaluated at");
@@ -14,7 +16,7 @@ final class GptEvaluationProgressPane extends BackgroundProcessPane {
         setContext(url);
     }
 
-    void complete(JobGptEvaluation result) {
+    void complete(GptEvaluation.Result result) {
         setField("Stage", "Saved");
         setField("Evaluated at", result.evaluatedAt());
         setDetails("Full answer saved for job " + result.jobId());

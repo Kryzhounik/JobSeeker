@@ -2,6 +2,7 @@ package com.seeker.api;
 
 import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
+import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.application.LinkedInApplication;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.CollectionReport;
@@ -99,5 +100,9 @@ public final class DriverApi {
 
     public String evaluateWithChatGPT(String url) throws Exception {
         return ChatEvaluatorRunner.run(projectRoot, url);
+    }
+
+    public GptEvaluation.Result evaluateWithChatGPT(String url, int jobId) throws Exception {
+        return ChatEvaluatorRunner.run(projectRoot, url, jobId);
     }
 }

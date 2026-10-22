@@ -23,6 +23,13 @@ module DTOs or the ChatEvaluator string and propagate module exceptions.
 ChatEvaluator receives the project root explicitly, without changing JVM
 properties. This module does not contain GUI data access.
 
+`evaluateWithChatGPT(url)` resolves a saved job by URL, evaluates it and saves
+the answer when a job is found; it returns the complete answer text. An unknown
+URL is evaluated normally without persistence. The GUI uses
+`evaluateWithChatGPT(url, jobId)`, which skips lookup and returns
+`GptEvaluation.Result`; the caller guarantees that URL and ID refer to the same
+job. Both overloads use ChatEvaluator's common operation. The CLI accepts only URL.
+
 ## CLI
 
 Build and run from the repository root:
@@ -49,5 +56,6 @@ URL workflow. Empty mail output does not start collection or analysis.
 
 Routing tests use stub handlers and do not start Python, a browser, or external
 services. JavaFX calls this Java API for collection, application preparation,
-and ChatGPT evaluation, while keeping its database access in `ClientData`.
+and ChatGPT evaluation. General GUI reads and edits remain in `ClientData`;
+GPT answer persistence belongs to the common ChatEvaluator operation.
 Its optional process-mode collector continues to use the independent CLI.

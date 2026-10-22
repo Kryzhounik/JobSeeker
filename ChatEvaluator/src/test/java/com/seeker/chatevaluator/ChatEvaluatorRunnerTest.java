@@ -4,6 +4,9 @@ import com.seeker.chatevaluator.ChatEvaluatorRunner.Turn;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,6 +14,24 @@ class ChatEvaluatorRunnerTest {
     private static final String URL = "https://www.linkedin.com/jobs/view/123/";
     private static final Turn OLD = new Turn("old", "user-old", URL, "answer-old", "Previous answer", true);
     private static final Turn SENT = new Turn("new", "user-new", URL, "", "", false);
+
+    @Test
+    void cliDoesNotAcceptJobIdArgument() {
+        PrintStream previousOut = System.out;
+        PrintStream previousErr = System.err;
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        try {
+            System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
+            assertEquals(2, ChatEvaluatorRunner.execute(new String[]{URL, "42"}));
+            assertEquals("", out.toString(StandardCharsets.UTF_8));
+            assertTrue(err.toString(StandardCharsets.UTF_8).contains("Expected one vacancy URL"));
+        } finally {
+            System.setOut(previousOut);
+            System.setErr(previousErr);
+        }
+    }
 
     @Test
     void lateHistoryBeforeAnchorIsNotSubmissionEvenForSameUrl() {
