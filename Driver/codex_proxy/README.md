@@ -56,6 +56,14 @@ version is fixed in `package.json` and `package-lock.json`.
 The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
 
+In `codex_invocations`, the token columns, `weighted_tokens`, and
+`estimated_credits` record usage for that invocation only and can be summed
+directly by operation, model, target, or date. The `cumulative_*_tokens` columns
+retain the original CLI session counters used to calculate each invocation's
+usage. Zero-usage failures do not reset the baseline for a resumed session.
+`codex_runs` and `codex_run_operations` contain sums and averages of these
+per-invocation values for the whole run and for each operation within the run.
+
 CLI sessions are persisted because `config.ini` sets `ephemeral = false`.
 The first target input omits `--thread-id`; the programmatic `run(...)` result
 contains the new thread ID. A caller that owns a continued target passes that

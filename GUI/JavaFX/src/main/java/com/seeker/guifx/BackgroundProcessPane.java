@@ -101,8 +101,10 @@ abstract class BackgroundProcessPane {
         details.setPrefRowCount(5);
         VBox content = new VBox(8, grid, new Label("Details"), details);
         content.setPadding(new Insets(12));
+        VBox.setVgrow(details, Priority.ALWAYS);
         ScrollPane scroll = new ScrollPane(content);
         scroll.setFitToWidth(true);
+        scroll.setFitToHeight(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setMinHeight(0);
         Region spacer = new Region();
@@ -116,11 +118,11 @@ abstract class BackgroundProcessPane {
         header.getStyleClass().add("background-process-header");
         VBox panel = new VBox(header, scroll);
         panel.getStyleClass().add("background-process");
-        panel.setPrefSize(570, 620);
+        panel.setPrefWidth(570);
         panel.setMinSize(0, 0);
         panel.setMaxWidth(570);
-        panel.maxHeightProperty().bind(Bindings.min(620,
-                Bindings.max(0, area.overlay().heightProperty().subtract(16))));
+        panel.maxHeightProperty().bind(Bindings.max(0,
+                area.overlay().heightProperty().subtract(16)));
         panel.visibleProperty().bind(dock.selectedProperty());
         panel.managedProperty().bind(panel.visibleProperty());
         VBox.setVgrow(scroll, Priority.ALWAYS);

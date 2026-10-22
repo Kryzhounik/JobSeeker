@@ -342,6 +342,7 @@ CREATE TABLE IF NOT EXISTS codex_invocations (
     duration_ms INTEGER NOT NULL CHECK (duration_ms >= 0),
     exit_code INTEGER NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('success', 'failed')),
+    -- Per-invocation usage and cost below are safe to sum across calls.
     input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
     cached_input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (
         cached_input_tokens >= 0
@@ -352,6 +353,15 @@ CREATE TABLE IF NOT EXISTS codex_invocations (
         reasoning_output_tokens >= 0
         AND reasoning_output_tokens <= output_tokens
     ),
+    -- Original CLI session-counter snapshots, retained for subsequent deltas.
+    cumulative_input_tokens INTEGER NOT NULL DEFAULT 0
+        CHECK (cumulative_input_tokens >= 0),
+    cumulative_cached_input_tokens INTEGER NOT NULL DEFAULT 0
+        CHECK (cumulative_cached_input_tokens >= 0),
+    cumulative_output_tokens INTEGER NOT NULL DEFAULT 0
+        CHECK (cumulative_output_tokens >= 0),
+    cumulative_reasoning_output_tokens INTEGER NOT NULL DEFAULT 0
+        CHECK (cumulative_reasoning_output_tokens >= 0),
     input_credit_rate REAL NOT NULL CHECK (input_credit_rate >= 0),
     cached_input_credit_rate REAL NOT NULL CHECK (
         cached_input_credit_rate >= 0

@@ -24,6 +24,30 @@ from codex_proxy.output_schema import codex_schema
 from codex_proxy.settings import load
 
 
+def usage_result(
+    thread_id: str,
+    input_tokens: int,
+    cached_input_tokens: int,
+    output_tokens: int,
+    reasoning_output_tokens: int,
+    *,
+    exit_code: int = 0,
+) -> Result:
+    return Result(
+        ["codex", "exec"],
+        exit_code,
+        thread_id,
+        "{}",
+        {
+            "input_tokens": input_tokens,
+            "cached_input_tokens": cached_input_tokens,
+            "output_tokens": output_tokens,
+            "reasoning_output_tokens": reasoning_output_tokens,
+        },
+        [],
+    )
+
+
 class CodexProxyTest(unittest.TestCase):
     def test_operation_model_settings_override_shared_defaults_independently(self) -> None:
         settings = load(
@@ -222,46 +246,25 @@ class CodexProxyTest(unittest.TestCase):
                 "finished_at": "2026-07-31T00:00:01.000+00:00",
             }
 
-            def result(
-                thread_id: str,
-                input_tokens: int,
-                cached_input_tokens: int,
-                output_tokens: int,
-                reasoning_output_tokens: int,
-            ) -> Result:
-                return Result(
-                    ["codex", "exec"],
-                    0,
-                    thread_id,
-                    "{}",
-                    {
-                        "input_tokens": input_tokens,
-                        "cached_input_tokens": cached_input_tokens,
-                        "output_tokens": output_tokens,
-                        "reasoning_output_tokens": reasoning_output_tokens,
-                    },
-                    [],
-                )
-
             save(
                 operation="job_facts",
                 target="1",
                 duration_ms=1000,
-                result=result("job-thread", 100, 50, 10, 2),
+                result=usage_result("job-thread", 100, 50, 10, 2),
                 **common,
             )
             save(
                 operation="job_facts",
                 target="2",
                 duration_ms=3000,
-                result=result("job-thread", 220, 130, 16, 3),
+                result=usage_result("job-thread", 220, 130, 16, 3),
                 **common,
             )
             save(
                 operation="candidate_fit",
                 target="1",
                 duration_ms=2000,
-                result=result("fit-thread", 80, 20, 8, 1),
+                result=usage_result("fit-thread", 80, 20, 8, 1),
                 **common,
             )
 
@@ -293,18 +296,113 @@ class CodexProxyTest(unittest.TestCase):
                     """,
                     ("run-1",),
                 ).fetchone()
-                snapshots = connection.execute(
+                invocations = connection.execute(
                     """
-                    SELECT input_tokens
+                    SELECT input_tokens, cached_input_tokens, output_tokens,
+                           reasoning_output_tokens,
+                           cumulative_input_tokens,
+                           cumulative_cached_input_tokens,
+                           cumulative_output_tokens,
+                           cumulative_reasoning_output_tokens,
+                           weighted_tokens, estimated_credits
                     FROM codex_invocations
                     WHERE run_id = ? AND operation = 'job_facts'
                     ORDER BY id
                     """,
                     ("run-1",),
                 ).fetchall()
+                totals = connection.execute(
+                    """
+                    SELECT sum(input_tokens), sum(cached_input_tokens),
+                           sum(output_tokens), sum(reasoning_output_tokens),
+                           sum(weighted_tokens), sum(estimated_credits)
+                    FROM codex_invocations WHERE run_id = ?
+                    """,
+                    ("run-1",),
+                ).fetchone()
+                aggregate_costs = connection.execute(
+                    """
+                    SELECT weighted_tokens_sum, estimated_credits_sum
+                    FROM codex_runs WHERE run_id = ?
+                    """,
+                    ("run-1",),
+                ).fetchone()
 
             self.assertEqual(run, (300, 150, 24, 4))
-            self.assertEqual(snapshots, [(100,), (220,)])
+            self.assertEqual([row[:8] for row in invocations], [
+                (100, 50, 10, 2, 100, 50, 10, 2),
+                (120, 80, 6, 1, 220, 130, 16, 3),
+            ])
+            for row, expected_weighted in zip(invocations, (115.0, 84.0)):
+                self.assertAlmostEqual(row[8], expected_weighted)
+                self.assertAlmostEqual(row[9], expected_weighted / 1_000_000)
+            self.assertEqual(totals[:4], run)
+            self.assertAlmostEqual(totals[4], 309.0)
+            self.assertAlmostEqual(totals[5], 309.0 / 1_000_000)
+            self.assertEqual(totals[4:], aggregate_costs)
+
+    def test_usage_deltas_scope_sessions_and_handle_counter_resets(self) -> None:
+        cases = [
+            ("run-1", "shared-thread", "job_facts", (100, 50, 10, 2), (100, 50, 10, 2)),
+            ("run-1", "shared-thread", "candidate_fit", (220, 130, 16, 3), (120, 80, 6, 1)),
+            ("run-1", "other-thread", "job_facts", (80, 20, 8, 1), (80, 20, 8, 1)),
+            ("run-2", "shared-thread", "job_facts", (30, 10, 3, 1), (30, 10, 3, 1)),
+            ("run-1", "", "job_facts", (40, 10, 4, 1), (40, 10, 4, 1)),
+            ("run-1", "", "job_facts", (70, 20, 5, 1), (70, 20, 5, 1)),
+            ("run-1", "shared-thread", "job_facts", (30, 10, 3, 1), (30, 10, 3, 1)),
+            ("run-1", "shared-thread", "job_facts", (50, 15, 5, 1), (20, 5, 2, 0)),
+            ("run-1", "shared-thread", "job_facts", (0, 0, 0, 0), (0, 0, 0, 0)),
+            ("run-1", "shared-thread", "job_facts", (70, 20, 7, 2), (20, 5, 2, 1)),
+            ("run-1", "shared-thread", "job_facts", (90, 10, 8, 3), (90, 10, 8, 3)),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            db_path = Path(directory) / "jobs.sqlite"
+            for index, (run_id, thread_id, operation, snapshot, _) in enumerate(cases):
+                save(
+                    db_path=db_path,
+                    run_id=run_id,
+                    operation=operation,
+                    target=str(index),
+                    model="gpt-test",
+                    reasoning_effort="medium",
+                    rates=(1.0, 0.1, 6.0),
+                    started_at=f"2026-07-31T00:00:{index:02d}.000+00:00",
+                    finished_at=f"2026-07-31T00:00:{index:02d}.500+00:00",
+                    duration_ms=500,
+                    result=usage_result(thread_id, *snapshot, exit_code=0 if any(snapshot) else 1),
+                )
+            with closing(sqlite3.connect(db_path)) as connection:
+                rows = connection.execute(
+                    """
+                    SELECT input_tokens, cached_input_tokens, output_tokens,
+                           reasoning_output_tokens
+                    FROM codex_invocations ORDER BY id
+                    """
+                ).fetchall()
+                runs = connection.execute(
+                    """
+                    SELECT run_id, input_tokens_sum, cached_input_tokens_sum,
+                           output_tokens_sum, reasoning_output_tokens_sum,
+                           failure_count
+                    FROM codex_runs ORDER BY run_id
+                    """
+                ).fetchall()
+                operation_inputs = connection.execute(
+                    """
+                    SELECT operation, input_tokens_sum
+                    FROM codex_run_operations
+                    WHERE run_id = 'run-1' ORDER BY operation
+                    """
+                ).fetchall()
+        self.assertEqual(rows, [case[4] for case in cases])
+        self.assertEqual(runs, [
+            ("run-1", 570, 210, 48, 11, 1),
+            ("run-2", 30, 10, 3, 1, 0),
+        ])
+        self.assertEqual(operation_inputs, [
+            ("candidate_fit", 120),
+            ("job_facts", 450),
+        ])
 
 
 if __name__ == "__main__":

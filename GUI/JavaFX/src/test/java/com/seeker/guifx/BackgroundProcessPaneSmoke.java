@@ -3,7 +3,10 @@ package com.seeker.guifx;
 import javafx.application.Platform;
 import javafx.css.PseudoClass;
 import javafx.scene.Node;
+import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ScrollBar;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
@@ -100,6 +103,28 @@ public final class BackgroundProcessPaneSmoke {
         ToggleButton dock = (ToggleButton) badge.getChildren().getFirst();
         Button dismiss = (Button) badge.getChildren().getLast();
         batch.begin();
+        Scene scene = new Scene(area.overlay(), 900, 1000);
+        scene.getStylesheets().add(BackgroundProcessPaneSmoke.class.getResource(
+                "/com/seeker/guifx/application.css").toExternalForm());
+        VBox panel = (VBox) area.overlay().getChildren().getLast();
+        for (int height : new int[]{1000, 900}) {
+            area.overlay().resize(900, height);
+            area.overlay().applyCss();
+            area.overlay().layout();
+            if (Math.abs(panel.getHeight() - (height - 16)) > 1) {
+                throw new AssertionError("Progress panel does not fill the available height");
+            }
+            ScrollPane scroll = (ScrollPane) panel.getChildren().get(1);
+            boolean scrolling = scroll.lookupAll(".scroll-bar").stream()
+                    .filter(node -> node instanceof ScrollBar)
+                    .map(node -> (ScrollBar) node)
+                    .anyMatch(bar -> bar.getParent() == scroll
+                            && bar.getOrientation() == javafx.geometry.Orientation.VERTICAL
+                            && bar.isVisible());
+            if (scrolling) throw new AssertionError("Batch fields still require vertical scrolling at "
+                    + height + "; viewport=" + scroll.getViewportBounds()
+                    + "; content=" + scroll.getContent().getLayoutBounds());
+        }
         batch.update(new CollectionProgress("batch-run", "complete", "Poland", "general",
                 3, 25, 7, 100, Map.of("raw_saved", 7, "preview_filtered", 3), "plan_exhausted"));
         assertState(badge, "running");

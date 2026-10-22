@@ -152,6 +152,16 @@ def migration_already_effective(
         return column_exists(connection, "source_jobs", "availability")
     if version == "039_source_job_easy_apply":
         return column_exists(connection, "source_job_texts", "easy_apply")
+    if version == "040_codex_invocation_usage_deltas":
+        return all(
+            column_exists(connection, "codex_invocations", column)
+            for column in (
+                "cumulative_input_tokens",
+                "cumulative_cached_input_tokens",
+                "cumulative_output_tokens",
+                "cumulative_reasoning_output_tokens",
+            )
+        )
     return False
 
 
