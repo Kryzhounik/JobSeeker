@@ -2,6 +2,7 @@ package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.orchestrator.WorkflowResult;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -76,6 +77,7 @@ public final class MainController {
 
     @FXML private Button refreshButton;
     @FXML private Button collectButton;
+    @FXML private Button batchButton;
     @FXML private Button linkedinCheckButton;
     @FXML private Button refilterButton;
     @FXML private Button refilterDetailButton;
@@ -151,6 +153,7 @@ public final class MainController {
     private boolean operationRunning;
     private boolean collectionRunning;
     private CollectorProgressPane collectorProgress;
+    private BatchProgressPane batchProgress;
     private BackgroundProcessPane.Area backgroundProcesses;
     private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -186,6 +189,7 @@ public final class MainController {
         chatEvalButton.setOnAction(event -> startChatEval());
         refreshButton.setOnAction(event -> refreshJobs());
         collectButton.setOnAction(event -> startCollect());
+        batchButton.setOnAction(event -> startBatch());
         linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
         refilterButton.setOnAction(event -> startRefilter(false));
         refilterDetailButton.setOnAction(event -> startRefilter(true));
@@ -338,7 +342,7 @@ public final class MainController {
     }
 
     private void setOperationButtonsDisabled(boolean disabled) {
-        collectButton.setDisable(clientData == null || collectionRunning);
+        updateCollectionButtons();
         linkedinCheckButton.setDisable(disabled || operationRunning);
         refilterButton.setDisable(disabled || operationRunning);
         refilterDetailButton.setDisable(disabled || operationRunning);
@@ -398,7 +402,7 @@ public final class MainController {
     private void startCollect() {
         if (collectionRunning) return;
         collectionRunning = true;
-        collectButton.setDisable(true);
+        updateCollectionButtons();
         if (collectorProgress == null) {
             collectorProgress = new CollectorProgressPane(backgroundProcesses);
         }
@@ -412,16 +416,55 @@ public final class MainController {
         };
         task.setOnSucceeded(event -> {
             collectionRunning = false;
-            collectButton.setDisable(false);
+            updateCollectionButtons();
             progressPane.complete(task.getValue());
             refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });
         task.setOnFailed(event -> {
             collectionRunning = false;
-            collectButton.setDisable(false);
+            updateCollectionButtons();
             progressPane.fail(task.getException());
             statusLabel.setText("LinkedIn collector failed");
+            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+        });
+        collectionExecutor.execute(task);
+    }
+
+    private void updateCollectionButtons() {
+        boolean disabled = clientData == null || collectionRunning;
+        collectButton.setDisable(disabled);
+        batchButton.setDisable(disabled);
+    }
+
+    private void startBatch() {
+        if (collectionRunning || clientData == null) return;
+        collectionRunning = true;
+        updateCollectionButtons();
+        if (batchProgress == null) batchProgress = new BatchProgressPane(backgroundProcesses);
+        BatchProgressPane progressPane = batchProgress;
+        progressPane.begin();
+        Task<WorkflowResult> task = new Task<>() {
+            @Override protected WorkflowResult call() throws Exception {
+                return new DriverApi(ClientData.findProjectRoot(),
+                        progress -> Platform.runLater(() -> progressPane.update(progress)),
+                        progress -> Platform.runLater(() -> progressPane.update(progress)))
+                        .processBatch("linkedin");
+            }
+        };
+        task.setOnSucceeded(event -> {
+            collectionRunning = false;
+            updateCollectionButtons();
+            progressPane.complete(task.getValue());
+            refreshJobs();
+            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+        });
+        task.setOnFailed(event -> {
+            collectionRunning = false;
+            updateCollectionButtons();
+            progressPane.fail(task.getException());
+            statusLabel.setText("Batch failed");
+            refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });
         collectionExecutor.execute(task);

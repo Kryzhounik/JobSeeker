@@ -83,9 +83,19 @@ expands or minimizes the panel. The usual status text is at the bottom right.
 The panel retains the final result or error and accumulated statistics.
 Error details include the failed search or vacancy URL. Card-materialization
 errors show the failing card's canonical LinkedIn URL in the same text block.
-Collection runs independently of other GUI actions; only another Collect is
-disabled while it is running. The run ID is sent before browser startup so an interrupted run
+Collection runs independently of other GUI actions; Collect and Batch are
+disabled while either is running. The run ID is sent before browser startup so an interrupted run
 can still be identified. Collection does not start the analysis workflow.
+
+Batch runs the complete `DriverApi.processBatch("linkedin")` workflow in a
+background task: collection, agent relevance filtering, job facts, candidate
+fit, job interest, and saving. Its panel shares the Collect counters and adds
+the current processing stage, per-stage completed/total, current source job ID,
+agent-rejection count, and saved count. Collection completion alone does not
+mark Batch complete. Failures retain the run ID and accumulated counters;
+finished/failed panels can be dismissed just like Collect. Batch uses the
+direct Driver Java API. Other GUI views remain usable. The Batch button has
+a brighter green than Collect.
 
 ### Collector connection
 

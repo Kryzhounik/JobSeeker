@@ -9,6 +9,7 @@ import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.login.LoginResult;
 import com.seeker.orchestrator.StageResult;
 import com.seeker.orchestrator.WorkflowOrchestrator;
+import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.orchestrator.WorkflowResult;
 
 import java.io.IOException;
@@ -28,9 +29,14 @@ public final class DriverApi {
     }
 
     public DriverApi(Path projectRoot, Consumer<CollectionProgress> progress) throws IOException {
+        this(projectRoot, progress, ignored -> { });
+    }
+
+    public DriverApi(Path projectRoot, Consumer<CollectionProgress> progress,
+                     Consumer<WorkflowProgress> workflowProgress) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
         this.linkedin = new LinkedInApplication(this.projectRoot, progress);
-        this.orchestrator = new WorkflowOrchestrator(this.projectRoot, progress);
+        this.orchestrator = new WorkflowOrchestrator(this.projectRoot, progress, workflowProgress);
         this.applier = new ApplierRunner(this.projectRoot);
     }
 

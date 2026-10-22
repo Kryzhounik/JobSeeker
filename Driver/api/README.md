@@ -10,6 +10,9 @@ Each module keeps its independent Java API and CLI.
 Use `com.seeker.api.DriverApi` from Maven artifact
 `com.seeker:job-seeker-api:1.0-SNAPSHOT`. Its constructor accepts the project
 root and, optionally, the existing `Consumer<CollectionProgress>` callback.
+The three-argument constructor also accepts `Consumer<WorkflowProgress>` for
+filtering, analysis, scoring, and saving progress. Both callbacks run on the
+calling worker thread; UI callers dispatch updates to their UI thread.
 Components are initialized once; browser and Python operations start only
 when the corresponding operation is called. Methods return the original
 module DTOs or the ChatEvaluator string and propagate module exceptions.

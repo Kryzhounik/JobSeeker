@@ -32,7 +32,7 @@
             <HBox alignment="CENTER_LEFT" spacing="8.0">
                 <padding><Insets top="7.0" right="10.0" bottom="5.0" left="10.0" /></padding>
                 <HBox alignment="CENTER_LEFT" spacing="6.0" styleClass="toolbar-button-group">
-                    <Button fx:id="batchButton" text="Batch" />
+                    <Button fx:id="batchButton" text="Batch" styleClass="collect-button, batch-button" />
                     <Button fx:id="collectButton" text="Collect" styleClass="collect-button" />
                 </HBox>
                 <Button fx:id="linkedinCheckButton" text="Check LinkedIn" />

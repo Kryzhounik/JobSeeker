@@ -8,6 +8,14 @@ import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.orchestrator.WorkflowProgress;
+import com.seeker.orchestrator.WorkflowResult;
+
+import java.util.List;
+import java.util.Map;
 
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +83,7 @@ public final class BackgroundProcessPaneSmoke {
                 if (firstBadge.isVisible() || firstPanel.isVisible()) {
                     throw new AssertionError("Panel dismiss did not hide both views");
                 }
+                checkBatchProgress(area);
                 return null;
             });
             Platform.runLater(check);
@@ -83,6 +92,42 @@ public final class BackgroundProcessPaneSmoke {
         } finally {
             Platform.exit();
         }
+    }
+
+    private static void checkBatchProgress(BackgroundProcessPane.Area area) {
+        BatchProgressPane batch = new BatchProgressPane(area);
+        HBox badge = (HBox) area.docks().getChildren().getLast();
+        ToggleButton dock = (ToggleButton) badge.getChildren().getFirst();
+        Button dismiss = (Button) badge.getChildren().getLast();
+        batch.begin();
+        batch.update(new CollectionProgress("batch-run", "complete", "Poland", "general",
+                3, 25, 7, 100, Map.of("raw_saved", 7, "preview_filtered", 3), "plan_exhausted"));
+        assertState(badge, "running");
+        if (dismiss.isVisible()) throw new AssertionError("Collection completion finished the batch");
+        batch.update(new WorkflowProgress("batch-run", "relevance_filter", 7, 7, "", 1, ""));
+        batch.update(new WorkflowProgress("batch-run", "job_facts", 2, 6, "123", 0, ""));
+        batch.fail(new IllegalStateException("analysis failed"));
+        assertState(badge, "failed");
+        if (!batch.fieldText("Run ID").equals("batch-run")
+                || !batch.fieldText("Accepted / limit").equals("7 / 100")
+                || !batch.fieldText("Rejected by agent").equals("1")
+                || !batch.fieldText("Workflow progress").equals("2 / 6")
+                || !batch.fieldText("Current job").equals("123") || !dismiss.isVisible()) {
+            throw new AssertionError("Batch failure lost progress or cannot be dismissed");
+        }
+        batch.begin();
+        List<ScopeItem> scope = List.of(new ScopeItem("linkedin", "123", "Java"));
+        batch.update(new WorkflowProgress("next-run", "complete", 1, 1, "", 0, ""));
+        assertState(badge, "running");
+        batch.complete(new WorkflowResult("linkedin", "next-run", "complete",
+                new CollectionReport("linkedin", "next-run", "complete", 1, scope, Map.of(), List.of(), ""),
+                scope, 0, ""));
+        assertState(badge, "completed");
+        if (!batch.fieldText("Saved").equals("1") || !dock.getText().contains("done")) {
+            throw new AssertionError("Batch final result was not displayed");
+        }
+        dismiss.fire();
+        if (badge.isVisible()) throw new AssertionError("Completed batch cannot be dismissed");
     }
 
     private static void assertState(Node node, String expected) {

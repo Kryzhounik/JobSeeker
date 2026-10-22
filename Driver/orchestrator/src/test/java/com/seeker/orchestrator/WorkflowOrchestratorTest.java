@@ -18,8 +18,50 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowOrchestratorTest {
+    @Test
+    void reportsWorkflowStagesCountsAndCurrentJobs() throws Exception {
+        List<WorkflowProgress> updates = new ArrayList<>();
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of("2"));
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                () -> report("complete", List.of(item("1", "Java"), item("2", "Marketing"),
+                        item("3", "Backend"))), gateway, updates::add);
+
+        WorkflowResult result = workflow.processBatch("linkedin");
+
+        assertEquals(List.of("loading_statuses", "relevance_filter", "initializing_analysis",
+                "job_facts", "candidate_fit", "job_interest", "saving", "complete"),
+                updates.stream().map(WorkflowProgress::stage).distinct().toList());
+        assertTrue(updates.stream().allMatch(update -> update.runId().equals("run-1")
+                && update.completedCount() >= 0 && update.completedCount() <= update.totalCount()));
+        assertEquals(1, updates.stream().filter(update -> update.stage().equals("relevance_filter"))
+                .reduce((first, last) -> last).orElseThrow().rejectedCount());
+        assertEquals(List.of("1", "3"), updates.stream()
+                .filter(update -> update.stage().equals("candidate_fit"))
+                .map(WorkflowProgress::jobId).toList());
+        assertEquals(2, updates.getLast().completedCount());
+        assertEquals(result.processedCount(), updates.getLast().totalCount());
+    }
+
+    @Test
+    void analysisFailureLeavesLastStageWithoutReportingCompletion() {
+        List<WorkflowProgress> updates = new ArrayList<>();
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
+        gateway.factsFailure = new IllegalStateException("analysis failed");
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                () -> report("complete", List.of(item("1", "Java"))), gateway, updates::add);
+
+        assertEquals(gateway.factsFailure, assertThrows(IllegalStateException.class,
+                () -> workflow.processBatch("linkedin")));
+        assertEquals("job_facts", updates.getLast().stage());
+        assertEquals("1", updates.getLast().jobId());
+        assertEquals("run-1", updates.getLast().runId());
+        assertEquals(0, updates.getLast().completedCount());
+        assertFalse(updates.stream().anyMatch(update -> update.stage().equals("complete")));
+    }
+
     @Test
     void filtersCompleteScopeMarksRejectedJobsAndPreservesRemainingOrder()
             throws Exception {
@@ -415,6 +457,7 @@ class WorkflowOrchestratorTest {
         private List<ScopeItem> scope = List.of();
         private String markedSource;
         private List<String> markedIds = new ArrayList<>();
+        private RuntimeException factsFailure;
 
         private FakeProcessingGateway(List<String> rejectedIds) {
             this.rejectedIds = rejectedIds;
@@ -469,6 +512,7 @@ class WorkflowOrchestratorTest {
                 String threadId
         ) {
             calls.add("job-facts:" + jobId);
+            if (factsFailure != null) throw factsFailure;
             states.put(jobId, "ANALYZED");
             return threadId == null ? target : threadId;
         }

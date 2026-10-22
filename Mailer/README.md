@@ -21,6 +21,4 @@ Local settings are in `Data/mailer/config.properties`, progress is in
 `Data/mailer/mailer.log`. Configuration keys and supported formats are described
 in the architecture document. Manual inspection files belong in `Data/mailer/tmp/`.
 
-- [Requirements](REQUIREMENTS.md)
 - [Architecture](ARCHITECTURE.md)
-- [Implementation plan and review gates](PLAN.md)

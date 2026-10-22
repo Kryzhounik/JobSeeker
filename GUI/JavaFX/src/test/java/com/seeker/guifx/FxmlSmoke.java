@@ -35,9 +35,10 @@ public final class FxmlSmoke {
                         || !refilterGroup.getStyleClass().contains("toolbar-button-group")
                         || actions.getChildren().getLast() != config
                         || actions == filters || filters.getChildren().getFirst() != refresh
-                        || batch.getOnAction() != null
+                        || batch.getOnAction() == null
+                        || !batch.getStyleClass().containsAll(java.util.List.of("collect-button", "batch-button"))
                         || loader.getNamespace().containsKey("searchButton")) {
-                    throw new AssertionError("Toolbar order or Batch placeholder changed");
+                    throw new AssertionError("Toolbar order or Batch action/style changed");
                 }
             } catch (Throwable error) {
                 failure.set(error);

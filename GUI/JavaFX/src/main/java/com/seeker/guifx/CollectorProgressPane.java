@@ -5,14 +5,24 @@ import com.seeker.collector.linkedin.collection.CollectionReport;
 
 import java.util.Map;
 
-final class CollectorProgressPane extends BackgroundProcessPane {
+class CollectorProgressPane extends BackgroundProcessPane {
     private int limit;
     private int accepted;
 
     CollectorProgressPane(Area area) {
-        super(area, "Collect", "Run ID", "Stage", "Location", "Search", "Page",
+        this(area, "Collect");
+    }
+
+    protected CollectorProgressPane(Area area, String title, String... extraFields) {
+        super(area, title, fields(extraFields));
+    }
+
+    private static String[] fields(String[] extraFields) {
+        String[] collectionFields = {"Run ID", "Stage", "Location", "Search", "Page",
                 "Cards on page", "Processed", "Accepted / limit", "Skipped by preview",
-                "Rejected by content", "Open failures", "Incomplete data", "Skipped at limit");
+                "Rejected by content", "Open failures", "Incomplete data", "Skipped at limit"};
+        return java.util.stream.Stream.concat(java.util.Arrays.stream(collectionFields),
+                java.util.Arrays.stream(extraFields)).toArray(String[]::new);
     }
 
     void begin() {
