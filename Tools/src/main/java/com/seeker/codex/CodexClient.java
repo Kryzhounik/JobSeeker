@@ -12,6 +12,8 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 /** Calls the metered Python proxy and translates its structured failures. */
 public final class CodexClient {
@@ -37,19 +39,29 @@ public final class CodexClient {
             throws IOException, InterruptedException, UsageLimitExceededException {
         List<String> arguments = new ArrayList<>(command);
         arguments.add("--json-result");
-        Process process = new ProcessBuilder(arguments).directory(directory.toFile())
-                .redirectErrorStream(true).start();
+        Process process = new ProcessBuilder(arguments).directory(directory.toFile()).start();
+        FutureTask<String> stderr = new FutureTask<>(() ->
+                new String(process.getErrorStream().readAllBytes(), StandardCharsets.UTF_8));
+        Thread.startVirtualThread(stderr);
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         int exitCode = process.waitFor();
+        String diagnostics;
+        try {
+            String errorOutput = stderr.get().strip();
+            diagnostics = errorOutput.isEmpty() ? "" : "\nstderr: " + errorOutput;
+        } catch (ExecutionException error) {
+            throw new IOException("Cannot read Codex Proxy stderr", error.getCause());
+        }
         Response result;
         try {
             result = decode(output);
         } catch (JsonParseException error) {
-            throw new IOException("Invalid Codex Proxy response (" + exitCode + "): " + output.strip(), error);
+            throw new IOException("Invalid Codex Proxy response (" + exitCode + "): "
+                    + output.strip() + diagnostics, error);
         }
         if (exitCode != 0 || result.error() != null) {
             throw new IOException("Codex Proxy failed (" + exitCode + "): "
-                    + (result.error() == null ? output.strip() : result.error().message()));
+                    + (result.error() == null ? output.strip() : result.error().message()) + diagnostics);
         }
         return result.result();
     }
