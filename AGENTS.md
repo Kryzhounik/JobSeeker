@@ -25,6 +25,47 @@ Wait for the user's response. The user decides whether to review, test, or
 revise that item and when to start the next one. Do not make that decision or
 continue to another item on your own.
 
+## Coding Task Handoff
+
+When asked to prepare an implementation task for another coding agent, base
+it on the decisions already agreed upon. The receiving agent has access to
+the repository but not necessarily to the discussion history.
+
+**The goal is to eliminate ambiguity, not to explain how to program.**
+
+Include:
+
+- The objective and expected outcome.
+- Relevant repository components and existing contracts.
+- Agreed technical and architectural decisions that must be preserved.
+- Concrete implementation scope and important constraints.
+- Essential acceptance criteria and verification expectations.
+
+**Calibrate the level of detail:**
+
+- Preserve every non-obvious decision that affects correctness or architecture.
+- Explain what must be done and how only where the approach has already been
+  explicitly decided.
+- Leave routine implementation details to the receiving agent.
+- Do not enumerate obvious coding steps, methods, or tests.
+- Do not repeat the same requirement in different sections.
+- Reference existing code instead of describing how it works.
+- Avoid speculative edge cases, defensive abstractions, and unnecessary
+  infrastructure.
+- Do not turn a small task into a comprehensive technical specification.
+- Do not impose an arbitrary word limit; use the minimum detail necessary
+  for reliable implementation.
+
+Split the work into separate tasks only when there are meaningful
+implementation boundaries or review checkpoints.
+
+Output directly executable task instructions, not documentation files,
+unless the user explicitly requests files. Preparing a handoff does not
+authorize implementing the task or reopening agreed design decisions.
+
+The result should resemble a well-written engineering issue or delegation
+to an experienced colleague, not a tutorial.
+
 ## Independent Review - Test Execution Policy
 
 Do not run existing test suites by default during code review.
