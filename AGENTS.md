@@ -94,6 +94,13 @@ Do not ignore real defects. But distinguish problems that materially affect
 the tool's usefulness from speculative risks that are acceptable for this
 project.
 
+## Independent Design Judgment During Review
+
+Existing code is not proof of good design. When reviewing new or modified
+public APIs and architectural boundaries, evaluate design decisions
+independently rather than accepting them merely because they follow existing
+patterns.
+
 ## Cross-Module Changes During Review
 
 Cross-module changes are not inherently problematic and do not require
