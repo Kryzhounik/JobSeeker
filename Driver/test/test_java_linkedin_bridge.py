@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from contextlib import closing
+from datetime import date
 import gc
 from pathlib import Path
 import sqlite3
@@ -15,9 +16,41 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.java_linkedin import python_bridge
+from collector.filtering.publication_age import publication_age_days
 
 
 class JavaLinkedInBridgeTest(unittest.TestCase):
+    def test_publication_age_reads_metadata_not_description(self) -> None:
+        for marker, expected in [
+            ("21 minutes ago", 0), ("Reposted 2 weeks ago", 14),
+            ("15 days ago", 15), ("2 months ago", 60), ("Unknown", None),
+        ]:
+            with self.subTest(marker=marker):
+                html = (f'<div class="job-details-jobs-unified-top-card__tertiary-description-container">'
+                        f'<span>{marker}</span><br/></div><p>Experience gained 2 years ago.</p>')
+                self.assertEqual(expected, publication_age_days(html))
+        self.assertIsNone(publication_age_days('<p>Updated 2 months ago.</p>'))
+        self.assertEqual(15, publication_age_days(
+            '<meta itemprop="datePosted" content="2026-10-01">', date(2026, 10, 16)))
+
+    def test_old_vacancy_is_rejected_before_raw_or_database_save(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            raw = Path(directory) / "raw"
+            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(raw))
+            self.addCleanup(python_bridge.close_session)
+            preview = {"job_id": "123", "source_url": "https://www.linkedin.com/jobs/view/123/",
+                       "title": "Java Developer"}
+            html = ('<div class="job-details-jobs-unified-top-card__tertiary-description-container">'
+                    '<span>2 months ago</span></div>')
+            result = json.loads(python_bridge.process_html(json.dumps(preview), html))
+            self.assertEqual("age_filtered", result["status"])
+            self.assertFalse(raw.exists())
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual(0, connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0])
+                self.assertEqual(("age_filtered",), connection.execute(
+                    "SELECT status FROM linkedin_collection_events WHERE job_id = '123'").fetchone())
+
     def test_easy_apply_marker_reaches_gui_and_applier(self) -> None:
         from Applier.vacancy_context import vacancy_context
         from GUI.client_data import load_jobs

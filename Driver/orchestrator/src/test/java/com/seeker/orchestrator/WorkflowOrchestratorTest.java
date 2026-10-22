@@ -7,6 +7,7 @@ import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,7 +63,8 @@ class WorkflowOrchestratorTest {
                 () -> {
                     throw new AssertionError("collector must not be called");
                 },
-                urls -> {
+                (urls, prefix) -> {
+                    assertEquals("", prefix);
                     requestedUrls.addAll(urls);
                     return report("complete", List.of(item("1", "Java Developer")));
                 },
@@ -118,7 +120,7 @@ class WorkflowOrchestratorTest {
                 () -> {
                     throw new AssertionError("collector must not be called");
                 },
-                requested -> {
+                (requested, prefix) -> {
                     requestedUrls.addAll(requested);
                     return report("complete", List.of(
                             item("1", "Java Developer"),
@@ -316,6 +318,52 @@ class WorkflowOrchestratorTest {
         assertEquals(1, collected.pages().size());
         assertEquals("Ukraine", collected.pages().getFirst().label());
         assertEquals(1, gson.toJsonTree(collected).getAsJsonObject().getAsJsonArray("pages").size());
+    }
+
+    @Test
+    void recommendationsUseTheExistingWorkflowWithAPrefix() throws Exception {
+        List<String> urls = List.of("https://www.linkedin.com/jobs/view/1");
+        FakeProcessingGateway processing = new FakeProcessingGateway(List.of());
+        AtomicInteger collections = new AtomicInteger();
+        AtomicInteger mailCalls = new AtomicInteger();
+        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+                () -> { throw new AssertionError("search must not be called"); },
+                (requested, prefix) -> {
+                    collections.incrementAndGet();
+                    assertEquals(urls, requested);
+                    assertEquals("recommendations", prefix);
+                    return report("complete", List.of(item("1", "Java")));
+                }, processing,
+                () -> { mailCalls.incrementAndGet(); return urls; }
+        );
+
+        WorkflowResult result = orchestrator.checkRecommendations();
+
+        assertEquals(1, collections.get());
+        assertEquals(1, mailCalls.get());
+        assertEquals(1, result.processedCount());
+        assertEquals("save-scored:1", processing.calls.getLast());
+    }
+
+    @Test
+    void emptyRecommendationsAndMailErrorsDoNotStartCollection() throws Exception {
+        WorkflowOrchestrator.LinkedInCollection search =
+                () -> { throw new AssertionError("search must not be called"); };
+        WorkflowOrchestrator.LinkedInUrls urls =
+                (requested, prefix) -> { throw new AssertionError("URLs must not be collected"); };
+        WorkflowOrchestrator empty = new WorkflowOrchestrator(
+                search, urls, new FakeProcessingGateway(List.of()), List::of);
+
+        WorkflowResult result = empty.checkRecommendations();
+        assertEquals("complete", result.status());
+        assertEquals(0, result.processedCount());
+        assertNull(result.runId());
+        assertNull(result.collection());
+
+        IOException failure = new IOException("mail failed");
+        WorkflowOrchestrator failed = new WorkflowOrchestrator(
+                search, urls, new FakeProcessingGateway(List.of()), () -> { throw failure; });
+        assertEquals(failure, assertThrows(IOException.class, failed::checkRecommendations));
     }
 
     @Test

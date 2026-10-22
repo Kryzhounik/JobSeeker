@@ -75,8 +75,13 @@ public final class LinkedInApplication {
     }
 
     public CollectionReport collectUrls(List<String> urls) throws IOException {
+        return collectUrls(urls, "");
+    }
+
+    public CollectionReport collectUrls(List<String> urls, String runPrefix) throws IOException {
         return collectionService.collectFromUrls(
-                RUN_ID_TIME.format(Instant.now())
+                (runPrefix.isBlank() ? "" : runPrefix.strip() + "-")
+                        + RUN_ID_TIME.format(Instant.now())
                         + (urls.size() == 1 ? "-url-linkedin" : "-urls-linkedin"),
                 urls
         );

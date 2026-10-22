@@ -4,6 +4,7 @@ import com.seeker.collector.linkedin.application.LinkedInApplication;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.mailer.Mailer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,6 +23,7 @@ public final class WorkflowOrchestrator {
     private final LinkedInCollection linkedinCollection;
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
+    private final RecommendationSource recommendations;
     private final int vacanciesPerAgent;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
@@ -33,6 +35,7 @@ public final class WorkflowOrchestrator {
         this(
                 new LinkedInApplication(projectRoot, progress),
                 new JpyProcessingGateway(projectRoot),
+                new Mailer(projectRoot)::getRecommendationUrls,
                 vacanciesPerAgent(projectRoot)
         );
     }
@@ -40,16 +43,18 @@ public final class WorkflowOrchestrator {
     private WorkflowOrchestrator(
             LinkedInApplication linkedin,
             ProcessingGateway processingGateway,
+            RecommendationSource recommendations,
             int vacanciesPerAgent
     ) {
-        this(linkedin::collectBatch, linkedin::collectUrls, processingGateway, vacanciesPerAgent);
+        this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
+                recommendations, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
             LinkedInCollection linkedinCollection,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, ignored -> linkedinCollection.collect(), processingGateway);
+        this(linkedinCollection, (urls, prefix) -> linkedinCollection.collect(), processingGateway);
     }
 
     WorkflowOrchestrator(
@@ -57,18 +62,29 @@ public final class WorkflowOrchestrator {
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, Integer.MAX_VALUE);
+        this(linkedinCollection, linkedinUrls, processingGateway, List::of);
+    }
+
+    WorkflowOrchestrator(
+            LinkedInCollection linkedinCollection,
+            LinkedInUrls linkedinUrls,
+            ProcessingGateway processingGateway,
+            RecommendationSource recommendations
+    ) {
+        this(linkedinCollection, linkedinUrls, processingGateway, recommendations, Integer.MAX_VALUE);
     }
 
     private WorkflowOrchestrator(
             LinkedInCollection linkedinCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
+            RecommendationSource recommendations,
             int vacanciesPerAgent
     ) {
         this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
+        this.recommendations = Objects.requireNonNull(recommendations);
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
@@ -80,10 +96,23 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult processUrls(String... urls) throws IOException {
-        WorkflowResult report = processCollected(linkedinUrls.collect(List.of(urls)));
+        return processUrls(List.of(urls), "");
+    }
+
+    public WorkflowResult checkRecommendations() throws IOException {
+        List<String> urls = recommendations.load();
+        if (urls.isEmpty()) {
+            return new WorkflowResult("linkedin", null, "complete", null,
+                    List.of(), 0, "No new recommendations");
+        }
+        return processUrls(urls, "recommendations");
+    }
+
+    private WorkflowResult processUrls(List<String> urls, String runPrefix) throws IOException {
+        WorkflowResult report = processCollected(linkedinUrls.collect(urls, runPrefix));
         int agentFiltered = report.agentFilteredCount();
         if (agentFiltered > 0) {
-            String reason = urls.length == 1
+            String reason = urls.size() == 1
                     ? "Vacancy rejected by agent relevance filter"
                     : "Vacancies rejected by agent relevance filter: " + agentFiltered;
             return report.withMessage(report.message().isEmpty()
@@ -296,6 +325,11 @@ public final class WorkflowOrchestrator {
 
     @FunctionalInterface
     interface LinkedInUrls {
-        CollectionReport collect(List<String> urls) throws IOException;
+        CollectionReport collect(List<String> urls, String runPrefix) throws IOException;
+    }
+
+    @FunctionalInterface
+    interface RecommendationSource {
+        List<String> load() throws IOException;
     }
 }

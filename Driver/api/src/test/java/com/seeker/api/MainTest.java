@@ -28,6 +28,7 @@ class MainTest {
         for (String[] args : List.of(
                 new String[]{"process-batch", "linkedin"},
                 new String[]{"process-urls", "url-1", "url-2"},
+                new String[]{"check-recommendations"},
                 new String[]{"resume", "run-1"},
                 new String[]{"job-facts", "run-1", "linkedin", "1,2"},
                 new String[]{"finish-analysis", "run-1", "linkedin", "1,2"}

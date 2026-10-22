@@ -58,6 +58,12 @@ Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
 - The common HTML processing step detects the Easy Apply button and stores
   `source_job_texts.easy_apply`. GUI Apply and console Applier use this saved
   marker; neither repeats detection. Existing vacancies are not reclassified.
+- The same HTML processing step extracts publication age from vacancy metadata
+  for both search and direct URLs. Vacancies older than `[age] max_days = 14` in
+  `filtering/linkedin_preview_filter.ini` produce `age_filtered` before raw or
+  database persistence. Missing/unrecognized dates pass; description text is not
+  interpreted as a publication date. Search `datePosted` remains a separate
+  LinkedIn search parameter.
 - For compatibility, Python still saves canonical raw HTML, writes collector
   metadata, readable text, and lifecycle data to SQLite, applies the current
   filters, and records collection events.
@@ -86,6 +92,8 @@ session and collection run. It returns one report with the combined scope and
 outcomes; collector skip reasons in `message` include their source IDs when
 multiple URLs were supplied. `collectUrl(url)` delegates to this operation for one
 URL. The orchestrator runs analysis once after collection of the whole list.
+The overload `collectUrls(urls, runPrefix)` prepends the supplied label to the
+generated run ID; the default overload preserves the existing ID format.
 
 ## Requirements
 

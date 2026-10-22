@@ -50,6 +50,10 @@ public final class DriverApi {
         return orchestrator.processUrls(urls);
     }
 
+    public WorkflowResult checkRecommendations() throws IOException {
+        return orchestrator.checkRecommendations();
+    }
+
     public WorkflowResult resume(String runId) {
         return orchestrator.resume(runId);
     }

@@ -21,6 +21,10 @@
     <dependencies>
         <dependency>
             <groupId>com.seeker</groupId>
+            <artifactId>mailer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
             <artifactId>linkedin-collector</artifactId>
         </dependency>
         <dependency>

@@ -27,7 +27,7 @@ java -jar Driver/api/job-seeker-api.jar <command> [args...]
 
 The thin JAR uses the existing repository-root `libs/` through its manifest.
 Commands are `login`, `collect-batch`, `process-batch <source>`,
-`process-urls <url...>`, `resume <run-id>`,
+`process-urls <url...>`, `check-recommendations`, `resume <run-id>`,
 `job-facts|finish-analysis <run-id> <source> <comma-separated-job-ids>`,
 `apply <url>`, and `chat-eval <url>`.
 
@@ -35,6 +35,10 @@ Commands call module CLI handlers in the same JVM, preserving their output,
 diagnostics, and exit codes. Only `apply` and `chat-eval` remove their router
 command name before delegation. Missing or unknown commands return code `2`.
 No child Java process or additional result serialization is used.
+
+`DriverApi.checkRecommendations()` delegates to Orchestrator and returns its
+`WorkflowResult`: fetch recommendation URLs through Mailer, then run the existing
+URL workflow. Empty mail output does not start collection or analysis.
 
 Routing tests use stub handlers and do not start Python, a browser, or external
 services. JavaFX calls this Java API for collection, application preparation,

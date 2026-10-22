@@ -36,6 +36,11 @@
         <dependencies>
             <dependency>
                 <groupId>com.seeker</groupId>
+                <artifactId>mailer</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.seeker</groupId>
                 <artifactId>tools</artifactId>
                 <version>${project.version}</version>
             </dependency>

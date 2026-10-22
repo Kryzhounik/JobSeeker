@@ -27,6 +27,7 @@ from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import apply_preview_decision_with_filter
 from collector.filtering.linkedin_filter import content_response
 from collector.filtering.linkedin_filter import load_config
+from collector.filtering.publication_age import publication_age_days
 from collector.logging.linkedin_logger import record_collection_event
 from collector.logging.linkedin_run_logger import finish_collection_run
 from collector.logging.linkedin_run_logger import record_collection_page
@@ -147,6 +148,13 @@ def process_html(preview_json: str, html: str) -> str:
     title = str(preview.get("title") or "").strip()
     if not job_id or not source_url:
         raise ValueError("Browser result is missing job_id or source_url")
+    age = publication_age_days(html)
+    max_age = session.preview_config.getint("age", "max_days", fallback=14)
+    if age is not None and age > max_age:
+        reason = f"publication age {age} days exceeds {max_age} days"
+        log_outcome(preview_json, "age_filtered", reason)
+        return _json({"source": "linkedin", "job_id": job_id, "title": title,
+                      "status": "age_filtered", "reason": reason})
     apply_button = ApplyButtonParser()
     apply_button.feed(html)
 

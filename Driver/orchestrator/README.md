@@ -92,6 +92,21 @@ its JSON. `WorkflowOrchestrator(projectRoot, progressListener)` can
 forward Collector callbacks without any console transport. JPy gateways do not
 change global Python stdout; only the CLI temporarily redirects it to stderr.
 
+### Check email recommendations
+
+```powershell
+java -jar Driver/api/job-seeker-api.jar check-recommendations
+```
+
+Also available through `WorkflowOrchestrator.checkRecommendations()`,
+`DriverApi.checkRecommendations()`, and the standalone Orchestrator CLI.
+Mailer supplies canonical URLs; the existing URL workflow processes them together.
+The collection run ID starts with `recommendations-`; newly saved source jobs
+retain that ID in `collection_run_id`. No new recommendations means an empty
+successful `WorkflowResult` with null `run_id` and `collection`, without collection.
+Mail errors propagate without starting the pipeline. Mailer's checkpoint still
+tracks successful URL extraction, independently of subsequent vacancy processing.
+
 ### Resume a partially processed run
 
 Reads the completed collection's vacancies from SQLite and uses the same
