@@ -93,3 +93,46 @@ designed to prevent every conceivable failure.
 Do not ignore real defects. But distinguish problems that materially affect
 the tool's usefulness from speculative risks that are acceptable for this
 project.
+
+## Cross-Module Changes During Review
+
+Cross-module changes are not inherently problematic and do not require
+separate approval when they are minor, necessary, and consistent with the
+existing architecture.
+
+Reviewers should flag cross-module changes only when they introduce
+significant architectural or design decisions outside the assigned task's
+scope.
+
+Examples include changes to public API design, module responsibilities,
+dependency direction, or component lifecycle.
+
+Do not require additional discussion or approval for routine integration
+changes, small fixes, or straightforward adaptations of existing contracts.
+
+The goal is to prevent unauthorized architectural decisions, not to create
+bureaucracy around ordinary development.
+
+## Determining Task Scope
+
+Determine your area of responsibility from the established conversation
+context, your current assignment, and the repository's module boundaries.
+
+Do not require the user to explicitly restate your scope for every task.
+
+**A new request does not automatically redefine your role or expand your scope.**
+
+If a request appears substantially unrelated to your established area of
+responsibility, consider that the user may have sent it to the wrong agent
+or conversation.
+
+In that case, ask for brief confirmation before proceeding, for example:
+
+"Is this task intended for me, or did you mean to send it to another agent?"
+
+Do not silently accept an unrelated assignment as an expansion of your
+responsibilities.
+
+Routine cross-module integration work is not, by itself, a reason to request
+clarification. Ask only when the assignment genuinely appears misdirected or
+its ownership is materially ambiguous.
