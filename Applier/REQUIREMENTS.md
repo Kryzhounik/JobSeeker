@@ -36,8 +36,10 @@ fix additional problems as they arise in use.
   redirect or new tab containing the company's application form. LinkedIn
   Easy Apply is outside this first implementation. The collector detects it
   when reading vacancy details and saves the marker. GUI Apply is disabled for
-  marked vacancies; console Applier skips them before opening the browser.
-  Applier does not repeat detection. Existing records need no reclassification.
+  marked vacancies. Applier checks the opened vacancy using the same shared
+  detector and skips Easy Apply before opening a form or starting Codex.
+  Applier does not read the vacancy database or require prior collection.
+  Existing records need no reclassification.
 - An adapter is a Playwright script written for a specific application form.
   Choose by the form actually opened, including after a redirect or new tab.
   First check for a matching adapter and run it if present. Only when no
@@ -55,8 +57,10 @@ fix additional problems as they arise in use.
   but must not be presented as an unsubmitted form.
 - Use the existing resume and a separate local facts file under `Data/`.
   Keep decision rules in the form-filling instruction, not in the facts file.
-  Applier reads the stored vacancy location so the location rule can choose from the available
-  locations. Facts and rules can grow as new questions arise; a complete
+  Applier reads the location from the open vacancy page before following Apply,
+  then passes it to the agent so the location rule can choose from the available
+  locations. If this field is empty, the agent first reads the location on the
+  open employer page. Facts and rules can grow as new questions arise; a complete
   catalogue is not required upfront.
 - Fill what the available information supports. Do not invent missing answers;
   leave them for the user and briefly explain what remains. If the form blocks

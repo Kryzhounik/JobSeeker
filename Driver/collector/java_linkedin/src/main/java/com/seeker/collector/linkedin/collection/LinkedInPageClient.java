@@ -3,6 +3,7 @@ package com.seeker.collector.linkedin.collection;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
+import com.seeker.applier.shared.LinkedInJobPage;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
@@ -217,11 +218,6 @@ final class LinkedInPageClient {
                   '.job-details-jobs-unified-top-card__company-name',
                   '.jobs-unified-top-card__company-name',
                   'a[href*="/company/"]'
-                ]),
-                location: first([
-                  '.job-details-jobs-unified-top-card__tertiary-description-container',
-                  '.jobs-unified-top-card__bullet',
-                  '[class*="tertiary-description"]'
                 ])
               };
             }
@@ -276,7 +272,7 @@ final class LinkedInPageClient {
     ) {
     }
 
-    record DirectJob(String html, String title, String company, String location) {
+    record JobDetails(String html, String title, String company, String location, boolean easyApply) {
     }
 
     private record LayoutSnapshot(Layout layout, int rawCount, List<String> ids) {
@@ -534,7 +530,7 @@ final class LinkedInPageClient {
         );
     }
 
-    String openCard(MaterializedPage materializedPage, String jobId) {
+    JobDetails openCard(MaterializedPage materializedPage, String jobId) {
         Locator card = cardLocator(materializedPage.layout(), jobId);
         if (card.count() != 1) {
             throw new CardClickException(
@@ -549,10 +545,10 @@ final class LinkedInPageClient {
             throw new CardClickException("Could not click search card " + jobId, error);
         }
         Locator details = waitForDetails(page, jobId, true);
-        return wrapHtml(jobId, outerHtml(details));
+        return readDetails(details, jobId);
     }
 
-    DirectJob openDirect(String sourceUrl, String jobId) {
+    JobDetails openDirect(String sourceUrl, String jobId) {
         Page direct = session.newPage();
         try {
             navigate(direct, sourceUrl);
@@ -562,13 +558,7 @@ final class LinkedInPageClient {
                 );
             }
             Locator details = waitForDetails(direct, jobId, false);
-            Map<String, Object> fields = stringObjectMap(details.evaluate(DETAIL_PREVIEW_SCRIPT));
-            DirectJob job = new DirectJob(
-                    wrapHtml(jobId, outerHtml(details)),
-                    text(fields.get("title")),
-                    text(fields.get("company")),
-                    text(fields.get("location"))
-            );
+            JobDetails job = readDetails(details, jobId);
             System.err.printf(
                     Locale.ROOT,
                     "LinkedIn details loaded: job_id=%s url=%s title=%s html_chars=%d%n",
@@ -990,6 +980,13 @@ final class LinkedInPageClient {
 
     private String outerHtml(Locator locator) {
         return String.valueOf(locator.evaluate("element => element.outerHTML"));
+    }
+
+    private JobDetails readDetails(Locator details, String jobId) {
+        Map<String, Object> fields = stringObjectMap(details.evaluate(DETAIL_PREVIEW_SCRIPT));
+        return new JobDetails(wrapHtml(jobId, outerHtml(details)), text(fields.get("title")),
+                text(fields.get("company")), LinkedInJobPage.location(details),
+                LinkedInJobPage.isEasyApply(details));
     }
 
     private String wrapHtml(String jobId, String detailsHtml) {

@@ -43,7 +43,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                        "title": "Java Developer"}
             html = ('<div class="job-details-jobs-unified-top-card__tertiary-description-container">'
                     '<span>2 months ago</span></div>')
-            result = json.loads(python_bridge.process_html(json.dumps(preview), html))
+            result = json.loads(python_bridge.process_html(json.dumps(preview), html, False))
             self.assertEqual("age_filtered", result["status"])
             self.assertFalse(raw.exists())
             with closing(sqlite3.connect(database)) as connection:
@@ -51,8 +51,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 self.assertEqual(("age_filtered",), connection.execute(
                     "SELECT status FROM linkedin_collection_events WHERE job_id = '123'").fetchone())
 
-    def test_easy_apply_marker_reaches_gui_and_applier(self) -> None:
-        from Applier.vacancy_context import vacancy_context
+    def test_easy_apply_marker_from_java_reaches_gui(self) -> None:
         from GUI.client_data import load_jobs
 
         with tempfile.TemporaryDirectory() as directory:
@@ -74,11 +73,8 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                     html = (f'<html><head><link rel="canonical" href="{url}"></head><body>'
                             f'<h1>Java Developer</h1>{button}<h2>About the job</h2>'
                             '<p>Build backend services in Java.</p></body></html>')
-                    result = json.loads(python_bridge.process_html(json.dumps(preview), html))
+                    result = json.loads(python_bridge.process_html(json.dumps(preview), html, expected))
                     self.assertEqual("raw_saved", result["status"])
-                    # The marker is available before analysis creates a jobs row.
-                    self.assertEqual({"location": "Moldova", "easy_apply": expected},
-                                     vacancy_context(url, database))
                     with closing(sqlite3.connect(database)) as connection:
                         connection.execute(
                             "INSERT INTO jobs (source_job_ref, location) "
@@ -88,7 +84,6 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                     jobs = json.loads(load_jobs(database, json.dumps({"statuses": ["New"], "show_zero": True})))
                     job = next(row for row in jobs if row["source_url"] == url)
                     self.assertEqual(int(expected), job["easy_apply"])
-                    self.assertEqual(expected, vacancy_context(url, database)["easy_apply"])
 
     def test_existing_python_pipeline_is_callable_without_intermediate_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -179,7 +174,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
               <p>Build backend services in Java.</p>
             </main></body></html>"""
             result = json.loads(
-                python_bridge.process_html(json.dumps(preview), html)
+                python_bridge.process_html(json.dumps(preview), html, False)
             )
 
             self.assertEqual(result["status"], "raw_saved")
@@ -280,6 +275,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 python_bridge.process_html(
                     json.dumps(rejected_preview),
                     rejected_html,
+                    False,
                 )
             )
             self.assertEqual(rejected["status"], "content_filtered")

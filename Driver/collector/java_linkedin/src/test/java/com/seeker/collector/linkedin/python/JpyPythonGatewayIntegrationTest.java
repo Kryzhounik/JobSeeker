@@ -67,7 +67,7 @@ class JpyPythonGatewayIntegrationTest {
             assertEquals(originalStdout, stdoutId());
             assertTrue(python.priorityCompanyIds().isEmpty());
             assertTrue(python.decidePreview(preview).shouldOpen());
-            assertEquals("raw_saved", python.processHtml(preview, html).status());
+            assertEquals("raw_saved", python.processHtml(preview, html, true).status());
             assertEquals(originalStdout, stdoutId());
         }
         try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {

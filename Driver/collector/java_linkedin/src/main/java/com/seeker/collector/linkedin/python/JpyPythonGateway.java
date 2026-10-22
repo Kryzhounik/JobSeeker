@@ -88,12 +88,13 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
-    public ProcessResult processHtml(Preview preview, String html) {
+    public ProcessResult processHtml(Preview preview, String html, boolean easyApply) {
         return JsonSupport.GSON.fromJson(
                 callString(
                         "process_html",
                         JsonSupport.GSON.toJson(preview),
-                        html
+                        html,
+                        easyApply
                 ),
                 ProcessResult.class
         );

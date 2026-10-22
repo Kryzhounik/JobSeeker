@@ -15,7 +15,10 @@ below when a form requires a choice. Do not guess or invent personal details.
 Leave unsupported fields empty and explain what the user needs to answer.
 
 For a location field, use `vacancy_location` from the input and the locations
-in the facts file. The preferred location is also an available location. If
+in the facts file. Java reads `vacancy_location` from the LinkedIn page. If it
+is empty, first read the vacancy location on the already-open employer page;
+an empty input does not establish that the vacancy has no matching location.
+The preferred location is also an available location. If
 the vacancy location explicitly matches an available location, enter that
 matching location. Otherwise enter the preferred location. This rule takes
 precedence over a location mentioned in the resume. Do not invent a city or

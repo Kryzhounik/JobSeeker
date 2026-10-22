@@ -55,9 +55,10 @@ Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
   account; collection and application preparation reuse that session.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
   decision JSON, scope files, or checkpoints are created.
-- The common HTML processing step detects the Easy Apply button and stores
-  `source_job_texts.easy_apply`. GUI Apply and console Applier use this saved
-  marker; neither repeats detection. Existing vacancies are not reclassified.
+- Java reads the Easy Apply button using the shared `LinkedInJobPage` detector
+  and passes its result to Python to store `source_job_texts.easy_apply`.
+  GUI Apply uses the saved marker. Applier uses the same detector on the open
+  vacancy page without reading the database. Existing vacancies are not reclassified.
 - The same HTML processing step extracts publication age from vacancy metadata
   for both search and direct URLs. Vacancies older than `[age] max_days = 14` in
   `filtering/linkedin_preview_filter.ini` produce `age_filtered` before raw or

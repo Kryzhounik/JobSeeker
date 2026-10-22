@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from contextlib import closing
 from dataclasses import dataclass
-from html.parser import HTMLParser
 import json
 from pathlib import Path
 import sqlite3
@@ -51,16 +50,6 @@ class Session:
 
 
 _session: Session | None = None
-
-
-class ApplyButtonParser(HTMLParser):
-    easy_apply = False
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        attributes = dict(attrs)
-        if tag in {"button", "a"} or attributes.get("id") == "jobs-apply-button-id":
-            if (attributes.get("aria-label") or "").lower().startswith("easy apply"):
-                self.easy_apply = True
 
 
 def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
@@ -139,7 +128,7 @@ def decide_preview(preview_json: str) -> str:
     return _json(result)
 
 
-def process_html(preview_json: str, html: str) -> str:
+def process_html(preview_json: str, html: str, easy_apply: bool) -> str:
     session = _require_session()
     preview = _object(preview_json)
     html = _normalize_unicode(html)
@@ -155,8 +144,6 @@ def process_html(preview_json: str, html: str) -> str:
         log_outcome(preview_json, "age_filtered", reason)
         return _json({"source": "linkedin", "job_id": job_id, "title": title,
                       "status": "age_filtered", "reason": reason})
-    apply_button = ApplyButtonParser()
-    apply_button.feed(html)
 
     raw_path = save_content(
         source="linkedin",
@@ -184,7 +171,7 @@ def process_html(preview_json: str, html: str) -> str:
             location=preview.get("location"),
             workplace=preview.get("workplace"),
             salary=preview.get("salary"),
-            easy_apply=apply_button.easy_apply,
+            easy_apply=easy_apply,
         )
         filter_result = session.vacancy_filter.filter_text(title, text)
         if filter_result.rejected:

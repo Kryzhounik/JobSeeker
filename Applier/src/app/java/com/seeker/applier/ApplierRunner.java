@@ -6,6 +6,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
+import com.seeker.applier.shared.LinkedInJobPage;
 import com.seeker.applier.shared.ManagedBrowser;
 
 import java.io.IOException;
@@ -35,10 +36,6 @@ public final class ApplierRunner {
         Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
         String channel = collector.getProperty("browserChannel", "chrome").strip();
         String python = runtime.getProperty("python.executable", "python").strip();
-        JsonNode vacancy = vacancyContext(jobUrl, python);
-        if (vacancy.path("easy_apply").asBoolean(false)) {
-            return new Result("skipped", "LinkedIn Easy Apply; no form was opened or Codex started.", false);
-        }
 
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             double timeoutMs = Double.parseDouble(
@@ -48,6 +45,11 @@ public final class ApplierRunner {
             Page jobPage = browser.newPage();
             jobPage.navigate(jobUrl);
             String vacancyUrl = jobPage.url();
+            Locator vacancy = jobPage.locator("body");
+            if (LinkedInJobPage.isEasyApply(vacancy)) {
+                return new Result("skipped", "LinkedIn Easy Apply; no form was opened or Codex started.", false);
+            }
+            String vacancyLocation = LinkedInJobPage.location(vacancy);
             Locator apply = jobPage.locator(
                     "#jobs-apply-button-id[aria-label*='on company website' i], "
                             + "a[aria-label*='on company website' i], "
@@ -89,7 +91,7 @@ public final class ApplierRunner {
             } else {
                 step = "The initial Apply action redirected to the employer page; continue in this tab.";
             }
-            return runCodex(formPage.url(), tabIndex, step, vacancy.path("location").asText(""), python);
+            return runCodex(formPage.url(), tabIndex, step, vacancyLocation, python);
         }
     }
 
@@ -220,17 +222,6 @@ public final class ApplierRunner {
         String firstHost = URI.create(first).getHost();
         String secondHost = URI.create(second).getHost();
         return firstHost != null && secondHost != null && firstHost.equalsIgnoreCase(secondHost);
-    }
-
-    private JsonNode vacancyContext(String jobUrl, String python) throws Exception {
-        Path reader = projectRoot.resolve("Applier/vacancy_context.py");
-        Process process = new ProcessBuilder(python, reader.toString(), jobUrl)
-                .directory(projectRoot.toFile()).redirectErrorStream(true).start();
-        String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8).strip();
-        if (process.waitFor() != 0) {
-            throw new IOException("Could not read vacancy context: " + output);
-        }
-        return JSON.readTree(output);
     }
 
     public record Result(String status, String note, boolean submissionObserved) { }

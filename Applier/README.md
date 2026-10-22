@@ -2,10 +2,12 @@
 
 Applier version 0.1 prepares job-application forms from the Java GUI or the console.
 Both entry points pass the vacancy URL to the same Applier runner; it reads
-the stored vacancy location and handles the browser, facts, and form filling.
+the vacancy location from the open page and handles the browser, facts, and form filling.
 The collector marks LinkedIn Easy Apply vacancies when reading their details.
-GUI Apply is disabled for marked vacancies; console Applier skips them using
-the same stored marker, without opening the browser or calling Codex.
+GUI Apply is disabled for marked vacancies. When called directly, Applier checks
+the opened page using the same Easy Apply detector as the collector and skips
+these vacancies without opening a form or calling Codex. Applier does not read
+the vacancy database and does not require prior collection of the URL.
 It shares the logged-in browser with the independently runnable LinkedIn
 collector. Applier first looks for a host-specific Playwright adapter. If no
 adapter matches, it uses the existing Codex Proxy with Playwright MCP. No
@@ -21,8 +23,9 @@ The local resume lives at `Data/applier/CV_DokE2026M.pdf`. Its extracted UTF-8 t
 for form uploads. Replace both files together when updating the resume.
 Applicant facts, separate from the decision rules in `fill_form.md`, go in
 `Data/applier/facts.md`. The current file lists the preferred and other
-available locations. Applier reads the vacancy location from `Data/jobs.sqlite`
-so Codex can apply the location rule. Add confirmed facts as testing reveals new fields;
+available locations. Applier reads the vacancy location from the LinkedIn page
+so Codex can apply the location rule. If the extracted location is empty, Codex
+first reads it on the open employer page. Add confirmed facts as testing reveals new fields;
 add choice rules to `fill_form.md`. `Data/` is excluded from Git.
 
 `REQUIREMENTS.md` defines the expected behavior.

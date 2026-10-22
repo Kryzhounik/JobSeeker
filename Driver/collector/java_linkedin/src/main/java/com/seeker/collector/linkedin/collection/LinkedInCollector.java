@@ -102,7 +102,7 @@ final class LinkedInCollector {
                     1
             );
             try {
-                LinkedInPageClient.DirectJob direct = browser.openDirect(url, jobId);
+                LinkedInPageClient.JobDetails direct = browser.openDirect(url, jobId);
                 preview = new Preview(
                         jobId,
                         LinkedInPageClient.canonicalUrl(jobId),
@@ -115,7 +115,7 @@ final class LinkedInCollector {
                         0,
                         1
                 );
-                ProcessResult result = operate(preview, null, direct.html());
+                ProcessResult result = operate(preview, null, direct);
                 recordResult(result);
                 if (!result.accepted()) {
                     rejections.add(urls.size() == 1
@@ -237,7 +237,7 @@ final class LinkedInCollector {
     private ProcessResult operate(
             Preview preview,
             LinkedInPageClient.MaterializedPage materialized,
-            String html
+            LinkedInPageClient.JobDetails details
     ) {
         currentUrl = preview.sourceUrl();
         progress("filtering_preview", preview.jobId() + " " + preview.title());
@@ -245,15 +245,15 @@ final class LinkedInCollector {
         if (!decision.shouldOpen()) {
             return result(preview, "preview_filtered", decision.reason());
         }
-        if (html != null) {
-            return processHtml(preview, html);
+        if (details != null) {
+            return processHtml(preview, details);
         }
         try {
             progress("opening_job", preview.jobId() + " " + preview.title());
-            html = browser.openCard(materialized, preview.jobId());
+            details = browser.openCard(materialized, preview.jobId());
         } catch (CardClickException clickError) {
             try {
-                html = browser.openDirect(preview.sourceUrl(), preview.jobId()).html();
+                details = browser.openDirect(preview.sourceUrl(), preview.jobId());
             } catch (AuthenticationRequiredException error) {
                 throw error;
             } catch (RuntimeException fallbackError) {
@@ -264,13 +264,13 @@ final class LinkedInCollector {
         } catch (DetailsNotReadyException error) {
             return logOutcome(preview, "incomplete_raw", message(error));
         }
-        return processHtml(preview, html);
+        return processHtml(preview, details);
     }
 
-    private ProcessResult processHtml(Preview preview, String html) {
+    private ProcessResult processHtml(Preview preview, LinkedInPageClient.JobDetails details) {
         try {
             progress("filtering_content", preview.jobId() + " " + preview.title());
-            return python.processHtml(preview, html);
+            return python.processHtml(preview, details.html(), details.easyApply());
         } catch (RuntimeException error) {
             if (message(error).contains("Cannot insert source job ")) {
                 throw error;

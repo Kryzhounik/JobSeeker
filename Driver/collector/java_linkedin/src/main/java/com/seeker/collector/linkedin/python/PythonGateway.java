@@ -25,7 +25,7 @@ public interface PythonGateway extends AutoCloseable {
 
     PreviewDecision decidePreview(Preview preview);
 
-    ProcessResult processHtml(Preview preview, String html);
+    ProcessResult processHtml(Preview preview, String html, boolean easyApply);
 
     void logOutcome(Preview preview, String status, String reason);
 
