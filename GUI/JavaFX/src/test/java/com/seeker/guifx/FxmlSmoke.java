@@ -2,6 +2,8 @@ package com.seeker.guifx;
 
 import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
+import javafx.scene.control.Button;
+import javafx.scene.layout.HBox;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -13,8 +15,30 @@ public final class FxmlSmoke {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         Platform.startup(() -> Platform.runLater(() -> {
             try {
-                FXMLLoader.load(FxmlSmoke.class.getResource(
+                FXMLLoader loader = new FXMLLoader(FxmlSmoke.class.getResource(
                         "/com/seeker/guifx/main-view.fxml"));
+                loader.load();
+                Button batch = (Button) loader.getNamespace().get("batchButton");
+                Button collect = (Button) loader.getNamespace().get("collectButton");
+                Button config = (Button) loader.getNamespace().get("configButton");
+                Button refresh = (Button) loader.getNamespace().get("refreshButton");
+                Button refilter = (Button) loader.getNamespace().get("refilterButton");
+                Button refilterDetail = (Button) loader.getNamespace().get("refilterDetailButton");
+                HBox collectionGroup = (HBox) batch.getParent();
+                HBox refilterGroup = (HBox) refilter.getParent();
+                HBox actions = (HBox) collectionGroup.getParent();
+                HBox filters = (HBox) refresh.getParent();
+                if (actions.getChildren().getFirst() != collectionGroup
+                        || !collectionGroup.getChildren().equals(java.util.List.of(batch, collect))
+                        || !refilterGroup.getChildren().equals(java.util.List.of(refilter, refilterDetail))
+                        || !collectionGroup.getStyleClass().contains("toolbar-button-group")
+                        || !refilterGroup.getStyleClass().contains("toolbar-button-group")
+                        || actions.getChildren().getLast() != config
+                        || actions == filters || filters.getChildren().getFirst() != refresh
+                        || batch.getOnAction() != null
+                        || loader.getNamespace().containsKey("searchButton")) {
+                    throw new AssertionError("Toolbar order or Batch placeholder changed");
+                }
             } catch (Throwable error) {
                 failure.set(error);
             } finally {

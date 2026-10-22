@@ -17,6 +17,14 @@
     -fx-border-color: transparent;
 }
 
+.toolbar-button-group {
+    -fx-padding: 3 4;
+    -fx-border-color: #aaa9a5;
+    -fx-border-width: 1;
+    -fx-border-radius: 2;
+    -fx-min-width: -Infinity;
+}
+
 .collect-button {
     -fx-background-color: #d8eadf;
     -fx-border-color: #71927c;

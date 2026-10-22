@@ -74,8 +74,8 @@ public final class UiSmoke {
             }
             String selectedId = onFx(id::getText);
             TextField idFilter = lookup(stage, "#idFilterField", TextField.class);
-            Button search = lookup(stage, "#searchButton", Button.class);
-            onFx(() -> { idFilter.setText(selectedId); search.fire(); return null; });
+            Button refresh = lookup(stage, "#refreshButton", Button.class);
+            onFx(() -> { idFilter.setText(selectedId); refresh.fire(); return null; });
             try {
                 waitUntil(() -> jobs.getItems().size() < initialCount
                         && jobs.getItems().stream().anyMatch(row ->
@@ -161,7 +161,7 @@ public final class UiSmoke {
                         .filter(node -> node instanceof CheckBox)
                         .map(node -> (CheckBox) node)
                         .forEach(check -> check.setSelected("New".equals(check.getText())));
-                search.fire();
+                refresh.fire();
                 return null;
             });
             waitUntil(() -> status.getText().endsWith(" vacancies")

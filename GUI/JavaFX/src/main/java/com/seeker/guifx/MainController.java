@@ -80,7 +80,6 @@ public final class MainController {
     @FXML private Button refilterButton;
     @FXML private Button refilterDetailButton;
     @FXML private Button blackTitlesButton;
-    @FXML private Button searchButton;
     @FXML private Button clearButton;
     @FXML private Button companiesButton;
     @FXML private Button applicationsButton;
@@ -194,7 +193,6 @@ public final class MainController {
                 () -> { titleBlacklist.openInNotepad(); return null; },
                 ignored -> statusLabel.setText("Opened Black titles"), "Black titles failed"));
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
-        searchButton.setOnAction(event -> refreshJobs());
         clearButton.setOnAction(event -> clearTextFilters());
         companiesButton.setOnAction(event -> showCompanies(null));
         applicationsButton.setOnAction(event -> showApplications(null));
@@ -664,7 +662,6 @@ public final class MainController {
         long requestId = ++refreshRequestId;
 
         refreshButton.setDisable(true);
-        searchButton.setDisable(true);
         clearButton.setDisable(true);
         statusFilters.setDisable(true);
         showZeroCheck.setDisable(true);
@@ -690,7 +687,6 @@ public final class MainController {
             }
             jobsTable.sort();
             refreshButton.setDisable(false);
-            searchButton.setDisable(false);
             clearButton.setDisable(false);
             statusFilters.setDisable(false);
             showZeroCheck.setDisable(false);
@@ -718,7 +714,6 @@ public final class MainController {
         task.setOnFailed(event -> {
             if (requestId != refreshRequestId) return;
             refreshButton.setDisable(false);
-            searchButton.setDisable(false);
             clearButton.setDisable(false);
             statusFilters.setDisable(false);
             showZeroCheck.setDisable(false);

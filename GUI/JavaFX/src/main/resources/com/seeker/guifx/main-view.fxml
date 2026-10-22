@@ -31,23 +31,28 @@
         <VBox styleClass="toolbar">
             <HBox alignment="CENTER_LEFT" spacing="8.0">
                 <padding><Insets top="7.0" right="10.0" bottom="5.0" left="10.0" /></padding>
-                <Button fx:id="collectButton" text="Collect" styleClass="collect-button" />
-                <Button fx:id="refreshButton" text="Refresh" />
+                <HBox alignment="CENTER_LEFT" spacing="6.0" styleClass="toolbar-button-group">
+                    <Button fx:id="batchButton" text="Batch" />
+                    <Button fx:id="collectButton" text="Collect" styleClass="collect-button" />
+                </HBox>
                 <Button fx:id="linkedinCheckButton" text="Check LinkedIn" />
-                <Button fx:id="refilterButton" text="Refilter" />
-                <Button fx:id="refilterDetailButton" text="Refilter detail" />
+                <HBox alignment="CENTER_LEFT" spacing="6.0" styleClass="toolbar-button-group">
+                    <Button fx:id="refilterButton" text="Refilter" />
+                    <Button fx:id="refilterDetailButton" text="Refilter detail" />
+                </HBox>
                 <Button fx:id="companiesButton" text="Companies" />
                 <Button fx:id="applicationsButton" text="Applications" />
                 <Button fx:id="collectedButton" text="Collected" />
-                <Button fx:id="configButton" text="⚙" accessibleText="Config" />
                 <Region HBox.hgrow="ALWAYS" />
                 <HBox fx:id="backgroundProcessDocks" alignment="CENTER_RIGHT" spacing="6.0" />
+                <Button fx:id="configButton" text="⚙" accessibleText="Config" />
             </HBox>
             <ScrollPane hbarPolicy="AS_NEEDED" vbarPolicy="NEVER" fitToHeight="true"
                         pannable="true" styleClass="filter-scroll">
                 <content>
                     <HBox alignment="CENTER_LEFT" spacing="7.0" styleClass="filter-bar">
                         <padding><Insets top="3.0" right="10.0" bottom="7.0" left="10.0" /></padding>
+                        <Button fx:id="refreshButton" text="Refresh" />
                         <Label text="Status" styleClass="muted-label" />
                         <HBox fx:id="statusFilters" alignment="CENTER_LEFT" spacing="6.0" />
                         <CheckBox fx:id="showZeroCheck" text="Show zero" />
@@ -57,7 +62,6 @@
                         <TextField fx:id="dateFilterField" promptText="DD.MM.YYYY" prefWidth="110.0" />
                         <Label text="Reason" styleClass="muted-label" />
                         <TextField fx:id="reasonFilterField" promptText="code1, code2" prefWidth="145.0" />
-                        <Button fx:id="searchButton" text="Search" />
                         <Button fx:id="clearButton" text="Clear" />
                     </HBox>
                 </content>
