@@ -101,7 +101,13 @@ public APIs and architectural boundaries, evaluate design decisions
 independently rather than accepting them merely because they follow existing
 patterns.
 
-## Cross-Module Changes During Review
+## Cross-Module Changes
+
+Implementation agents must obtain the user's approval before making
+significant architectural or design changes in modules outside their
+assigned scope. Explain the proposed decision before implementing it.
+An explicitly approved task or plan that already covers that decision is
+sufficient; do not request the same approval again.
 
 Cross-module changes are not inherently problematic and do not require
 separate approval when they are minor, necessary, and consistent with the
