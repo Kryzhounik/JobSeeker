@@ -42,6 +42,8 @@ public final class UiSmoke {
             Stage stage = onFx(() -> {
                 Stage window = new Stage();
                 Scene scene = new Scene(loader.load(), 1440, 900);
+                ((MainController) loader.getController()).initializeData(
+                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()));
                 scene.getStylesheets().add(UiSmoke.class.getResource(
                         "/com/seeker/guifx/application.css").toExternalForm());
                 window.setTitle("Seeker Jobs UI check");

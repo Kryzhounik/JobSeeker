@@ -16,7 +16,7 @@ database save for the remaining ordered scope. Build the server modules with:
 mvn -f Driver/pom.xml package
 ```
 
-`Driver/pom.xml` is the parent and reactor for Tools, Applier, ChatEvaluator,
+`Driver/pom.xml` is the parent and reactor for Mailer, Tools, Applier, ChatEvaluator, LLM,
 the LinkedIn collector, the workflow orchestrator, and the API module. Every module creates a
 thin JAR in its own directory; runnable modules declare their main class in
 the manifest. Runtime dependencies, including copies of required project

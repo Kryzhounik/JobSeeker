@@ -29,6 +29,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.seeker</groupId>
             <artifactId>linkedin-collector</artifactId>
         </dependency>

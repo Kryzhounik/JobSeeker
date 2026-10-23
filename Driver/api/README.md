@@ -26,6 +26,13 @@ Components are initialized once; browser and Python operations start only
 when the corresponding operation is called. Methods return the original
 module DTOs or the ChatEvaluator string and propagate module exceptions.
 
+`DriverConfiguration` registers the facade with `@Bean` and imports the LLM
+configuration. The application entry point owns an
+`AnnotationConfigApplicationContext`, supplies the project root as a `Path`
+bean, registers `DriverConfiguration`, and obtains `DriverApi` from the context.
+JavaFX owns this lifecycle; direct construction and the existing CLI router
+remain available without a context. Lower-module services are not Spring beans.
+
 Codex-backed workflow operations and application preparation can throw
 `com.seeker.codex.UsageLimitExceededException` (a checked exception from
 `Tools`). It is propagated without conversion to a generic error. Its

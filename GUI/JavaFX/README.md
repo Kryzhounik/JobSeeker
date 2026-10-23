@@ -67,8 +67,11 @@ downloads the JavaFX platform modules on the first build.
 The Python/JNI library paths come from
 `Driver/collector/java_linkedin/runtime.properties`.
 
-The GUI constructs one `DriverApi` during background initialization and reuses
-it for Batch, direct Collect, Apply, and GPT Eval. Progress handlers are scoped
+`SeekerApplication.init()` creates a plain Spring Context on the launcher
+thread and obtains one `DriverApi` from `DriverConfiguration`. It passes the
+facade to the controller for Batch, direct Collect, Apply, and GPT Eval.
+`stop()` closes the context; a JVM shutdown hook also covers JVM termination.
+Data connection initialization still runs in the background. Progress handlers are scoped
 to each call. Collector settings are read by the backend at operation start,
 so changing the Config limit affects the next call on the existing facade.
 

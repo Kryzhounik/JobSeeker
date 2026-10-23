@@ -29,6 +29,8 @@ public final class JobSortRefreshSmoke {
                     "/com/seeker/guifx/main-view.fxml"));
             onFx(() -> {
                 Parent root = loader.load();
+                ((MainController) loader.getController()).initializeData(
+                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()));
                 new Scene(root, 1200, 800);
                 return null;
             });

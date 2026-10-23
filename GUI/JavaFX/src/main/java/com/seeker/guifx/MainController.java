@@ -245,11 +245,13 @@ public final class MainController {
         refreshButton.setDisable(true);
         setOperationButtonsDisabled(true);
         statusLabel.setText("Starting data connection...");
+    }
+
+    void initializeData(DriverApi api) {
         Task<ClientSession> connectionTask = new Task<>() {
             @Override
             protected ClientSession call() throws Exception {
                 ClientData data = new ClientData();
-                DriverApi api = new DriverApi(ClientData.findProjectRoot());
                 return new ClientSession(data, api, data.loadStatusValues(), data.loadReasonCodeDescriptions());
             }
         };
