@@ -13,8 +13,10 @@
   Cloud VM. Only Ollama and model weights move to the cloud; Spring AI and
   JobSeeker remain on the workstation. Docker is out of scope.
 - Configure the Ollama base URL, model name, and whether additional trimming
-  is enabled. The experimental step is opt-in; moving inference should require
-  configuration changes, not a second Java implementation.
+  is enabled. Trimming is disabled by default and must not require Ollama or a
+  model when disabled. When enabled, model/request errors are failures: do not
+  silently ignore them or substitute the original input. Moving inference should
+  require configuration changes, not a second Java implementation.
 
 ## Boundary Detection, Not Rewriting
 
@@ -25,13 +27,18 @@ around the actual vacancy description. It must not edit the middle of the text.
 The model returns boundaries, not a rewritten vacancy. Application code takes
 the retained fragment from the original script-cleaned text. Do not summarize,
 translate, paraphrase, or remove individual passages inside that fragment.
-The exact boundary representation is an implementation detail, but the retained
-text must be an unchanged contiguous substring of the input.
+Number the source lines from 1 in the model prompt and request only a JSON
+object such as `{"from_line": 2, "to_line": 4}`, with both line numbers inclusive.
+Numbering is prompt-only. Application code maps the selected lines to original character
+offsets and extracts one unchanged contiguous substring, preserving whitespace
+and line endings. This limits trimming to line boundaries.
 
-Keep the script-cleaned input and candidate result available for comparison.
-When disabled, the existing processing path remains unchanged. Local experiments
-first establish that the integration works; quality determines later whether
-the optional step is useful for normal processing.
+Use simple temporary diagnostics for before/after inspection when needed;
+comparison must not drive the processing architecture. First establish that
+inference and the trimming concept work at all, including response time. Do not
+solve hypothetical problems or add model-comparison infrastructure and experiment
+bookkeeping before they are needed. Quality determines later whether the
+optional step is useful for normal processing.
 
 ## Existing Integration Points
 
@@ -44,9 +51,11 @@ the optional step is useful for normal processing.
   facade and component construction.
 
 The cleaner boundary is currently in Python, not a standalone Java service.
-Integrate the Java LLM service after that cleaner through the smallest necessary
-adaptation of the existing pipeline; do not move filtering or persistence into
-LLM merely to connect it. Do not replace the current Codex agent operations.
+The flow is scripted HTML cleanup, optional LLM trimming, then normal downstream
+processing with the selected text. Use the smallest necessary adaptation of the
+existing pipeline; do not move filtering or persistence into LLM merely to
+connect it. When trimming is disabled, the existing path remains unchanged.
+Do not replace the current Codex agent operations.
 
 ## Cloud Boundary
 
