@@ -190,11 +190,6 @@ execution contract; the Java orchestrator owns pipeline behavior.
   - tech_checked: technology requirements extracted and checked.
   - logistics_checked: remote scope, relocation, language, and location checked.
   - fully_analyzed: factual summary and notes completed.
-- **MEDIUM: Перенести существующий GUI на JavaFX**
-  Replace the Python/Tkinter GUI and its C# launcher with a JavaFX application.
-  Preserve the existing screens and actions, use the current SQLite schema,
-  and call the Java collector/orchestrator directly instead of maintaining a
-  second workflow implementation in the GUI.
 - **MEDIUM: Оценка стоимости размера job-facts batch на естественных прогонах**
   В рамках обычных workflow-прогонов периодически менять
   `vacancies_per_agent` в `Driver/analyzer/config/execution.ini`. После
