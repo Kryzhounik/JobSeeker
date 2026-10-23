@@ -4,6 +4,7 @@ import com.seeker.api.DriverApi;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.orchestrator.WorkflowResult;
+import com.seeker.codex.UsageLimitExceededException;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.beans.property.SimpleBooleanProperty;
@@ -165,8 +166,8 @@ public final class MainController {
         thread.setDaemon(true);
         return thread;
     });
-    private CollectorProgressPane collectorProgress;
-    private BatchProgressPane batchProgress;
+    private SnapshotProgressPane collectorProgress;
+    private SnapshotProgressPane batchProgress;
     private BackgroundProcessPane.Area backgroundProcesses;
     private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -418,9 +419,9 @@ public final class MainController {
         collectionRunning = true;
         updateCollectionButtons();
         if (collectorProgress == null) {
-            collectorProgress = new CollectorProgressPane(backgroundProcesses);
+            collectorProgress = new SnapshotProgressPane(backgroundProcesses, "Collect");
         }
-        CollectorProgressPane progressPane = collectorProgress;
+        SnapshotProgressPane progressPane = collectorProgress;
         progressPane.begin();
         Task<CollectionReport> task = new Task<>() {
             @Override protected CollectionReport call() throws Exception {
@@ -431,15 +432,12 @@ public final class MainController {
         task.setOnSucceeded(event -> {
             collectionRunning = false;
             updateCollectionButtons();
-            progressPane.complete(task.getValue());
+            progressPane.complete("complete".equals(task.getValue().status()));
             refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });
         task.setOnFailed(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            progressPane.fail(task.getException());
-            statusLabel.setText("LinkedIn collector failed");
+            collectionFailed(progressPane, task.getException(), "LinkedIn collector");
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });
         collectionExecutor.execute(task);
@@ -451,12 +449,20 @@ public final class MainController {
         batchButton.setDisable(disabled);
     }
 
+    private void collectionFailed(SnapshotProgressPane progressPane, Throwable error, String title) {
+        collectionRunning = false;
+        updateCollectionButtons();
+        progressPane.fail(error);
+        statusLabel.setText(title + (error instanceof UsageLimitExceededException
+                ? " stopped: Codex usage limit" : " failed"));
+    }
+
     private void startBatch() {
         if (collectionRunning || clientData == null) return;
         collectionRunning = true;
         updateCollectionButtons();
-        if (batchProgress == null) batchProgress = new BatchProgressPane(backgroundProcesses);
-        BatchProgressPane progressPane = batchProgress;
+        if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
+        SnapshotProgressPane progressPane = batchProgress;
         progressPane.begin();
         Task<WorkflowResult> task = new Task<>() {
             @Override protected WorkflowResult call() throws Exception {
@@ -467,15 +473,12 @@ public final class MainController {
         task.setOnSucceeded(event -> {
             collectionRunning = false;
             updateCollectionButtons();
-            progressPane.complete(task.getValue());
+            progressPane.complete("complete".equals(task.getValue().status()));
             refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });
         task.setOnFailed(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            progressPane.fail(task.getException());
-            statusLabel.setText("Batch failed");
+            collectionFailed(progressPane, task.getException(), "Batch");
             refreshJobs();
             if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
         });

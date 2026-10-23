@@ -1,6 +1,6 @@
 package com.seeker.collector.linkedin.application;
 
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -33,10 +33,10 @@ class LinkedInApplicationTest {
         Path config = collector.resolve("config/linkedin.properties");
         Files.writeString(config, "limit=10\n");
         LinkedInApplication application = new LinkedInApplication(root);
-        List<Integer> limits = new ArrayList<>();
+        List<String> limits = new ArrayList<>();
         RuntimeException stop = new RuntimeException("Stop before Python and browser startup");
-        Consumer<CollectionProgress> progress = update -> {
-            limits.add(update.limit());
+        Consumer<ProgressSnapshot> progress = update -> {
+            limits.add(update.fields().get("Accepted / limit"));
             throw stop;
         };
 
@@ -50,6 +50,6 @@ class LinkedInApplicationTest {
         assertSame(stop, assertThrows(RuntimeException.class, () -> application.collectUrls(
                 List.of("https://www.linkedin.com/jobs/view/2/"), progress)));
 
-        assertEquals(List.of(10, 20, 30, 40), limits);
+        assertEquals(List.of("0 / 10", "0 / 20", "0 / 30", "0 / 40"), limits);
     }
 }

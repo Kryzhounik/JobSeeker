@@ -1,6 +1,7 @@
 package com.seeker.collector.linkedin.collection;
 
 import com.seeker.collector.linkedin.browser.BrowserSettings;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
@@ -30,7 +31,7 @@ public final class LinkedInCollectionService {
         return collectBatch(runId, ignored -> { });
     }
 
-    public CollectionReport collectBatch(String runId, Consumer<CollectionProgress> progress) throws IOException {
+    public CollectionReport collectBatch(String runId, Consumer<ProgressSnapshot> progress) throws IOException {
         Objects.requireNonNull(progress);
         CollectorConfig config = CollectorConfig.load(paths.configPath());
         BrowserSettings browserSettings = new BrowserSettings(
@@ -67,7 +68,7 @@ public final class LinkedInCollectionService {
         return collectFromUrls(runId, List.of(url));
     }
 
-    public CollectionReport collectFromUrl(String runId, String url, Consumer<CollectionProgress> progress)
+    public CollectionReport collectFromUrl(String runId, String url, Consumer<ProgressSnapshot> progress)
             throws IOException {
         return collectFromUrls(runId, List.of(url), progress);
     }
@@ -77,7 +78,7 @@ public final class LinkedInCollectionService {
     }
 
     public CollectionReport collectFromUrls(String runId, List<String> urls,
-                                           Consumer<CollectionProgress> progress) throws IOException {
+                                           Consumer<ProgressSnapshot> progress) throws IOException {
         Objects.requireNonNull(progress);
         CollectorConfig config = CollectorConfig.load(paths.configPath());
         BrowserSettings browserSettings = new BrowserSettings(

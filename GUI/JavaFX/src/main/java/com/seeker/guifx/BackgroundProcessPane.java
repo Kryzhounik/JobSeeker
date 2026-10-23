@@ -54,8 +54,11 @@ abstract class BackgroundProcessPane {
     private final Button dismissPanel = new Button("\u00d7");
     private final Tooltip tooltip = new Tooltip();
     private final Map<String, TextField> fields = new LinkedHashMap<>();
+    private final Map<String, TextField> extraFields = new LinkedHashMap<>();
+    private final GridPane extraGrid = new GridPane();
     private final TextArea details = new TextArea();
     private State state = State.RUNNING;
+    private boolean finished;
     private String summary = "";
     private String context = "";
 
@@ -99,7 +102,14 @@ abstract class BackgroundProcessPane {
         details.setEditable(false);
         details.setWrapText(true);
         details.setPrefRowCount(5);
-        VBox content = new VBox(8, grid, new Label("Details"), details);
+        extraGrid.setHgap(10);
+        extraGrid.setVgap(6);
+        ColumnConstraints extraValues = new ColumnConstraints();
+        extraValues.setHgrow(Priority.ALWAYS);
+        extraGrid.getColumnConstraints().addAll(new ColumnConstraints(155), extraValues);
+        extraGrid.setVisible(false);
+        extraGrid.setManaged(false);
+        VBox content = new VBox(8, grid, extraGrid, new Label("Details"), details);
         content.setPadding(new Insets(12));
         VBox.setVgrow(details, Priority.ALWAYS);
         ScrollPane scroll = new ScrollPane(content);
@@ -133,6 +143,7 @@ abstract class BackgroundProcessPane {
     }
 
     protected final void beginProcess() {
+        finished = false;
         fields.values().forEach(TextField::clear);
         details.clear();
         summary = "";
@@ -150,7 +161,6 @@ abstract class BackgroundProcessPane {
             dock.pseudoClassStateChanged(candidate.style, active);
             badge.pseudoClassStateChanged(candidate.style, active);
         }
-        boolean finished = state == State.COMPLETED || state == State.FAILED;
         dismissDock.setVisible(finished);
         dismissDock.setManaged(finished);
         dismissPanel.setVisible(finished);
@@ -158,8 +168,13 @@ abstract class BackgroundProcessPane {
         refreshDock();
     }
 
+    protected final void finishProcess(State state) {
+        finished = true;
+        setProcessState(state);
+    }
+
     private void dismiss() {
-        if (state != State.COMPLETED && state != State.FAILED) return;
+        if (!finished) return;
         dock.setSelected(false);
         badge.setVisible(false);
         badge.setManaged(false);
@@ -181,6 +196,27 @@ abstract class BackgroundProcessPane {
 
     protected final String fieldText(String name) {
         return fields.get(name).getText();
+    }
+
+    protected final void replaceExtraFields(Map<String, String> values) {
+        if (!java.util.List.copyOf(extraFields.keySet()).equals(java.util.List.copyOf(values.keySet()))) {
+            extraGrid.getChildren().clear();
+            extraFields.clear();
+            values.forEach((name, text) -> {
+                TextField value = new TextField();
+                value.setEditable(false);
+                value.setMaxWidth(Double.MAX_VALUE);
+                Label label = new Label(name);
+                label.setWrapText(true);
+                label.setMinWidth(0);
+                label.setMaxWidth(155);
+                extraGrid.addRow(extraFields.size(), label, value);
+                extraFields.put(name, value);
+            });
+        }
+        values.forEach((name, text) -> extraFields.get(name).setText(text));
+        extraGrid.setVisible(!values.isEmpty());
+        extraGrid.setManaged(!values.isEmpty());
     }
 
     protected final void setDetails(String text) {

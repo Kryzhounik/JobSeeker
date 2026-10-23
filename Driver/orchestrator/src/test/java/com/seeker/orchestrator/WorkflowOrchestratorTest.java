@@ -7,6 +7,7 @@ import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.PageReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WorkflowOrchestratorTest {
     @Test
     void reportsWorkflowStagesCountsAndCurrentJobs() throws Exception {
-        List<WorkflowProgress> updates = new ArrayList<>();
+        List<ProgressSnapshot> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of("2"));
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
                 progress -> report("complete", List.of(item("1", "Java"), item("2", "Marketing"),
@@ -35,23 +36,35 @@ class WorkflowOrchestratorTest {
 
         WorkflowResult result = workflow.processBatch("linkedin", updates::add);
 
-        assertEquals(List.of("loading_statuses", "relevance_filter", "initializing_analysis",
-                "job_facts", "candidate_fit", "job_interest", "saving", "complete"),
-                updates.stream().map(WorkflowProgress::stage).distinct().toList());
-        assertTrue(updates.stream().allMatch(update -> update.runId().equals("run-1")
-                && update.completedCount() >= 0 && update.completedCount() <= update.totalCount()));
-        assertEquals(1, updates.stream().filter(update -> update.stage().equals("relevance_filter"))
-                .reduce((first, last) -> last).orElseThrow().rejectedCount());
+        assertEquals(List.of("Collection", "Relevance filter", "Job facts", "Candidate fit"),
+                updates.stream().map(ProgressSnapshot::stage).distinct().toList());
+        assertTrue(updates.stream().allMatch(update -> update.runId().equals("run-1")));
+        Map<String, List<String>> stageFields = Map.of(
+                "Collection", new ArrayList<>(updates.getFirst().fields().keySet()),
+                "Relevance filter", List.of("Scope", "Relevance filter", "Relevant", "Rejected by relevance"),
+                "Job facts", List.of("Job facts", "Current vacancy"),
+                "Candidate fit", List.of("Candidate fit", "Current vacancy"));
+        for (ProgressSnapshot update : updates) {
+            assertFalse(update.fields().containsKey("Run ID"));
+            if (!update.action().equals("Complete")) {
+                assertEquals(stageFields.get(update.stage()), new ArrayList<>(update.fields().keySet()));
+            }
+        }
+        assertFalse(updates.getFirst().fields().containsKey("Job facts"));
+        assertFalse(updates.getLast().fields().containsKey("Location"));
+        assertEquals("1", updates.getLast().fields().get("Rejected by relevance"));
         assertEquals(List.of("1", "3"), updates.stream()
-                .filter(update -> update.stage().equals("candidate_fit"))
-                .map(WorkflowProgress::jobId).toList());
-        assertEquals(2, updates.getLast().completedCount());
-        assertEquals(result.processedCount(), updates.getLast().totalCount());
+                .filter(update -> update.action().equals("Evaluating fit"))
+                .map(update -> update.fields().get("Current vacancy")).toList());
+        assertEquals("2 / 2", updates.getLast().fields().get("Job facts"));
+        assertEquals("2 / 2", updates.getLast().fields().get("Candidate fit"));
+        assertEquals("2", updates.getLast().fields().get("Saved"));
+        assertEquals(2, result.savedCount());
     }
 
     @Test
     void analysisFailureLeavesLastStageWithoutReportingCompletion() {
-        List<WorkflowProgress> updates = new ArrayList<>();
+        List<ProgressSnapshot> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.factsFailure = new IllegalStateException("analysis failed");
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
@@ -59,11 +72,11 @@ class WorkflowOrchestratorTest {
 
         assertEquals(gateway.factsFailure, assertThrows(IllegalStateException.class,
                 () -> workflow.processBatch("linkedin", updates::add)));
-        assertEquals("job_facts", updates.getLast().stage());
-        assertEquals("1", updates.getLast().jobId());
+        assertEquals("Job facts", updates.getLast().stage());
+        assertEquals("1", updates.getLast().fields().get("Current vacancy"));
         assertEquals("run-1", updates.getLast().runId());
-        assertEquals(0, updates.getLast().completedCount());
-        assertFalse(updates.stream().anyMatch(update -> update.stage().equals("complete")));
+        assertEquals("0 / 1", updates.getLast().fields().get("Job facts"));
+        assertFalse(updates.stream().anyMatch(update -> update.action().equals("Complete")));
     }
 
     @Test
@@ -333,11 +346,14 @@ class WorkflowOrchestratorTest {
         ), filter.calls);
         assertEquals(List.of("1", "2", "3", "4", "5"), ids(result.processedScope()));
         assertEquals(1, result.agentFilteredCount());
+        assertEquals(4, result.savedCount());
         assertNull(result.collection());
         assertEquals(JsonNull.INSTANCE, Main.GSON.toJsonTree(result).getAsJsonObject().get("collection"));
         int completedCalls = filter.calls.size();
 
-        assertEquals(result.processedScope(), orchestrator.resume("run-1").processedScope());
+        WorkflowResult resumed = orchestrator.resume("run-1");
+        assertEquals(result.processedScope(), resumed.processedScope());
+        assertEquals(0, resumed.savedCount());
         assertEquals(completedCalls, filter.calls.size());
     }
 
@@ -422,11 +438,12 @@ class WorkflowOrchestratorTest {
         Gson gson = Main.GSON;
         var expected = gson.fromJson("""
                 {"source":"linkedin","run_id":"run-1","status":"complete",
-                 "processed_count":1,"message":"",
+                 "processed_count":1,"saved_count":0,"message":"",
                  "processed_scope":[{"source":"linkedin","job_id":"1","title":"Java"}]}
                 """, com.google.gson.JsonObject.class);
 
         assertEquals(expected, gson.toJsonTree(orchestrator.jobFacts("run-1", "linkedin", scope)));
+        expected.addProperty("saved_count", 1);
         assertEquals(expected, gson.toJsonTree(orchestrator.finishAnalysis("run-1", "linkedin", scope)));
     }
 
@@ -435,13 +452,13 @@ class WorkflowOrchestratorTest {
         AtomicInteger runs = new AtomicInteger();
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(progress -> {
             String runId = "run-" + runs.incrementAndGet();
-            progress.accept(new CollectionProgress(runId, "processing", "", "", 1, 25,
-                    1, 100, Map.of("raw_saved", 1), "collecting"));
+            progress.accept(new CollectionProgress(runId, "processing", "Poland", "priority", 1, 25,
+                    1, 100, Map.of("raw_saved", 1, "age_filtered", 2), "collecting"));
             return new CollectionReport("linkedin", runId, "complete", 1,
                     List.of(item("1", "Java")), Map.of("raw_saved", 1), List.of(), "");
         }, new FakeProcessingGateway(List.of()));
-        List<WorkflowProgress> first = new ArrayList<>();
-        List<WorkflowProgress> second = new ArrayList<>();
+        List<ProgressSnapshot> first = new ArrayList<>();
+        List<ProgressSnapshot> second = new ArrayList<>();
 
         workflow.processBatch("linkedin", first::add);
         int firstCount = first.size();
@@ -453,10 +470,18 @@ class WorkflowOrchestratorTest {
         assertEquals(secondCount, second.size());
         assertTrue(first.stream().allMatch(update -> update.runId().equals("run-1")));
         assertTrue(second.stream().allMatch(update -> update.runId().equals("run-2")));
-        assertEquals("collection", first.getFirst().stage());
-        assertEquals(1, first.getFirst().completedCount());
-        assertEquals(100, first.getFirst().totalCount());
-        assertEquals("complete", second.getLast().stage());
+        assertEquals("Collection", first.getFirst().stage());
+        assertEquals("1 / 100", first.getFirst().fields().get("Accepted / limit"));
+        assertFalse(first.getFirst().fields().containsKey("Saved"));
+        assertEquals("1", first.getLast().fields().get("Saved"));
+        assertEquals("Poland", first.getFirst().fields().get("Location"));
+        assertEquals("Priority companies", first.getFirst().fields().get("Search"));
+        assertEquals("25", first.getFirst().fields().get("Cards on page"));
+        assertEquals("2", first.getFirst().fields().get("Rejected by age"));
+        assertFalse(first.getLast().fields().containsKey("Cards on page"));
+        assertEquals("Complete", second.getLast().action());
+        assertEquals("1", second.getLast().fields().get("Already saved"));
+        assertEquals("0", second.getLast().fields().get("Saved"));
     }
 
     @Test
@@ -469,16 +494,41 @@ class WorkflowOrchestratorTest {
             gateway.limitStage = stage;
             WorkflowOrchestrator workflow = new WorkflowOrchestrator(
                     progress -> report("complete", List.of(item("1", "Java"))), gateway);
-            List<WorkflowProgress> updates = new ArrayList<>();
+            List<ProgressSnapshot> updates = new ArrayList<>();
 
             assertSame(limit, assertThrows(UsageLimitExceededException.class,
                     () -> workflow.processBatch("linkedin", updates::add)));
-            assertFalse(updates.stream().anyMatch(update -> "complete".equals(update.stage())));
+            assertFalse(updates.stream().anyMatch(update -> "Complete".equals(update.action())));
+            String lastAction = switch (stage) {
+                case "filter" -> "Filtering vacancies";
+                case "job_facts" -> "Extracting facts";
+                case "candidate_fit" -> "Evaluating fit";
+                default -> throw new AssertionError(stage);
+            };
+            assertEquals(lastAction, updates.getLast().action());
+            assertEquals(stage.equals("filter") ? "" : "Java", updates.getLast().details());
+            assertEquals(stage.equals("filter") ? null : "1", updates.getLast().fields().get("Current vacancy"));
             int previousCount = updates.size();
             gateway.usageLimit = null;
             assertEquals("complete", workflow.processBatch("linkedin").status());
             assertEquals(previousCount, updates.size());
         }
+    }
+
+    @Test
+    void savedStatisticsUseConfirmedWritesRatherThanScopeSize() throws Exception {
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
+        gateway.confirmedSaved = 1;
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                progress -> report("complete", List.of(item("1", "Java"), item("2", "Java"))), gateway);
+        List<ProgressSnapshot> updates = new ArrayList<>();
+
+        WorkflowResult result = workflow.processBatch("linkedin", updates::add);
+
+        assertEquals(2, result.processedCount());
+        assertEquals(1, result.savedCount());
+        assertEquals("1", updates.getLast().fields().get("Saved"));
+        assertEquals("Complete", updates.getLast().action());
     }
 
     private static CollectionReport report(String status, List<ScopeItem> scope) {
@@ -515,6 +565,7 @@ class WorkflowOrchestratorTest {
         private RuntimeException factsFailure;
         private UsageLimitExceededException usageLimit;
         private String limitStage;
+        private Integer confirmedSaved;
 
         private FakeProcessingGateway(List<String> rejectedIds) {
             this.rejectedIds = rejectedIds;
@@ -597,9 +648,10 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public void saveScored(String source, List<String> jobIds) {
+        public int saveScored(String source, List<String> jobIds) {
             calls.add("save-scored:" + String.join(",", jobIds));
             jobIds.forEach(jobId -> states.put(jobId, "SAVED"));
+            return confirmedSaved == null ? jobIds.size() : confirmedSaved;
         }
     }
 }

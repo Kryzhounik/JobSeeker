@@ -16,6 +16,7 @@ public record WorkflowResult(
         @SerializedName("processed_scope") List<ScopeItem> processedScope,
         @SerializedName("processed_count") int processedCount,
         @SerializedName("agent_filtered_count") int agentFilteredCount,
+        @SerializedName("saved_count") int savedCount,
         String message
 ) {
     public WorkflowResult {
@@ -28,13 +29,20 @@ public record WorkflowResult(
             String source, String runId, String status, CollectionReport collection,
             List<ScopeItem> processedScope, int agentFilteredCount, String message
     ) {
+        this(source, runId, status, collection, processedScope, agentFilteredCount, 0, message);
+    }
+
+    public WorkflowResult(
+            String source, String runId, String status, CollectionReport collection,
+            List<ScopeItem> processedScope, int agentFilteredCount, int savedCount, String message
+    ) {
         this(source, runId, status, CollectionSummary.from(collection), processedScope,
-                processedScope.size(), agentFilteredCount, message);
+                processedScope.size(), agentFilteredCount, savedCount, message);
     }
 
     WorkflowResult withMessage(String value) {
         return new WorkflowResult(source, runId, status, collection, processedScope,
-                processedCount, agentFilteredCount, value);
+                processedCount, agentFilteredCount, savedCount, value);
     }
 
     public record CollectionSummary(

@@ -35,5 +35,5 @@ interface ProcessingGateway {
 
     void calculateJobInterest(String source, String jobId);
 
-    void saveScored(String source, List<String> jobIds);
+    int saveScored(String source, List<String> jobIds);
 }

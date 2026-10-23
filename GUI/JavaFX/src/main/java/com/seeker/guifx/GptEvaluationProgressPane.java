@@ -21,7 +21,7 @@ final class GptEvaluationProgressPane extends BackgroundProcessPane {
         setField("Evaluated at", result.evaluatedAt());
         setDetails("Full answer saved for job " + result.jobId());
         setSummary("Saved job " + result.jobId());
-        setProcessState(State.COMPLETED);
+        finishProcess(State.COMPLETED);
     }
 
     void fail(Throwable error) {
@@ -31,6 +31,6 @@ final class GptEvaluationProgressPane extends BackgroundProcessPane {
         String message = error == null ? null : error.getMessage();
         setDetails(message == null || message.isBlank() ? "Unknown error" : message);
         setSummary(stage);
-        setProcessState(State.FAILED);
+        finishProcess(State.FAILED);
     }
 }

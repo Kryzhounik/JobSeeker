@@ -1,7 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 
 import java.util.Objects;
@@ -15,7 +15,7 @@ final class DirectCollectorClient implements CollectorClient {
     }
 
     @Override
-    public CollectionReport collect(Consumer<CollectionProgress> progress) throws Exception {
+    public CollectionReport collect(Consumer<ProgressSnapshot> progress) throws Exception {
         return driverApi.collectBatch(progress);
     }
 }

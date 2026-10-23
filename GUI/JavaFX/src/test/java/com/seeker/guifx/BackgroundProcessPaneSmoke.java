@@ -7,17 +7,24 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.orchestrator.WorkflowProgress;
-import com.seeker.orchestrator.WorkflowResult;
+import com.seeker.codex.UsageLimitExceededException;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import java.util.concurrent.FutureTask;
@@ -51,6 +58,11 @@ public final class BackgroundProcessPaneSmoke {
                 if (!firstDock.getText().contains("waiting")) {
                     throw new AssertionError("Waiting state has no visible label");
                 }
+                if (badgeClose.isVisible()) throw new AssertionError("Active waiting process is dismissible");
+                badgeClose.fire();
+                if (!firstBadge.isVisible() || !firstPanel.isVisible()) {
+                    throw new AssertionError("Waiting state implicitly finished the process");
+                }
                 second.beginProcess();
                 if (firstPanel.isVisible() || !secondPanel.isVisible() || !secondDock.isSelected()) {
                     throw new AssertionError("Selecting a process did not collapse the previous panel");
@@ -59,13 +71,13 @@ public final class BackgroundProcessPaneSmoke {
                 if (!firstPanel.isVisible() || secondPanel.isVisible()) {
                     throw new AssertionError("Minimized progress could not be reopened");
                 }
-                first.setProcessState(BackgroundProcessPane.State.FAILED);
+                first.finishProcess(BackgroundProcessPane.State.FAILED);
                 assertState(firstDock, "failed");
                 firstDock.fire();
                 if (firstPanel.isVisible() || !first.fieldText("Run ID").equals("preserved-run")) {
                     throw new AssertionError("Minimizing failed progress lost its data");
                 }
-                first.setProcessState(BackgroundProcessPane.State.COMPLETED);
+                first.finishProcess(BackgroundProcessPane.State.COMPLETED);
                 assertState(firstDock, "completed");
                 assertState(firstBadge, "completed");
                 firstDock.fire();
@@ -80,13 +92,14 @@ public final class BackgroundProcessPaneSmoke {
                         || !first.fieldText("Run ID").isEmpty() || badgeClose.isVisible()) {
                     throw new AssertionError("A new run retained old progress data");
                 }
-                first.setProcessState(BackgroundProcessPane.State.FAILED);
+                first.finishProcess(BackgroundProcessPane.State.FAILED);
                 HBox header = (HBox) ((VBox) firstPanel).getChildren().getFirst();
                 ((Button) header.getChildren().getLast()).fire();
                 if (firstBadge.isVisible() || firstPanel.isVisible()) {
                     throw new AssertionError("Panel dismiss did not hide both views");
                 }
-                checkBatchProgress(area);
+                checkSnapshotProgress(area);
+                checkUsageLimits(area);
                 return null;
             });
             Platform.runLater(check);
@@ -97,8 +110,68 @@ public final class BackgroundProcessPaneSmoke {
         }
     }
 
-    private static void checkBatchProgress(BackgroundProcessPane.Area area) {
-        BatchProgressPane batch = new BatchProgressPane(area);
+    private static void checkUsageLimits(BackgroundProcessPane.Area area) {
+        Instant retry = Instant.parse("2026-11-01T12:34:56Z");
+        String expectedTime = DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm:ss z")
+                .withZone(ZoneId.systemDefault()).format(retry);
+        for (String title : List.of("Collect", "Batch")) {
+            SnapshotProgressPane pane = new SnapshotProgressPane(area, title);
+            HBox badge = (HBox) area.docks().getChildren().getLast();
+            Button close = (Button) badge.getChildren().getLast();
+            VBox panel = (VBox) area.overlay().getChildren().getLast();
+            Map<String, String> metrics = Map.of("Saved", "3", "Job facts", "7 / 10");
+            for (Instant retryAt : new Instant[]{retry, null}) {
+                pane.begin();
+                pane.update(new ImmutableProgressSnapshot("limited-run", "Job facts", "Extracting facts",
+                        metrics, "Last backend details"));
+                pane.fail(new UsageLimitExceededException("Quota exhausted", retryAt));
+                assertState(badge, "waiting");
+                assertFields(panel, metrics);
+                String text = details(panel);
+                if (!pane.fieldText("Run ID").equals("limited-run")
+                        || !pane.fieldText("Stage").equals("Job facts")
+                        || !pane.fieldText("Action").equals("Extracting facts")
+                        || !text.contains("Last backend details") || !text.contains("Quota exhausted")
+                        || !close.isVisible() || !close.isManaged()) {
+                    throw new AssertionError("Usage limit lost progress, reason, or dismiss control");
+                }
+                if (retryAt == null ? !text.contains("Retry time is unknown.") || text.contains("Retry at:")
+                        : !text.contains("Retry at: " + expectedTime)) {
+                    throw new AssertionError("Incorrect retry time: " + text);
+                }
+                if (retryAt == null) {
+                    HBox header = (HBox) panel.getChildren().getFirst();
+                    ((Button) header.getChildren().getLast()).fire();
+                } else {
+                    close.fire();
+                }
+                if (badge.isVisible() || panel.isVisible()) {
+                    throw new AssertionError("Stopped waiting process cannot be dismissed");
+                }
+                pane.begin();
+                assertState(badge, "running");
+                if (!badge.isVisible() || !panel.isVisible() || close.isVisible()
+                        || !details(panel).isEmpty() || !pane.fieldText("Run ID").isEmpty()) {
+                    throw new AssertionError("Manual restart retained the usage-limit state");
+                }
+                assertFields(panel, Map.of());
+                pane.update(new ImmutableProgressSnapshot("manual-run", "Backend stage", "Backend action",
+                        Map.of("Confirmed", "1"), "New details"));
+                pane.complete(true);
+                assertState(badge, "completed");
+            }
+            pane.begin();
+            pane.fail(new IllegalStateException("Codex usage limit: Quota exhausted; retry at 12:00"));
+            assertState(badge, "failed");
+            if (!close.isVisible() || !details(panel).contains("Quota exhausted")
+                    || details(panel).contains("Retry time is unknown.")) {
+                throw new AssertionError("Ordinary failure was classified by its message");
+            }
+        }
+    }
+
+    private static void checkSnapshotProgress(BackgroundProcessPane.Area area) {
+        SnapshotProgressPane batch = new SnapshotProgressPane(area, "Batch");
         HBox badge = (HBox) area.docks().getChildren().getLast();
         ToggleButton dock = (ToggleButton) badge.getChildren().getFirst();
         Button dismiss = (Button) badge.getChildren().getLast();
@@ -125,33 +198,88 @@ public final class BackgroundProcessPaneSmoke {
                     + height + "; viewport=" + scroll.getViewportBounds()
                     + "; content=" + scroll.getContent().getLayoutBounds());
         }
-        batch.update(new WorkflowProgress("batch-run", "collection", 7, 100, "", 0, "plan_exhausted"));
+        Map<String, String> initial = new LinkedHashMap<>();
+        initial.put("Z first field", "7 / 100");
+        initial.put("A second field", "25");
+        batch.update(new WorkflowProgress("batch-run", "Unknown stage", "Unknown action",
+                initial, "Backend details"));
+        assertFields(panel, initial);
         assertState(badge, "running");
-        if (dismiss.isVisible()) throw new AssertionError("Collection completion finished the batch");
-        batch.update(new WorkflowProgress("batch-run", "relevance_filter", 7, 7, "", 1, ""));
-        batch.update(new WorkflowProgress("batch-run", "job_facts", 2, 6, "123", 0, ""));
+        if (dismiss.isVisible()) throw new AssertionError("A snapshot finished the operation");
+        Map<String, String> next = new LinkedHashMap<>();
+        next.put("A second field", "123");
+        next.put("New metric", "6 / 20");
+        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", next,
+                "Details with URL: https://example.com/job"));
+        assertFields(panel, next);
+        Map<String, String> reordered = new LinkedHashMap<>();
+        reordered.put("New metric", "9 / 20");
+        reordered.put("A second field", "456");
+        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", reordered,
+                "Details with URL: https://example.com/job"));
+        assertFields(panel, reordered);
         batch.fail(new IllegalStateException("analysis failed"));
         assertState(badge, "failed");
         if (!batch.fieldText("Run ID").equals("batch-run")
-                || !batch.fieldText("Accepted / limit").equals("7 / 100")
-                || !batch.fieldText("Rejected by agent").equals("1")
-                || !batch.fieldText("Workflow progress").equals("2 / 6")
-                || !batch.fieldText("Current job").equals("123") || !dismiss.isVisible()) {
+                || !batch.fieldText("Stage").equals("Next stage")
+                || !batch.fieldText("Action").equals("Next action") || !dismiss.isVisible()
+                || !details(panel).contains("https://example.com/job")
+                || !details(panel).contains("analysis failed")) {
             throw new AssertionError("Batch failure lost progress or cannot be dismissed");
         }
+        assertFields(panel, reordered);
         batch.begin();
-        List<ScopeItem> scope = List.of(new ScopeItem("linkedin", "123", "Java"));
-        batch.update(new WorkflowProgress("next-run", "complete", 1, 1, "", 0, ""));
+        assertFields(panel, Map.of());
+        if (!batch.fieldText("Run ID").isEmpty() || !details(panel).isEmpty()) {
+            throw new AssertionError("Restart retained old snapshot");
+        }
+        batch.update(new ImmutableProgressSnapshot("next-run", "Final backend stage", "Final backend action",
+                initial, "Final backend details"));
         assertState(badge, "running");
-        batch.complete(new WorkflowResult("linkedin", "next-run", "complete",
-                new CollectionReport("linkedin", "next-run", "complete", 1, scope, Map.of(), List.of(), ""),
-                scope, 0, ""));
+        batch.complete(true);
         assertState(badge, "completed");
-        if (!batch.fieldText("Saved").equals("1") || !dock.getText().contains("done")) {
-            throw new AssertionError("Batch final result was not displayed");
+        assertFields(panel, initial);
+        if (!batch.fieldText("Stage").equals("Final backend stage")
+                || !batch.fieldText("Action").equals("Final backend action")
+                || !details(panel).equals("Final backend details") || !dock.getText().contains("done")) {
+            throw new AssertionError("Completion replaced the backend snapshot");
         }
         dismiss.fire();
         if (badge.isVisible()) throw new AssertionError("Completed batch cannot be dismissed");
+
+        SnapshotProgressPane collect = new SnapshotProgressPane(area, "Collect");
+        collect.begin();
+        collect.update(new CollectionProgress("collect-run", "Same stage", "Same action", next, ""));
+        VBox collectPanel = (VBox) area.overlay().getChildren().getLast();
+        assertFields(collectPanel, next);
+        collect.update(new ImmutableProgressSnapshot("collect-run", "No metrics", "Still working", Map.of(), ""));
+        assertFields(collectPanel, Map.of());
+        collect.update(new ImmutableProgressSnapshot("collect-run", "Same stage", "Same action", next, ""));
+        collect.complete(false);
+        assertFields(collectPanel, next);
+        assertState(area.docks().getChildren().getLast(), "failed");
+        collect.begin();
+        collect.update(new ImmutableProgressSnapshot("empty-fields", "Stage", "Action", Map.of(), ""));
+        assertFields(collectPanel, Map.of());
+    }
+
+    private static VBox content(VBox panel) {
+        return (VBox) ((ScrollPane) panel.getChildren().get(1)).getContent();
+    }
+
+    private static String details(VBox panel) {
+        return ((TextArea) content(panel).getChildren().getLast()).getText();
+    }
+
+    private static void assertFields(VBox panel, Map<String, String> expected) {
+        GridPane grid = (GridPane) content(panel).getChildren().get(1);
+        List<String> labels = grid.getChildren().stream().filter(Label.class::isInstance)
+                .map(Label.class::cast).map(Label::getText).toList();
+        List<String> values = grid.getChildren().stream().filter(TextField.class::isInstance)
+                .map(TextField.class::cast).map(TextField::getText).toList();
+        if (!labels.equals(List.copyOf(expected.keySet())) || !values.equals(List.copyOf(expected.values()))) {
+            throw new AssertionError("Snapshot field replacement/order mismatch: " + labels + " " + values);
+        }
     }
 
     private static void assertState(Node node, String expected) {

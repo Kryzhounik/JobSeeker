@@ -4,6 +4,7 @@ import com.microsoft.playwright.PlaywrightException;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.python.PythonGateway;
+import com.seeker.tools.api.ProgressSnapshot;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -19,7 +20,7 @@ final class LinkedInCollector {
     private final PythonGateway python;
     private final CollectorConfig config;
     private final String runId;
-    private final Consumer<CollectionProgress> progressListener;
+    private final Consumer<ProgressSnapshot> progressListener;
     private final List<ScopeItem> scope = new ArrayList<>();
     private final List<PageReport> pages = new ArrayList<>();
     private final OutcomeCounter outcomes = new OutcomeCounter();
@@ -40,7 +41,7 @@ final class LinkedInCollector {
     }
 
     LinkedInCollector(LinkedInPageClient browser, PythonGateway python, CollectorConfig config,
-                      String runId, Consumer<CollectionProgress> progressListener) {
+                      String runId, Consumer<ProgressSnapshot> progressListener) {
         this.browser = browser;
         this.python = python;
         this.config = config;

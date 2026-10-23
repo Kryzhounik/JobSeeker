@@ -2,7 +2,7 @@ package com.seeker.collector.linkedin.application;
 
 import com.seeker.collector.linkedin.browser.BrowserSettings;
 import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.collection.LinkedInCollectionService;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
@@ -53,7 +53,7 @@ public final class LinkedInApplication {
         return collectBatch(ignored -> { });
     }
 
-    public CollectionReport collectBatch(Consumer<CollectionProgress> progress) throws IOException {
+    public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
         return collectionService.collectBatch(
                 RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin", progress
         );
@@ -63,7 +63,7 @@ public final class LinkedInApplication {
         return collectUrl(runId, url, ignored -> { });
     }
 
-    public CollectionReport collectUrl(String runId, String url, Consumer<CollectionProgress> progress)
+    public CollectionReport collectUrl(String runId, String url, Consumer<ProgressSnapshot> progress)
             throws IOException {
         return collectionService.collectFromUrl(runId, url, progress);
     }
@@ -72,7 +72,7 @@ public final class LinkedInApplication {
         return collectUrls(List.of(url));
     }
 
-    public CollectionReport collectUrl(String url, Consumer<CollectionProgress> progress) throws IOException {
+    public CollectionReport collectUrl(String url, Consumer<ProgressSnapshot> progress) throws IOException {
         return collectUrls(List.of(url), progress);
     }
 
@@ -80,7 +80,7 @@ public final class LinkedInApplication {
         return collectUrls(urls, "");
     }
 
-    public CollectionReport collectUrls(List<String> urls, Consumer<CollectionProgress> progress) throws IOException {
+    public CollectionReport collectUrls(List<String> urls, Consumer<ProgressSnapshot> progress) throws IOException {
         return collectUrls(urls, "", progress);
     }
 
@@ -89,7 +89,7 @@ public final class LinkedInApplication {
     }
 
     public CollectionReport collectUrls(List<String> urls, String runPrefix,
-                                       Consumer<CollectionProgress> progress) throws IOException {
+                                       Consumer<ProgressSnapshot> progress) throws IOException {
         return collectionService.collectFromUrls(
                 (runPrefix.isBlank() ? "" : runPrefix.strip() + "-")
                         + RUN_ID_TIME.format(Instant.now())

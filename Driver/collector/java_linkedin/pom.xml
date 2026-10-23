@@ -21,6 +21,10 @@
     <dependencies>
         <dependency>
             <groupId>com.seeker</groupId>
+            <artifactId>tools</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.seeker</groupId>
             <artifactId>applier</artifactId>
         </dependency>
         <dependency>

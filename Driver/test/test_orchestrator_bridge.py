@@ -20,6 +20,16 @@ from db.migrate import migrate_database
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    @patch("orchestrator.python_bridge.save_records")
+    def test_saved_count_excludes_skipped_records(self, save) -> None:
+        save.return_value = [("save", "new"), ("skip", "already present")]
+        self.assertEqual(1, python_bridge.save_scored("linkedin", '["1","2"]', "unused.sqlite"))
+        save.return_value = [("skip", "already present")]
+        self.assertEqual(0, python_bridge.save_scored("linkedin", '["2"]', "unused.sqlite"))
+        save.return_value = [("error", "failed")]
+        with self.assertRaises(RuntimeError):
+            python_bridge.save_scored("linkedin", '["2"]', "unused.sqlite")
+
     @patch("orchestrator.python_bridge.run")
     def test_agent_filter_uses_existing_cli_proxy(self, proxy_run) -> None:
         proxy_run.return_value = Result(

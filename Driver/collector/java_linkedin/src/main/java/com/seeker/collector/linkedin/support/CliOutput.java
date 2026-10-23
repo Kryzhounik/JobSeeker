@@ -1,6 +1,6 @@
 package com.seeker.collector.linkedin.support;
 
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
@@ -38,7 +38,7 @@ public final class CliOutput implements AutoCloseable {
         return new CliOutput(sys, original);
     }
 
-    public static void printProgress(CollectionProgress progress) {
+    public static void printProgress(ProgressSnapshot progress) {
         System.err.println("COLLECTOR_PROGRESS " + JsonSupport.GSON.toJson(progress));
     }
 

@@ -5,13 +5,12 @@ import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.application.LinkedInApplication;
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.login.LoginResult;
 import com.seeker.orchestrator.StageResult;
 import com.seeker.orchestrator.WorkflowOrchestrator;
-import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.orchestrator.WorkflowResult;
 
 import java.io.IOException;
@@ -41,7 +40,7 @@ public final class DriverApi {
         return linkedin.collectBatch();
     }
 
-    public CollectionReport collectBatch(Consumer<CollectionProgress> progress) throws IOException {
+    public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
         return linkedin.collectBatch(progress);
     }
 
@@ -49,7 +48,7 @@ public final class DriverApi {
         return orchestrator.processBatch(source);
     }
 
-    public WorkflowResult processBatch(String source, Consumer<WorkflowProgress> progress)
+    public WorkflowResult processBatch(String source, Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
         return orchestrator.processBatch(source, progress);
     }
@@ -58,7 +57,7 @@ public final class DriverApi {
         return orchestrator.processUrls(urls);
     }
 
-    public WorkflowResult processUrls(List<String> urls, Consumer<WorkflowProgress> progress)
+    public WorkflowResult processUrls(List<String> urls, Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
         return orchestrator.processUrls(urls, progress);
     }
@@ -67,7 +66,7 @@ public final class DriverApi {
         return orchestrator.checkRecommendations();
     }
 
-    public WorkflowResult checkRecommendations(Consumer<WorkflowProgress> progress)
+    public WorkflowResult checkRecommendations(Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
         return orchestrator.checkRecommendations(progress);
     }
@@ -76,7 +75,7 @@ public final class DriverApi {
         return orchestrator.resume(runId);
     }
 
-    public WorkflowResult resume(String runId, Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
+    public WorkflowResult resume(String runId, Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
         return orchestrator.resume(runId, progress);
     }
 
@@ -85,7 +84,7 @@ public final class DriverApi {
     }
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
-                                Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
+                                Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
         return orchestrator.jobFacts(runId, source, scope, progress);
     }
 
@@ -94,7 +93,7 @@ public final class DriverApi {
     }
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
-                                      Consumer<WorkflowProgress> progress) throws UsageLimitExceededException {
+                                      Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
         return orchestrator.finishAnalysis(runId, source, scope, progress);
     }
 

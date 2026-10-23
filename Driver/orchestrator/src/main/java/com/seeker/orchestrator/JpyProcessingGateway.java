@@ -187,15 +187,15 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
-    public void saveScored(String source, List<String> jobIds) {
+    public int saveScored(String source, List<String> jobIds) {
         try (PyModule bridge = bridge();
-             PyObject ignored = bridge.callMethod(
+             PyObject response = bridge.callMethod(
                      "save_scored",
                      source,
                      GSON.toJson(jobIds),
                      paths.databasePath().toString()
              )) {
-            // Existing Python code saves the selected scored JSON files.
+            return response.getIntValue();
         }
     }
 

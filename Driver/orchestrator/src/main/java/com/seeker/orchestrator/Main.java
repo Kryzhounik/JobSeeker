@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.google.gson.GsonBuilder;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.ScopeItem;
@@ -57,7 +58,7 @@ public final class Main {
 
     private static void runWorkflow(String[] args) throws IOException, UsageLimitExceededException {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
-        Consumer<WorkflowProgress> progress = update ->
+        Consumer<ProgressSnapshot> progress = update ->
                 System.err.println("WORKFLOW_PROGRESS " + GSON.toJson(update));
         if ((args.length == 1 && "check-recommendations".equals(args[0]))
                 || (args.length >= 2 && "process-urls".equals(args[0]))

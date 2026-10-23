@@ -25,7 +25,7 @@ The Java code is split by responsibility:
 cases without command-line request wrappers.
 
 `new LinkedInApplication(projectRoot)` keeps no progress handler. Pass a
-`Consumer<CollectionProgress>` to the collection call, for example
+`Consumer<ProgressSnapshot>` (`com.seeker.tools.api`) to the collection call, for example
 `collectBatch(handler)` or `collectUrls(urls, runPrefix, handler)`.
 `LinkedInCollectionService` also receives the handler per call; only the
 single-run `LinkedInCollector` retains it. Collection settings are loaded from
@@ -35,9 +35,13 @@ login also reads current browser settings when called.
 Callbacks run synchronously on the
 calling worker thread, before browser startup and during collection, including
 the final state. A UI caller marshals snapshots to its UI thread. Calls without
-a listener remain available with progress ignored. The snapshots
-contain the run ID, stage, location/search, page/card counters, accepted/limit,
-outcomes, and details. They do not write a console protocol themselves.
+a listener remain available with progress ignored. `CollectionProgress` implements
+the common contract: `runId`, `stage`, `action`, ordered immutable `fields`, and
+`details`. Stage is always `Collection`; browser startup, reading results and
+loading vacancies are actions. Display-ready fields include location/search,
+page/cards, processed, accepted/limit, and each rejection/failure counter.
+The same complete snapshot is sent directly and serialized by the process CLI.
+Snapshots do not write a console protocol themselves.
 
 The CLI alone encodes callbacks as `COLLECTOR_PROGRESS ` JSON lines on stderr
 and temporarily redirects Python stdout to stderr, restoring it afterwards.

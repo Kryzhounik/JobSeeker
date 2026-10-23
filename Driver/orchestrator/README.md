@@ -74,6 +74,9 @@ The command prints a `WorkflowResult` as JSON:
   after relevance filtering and analysis, including already completed jobs.
   `processed_count` is a result component computed from `processed_scope` on creation.
 - `agent_filtered_count` counts vacancies rejected by the agent filter.
+- `saved_count` counts confirmed new saves during this invocation, excluding
+  skipped records and vacancies already saved before the call. It is not
+  `processed_count` or the input scope size.
 
 `status: "complete"` means processing finished, not that any vacancy was
 accepted. A duplicate or rejected vacancy has an empty `processed_scope` and
@@ -89,12 +92,22 @@ The CLI parses arguments, installs its output policy, and prints the report.
 Java callers receive `WorkflowResult`; Collector APIs still return
 `CollectionReport`. The CLI serializes `WorkflowResult` directly without editing
 its JSON. `WorkflowOrchestrator(projectRoot)` keeps no progress handler.
-Pass `Consumer<WorkflowProgress>` to the individual operation, for example
+Pass `Consumer<ProgressSnapshot>` (`com.seeker.tools.api`) to the individual operation, for example
 `processBatch("linkedin", handler)` or `processUrls(urlsList, handler)`.
-Orchestrator creates its own per-call Collector handler and adapts collection
-notifications to the existing workflow snapshot. Lower modules never receive
-the caller's workflow handler. The detailed workflow event contract is a separate
-task; this change does not add snapshot fields. CLI notifications are emitted as
+Orchestrator creates its own per-call Collector handler and retains all collection
+details during the Collection stage. Other stages expose only their own fields;
+the final snapshot provides summary statistics. Lower modules never receive the caller's
+workflow handler. Snapshots expose `runId`, `stage`, `action`, immutable ordered
+`fields`, and `details`, with display-ready labels and values. Each replaces the
+previous snapshot. Detailed stages are `Collection`, `Relevance filter`, `Job facts`,
+and `Candidate fit`; initialization is an action, not a separate stage. Job interest
+and saving still run in the same order without separate panel stages or saving
+events. Final statistics include actual `Saved` writes and a separate `Already saved`
+count. An idle repeat of a completed run therefore reports zero new saves.
+Codex exhaustion leaves the last progress snapshot unchanged and propagates the original
+`UsageLimitExceededException` with its `retryAt`. There is no automatic retry.
+CLI retains exit code `3` for that expected limit, rather than an application-error
+stack trace. CLI notifications are emitted as
 `WORKFLOW_PROGRESS ` JSON lines on stderr. JPy gateways do not
 change global Python stdout; only the CLI temporarily redirects it to stderr.
 
@@ -158,10 +171,10 @@ java -jar Driver/orchestrator/workflow-orchestrator.jar finish-analysis <run-id>
 ```
 
 Both explicit-scope commands serialize their `StageResult` directly as JSON:
-`source`, `run_id`, `status`, `processed_scope`, `processed_count`, and `message`.
+`source`, `run_id`, `status`, `processed_scope`, `processed_count`, `saved_count`, and `message`.
 `processed_count` is computed from `processed_scope` when the result is created.
-`StageResult`, `jobFacts()`, and `finishAnalysis()` are package-private;
-these commands do not add a public Orchestrator API.
+`jobFacts()` and `finishAnalysis()` are also available through the Java facade.
+Their `saved_count` follows the same confirmed-write rule; job-facts-only returns zero.
 
 ### LinkedIn collector utilities
 

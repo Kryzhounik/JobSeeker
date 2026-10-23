@@ -14,6 +14,35 @@ neither recreating the facade nor restarting the GUI is necessary. An active
 operation keeps its existing configuration. Python/JNI installation paths
 remain startup configuration and require a restart if changed.
 
+## Progress Rendering
+
+Collect and Batch share `SnapshotProgressPane`, which displays the backend's
+`ProgressSnapshot`: Run ID, Stage, Action, ordered dynamic fields, and Details.
+Each full snapshot replaces the previous rows, including removing absent fields.
+Stage labels, field labels, values, and statistics belong to the backend. The
+GUI does not translate stage codes, interpret outcomes, or derive saved counts.
+Completion changes only the visual state, preserving the last snapshot. A
+failure retains its stage, action, and fields and adds the exception to Details.
+
+Both Collector transports expose `Consumer<ProgressSnapshot>`. Direct mode
+forwards the Java callback; process mode deserializes the CLI's same contract
+into `ImmutableProgressSnapshot`, preserving field order. Neither transport
+manufactures progress snapshots. Execution and lifecycle status remain separate
+from the snapshot's display-ready stage/action strings.
+
+`BackgroundProcessPane` tracks completion separately from its visual state.
+`setProcessState(WAITING)` alone does not finish a running operation; callers
+use `finishProcess(...)` when execution has ended. Only finished panels can be
+dismissed, including a finished yellow WAITING panel. `beginProcess()` resets
+completion for a manual restart.
+
+Collect/Batch classify `UsageLimitExceededException` by Java type, never by
+message text. The task has stopped: its buttons are released and its panel
+finishes in WAITING, not FAILED. Details retain the backend text and add the
+limit reason plus the local retry time (with time zone), or explicitly state
+that the time is unknown. Run ID, stage, action, and metrics remain unchanged.
+Other exceptions remain FAILED. There is no automatic retry or scheduler.
+
 ## Runtime Packaging
 
 The supported desktop launch uses the fat `seeker-gui-javafx.jar`. Maven Shade

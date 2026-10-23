@@ -86,11 +86,12 @@ shows the full code reference. Window sizes, table sorts and the Collected
 stage filter are saved in `gui-settings.json`.
 
 Collect launches the configured Java LinkedIn collector in the background.
-A collapsible panel inside the main window shows the run ID, current stage, location, search
-mode, page, and accepted/limit, preview-skip, content-rejection, and failure
-counts. Its top-right toolbar toggle shows the accepted/limit counter and
+A collapsible panel inside the main window shows Run ID, Stage, Action, the
+backend's ordered fields, and Details. Its top-right toolbar toggle shows the
+backend's current action and
 expands or minimizes the panel. The usual status text is at the bottom right.
-The panel retains the final result or error and accumulated statistics.
+The panel retains the last snapshot on completion or error. Completion changes
+only its visual state; the GUI never recalculates or replaces reported counters.
 Error details include the failed search or vacancy URL. Card-materialization
 errors show the failing card's canonical LinkedIn URL in the same text block.
 Collection runs independently of other GUI actions; Collect and Batch are
@@ -99,12 +100,13 @@ can still be identified. Collection does not start the analysis workflow.
 
 Batch runs the complete `DriverApi.processBatch("linkedin")` workflow in a
 background task: collection, agent relevance filtering, job facts, candidate
-fit, job interest, and saving. Its operation-scoped handler receives only
-`WorkflowProgress`; Orchestrator handles Collector events internally. During
-collection the panel shows accepted/limit; the detailed workflow event contract
-is deferred to the separate event task. The panel also shows
-the current processing stage, per-stage completed/total, current source job ID,
-agent-rejection count, and saved count. Collection completion alone does not
+fit, job interest, and saving. Its operation-scoped handler receives
+`ProgressSnapshot`; Orchestrator handles Collector events internally. Collect
+and Batch use the same `SnapshotProgressPane`. The backend supplies display-ready
+stage/action labels and all metrics, choosing which fields belong to the current
+stage. Each snapshot replaces the previous fields in iteration order, removing
+absent rows. The GUI neither translates stage codes nor interprets outcomes,
+and does not infer Saved from the workflow's processed count. Collection completion alone does not
 mark Batch complete. Failures retain the run ID and accumulated counters;
 finished/failed panels can be dismissed just like Collect. Batch uses the
 direct Driver Java API. Other GUI views remain usable. The Batch button has
@@ -115,7 +117,7 @@ a brighter green than Collect.
 `backend.properties` selects `collector.mode`:
 
 - `direct` (default): calls `DriverApi.collectBatch(handler)` in the GUI JVM and
-  receives immutable `CollectionProgress` snapshots through a Java callback.
+  receives immutable `ProgressSnapshot` values through a Java callback.
   GUI data access and Collector share the process-wide `JpyRuntime`.
 - `process`: launches the external collector JAR with `collect-batch`. The CLI
   encodes the same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on
@@ -129,21 +131,24 @@ diagnostic option, not the default path. No server protocol is introduced.
 Python stdout redirection belongs only to CLI entry points, not to the direct
 library calls.
 
-Collect, Apply, and GPT Eval use `DriverApi` inside their existing background
-tasks. A facade is created for each operation so saved collector settings,
-including the limit, take effect without restarting the GUI. Construction does
-not start a browser or Python. Apply and GPT Eval call the Java API directly,
+Collect, Apply, and GPT Eval use the session's shared `DriverApi` inside their
+existing background tasks. Construction does not start a browser or Python.
+Apply and GPT Eval call the Java API directly,
 not a CLI; GPT Eval passes the project root without changing JVM properties.
 Database operations remain in `ClientData`.
 
 ## Background-process panels
 
 New background-process progress views extend `BackgroundProcessPane`, as
-`CollectorProgressPane` does, and receive the main controller's shared
+`SnapshotProgressPane` does, and receive the main controller's shared
 `backgroundProcesses` area. The base constructor takes a title and field
 names and creates the copyable fields, details area, toolbar toggle, and
 collapsible panel. All toggles appear at the top right; selecting one panel
 collapses the previously selected panel.
+
+Collect/Batch use `SnapshotProgressPane.update(ProgressSnapshot)` for universal
+rendering. `replaceExtraFields(...)` replaces the ordered dynamic rows without
+altering the fixed fields. Fixed-form panels may continue to use `setField(...)`.
 
 Subclasses call `beginProcess()`, `setField(...)`, `setDetails(...)`,
 `setSummary(...)`, and `setContext(...)` on the JavaFX Application Thread.
@@ -155,6 +160,15 @@ the expanded panel keeps the normal application theme. Waiting must be reported 
 process or its controller; the base view does not guess whether it has hung.
 Changing state or minimizing preserves the displayed statistics and details.
 Execution remains in the existing background tasks and runner classes.
+
+Visual state and operation completion are separate: `setProcessState(...)`
+changes appearance, while `finishProcess(...)` also enables dismissal.
+An ordinary WAITING panel is still active. A Codex usage limit stops the
+Collect/Batch task and releases its buttons, but leaves a yellow WAITING panel
+with the last stage, action, metrics, reason, and retry time when known.
+Both dismiss buttons work for that stopped panel. A manual restart resets it;
+no automatic retry is scheduled. Limits are identified by
+`UsageLimitExceededException`, not by matching error messages.
 
 ## Other Actions
 

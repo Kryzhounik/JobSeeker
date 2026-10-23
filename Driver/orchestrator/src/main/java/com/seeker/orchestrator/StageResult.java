@@ -11,6 +11,7 @@ public record StageResult(
         String status,
         @SerializedName("processed_scope") List<ScopeItem> processedScope,
         @SerializedName("processed_count") int processedCount,
+        @SerializedName("saved_count") int savedCount,
         String message
 ) {
     public StageResult {
@@ -20,6 +21,10 @@ public record StageResult(
     }
 
     StageResult(String source, String runId, List<ScopeItem> processedScope) {
-        this(source, runId, "complete", processedScope, processedScope.size(), "");
+        this(source, runId, processedScope, 0);
+    }
+
+    StageResult(String source, String runId, List<ScopeItem> processedScope, int savedCount) {
+        this(source, runId, "complete", processedScope, processedScope.size(), savedCount, "");
     }
 }

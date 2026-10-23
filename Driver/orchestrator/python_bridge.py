@@ -229,7 +229,7 @@ def run_job_interest(source: str, job_id: str, db_path: str) -> None:
     )
 
 
-def save_scored(source: str, job_ids_json: str, db_path: str) -> None:
+def save_scored(source: str, job_ids_json: str, db_path: str) -> int:
     job_ids = json.loads(job_ids_json)
     if not isinstance(job_ids, list) or not job_ids:
         raise ValueError("job_ids must be a non-empty JSON array")
@@ -244,6 +244,7 @@ def save_scored(source: str, job_ids_json: str, db_path: str) -> None:
     errors = [message for status, message in results if status == "error"]
     if errors:
         raise RuntimeError("Could not save scored jobs: " + "; ".join(errors))
+    return sum(status == "save" for status, _ in results)
 
 
 def mark_relevance(

@@ -1,6 +1,6 @@
 package com.seeker.guifx;
 
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 
 import java.io.IOException;
@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 /** Collect operation independent of its transport and of JavaFX. */
 interface CollectorClient {
-    CollectionReport collect(Consumer<CollectionProgress> progress) throws Exception;
+    CollectionReport collect(Consumer<ProgressSnapshot> progress) throws Exception;
 
     static CollectorClient configured(Path projectRoot, CollectorClient direct) throws IOException {
         Path config = projectRoot.resolve("GUI/JavaFX/backend.properties");

@@ -3,7 +3,8 @@ package com.seeker.guifx;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
-import com.seeker.collector.linkedin.collection.CollectionProgress;
+import com.seeker.tools.api.ImmutableProgressSnapshot;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.support.JsonSupport;
 
@@ -15,7 +16,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 
@@ -29,14 +29,9 @@ final class ProcessCollectorClient implements CollectorClient {
     }
 
     @Override
-    public CollectionReport collect(Consumer<CollectionProgress> updateProgress) throws Exception {
+    public CollectionReport collect(Consumer<ProgressSnapshot> updateProgress) throws Exception {
         Path runtime = projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties");
-        Path config = projectRoot.resolve("Driver/collector/config/linkedin.properties");
         String javaExecutable = readProperty(runtime, "java.executable");
-        int limit = Integer.parseInt(readProperty(config, "limit"));
-        if (limit <= 0) throw new IllegalArgumentException("Collector limit must be positive.");
-        updateProgress.accept(new CollectionProgress("", "starting", "", "", 0, 0, 0,
-                limit, Map.of(), ""));
         Path javaPath = Path.of(javaExecutable);
         Path javaw = javaPath.resolveSibling("javaw.exe");
         if (Files.isRegularFile(javaw)) javaPath = javaw;
@@ -78,10 +73,10 @@ final class ProcessCollectorClient implements CollectorClient {
         return parseResult(finalJson);
     }
 
-    CollectionProgress parseProgress(String line) throws IOException {
+    ProgressSnapshot parseProgress(String line) throws IOException {
         if (!line.startsWith(PROGRESS_PREFIX)) throw new IOException("Invalid progress prefix.");
-        return parse(line.substring(PROGRESS_PREFIX.length()), CollectionProgress.class,
-                "run_id", "stage");
+        return parse(line.substring(PROGRESS_PREFIX.length()), ImmutableProgressSnapshot.class,
+                "stage", "action", "fields", "details");
     }
 
     CollectionReport parseResult(String text) throws IOException {

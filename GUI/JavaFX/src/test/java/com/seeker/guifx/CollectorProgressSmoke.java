@@ -2,34 +2,58 @@ package com.seeker.guifx;
 
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.tools.api.ProgressSnapshot;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public final class CollectorProgressSmoke {
     public static void main(String[] args) throws Exception {
         ProcessCollectorClient runner = new ProcessCollectorClient(Path.of("."));
         checkModeSelection();
-        CollectionProgress starting = runner.parseProgress("""
-                COLLECTOR_PROGRESS {"run_id":"test-run","stage":"starting_browser",
-                "limit":100,"outcomes":{}}
-                """);
-        if (!starting.runId().equals("test-run") || starting.limit() != 100) {
-            throw new AssertionError("Early run ID or limit was lost");
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("Z arbitrary field", "7 / 100");
+        fields.put("A another field", "Anything");
+        ProgressSnapshot direct = new CollectionProgress("test-run", "A backend stage",
+                "A backend action", fields, "123 Software Engineer\nChecking content");
+        ProgressSnapshot progress = runner.parseProgress("COLLECTOR_PROGRESS "
+                + JsonSupport.GSON.toJson(direct));
+        if (!progress.runId().equals(direct.runId()) || !progress.stage().equals(direct.stage())
+                || !progress.action().equals(direct.action()) || !progress.fields().equals(direct.fields())
+                || !progress.details().equals(direct.details())
+                || !List.copyOf(progress.fields().keySet()).equals(List.copyOf(fields.keySet()))) {
+            throw new AssertionError("Direct and process progress contracts differ");
         }
-        CollectionProgress progress = runner.parseProgress("""
-                COLLECTOR_PROGRESS {"run_id":"test-run","stage":"filtering_content",
-                "location":"Ukraine:priority","search":"priority","page":2,"cards":25,
-                "accepted_count":7,"limit":100,
-                "outcomes":{"raw_saved":7,"preview_filtered":12,"content_filtered":3,"open_failed":1},
-                "message":"123 Software Engineer\\nChecking content"}
+        fields.put("Late mutation", "not published");
+        if (progress.fields().containsKey("Late mutation") || direct.fields().containsKey("Late mutation")) {
+            throw new AssertionError("Snapshot fields are mutable");
+        }
+        try {
+            progress.fields().put("Forbidden", "mutation");
+            throw new AssertionError("Parsed snapshot fields are writable");
+        } catch (UnsupportedOperationException expected) {
+            // Process snapshots have the same immutability as direct callbacks.
+        }
+        ProgressSnapshot early = runner.parseProgress("""
+                COLLECTOR_PROGRESS {"runId":null,"stage":"Stage","action":"Preparing",
+                "fields":{},"details":""}
                 """);
-        if (progress.acceptedCount() != 7 || progress.page() != 2 || progress.cards() != 25
-                || !progress.location().equals("Ukraine:priority")
-                || progress.outcomes().get("preview_filtered") != 12
-                || !progress.message().contains("\nChecking content")) {
-            throw new AssertionError("Progress fields were not parsed");
+        if (early.runId() != null || !early.fields().isEmpty()) {
+            throw new AssertionError("Early snapshot without an assigned run ID was changed");
+        }
+        for (String invalid : new String[]{"COLLECTOR_PROGRESS {}", "invalid prefix",
+                "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"details\":\"\"}"}) {
+            try {
+                runner.parseProgress(invalid);
+                throw new AssertionError("Incomplete progress contract was accepted");
+            } catch (IOException expected) {
+                // No synthetic counters or stages should be substituted.
+            }
         }
         CollectionReport stopped = runner.parseResult("""
                 {"source":"linkedin","run_id":"test-run","status":"blocked","accepted_count":7,
@@ -42,7 +66,7 @@ public final class CollectorProgressSmoke {
                 || !stopped.message().endsWith("\nURL: https://www.linkedin.com/jobs/view/123/")) {
             throw new AssertionError("Stopped collection was not preserved");
         }
-        if (!starting.location().isEmpty() || !stopped.pages().isEmpty()) {
+        if (!stopped.pages().isEmpty()) {
             throw new AssertionError("Optional fields were not normalized");
         }
         for (String invalid : new String[]{"", "{}", "{\"status\":\"complete\"}"}) {

@@ -13,8 +13,13 @@ root. The facade can be reused: progress handlers belong to individual calls,
 for example `api.collectBatch(collectionHandler)` or
 `api.processBatch("linkedin", workflowHandler)`. URL processing with progress
 uses `api.processUrls(urlsList, workflowHandler)`.
-Workflow operations expose only `WorkflowProgress`; Orchestrator handles
-Collector notifications internally. Calls without a handler remain available.
+All progress overloads accept `Consumer<ProgressSnapshot>` from
+`com.seeker.tools.api` (Tools). Collection and workflow snapshots expose
+`runId`, `stage`, `action`, an immutable ordered `fields` map, and `details`.
+Labels and values are ready for display; every snapshot replaces the previous one.
+Orchestrator handles Collector notifications internally and keeps their details
+in Batch snapshots during Collection. Later stages expose their own fields, and
+completion provides summary statistics. Calls without a handler remain available.
 Callbacks run on the calling worker thread; UI callers dispatch updates to
 their UI thread. No handler is retained by the facade or its services.
 Components are initialized once; browser and Python operations start only

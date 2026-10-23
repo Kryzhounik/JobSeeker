@@ -2,15 +2,23 @@ package com.seeker.collector.linkedin.collection;
 
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.python.PythonGateway;
+import com.seeker.collector.linkedin.support.CliOutput;
+import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.tools.api.ImmutableProgressSnapshot;
+import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LinkedInCollectorProgressTest {
@@ -20,7 +28,7 @@ class LinkedInCollectorProgressTest {
 
     @Test
     void sendsFinalSnapshotToCallbackWithoutAConsoleProtocol() {
-        List<CollectionProgress> updates = new ArrayList<>();
+        List<ProgressSnapshot> updates = new ArrayList<>();
         PythonGateway python = gateway(false);
         CollectionReport result = new LinkedInCollector(null, python, CONFIG,
                 "callback-run", updates::add).runFromUrls(List.of());
@@ -28,21 +36,23 @@ class LinkedInCollectorProgressTest {
         assertEquals("complete", result.status());
         assertEquals(1, updates.size());
         assertEquals("callback-run", updates.getFirst().runId());
-        assertEquals("complete", updates.getFirst().stage());
-        assertEquals(100, updates.getFirst().limit());
-        assertEquals(result.outcomes(), updates.getFirst().outcomes());
+        assertFalse(updates.getFirst().fields().containsKey("Run ID"));
+        assertEquals("Collection", updates.getFirst().stage());
+        assertEquals("Collection complete", updates.getFirst().action());
+        assertEquals("0 / 100", updates.getFirst().fields().get("Accepted / limit"));
     }
 
     @Test
     void sendsBlockedStateToCallbackWhenCollectionFails() {
-        List<CollectionProgress> updates = new ArrayList<>();
+        List<ProgressSnapshot> updates = new ArrayList<>();
         CollectionReport result = new LinkedInCollector(null, gateway(true), CONFIG,
                 "failed-run", updates::add).runBatch();
 
         assertEquals("blocked", result.status());
         assertEquals("failed-run", updates.getLast().runId());
-        assertEquals("blocked", updates.getLast().stage());
-        assertEquals("test failure", updates.getLast().message());
+        assertEquals("Collection", updates.getLast().stage());
+        assertEquals("Collection stopped", updates.getLast().action());
+        assertEquals("test failure", updates.getLast().details());
     }
 
     @Test
@@ -51,9 +61,32 @@ class LinkedInCollectorProgressTest {
         CollectionProgress progress = new CollectionProgress("run", "processing", "", "",
                 1, 25, 1, 100, counters, "");
         counters.put("raw_saved", 2);
-        assertEquals(1, progress.outcomes().get("raw_saved"));
+        assertEquals("1", progress.fields().get("Processed"));
         assertThrows(UnsupportedOperationException.class,
-                () -> progress.outcomes().put("raw_saved", 3));
+                () -> progress.fields().put("Processed", "3"));
+    }
+
+    @Test
+    void processOutputPreservesTheSameCompleteOrderedSnapshot() {
+        ProgressSnapshot direct = new CollectionProgress("run", "opening_job", "Poland", "priority",
+                2, 25, 7, 100, Map.of("raw_saved", 7, "age_filtered", 2), "Loading 123");
+        PrintStream original = System.err;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8)) {
+            System.setErr(stream);
+            CliOutput.printProgress(direct);
+        } finally {
+            System.setErr(original);
+        }
+        String json = output.toString(StandardCharsets.UTF_8).strip().substring("COLLECTOR_PROGRESS ".length());
+        ProgressSnapshot parsed = JsonSupport.GSON.fromJson(json, ImmutableProgressSnapshot.class);
+        assertEquals(direct.runId(), parsed.runId());
+        assertFalse(parsed.fields().containsKey("Run ID"));
+        assertEquals("Collection", parsed.stage());
+        assertEquals("Loading vacancy", parsed.action());
+        assertEquals(direct.fields(), parsed.fields());
+        assertEquals(new ArrayList<>(direct.fields().keySet()), new ArrayList<>(parsed.fields().keySet()));
+        assertEquals(direct.details(), parsed.details());
     }
 
     private static PythonGateway gateway(boolean fail) {
