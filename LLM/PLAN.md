@@ -5,8 +5,9 @@ complete one numbered item, report the changes and verification results, then
 stop. Wait for the user's approval before starting the next item. Implementation
 and independent review are performed by different agents.
 
-Item 1 is complete. Do not start any remaining item without the user's explicit
-go-ahead. Discussion or documentation updates do not authorize implementation.
+Item 1 is complete. Item 2 is implemented and awaits independent review.
+Do not start item 3 or later without the user's explicit go-ahead.
+Discussion or documentation updates do not authorize implementation.
 The LLM supervisor coordinates assignments and review; that role alone is not
 an implementation assignment. Later items may be reconsidered or never reached
 if the concept proves impractical.

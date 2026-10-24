@@ -1,6 +1,8 @@
 package com.seeker.api;
 
 import com.seeker.llm.LlmConfiguration;
+import com.seeker.llm.LlmService;
+import org.springframework.ai.chat.model.ChatModel;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -49,6 +51,8 @@ class DriverConfigurationTest {
             DriverApi api = context.getBean(DriverApi.class);
             assertSame(api, context.getBean(DriverApi.class));
             assertNotNull(context.getBean(LlmConfiguration.class));
+            assertNotNull(context.getBean(ChatModel.class));
+            assertNotNull(context.getBean(LlmService.class));
             assertEquals(1, context.getBeansOfType(DriverApi.class).size());
             // Construction works with nonexistent Python/native paths: no runtime was started.
             assertNotNull(new DriverApi(projectRoot));
