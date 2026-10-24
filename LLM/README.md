@@ -1,12 +1,37 @@
-# LLM
+# EasyReasoning
 
-Experimental Java module (`com.seeker.llm`) for calling language models through
-Spring AI. The first use case is finding the useful boundaries of vacancy text
-after the existing HTML cleaner, without rewriting the retained text.
+Java gateway to models for inexpensive text and reasoning tasks. Its core API is
+`String generate(String prompt)`. The intended configuration selects the backend
+and model; callers use the same programmatic API and CLI whichever backend runs
+the request.
 
-Start with native Windows Ollama and `qwen2.5:0.5b` to verify the integration.
-Later, move inference to Oracle Cloud to free RAM on the 16 GB workstation.
-JobSeeker and its Java client remain local.
+Only the Ollama backend is implemented today, using Spring AI. It can address a
+local or remote Ollama server. A future Codex backend (for example, a light Luna
+profile) will reuse `Tools`' shared `com.seeker.codex.CodexClient` and the existing
+`Driver/codex_proxy`, which already handle invocation, final results, usage limits
+and model/reasoning overrides. The remaining work is connecting that client to
+the gateway's prompt and configuration; it is not implemented or assigned yet.
+Backend selection is explicit configuration, without automatic routing or
+silent fallback.
+
+Vacancy boundary trimming is the first application of this gateway. Its prompt,
+line numbering and extraction belong to a task-specific operation over
+`generate`, rather than the backend implementation. Email analysis remains only
+a possible future application.
+
+If self-hosted models prove unsuitable, the gateway's value over direct shared
+CodexClient calls must be reassessed. Failure of the first small model still
+leaves room to try larger models later through the same simple boundary.
+
+The project is now named EasyReasoning. Checkpoint 4 renames the directory to
+`EasyReasoning/`, the artifact to `com.seeker:easy-reasoning` and the base package
+to `com.seeker.easyreasoning`, with free/self-hosted model implementation in its
+`llm` subpackage. Until that checkpoint, the current technical names remain
+`LLM/`, `com.seeker:llm` and `com.seeker.llm`; commands below use those names.
+
+The initial setup uses native Windows Ollama and `qwen2.5:0.5b`. Hosting Ollama
+on Oracle Cloud is a later deployment option to free local RAM; JobSeeker and
+the Java gateway remain local.
 
 The Maven artifact `com.seeker:llm:1.0-SNAPSHOT` provides `LlmConfiguration`,
 registered through `DriverConfiguration` in the Java API. It manually constructs
@@ -59,10 +84,11 @@ failed generation attempt that may have loaded the model. Spring owns the
 service's close lifecycle. An unused context does not contact Ollama on close.
 The CLI also closes the service explicitly so unload failures cause a nonzero
 exit rather than a successful stop acknowledgement. This is the local lifecycle
-policy; reconsider it before cloud deployment.
+policy of the current Ollama backend, not a requirement that every future
+backend manages local model weights. Reconsider it before cloud deployment.
 
 The client is not yet connected to vacancy processing. Vacancy cleanup, its
-CLI command and collector integration are checkpoint 4.
+CLI command and collector integration are checkpoint 5, after the rename.
 
 ## Standalone CLI
 

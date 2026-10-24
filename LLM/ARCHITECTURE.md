@@ -1,40 +1,84 @@
-# Architecture
+# EasyReasoning Architecture
+
+## Gateway Role
+
+EasyReasoning is a gateway to models for inexpensive tasks. Preserve the stable
+`String generate(String prompt)` API and matching CLI operation. Configuration
+will select the execution backend and its model/options; callers do not select
+providers in prompts or depend on their transport APIs. Currently only Ollama
+is implemented; local and remote Ollama are deployment choices for that backend.
+A future Codex backend, such as a light Luna profile, will reuse the existing
+`com.seeker.codex.CodexClient` from `Tools` and `Driver/codex_proxy`. That transport
+already returns the final text, handles usage limits, and supports model and
+reasoning overrides through the proxy. EasyReasoning will supply its configured
+options and prompt through a thin integration; do not build another Codex client
+or introduce a separate SDK/CLI transport. This integration is not assigned yet.
+
+Keep backend-specific requests and lifecycle behavior behind the gateway.
+Vacancy cleanup is an application operation inside EasyReasoning over
+`generate`; its prompting, line numbering, parsing and slicing must not become
+responsibilities of each backend. Preserve independent requests without shared
+chat history. Backend choice is explicit configuration, not automatic routing
+or fallback. Do not build a provider registry, placeholder Codex configuration
+or adapter infrastructure before the second backend is assigned.
+
+The gateway's usefulness remains an experimental question. If self-hosted models
+prove unusable for the intended tasks, reassess its value over calling the shared
+Codex client directly. Failure of one small model does not rule out a later trial
+with a larger model; retain a simple reusable boundary without assuming that
+abstraction alone justifies the project.
+
+## Target Module and Packages
+
+The planned rename is `LLM/` to `EasyReasoning/`, Maven artifact
+`com.seeker:easy-reasoning`, and base package `com.seeker.easyreasoning`. Keep the
+generic gateway API, CLI and application operations outside provider packages.
+Put all code specific to free/self-hosted model inference, currently Spring AI
+and Ollama configuration, requests and model lifecycle, in
+`com.seeker.easyreasoning.llm`. A future Codex integration reuses `Tools` rather
+than moving or duplicating its shared client. Perform the rename/package change
+as the dedicated checkpoint in PLAN.md; these are target names, not the current
+source layout.
 
 ## Application and Inference
 
 - Use plain Spring Context in the existing Java application, without Spring
   Boot. Spring constructs and wires the LLM components; this does not require
   changing existing business logic or migrating unrelated components.
-- Put the Java integration in the `LLM` module, package `com.seeker.llm`, using
-  the existing Maven conventions under `Driver/pom.xml`.
-- Use Spring AI's `ChatModel` with an Ollama implementation behind a simple
-  application service. Do not introduce a separate Spring web server.
-- Ollama hosts inference, initially natively on Windows, later on an Oracle
-  Cloud VM. Only Ollama and model weights move to the cloud; Spring AI and
-  JobSeeker remain on the workstation. Docker is out of scope.
+- Follow the target module/package layout above and existing Maven conventions
+  under `Driver/pom.xml`. The current implementation still uses `LLM/` and
+  `com.seeker.llm` until the rename checkpoint is completed.
+- The current Ollama backend uses Spring AI's `ChatModel` behind the application
+  service. Spring AI is an implementation choice for this backend; a future
+  Codex adapter need not implement `ChatModel`. Do not add a Spring web server.
+- Ollama initially hosts inference natively on Windows. An Oracle Cloud VM is
+  a later Ollama deployment option: only Ollama and model weights move there;
+  Spring AI and JobSeeker remain local. Docker is out of scope.
 - Configure the Ollama base URL, model name, and whether additional trimming
   is enabled. Trimming is disabled by default and must not require Ollama or a
   model when disabled. When enabled, model/request errors are failures: do not
   silently ignore them or substitute the original input. Moving inference should
-  require configuration changes, not a second Java implementation.
+  require configuration changes, not a second Ollama client implementation.
 
 ## Module API and CLI
 
-Expose standalone text-to-text vacancy cleanup, such as
+In addition to the core `generate(prompt)` operation, expose text-to-text vacancy
+cleanup, such as
 `String cleanVacancy(String text)`, through a programmatic API and a CLI calling
 the same operation. Line numbering, prompting, response parsing and source
-slicing are internal to LLM; callers pass text and receive cleaned text.
+slicing are internal to EasyReasoning; callers pass text and receive cleaned text.
 
 Keep the CLI close to that text API. File I/O and combining sample pairs into a
 single report can be handled by external scripts; do not require special input
 files or batch configuration.
 
-Use a long-lived Java process: initialize Spring and the model client once,
+Use a long-lived Java process: initialize Spring and the selected backend once,
 accept repeated operations through the CLI, and shut down through a separate
 stop command. Operation calls reuse the initialized application. For local
-inference, normal module shutdown must explicitly unload the configured model
-from Ollama memory rather than leave it waiting for idle eviction. Reconsider
-the model lifecycle policy separately when moving inference to the cloud.
+Ollama inference, normal module shutdown must explicitly unload the configured
+model from Ollama memory rather than leave it waiting for idle eviction. This is
+the local Ollama backend's policy, not a universal model-unload contract.
+Reconsider lifecycle separately for cloud Ollama and the future Codex backend.
 
 ## Boundary Detection, Not Rewriting
 

@@ -1,18 +1,29 @@
-# Implementation Plan
+# EasyReasoning Implementation Plan
 
 Follow [ARCHITECTURE.md](ARCHITECTURE.md). These are formal review checkpoints:
 complete one numbered item, report the changes and verification results, then
 stop. Wait for the user's approval before starting the next item. Implementation
 and independent review are performed by different agents.
 
+EasyReasoning (currently stored under `LLM/`) is a configurable gateway for
+inexpensive tasks, with `generate(prompt)` as its stable core API. The checkpoints
+below cover the first Ollama backend and vacancy-cleanup use case. Future backend
+selection by configuration and Codex support through the shared `Tools`
+CodexClient are agreed directions, not current implementation assignments. New
+design decisions must preserve that gateway boundary without preemptively
+implementing future adapters or duplicating the existing Codex transport.
+
 Item 1 is complete. Item 2 is implemented and has undergone independent review;
 final acceptance is pending.
 Item 3 is implemented and verified against local Ollama; independent review is
 pending. Do not start item 4 or later without the user's explicit go-ahead.
 Discussion or documentation updates do not authorize implementation.
-The LLM supervisor coordinates assignments and review; that role alone is not
-an implementation assignment. Later items may be reconsidered or never reached
-if the concept proves impractical.
+The EasyReasoning supervisor coordinates assignments and review; that role alone
+is not an implementation assignment. Later items may be reconsidered or never
+reached if the corresponding model or task experiment proves impractical. If
+self-hosted models are not useful, reassess the gateway's value over direct
+shared CodexClient calls; one small-model failure still leaves later experiments
+with larger models possible.
 
 1. **Spring Context.** Add the LLM Maven module and plain Spring Context wiring
    to the existing Java application. Verify context initialization and that
@@ -33,10 +44,21 @@ if the concept proves impractical.
    requests in one process and verify unloading on shutdown. This model checks
    integration on the memory-constrained workstation, not final output quality.
 
-4. **Optional boundary trimming.** First expose standalone text-to-text cleanup
-   through a programmatic API and a matching command in the existing CLI. Keep
-   line numbering, prompting, response parsing and source slicing encapsulated
-   in LLM.
+4. **EasyReasoning rename and package boundary.** Rename `LLM/` to
+   `EasyReasoning/`, the Maven artifact to `com.seeker:easy-reasoning`, and the
+   base Java package to `com.seeker.easyreasoning`. Keep the gateway API and CLI
+   generic; put all free/self-hosted model code, including Spring AI/Ollama
+   settings, calls and unloading, in `com.seeker.easyreasoning.llm`. Update
+   dependent-module references, build/config paths and documentation to match.
+   Preserve the current API/CLI behavior, repeated requests, UTF-8 and local
+   unload-on-stop. Verify the renamed standalone JAR and Java integration.
+   Do not implement Codex support or its configuration selector in this item.
+
+5. **Optional boundary trimming.** Expose text-to-text cleanup as an application
+   operation over the common `generate(prompt)` gateway, through a programmatic
+   API and a matching command in the existing CLI. Keep line numbering, prompting,
+   response parsing and source slicing encapsulated in EasyReasoning and
+   independent of the selected backend.
    Then connect it immediately after the existing HTML cleaner using an explicit
    switch, disabled by default.
    When enabled, detect boundaries, extract the unchanged source
@@ -47,20 +69,21 @@ if the concept proves impractical.
    without redesigning the processing flow for comparison. Verify both enabled
    and disabled paths; do not rewrite the cleaner.
 
-5. **Local experiments.** Exercise configuration, request/response handling,
+6. **Local experiments.** Exercise configuration, request/response handling,
    and real vacancy text through the integrated path. Check that the retained
    text is an exact source fragment. Record sample inputs, boundaries, outputs,
    and timings; quality is secondary at this checkpoint. Keep generated data
    outside tracked source files. External scripts can assemble input/output pairs
    into one report for manual ChatGPT assessment.
 
-6. **Oracle Cloud inference.** Agree on VM resources, a larger model and the
-   remote model lifecycle policy separately from the local unload-on-stop rule.
+7. **Oracle Cloud inference (Ollama deployment option).** Agree on VM resources,
+   a larger model and the remote model lifecycle policy separately from the
+   local unload-on-stop rule.
    Then provision the inference server using Terraform and OCI CLI, without Docker.
    Verify protected access and a request from the same local Java service after
    changing its configuration. Do not deploy Spring AI or JobSeeker to the VM.
 
-7. **Quality and usefulness.** Compare the existing cleaner's output with the
+8. **Quality and usefulness.** Compare the existing cleaner's output with the
    additional trimming on the same vacancies. Assess boundary errors, lost
    requirements, preserved wording, token reduction, and latency. Check the effect
    on downstream analysis before recommending normal use; do not enable it by
