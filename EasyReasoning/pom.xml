@@ -11,7 +11,7 @@
         <relativePath>../Driver/pom.xml</relativePath>
     </parent>
 
-    <artifactId>llm</artifactId>
+    <artifactId>easy-reasoning</artifactId>
     <name>EasyReasoning</name>
 
     <properties>
@@ -62,7 +62,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.seeker.llm.LlmCli</mainClass>
+                            <mainClass>com.seeker.easyreasoning.EasyReasoningCli</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

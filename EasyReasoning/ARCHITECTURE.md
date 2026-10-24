@@ -28,26 +28,25 @@ Codex client directly. Failure of one small model does not rule out a later tria
 with a larger model; retain a simple reusable boundary without assuming that
 abstraction alone justifies the project.
 
-## Target Module and Packages
+## Module and Packages
 
-The planned rename is `LLM/` to `EasyReasoning/`, Maven artifact
-`com.seeker:easy-reasoning`, and base package `com.seeker.easyreasoning`. Keep the
+The module is `EasyReasoning/`, Maven artifact `com.seeker:easy-reasoning`,
+and base package `com.seeker.easyreasoning`. Keep the
 generic gateway API, CLI and application operations outside provider packages.
 Put all code specific to free/self-hosted model inference, currently Spring AI
 and Ollama configuration, requests and model lifecycle, in
 `com.seeker.easyreasoning.llm`. A future Codex integration reuses `Tools` rather
-than moving or duplicating its shared client. Perform the rename/package change
-as the dedicated checkpoint in PLAN.md; these are target names, not the current
-source layout.
+than moving or duplicating its shared client. `EasyReasoningService` is the
+common text-generation and resource-close contract; the current
+`llm.OllamaService` implementation owns all Ollama requests and model lifecycle.
 
 ## Application and Inference
 
 - Use plain Spring Context in the existing Java application, without Spring
   Boot. Spring constructs and wires the LLM components; this does not require
   changing existing business logic or migrating unrelated components.
-- Follow the target module/package layout above and existing Maven conventions
-  under `Driver/pom.xml`. The current implementation still uses `LLM/` and
-  `com.seeker.llm` until the rename checkpoint is completed.
+- Follow the module/package layout above and existing Maven conventions
+  under `Driver/pom.xml`.
 - The current Ollama backend uses Spring AI's `ChatModel` behind the application
   service. Spring AI is an implementation choice for this backend; a future
   Codex adapter need not implement `ChatModel`. Do not add a Spring web server.
@@ -71,6 +70,10 @@ slicing are internal to EasyReasoning; callers pass text and receive cleaned tex
 Keep the CLI close to that text API. File I/O and combining sample pairs into a
 single report can be handled by external scripts; do not require special input
 files or batch configuration.
+
+The CLI accepts plain text commands: `generate "text"` and `stop`, and prints
+model responses as plain text. Quoted prompts may span multiple input lines.
+Readiness and errors go to stderr; no JSON command/response protocol is required.
 
 Use a long-lived Java process: initialize Spring and the selected backend once,
 accept repeated operations through the CLI, and shut down through a separate

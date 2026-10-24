@@ -1,8 +1,7 @@
 package com.seeker.api;
 
-import com.seeker.llm.LlmConfiguration;
-import com.seeker.llm.LlmService;
-import org.springframework.ai.chat.model.ChatModel;
+import com.seeker.easyreasoning.EasyReasoningConfiguration;
+import com.seeker.easyreasoning.EasyReasoningService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -19,7 +18,7 @@ class DriverConfigurationTest {
     Path projectRoot;
 
     @Test
-    void wiresFacadeAndLlmConfigurationWithoutStartingExternalRuntimes() throws Exception {
+    void wiresFacadeAndEasyReasoningConfigurationWithoutStartingExternalRuntimes() throws Exception {
         Path collector = Files.createDirectories(projectRoot.resolve("Driver/collector"));
         Files.createDirectories(collector.resolve("config"));
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
@@ -50,9 +49,8 @@ class DriverConfigurationTest {
             assertTrue(context.isActive());
             DriverApi api = context.getBean(DriverApi.class);
             assertSame(api, context.getBean(DriverApi.class));
-            assertNotNull(context.getBean(LlmConfiguration.class));
-            assertNotNull(context.getBean(ChatModel.class));
-            assertNotNull(context.getBean(LlmService.class));
+            assertNotNull(context.getBean(EasyReasoningConfiguration.class));
+            assertNotNull(context.getBean(EasyReasoningService.class));
             assertEquals(1, context.getBeansOfType(DriverApi.class).size());
             // Construction works with nonexistent Python/native paths: no runtime was started.
             assertNotNull(new DriverApi(projectRoot));

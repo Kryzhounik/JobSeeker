@@ -1,5 +1,6 @@
-package com.seeker.llm;
+package com.seeker.easyreasoning.llm;
 
+import com.seeker.easyreasoning.EasyReasoningService;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
@@ -21,11 +22,11 @@ import java.util.Properties;
 
 /** Manual Spring AI wiring; constructing the context does not contact Ollama. */
 @Configuration(proxyBeanMethods = false)
-public class LlmConfiguration {
+public class OllamaConfiguration {
     @Bean
     OllamaSettings ollamaSettings(Environment environment, Path projectRoot) throws IOException {
         Properties settings = new Properties();
-        Path configFile = projectRoot.resolve("LLM/llm.properties");
+        Path configFile = projectRoot.resolve("EasyReasoning/easy-reasoning.properties");
         if (Files.exists(configFile)) {
             try (var reader = Files.newBufferedReader(configFile, StandardCharsets.UTF_8)) {
                 settings.load(reader);
@@ -56,8 +57,8 @@ public class LlmConfiguration {
     }
 
     @Bean
-    public LlmService llmService(ChatModel chatModel, OllamaApi ollamaApi) {
-        return new LlmService(chatModel, ollamaApi);
+    public EasyReasoningService easyReasoningService(ChatModel chatModel, OllamaApi ollamaApi) {
+        return new OllamaService(chatModel, ollamaApi);
     }
 
     record OllamaSettings(String baseUrl, String model) {}

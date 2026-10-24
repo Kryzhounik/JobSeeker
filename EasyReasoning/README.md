@@ -23,33 +23,36 @@ If self-hosted models prove unsuitable, the gateway's value over direct shared
 CodexClient calls must be reassessed. Failure of the first small model still
 leaves room to try larger models later through the same simple boundary.
 
-The project is now named EasyReasoning. Checkpoint 4 renames the directory to
-`EasyReasoning/`, the artifact to `com.seeker:easy-reasoning` and the base package
-to `com.seeker.easyreasoning`, with free/self-hosted model implementation in its
-`llm` subpackage. Until that checkpoint, the current technical names remain
-`LLM/`, `com.seeker:llm` and `com.seeker.llm`; commands below use those names.
+The module lives in `EasyReasoning/`, with Maven artifact
+`com.seeker:easy-reasoning` and base package `com.seeker.easyreasoning`.
+`EasyReasoningService` defines the common `generate(prompt)` and resource-close
+contract. The CLI and application configuration live alongside that API.
+All Spring AI/Ollama settings, calls, and model unloading are implemented in
+`com.seeker.easyreasoning.llm`. There is no provider registry or backend selector.
 
 The initial setup uses native Windows Ollama and `qwen2.5:0.5b`. Hosting Ollama
 on Oracle Cloud is a later deployment option to free local RAM; JobSeeker and
 the Java gateway remain local.
 
-The Maven artifact `com.seeker:llm:1.0-SNAPSHOT` provides `LlmConfiguration`,
-registered through `DriverConfiguration` in the Java API. It manually constructs
-Spring AI 2.0.2's Ollama `ChatModel` and a synchronous `LlmService`. There is no
+The Maven artifact `com.seeker:easy-reasoning:1.0-SNAPSHOT` provides
+`EasyReasoningConfiguration`,
+registered through `DriverConfiguration` in the Java API. It imports the current
+`llm.OllamaConfiguration`, which manually constructs Spring AI 2.0.2's Ollama
+`ChatModel` and exposes its implementation as `EasyReasoningService`. There is no
 Spring Boot auto-configuration or web server. Spring Framework versions remain
-managed in `Driver/pom.xml`; the Spring AI BOM is local to `LLM/pom.xml`.
+managed in `Driver/pom.xml`; the Spring AI BOM is local to `EasyReasoning/pom.xml`.
 The parent also aligns `jackson-annotations` to 2.21, shared by Spring AI's
 Jackson 3 mapper and the existing Jackson 2.18.3 consumers.
 
 JavaFX creates the context in `SeekerApplication.init()`, obtains `DriverApi`
 from it, and closes it in `stop()` (with a JVM shutdown hook as a fallback).
-Existing lower-module services and their CLIs do not use that context. The LLM
-CLI creates its own context containing only LLM components.
+Existing lower-module services and their CLIs do not use that context. The
+EasyReasoning CLI creates its own context containing only gateway components.
 
 ## Client configuration
 
-Edit `LLM/llm.properties` to change the server address or model, then restart the
-application. The file is loaded relative to the project root supplied by the
+Edit `EasyReasoning/easy-reasoning.properties` to change the server address or
+model, then restart the application. The file is loaded relative to the project root supplied by the
 application, independently of the working directory. No command-line arguments
 or Windows environment settings are needed.
 
@@ -70,15 +73,16 @@ No Boot `application.properties` loading is used.
 
 The current API is `String generate(String prompt)`: send an arbitrary prompt
 and receive the model's text response. Vacancy cleanup is a later operation.
-Obtain `LlmService` from the existing context and call `generate(prompt)` off the
-UI thread. It returns the model's text unchanged, propagates request errors,
+Obtain `com.seeker.easyreasoning.EasyReasoningService` from the existing context
+and call `generate(prompt)` off the UI thread. It returns the model's text
+unchanged, propagates request errors,
 and rejects empty responses. Automatic Spring AI retries are disabled: a failed
 request is reported after the first attempt. Context initialization makes no inference requests
 and never pulls models, so it works without Ollama installed. Only an explicit
 `generate` call needs a running server and an already installed model.
 
 For local inference, generated models remain loaded between operations
-(`keep_alive=-1m`). Closing a used `LlmService` explicitly unloads the configured
+(`keep_alive=-1m`). Closing a used Ollama-backed service explicitly unloads the configured
 model with an empty Ollama chat request and `keep_alive=0`, including after a
 failed generation attempt that may have loaded the model. Spring owns the
 service's close lifecycle. An unused context does not contact Ollama on close.
@@ -88,20 +92,20 @@ policy of the current Ollama backend, not a requirement that every future
 backend manages local model weights. Reconsider it before cloud deployment.
 
 The client is not yet connected to vacancy processing. Vacancy cleanup, its
-CLI command and collector integration are checkpoint 5, after the rename.
+CLI command and collector integration are checkpoint 5.
 
 ## Standalone CLI
 
 Build from the repository root (Java 21 or later):
 
 ```powershell
-mvn -f Driver/pom.xml -pl ../LLM -am package
+mvn -f Driver/pom.xml -pl ../EasyReasoning -am package
 ```
 
-The thin `LLM/llm.jar` uses the copied dependencies in `libs/`. Start it with:
+The thin `EasyReasoning/easy-reasoning.jar` uses the copied dependencies in `libs/`. Start it with:
 
 ```powershell
-java -jar LLM/llm.jar
+java -jar EasyReasoning/easy-reasoning.jar
 ```
 
 Use Java 21 or later available as `java` on PATH, or invoke `bin/java.exe` from
@@ -109,29 +113,39 @@ your JDK directly. The CLI finds the project root from its own JAR location;
 the working directory is irrelevant once the JAR path is resolved. An optional
 positional project-root argument is available.
 
-One process initializes Spring and the model client once and accepts UTF-8 JSON
-objects, one per input line. After the `ready` reply, enter commands such as:
+One process initializes Spring and the model client once. Enter ordinary text
+commands after the readiness message:
 
-```json
-{"command":"generate","prompt":"Reply with exactly HELLO"}
-{"command":"generate","prompt":"Первая строка\nВторая строка"}
-{"command":"stop"}
+```text
+generate "Привет, как дела?"
+generate Reply with exactly HELLO
+stop
 ```
 
 The Java CLI explicitly reads and writes UTF-8; it does not depend on a launcher
 setting `file.encoding`. Scripts that pipe commands into it must also send UTF-8
-bytes. Multiline prompt content is encoded as `\n` within the JSON command;
-each command itself occupies one input line.
+bytes. Double quotes around the prompt are optional. A quoted prompt can span
+multiple input lines; finish it with the closing quote:
 
-Each generation invokes the same `LlmService.generate(prompt)` API and returns
-`{"status":"ok","text":"..."}`. Requests are independent, without accumulating
-chat history. JSON escaping handles multiline text without special input files.
-Malformed commands or failed requests return `{"status":"error","error":"..."}`;
-the process remains available for the next command. Scripts must check each
-reply's status, not just the process exit code.
+```text
+generate "Первая строка
+Вторая строка"
+```
 
-`stop` unloads the used model and closes the application, then replies
-`{"status":"stopped"}`. End-of-input performs the same normal cleanup. Do not
+Inside double quotes, `\"` inserts a quote and `\\` inserts a backslash. Other
+backslashes are literal. Multiline input uses LF between lines.
+
+Each generation invokes the same `EasyReasoningService.generate(prompt)` API.
+The model's answer is printed directly to stdout, followed by a line ending if
+needed. Requests are independent, without accumulating chat history. Readiness,
+errors and shutdown messages are plain text on stderr. After a command or
+request error the process remains available for the next command.
+If any command or generation failed during the session, the process exits 1
+on `stop` or end-of-input, even if subsequent requests succeeded. A session
+without errors exits 0. Startup and backend shutdown failures also exit 1.
+
+`stop` unloads the used model and closes the application, then prints `Stopped.`
+on stderr. End-of-input performs the same normal cleanup. Do not
 force-kill the process when normal model unloading is required. No success reply
 is emitted if unloading fails; the CLI reports the failure on stderr and exits 1.
 Stopping before any inference attempt works without an Ollama server.
@@ -168,7 +182,7 @@ next session. Check loaded models with:
 From the repository root:
 
 ```powershell
-mvn -f LLM/pom.xml test
+mvn -f EasyReasoning/pom.xml test
 ```
 
 Tests cover default wiring without Ollama, file-configured HTTP requests and
@@ -181,10 +195,11 @@ and reporting unload failure. These automated tests do not call a real model.
 Checkpoint 2 verification also passed with the application dependency graph:
 
 ```powershell
-mvn -f Driver/pom.xml -pl api -am '-Dtest=LlmConfigurationTest,LlmCliTest,DriverConfigurationTest,MainTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
+mvn -f Driver/pom.xml -pl api -am '-Dtest=OllamaConfigurationTest,EasyReasoningCliTest,DriverConfigurationTest,MainTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
 ```
 
-Result: 9 LLM tests and 5 Driver API tests passed. The dependency tree contains
+Result: 10 EasyReasoning tests passed after the plain-text CLI update; the
+previous Java integration check passed 5 Driver API tests. The dependency tree contains
 both Jackson mapper generations with `jackson-annotations` 2.21 and no Spring
 Boot dependencies.
 
@@ -206,6 +221,21 @@ Evidence is in `.tools/llm-direct-utf8-verification.json`.
 
 The small model produced an incorrect arithmetic answer in this check. This
 checkpoint establishes inference and lifecycle integration, not output quality.
+
+Checkpoint 4 was verified on 2026-10-24 after the rename. The 14 automated tests
+passed using the new Maven artifact. JavaFX compiled with the renamed dependency
+and its Spring lifecycle smoke check passed. The standalone
+`EasyReasoning/easy-reasoning.jar` preserved Cyrillic, LF/CRLF and quoted text in
+two commands without encoding flags. Two real Ollama requests ran in one process
+from outside the project root; explicit stop unloaded the model and exited 0.
+Generated evidence is in `.tools/easy-reasoning-direct-utf8-verification.json`
+and `.tools/easy-reasoning-local-verification.json`.
+
+The plain-text CLI update passed 10 module tests and direct executable-JAR checks.
+Cyrillic, multiline prompts and embedded quotes reached an echo server unchanged.
+Two plain-text commands also returned real Ollama answers in one process, and
+`stop` unloaded the model. Evidence is in `.tools/easy-reasoning-text-utf8.json`
+and `.tools/easy-reasoning-text-real.json`.
 
 Implementation instructions:
 

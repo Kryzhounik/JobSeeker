@@ -1,4 +1,4 @@
-package com.seeker.llm;
+package com.seeker.easyreasoning;
 
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class LlmCliTest {
+class EasyReasoningCliTest {
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
     @TempDir
@@ -31,13 +31,17 @@ class LlmCliTest {
         var server = server(requests, false, false);
         try {
             var output = run("""
-                    {"command":"generate","prompt":"Первая строка\\nВторая строка"}
-                    {"command":"generate","prompt":"Another request"}
-                    {"command":"stop"}
-                    {"command":"generate","prompt":"Must not run"}
+                    generate "Первая строка
+                    Вторая строка"
+                    generate Another request
+                    stop
+                    generate Must not run
                     """);
-            assertEquals(List.of("ready", "ok", "ok", "stopped"), statuses(output));
-            assertEquals("  Ответ\n", output.get(1).path("text").asString());
+            assertEquals("  Ответ\n  Ответ\n", output.text());
+            assertEquals(0, output.exitCode());
+            assertTrue(output.errors().startsWith("Ready."));
+            assertTrue(output.errors().contains("Stopped."));
+            assertFalse(output.errors().contains("Error:"));
             assertEquals(3, requests.size());
             for (int index = 0; index < 2; index++) {
                 assertEquals("test-model", requests.get(index).path("model").asString());
@@ -62,11 +66,15 @@ class LlmCliTest {
         var server = server(requests, true, false);
         try {
             var output = run("""
-                    not json
-                    {"command":"generate","prompt":"Fails"}
-                    {"command":"generate","prompt":"Works"}
+                    unknown
+                    generate "Fails"
+                    generate "Works"
                     """);
-            assertEquals(List.of("ready", "error", "error", "ok", "stopped"), statuses(output));
+            assertEquals("  Ответ\n", output.text());
+            assertEquals(1, output.exitCode(), "Later success must not erase an earlier error");
+            assertTrue(output.errors().contains("Usage: generate"));
+            assertEquals(2, output.errors().lines().filter(line -> line.startsWith("Error:")).count());
+            assertTrue(output.errors().contains("Stopped."));
             assertEquals(3, requests.size(), "Failed generation must not be retried");
             assertEquals("0", requests.get(2).path("keep_alive").asString());
         } finally {
@@ -80,10 +88,13 @@ class LlmCliTest {
         var server = server(requests, true, false);
         try {
             var output = run("""
-                    {"command":"generate","prompt":"Fails"}
-                    {"command":"stop"}
+                    generate "Fails"
+                    stop
                     """);
-            assertEquals(List.of("ready", "error", "stopped"), statuses(output));
+            assertEquals("", output.text());
+            assertEquals(1, output.exitCode());
+            assertTrue(output.errors().contains("Error:"));
+            assertTrue(output.errors().contains("Stopped."));
             assertEquals(2, requests.size());
             assertEquals("0", requests.get(1).path("keep_alive").asString());
         } finally {
@@ -96,13 +107,15 @@ class LlmCliTest {
         List<JsonNode> requests = new ArrayList<>();
         var server = server(requests, false, true);
         StringWriter output = new StringWriter();
+        StringWriter errors = new StringWriter();
         try {
-            assertThrows(RuntimeException.class, () -> LlmCli.run(root,
+            assertThrows(RuntimeException.class, () -> EasyReasoningCli.run(root,
                     new BufferedReader(new StringReader("""
-                            {"command":"generate","prompt":"Hello"}
-                            {"command":"stop"}
-                            """)), new PrintWriter(output)));
-            assertEquals(List.of("ready", "ok"), statuses(parse(output)));
+                            generate "Hello"
+                            stop
+                            """)), new PrintWriter(output), new PrintWriter(errors)));
+            assertEquals("  Ответ\n", output.toString());
+            assertFalse(errors.toString().contains("Stopped."));
             assertEquals(2, requests.size(), "Unload is attempted once");
         } finally {
             server.stop(0);
@@ -126,8 +139,8 @@ class LlmCliTest {
                 output.write(bytes);
             }
         });
-        Files.createDirectories(root.resolve("LLM"));
-        Files.writeString(root.resolve("LLM/llm.properties"), """
+        Files.createDirectories(root.resolve("EasyReasoning"));
+        Files.writeString(root.resolve("EasyReasoning/easy-reasoning.properties"), """
                 spring.ai.ollama.base-url=http://127.0.0.1:%d
                 spring.ai.ollama.chat.model=test-model
                 """.formatted(server.getAddress().getPort()));
@@ -135,17 +148,33 @@ class LlmCliTest {
         return server;
     }
 
-    private List<JsonNode> run(String commands) throws Exception {
+    @Test
+    void acceptsQuotedTextAndReportsUnclosedQuoteWithoutCallingModel() throws Exception {
+        List<JsonNode> requests = new ArrayList<>();
+        var server = server(requests, false, false);
+        try {
+            var output = run("""
+                    generate "Скажи \\"привет\\" по пути C:\\Users\\user."
+                    generate "Unclosed
+                    """);
+            assertEquals("  Ответ\n", output.text());
+            assertTrue(output.errors().contains("Unclosed quote"));
+            assertEquals(1, output.exitCode());
+            assertEquals(2, requests.size());
+            assertEquals("Скажи \"привет\" по пути C:\\Users\\user.",
+                    requests.get(0).path("messages").get(0).path("content").asString());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private CliOutput run(String commands) throws Exception {
         StringWriter output = new StringWriter();
-        LlmCli.run(root, new BufferedReader(new StringReader(commands)), new PrintWriter(output));
-        return parse(output);
+        StringWriter errors = new StringWriter();
+        int exitCode = EasyReasoningCli.run(root, new BufferedReader(new StringReader(commands)),
+                new PrintWriter(output), new PrintWriter(errors));
+        return new CliOutput(output.toString(), errors.toString(), exitCode);
     }
 
-    private List<JsonNode> parse(StringWriter output) {
-        return output.toString().lines().map(JSON::readTree).toList();
-    }
-
-    private List<String> statuses(List<JsonNode> output) {
-        return output.stream().map(line -> line.path("status").asString()).toList();
-    }
+    private record CliOutput(String text, String errors, int exitCode) {}
 }

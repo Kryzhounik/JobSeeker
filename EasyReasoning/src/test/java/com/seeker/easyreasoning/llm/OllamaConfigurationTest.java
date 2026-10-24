@@ -1,5 +1,7 @@
-package com.seeker.llm;
+package com.seeker.easyreasoning.llm;
 
+import com.seeker.easyreasoning.EasyReasoningConfiguration;
+import com.seeker.easyreasoning.EasyReasoningService;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class LlmConfigurationTest {
+class OllamaConfigurationTest {
     @TempDir
     Path projectRoot;
 
@@ -37,7 +39,7 @@ class LlmConfigurationTest {
             ChatModel model = context.getBean(ChatModel.class);
             assertInstanceOf(OllamaChatModel.class, model);
             assertEquals("qwen2.5:0.5b", model.getOptions().getModel());
-            assertNotNull(context.getBean(LlmService.class));
+            assertNotNull(context.getBean(EasyReasoningService.class));
         }
     }
 
@@ -62,14 +64,14 @@ class LlmConfigurationTest {
         });
         server.start();
         try (var context = context(Map.of())) {
-            Files.createDirectories(projectRoot.resolve("LLM"));
-            Files.writeString(projectRoot.resolve("LLM/llm.properties"), """
+            Files.createDirectories(projectRoot.resolve("EasyReasoning"));
+            Files.writeString(projectRoot.resolve("EasyReasoning/easy-reasoning.properties"), """
                     spring.ai.ollama.base-url=http://127.0.0.1:%d
                     spring.ai.ollama.chat.model=test-model
                     """.formatted(server.getAddress().getPort()));
             context.refresh();
             assertEquals(0, calls.get(), "Context initialization must not contact Ollama");
-            assertEquals("  Ответ\n", context.getBean(LlmService.class).generate("Проверка"));
+            assertEquals("  Ответ\n", context.getBean(EasyReasoningService.class).generate("Проверка"));
             assertEquals(1, calls.get());
             assertEquals("POST /api/chat", requestTarget.get());
             var json = JsonMapper.builder().build().readTree(requestBody.get());
@@ -95,8 +97,8 @@ class LlmConfigurationTest {
         });
         server.start();
         try (var context = context(Map.of())) {
-            Files.createDirectories(projectRoot.resolve("LLM"));
-            Files.writeString(projectRoot.resolve("LLM/llm.properties"), """
+            Files.createDirectories(projectRoot.resolve("EasyReasoning"));
+            Files.writeString(projectRoot.resolve("EasyReasoning/easy-reasoning.properties"), """
                     spring.ai.ollama.base-url=http://127.0.0.1:1
                     spring.ai.ollama.chat.model=file-model
                     """);
@@ -107,7 +109,7 @@ class LlmConfigurationTest {
             context.refresh();
             assertEquals("missing-model", context.getBean(ChatModel.class).getOptions().getModel());
             assertThrows(NonTransientAiException.class,
-                    () -> context.getBean(LlmService.class).generate("Hello"));
+                    () -> context.getBean(EasyReasoningService.class).generate("Hello"));
         } finally {
             server.stop(0);
         }
@@ -123,7 +125,7 @@ class LlmConfigurationTest {
         try (var context = context(Map.of(
                 "spring.ai.ollama.base-url", "http://127.0.0.1:" + port))) {
             context.refresh();
-            LlmService service = context.getBean(LlmService.class);
+            EasyReasoningService service = context.getBean(EasyReasoningService.class);
             assertTimeoutPreemptively(Duration.ofSeconds(5),
                     () -> assertThrows(ResourceAccessException.class, () -> service.generate("Hello")));
         }
@@ -147,7 +149,7 @@ class LlmConfigurationTest {
         try (var context = context(Map.of(
                 "spring.ai.ollama.base-url", "http://127.0.0.1:" + server.getAddress().getPort()))) {
             context.refresh();
-            LlmService service = context.getBean(LlmService.class);
+            EasyReasoningService service = context.getBean(EasyReasoningService.class);
             assertTimeoutPreemptively(Duration.ofSeconds(5),
                     () -> assertThrows(TransientAiException.class, () -> service.generate("Hello")));
             assertEquals(1, calls.get());
@@ -163,7 +165,7 @@ class LlmConfigurationTest {
         sources.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
         sources.addFirst(new MapPropertySource("testSettings", properties));
         context.registerBean(Path.class, () -> projectRoot);
-        context.register(LlmConfiguration.class);
+        context.register(EasyReasoningConfiguration.class);
         return context;
     }
 }

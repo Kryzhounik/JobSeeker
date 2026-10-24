@@ -1,7 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
-import com.seeker.llm.LlmConfiguration;
+import com.seeker.easyreasoning.EasyReasoningConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 
 /** Checks the real application lifecycle without opening windows or starting Python. */
@@ -14,7 +14,7 @@ public final class SpringContextSmoke {
         var context = (ConfigurableApplicationContext) field.get(application);
         try {
             if (!context.isActive() || context.getBean(DriverApi.class) == null
-                    || context.getBean(LlmConfiguration.class) == null) {
+                    || context.getBean(EasyReasoningConfiguration.class) == null) {
                 throw new AssertionError("Application context was not initialized");
             }
         } finally {

@@ -29,7 +29,7 @@
         <module>../Tools</module>
         <module>../Applier</module>
         <module>../ChatEvaluator</module>
-        <module>../LLM</module>
+        <module>../EasyReasoning</module>
         <module>collector/java_linkedin</module>
         <module>orchestrator</module>
         <module>api</module>
@@ -46,7 +46,7 @@
             </dependency>
             <dependency>
                 <groupId>com.seeker</groupId>
-                <artifactId>llm</artifactId>
+                <artifactId>easy-reasoning</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

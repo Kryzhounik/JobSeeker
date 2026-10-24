@@ -1,5 +1,6 @@
-package com.seeker.llm;
+package com.seeker.easyreasoning.llm;
 
+import com.seeker.easyreasoning.EasyReasoningService;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
 import org.springframework.util.Assert;
@@ -7,17 +8,18 @@ import org.springframework.util.Assert;
 import java.util.List;
 
 /** Synchronous text generation. Callers are responsible for running off the UI thread. */
-public final class LlmService implements AutoCloseable {
+final class OllamaService implements EasyReasoningService {
     private final ChatModel chatModel;
     private final OllamaApi ollamaApi;
     private boolean used;
 
-    public LlmService(ChatModel chatModel, OllamaApi ollamaApi) {
+    OllamaService(ChatModel chatModel, OllamaApi ollamaApi) {
         this.chatModel = chatModel;
         this.ollamaApi = ollamaApi;
     }
 
     /** Returns the model's text unchanged; request failures propagate to the caller. */
+    @Override
     public String generate(String prompt) {
         Assert.hasText(prompt, "prompt must not be blank");
         used = true;
