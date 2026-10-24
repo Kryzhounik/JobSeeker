@@ -7,7 +7,8 @@ and independent review are performed by different agents.
 
 Item 1 is complete. Item 2 is implemented and has undergone independent review;
 final acceptance is pending.
-Do not start item 3 or later without the user's explicit go-ahead.
+Item 3 is implemented and verified against local Ollama; independent review is
+pending. Do not start item 4 or later without the user's explicit go-ahead.
 Discussion or documentation updates do not authorize implementation.
 The LLM supervisor coordinates assignments and review; that role alone is not
 an implementation assignment. Later items may be reconsidered or never reached

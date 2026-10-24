@@ -23,7 +23,7 @@ import java.util.Properties;
 @Configuration(proxyBeanMethods = false)
 public class LlmConfiguration {
     @Bean
-    public ChatModel chatModel(Environment environment, Path projectRoot) throws IOException {
+    OllamaSettings ollamaSettings(Environment environment, Path projectRoot) throws IOException {
         Properties settings = new Properties();
         Path configFile = projectRoot.resolve("LLM/llm.properties");
         if (Files.exists(configFile)) {
@@ -36,10 +36,19 @@ public class LlmConfiguration {
         String model = environment.getProperty("spring.ai.ollama.chat.model",
                 settings.getProperty("spring.ai.ollama.chat.model", "qwen2.5:0.5b"));
         Assert.hasText(model, "spring.ai.ollama.chat.model must not be blank");
+        return new OllamaSettings(baseUrl, model);
+    }
 
+    @Bean
+    public OllamaApi ollamaApi(OllamaSettings settings) {
+        return OllamaApi.builder().baseUrl(settings.baseUrl()).build();
+    }
+
+    @Bean
+    public ChatModel chatModel(OllamaApi ollamaApi, OllamaSettings settings) {
         return OllamaChatModel.builder()
-                .ollamaApi(OllamaApi.builder().baseUrl(baseUrl).build())
-                .options(OllamaChatOptions.builder().model(model).build())
+                .ollamaApi(ollamaApi)
+                .options(OllamaChatOptions.builder().model(settings.model()).keepAlive("-1m").build())
                 .retryTemplate(new RetryTemplate(RetryPolicy.withMaxRetries(0)))
                 .modelManagementOptions(ModelManagementOptions.builder()
                         .pullModelStrategy(PullModelStrategy.NEVER).build())
@@ -47,7 +56,9 @@ public class LlmConfiguration {
     }
 
     @Bean
-    public LlmService llmService(ChatModel chatModel) {
-        return new LlmService(chatModel);
+    public LlmService llmService(ChatModel chatModel, OllamaApi ollamaApi) {
+        return new LlmService(chatModel, ollamaApi);
     }
+
+    record OllamaSettings(String baseUrl, String model) {}
 }
