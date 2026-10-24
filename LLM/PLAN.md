@@ -5,7 +5,8 @@ complete one numbered item, report the changes and verification results, then
 stop. Wait for the user's approval before starting the next item. Implementation
 and independent review are performed by different agents.
 
-Item 1 is complete. Item 2 is implemented and awaits independent review.
+Item 1 is complete. Item 2 is implemented and has undergone independent review;
+final acceptance is pending.
 Do not start item 3 or later without the user's explicit go-ahead.
 Discussion or documentation updates do not authorize implementation.
 The LLM supervisor coordinates assignments and review; that role alone is not
@@ -27,9 +28,14 @@ if the concept proves impractical.
    through the Java service and verify the response. This model is for checking
    the integration on the memory-constrained workstation, not a verdict on quality.
 
-4. **Optional boundary trimming.** Add an explicit configuration switch,
-   disabled by default, for LLM postprocessing immediately after the existing
-   HTML cleaner. When enabled, detect boundaries, extract the unchanged source
+4. **Optional boundary trimming.** First expose standalone text-to-text cleanup
+   through a programmatic API and a matching text-based CLI. The standalone CLI
+   keeps one initialized Spring context and client for repeated operations until
+   an explicit stop that unloads the local model from Ollama memory. Keep line
+   numbering and source slicing encapsulated in LLM.
+   Then connect it immediately after the existing HTML cleaner using an explicit
+   switch, disabled by default.
+   When enabled, detect boundaries, extract the unchanged source
    fragment, and continue through the existing downstream pipeline. When disabled,
    the existing path must work without Ollama or a model installed. Errors from
    the enabled LLM step must be reported as failures, not silently ignored or
@@ -41,10 +47,12 @@ if the concept proves impractical.
    and real vacancy text through the integrated path. Check that the retained
    text is an exact source fragment. Record sample inputs, boundaries, outputs,
    and timings; quality is secondary at this checkpoint. Keep generated data
-   outside tracked source files.
+   outside tracked source files. External scripts can assemble input/output pairs
+   into one report for manual ChatGPT assessment.
 
-6. **Oracle Cloud inference.** Agree on VM resources and a larger model, then
-   provision the inference server using Terraform and OCI CLI, without Docker.
+6. **Oracle Cloud inference.** Agree on VM resources, a larger model and the
+   remote model lifecycle policy separately from the local unload-on-stop rule.
+   Then provision the inference server using Terraform and OCI CLI, without Docker.
    Verify protected access and a request from the same local Java service after
    changing its configuration. Do not deploy Spring AI or JobSeeker to the VM.
 
@@ -53,3 +61,7 @@ if the concept proves impractical.
    requirements, preserved wording, token reduction, and latency. Check the effect
    on downstream analysis before recommending normal use; do not enable it by
    default solely because the integration works.
+
+* **Optional ideas for future development and use.** Possible email analysis to
+  identify the company and what the message says. This is an idea only, not an
+  implementation assignment; do not design its API or expand the topic yet.

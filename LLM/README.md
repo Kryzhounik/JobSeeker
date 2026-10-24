@@ -42,6 +42,8 @@ No Boot `application.properties` loading is used.
 | `spring.ai.ollama.base-url` | `SPRING_AI_OLLAMA_BASE_URL` | `http://localhost:11434` |
 | `spring.ai.ollama.chat.model` | `SPRING_AI_OLLAMA_CHAT_MODEL` | `qwen2.5:0.5b` |
 
+The current API is `String generate(String prompt)`: send an arbitrary prompt
+and receive the model's text response. Vacancy cleanup is a later operation.
 Obtain `LlmService` from the existing context and call `generate(prompt)` off the
 UI thread. It returns the model's text unchanged, propagates request errors,
 and rejects empty responses. Automatic Spring AI retries are disabled: a failed

@@ -18,6 +18,24 @@
   silently ignore them or substitute the original input. Moving inference should
   require configuration changes, not a second Java implementation.
 
+## Module API and CLI
+
+Expose standalone text-to-text vacancy cleanup, such as
+`String cleanVacancy(String text)`, through a programmatic API and a CLI calling
+the same operation. Line numbering, prompting, response parsing and source
+slicing are internal to LLM; callers pass text and receive cleaned text.
+
+Keep the CLI close to that text API. File I/O and combining sample pairs into a
+single report can be handled by external scripts; do not require special input
+files or batch configuration.
+
+Use a long-lived Java process: initialize Spring and the model client once,
+accept repeated operations through the CLI, and shut down through a separate
+stop command. Operation calls reuse the initialized application. For local
+inference, normal module shutdown must explicitly unload the configured model
+from Ollama memory rather than leave it waiting for idle eviction. Reconsider
+the model lifecycle policy separately when moving inference to the cloud.
+
 ## Boundary Detection, Not Rewriting
 
 The existing HTML cleaner remains unchanged. The additional step identifies
