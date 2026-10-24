@@ -23,16 +23,19 @@ if the concept proves impractical.
    [manual configuration](https://docs.spring.io/spring-ai/reference/api/chat/ollama-chat.html)
    path, not Boot auto-configuration.
 
-3. **Local inference.** Install native Windows Ollama and
-   [`qwen2.5:0.5b`](https://ollama.com/library/qwen2.5:0.5b). Make a real request
-   through the Java service and verify the response. This model is for checking
-   the integration on the memory-constrained workstation, not a verdict on quality.
+3. **Local inference and standalone long-lived CLI.** Install native Windows
+   Ollama and [`qwen2.5:0.5b`](https://ollama.com/library/qwen2.5:0.5b). Provide a
+   standalone text-based CLI for the existing `generate(prompt)` API, independent
+   of the GUI and collector. Initialize the LLM Spring context and client once,
+   accept repeated text requests, and unload the local model from Ollama memory
+   on explicit stop. Verify real responses through this CLI across multiple
+   requests in one process and verify unloading on shutdown. This model checks
+   integration on the memory-constrained workstation, not final output quality.
 
 4. **Optional boundary trimming.** First expose standalone text-to-text cleanup
-   through a programmatic API and a matching text-based CLI. The standalone CLI
-   keeps one initialized Spring context and client for repeated operations until
-   an explicit stop that unloads the local model from Ollama memory. Keep line
-   numbering and source slicing encapsulated in LLM.
+   through a programmatic API and a matching command in the existing CLI. Keep
+   line numbering, prompting, response parsing and source slicing encapsulated
+   in LLM.
    Then connect it immediately after the existing HTML cleaner using an explicit
    switch, disabled by default.
    When enabled, detect boundaries, extract the unchanged source

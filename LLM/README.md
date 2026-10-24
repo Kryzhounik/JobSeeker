@@ -51,8 +51,9 @@ request is reported after the first attempt. Context initialization makes no inf
 and never pulls models, so it works without Ollama installed. Only an explicit
 `generate` call needs a running server and an already installed model.
 
-The client is not yet connected to vacancy processing. Local installation and
-real inference are checkpoint 3; optional trimming is checkpoint 4.
+The client is not yet connected to vacancy processing. Local installation, real
+inference and the standalone long-lived CLI for `generate(prompt)` are checkpoint
+3. Vacancy cleanup, its CLI command and collector integration are checkpoint 4.
 
 ## Verification
 
