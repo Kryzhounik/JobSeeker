@@ -112,3 +112,24 @@ Full inputs, outputs, boundaries, per-call usage and comparison are in:
 `Data/easy-reasoning/experiments/luna-proxy-20261025-172048/report.md`.
 No Codex backend was added to EasyReasoning and no shared proxy code or
 configuration was changed.
+
+On 2026-10-25 `qwen2.5:3b` was installed and tested on the exact same 10
+saved inputs and frozen external instruction as the preceding runs. The calls
+used the real `cleanVacancy` API, ordinary Ollama generation without forced
+JSON schema, unchanged inference settings and one Java/Spring lifecycle.
+All 10 responses completed: 8 valid source fragments, 2 out-of-range boundary
+errors (case 1: 7..31 with 30 source lines; case 9: 28..95 with 94).
+Manual inspection found the main vacancy content retained in 7 of the 8
+fragments; case 6 lost the role introduction/title and salary. Six of the
+seven content-preserving fragments retained substantial LinkedIn footer
+material; case 2 only retained the extra Loading job details line.
+Thus 3b substantially improved content preservation over 0.5b but still did
+not provide reliable useful trimming or reach the Luna result on this sample.
+No call reached the 120-second external observation limit. The cold first
+call took 19.16 seconds, later calls 1.90–6.99 seconds (total 51.71 seconds,
+median 3.38). Sampled working-set peaks: Java 135.8 MiB, Ollama with runner
+1061.2 MiB, excluding VRAM. All inputs, raw responses, outputs, errors,
+per-call timings/resources and comparison are in the single report:
+`Data/easy-reasoning/experiments/qwen2.5-3b-20261025-173021/report.md`.
+Input and instruction equality with the previous runs were verified.
+No production source, default model/switch or prompt tuning was changed.
