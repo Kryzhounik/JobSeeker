@@ -20,6 +20,24 @@ USAGE_KEYS = (
     "reasoning_output_tokens",
 )
 
+TRANSPORT_INSTRUCTIONS = Path(__file__).with_name("transport_instructions.md")
+UNUSED_FEATURES = (
+    "shell_tool",
+    "shell_snapshot",
+    "multi_agent",
+    "apps",
+    "plugins",
+    "skill_search",
+    "goals",
+    "sleep_tool",
+    "view_image",
+    "image_generation",
+    "computer_use",
+    "browser_use",
+    "workspace_dependencies",
+    "tool_suggest",
+)
+
 
 def hidden_process_flags() -> int:
     return subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
@@ -54,6 +72,24 @@ def call(
         "--config",
         f"model_reasoning_effort={json.dumps(reasoning_effort)}",
     ))
+    if config.getboolean("proxy", "lean_context", fallback=True):
+        overrides = {
+            "model_instructions_file": TRANSPORT_INSTRUCTIONS.resolve().as_posix(),
+            "skills.include_instructions": False,
+            "skills.bundled.enabled": False,
+            "agents.enabled": False,
+            "include_collaboration_mode_instructions": False,
+            "include_permissions_instructions": False,
+            "include_apps_instructions": False,
+            "project_doc_max_bytes": 0,
+            "web_search": "disabled",
+            "tools.update_plan.enabled": False,
+            "tools.experimental_request_user_input.enabled": False,
+        }
+        for key, value in overrides.items():
+            configured_args.extend(("--config", f"{key}={json.dumps(value)}"))
+        for feature in UNUSED_FEATURES:
+            configured_args.extend(("--disable", feature))
     if browser_cdp_endpoint:
         node = shutil.which("node")
         if not node:

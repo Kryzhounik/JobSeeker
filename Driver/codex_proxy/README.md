@@ -12,6 +12,21 @@ The proxy boundary is transport-only:
 `config.ini` contains the CLI model and reasoning defaults, session and sandbox
 settings, and model rates used for usage metrics.
 
+`lean_context = true` strips the generic coding-agent context for proxy calls.
+It uses the short `transport_instructions.md` as the model's base instructions,
+omits automatic skills, project instructions and collaboration/permissions/app
+instruction blocks, and disables unused native tools. Runtime sandbox and MCP
+approval settings still apply. The small environment context, including the
+current date and timezone, is retained.
+
+Caller instructions, input, context files and output schema are passed as
+before, as are model, reasoning effort and session continuation. Explicit
+Playwright MCP tools remain available for browser calls. The overrides apply
+only to this CLI invocation; no global Codex configuration is changed. Set
+`lean_context = false` to restore the previous CLI context for comparison or
+rollback. These settings were verified with Codex CLI 0.159.2; their definitions
+are in the [official configuration schema](https://developers.openai.com/codex/config-schema.json).
+
 The proxy must never choose analyzer operations or contain vacancy logic. It
 must not interpret, merge, or persist analyzed/scored JSON; run filters or
 scoring; update vacancy lifecycle state; or save jobs. Those responsibilities

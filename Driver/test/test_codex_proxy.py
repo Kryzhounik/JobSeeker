@@ -48,7 +48,52 @@ def usage_result(
     )
 
 
+def cli_config_overrides(command: list[str]) -> dict[str, object]:
+    overrides = {}
+    for index, argument in enumerate(command):
+        if argument == "--config":
+            key, value = command[index + 1].split("=", 1)
+            overrides[key] = tomllib.loads("value = " + value)["value"]
+        elif argument == "--disable":
+            overrides["features." + command[index + 1]] = False
+    return overrides
+
+
 class CodexProxyTest(unittest.TestCase):
+    def assert_lean_context_overrides(self, command: list[str]) -> None:
+        overrides = cli_config_overrides(command)
+        self.assertEqual(
+            Path(overrides["model_instructions_file"]),
+            DRIVER_ROOT / "codex_proxy" / "transport_instructions.md",
+        )
+        for key, expected in {
+            "skills.include_instructions": False,
+            "skills.bundled.enabled": False,
+            "agents.enabled": False,
+            "project_doc_max_bytes": 0,
+            "web_search": "disabled",
+            "include_collaboration_mode_instructions": False,
+            "include_permissions_instructions": False,
+            "include_apps_instructions": False,
+            "features.shell_tool": False,
+            "features.shell_snapshot": False,
+            "features.multi_agent": False,
+            "features.apps": False,
+            "features.plugins": False,
+            "features.skill_search": False,
+            "features.goals": False,
+            "features.sleep_tool": False,
+            "features.view_image": False,
+            "features.image_generation": False,
+            "features.computer_use": False,
+            "features.browser_use": False,
+            "features.workspace_dependencies": False,
+            "features.tool_suggest": False,
+            "tools.update_plan.enabled": False,
+            "tools.experimental_request_user_input.enabled": False,
+        }.items():
+            self.assertEqual(overrides.get(key), expected, key)
+
     def test_operation_model_settings_override_shared_defaults_independently(self) -> None:
         settings = load(
             model_override="gpt-6-luna",
@@ -134,6 +179,7 @@ class CodexProxyTest(unittest.TestCase):
             stderr="",
         )
         settings = load()
+        settings.config.set("proxy", "lean_context", "true")
 
         result = codex_cli.call(
             config=settings.config,
@@ -149,6 +195,13 @@ class CodexProxyTest(unittest.TestCase):
         self.assertNotIn("resume", command)
         self.assertNotIn("--ephemeral", command)
         self.assertIn("--sandbox", command)
+        self.assert_lean_context_overrides(command)
+        self.assertEqual(process_run.call_args.kwargs["input"], "PROMPT")
+        self.assertEqual(command[command.index("--model") + 1], settings.model)
+        self.assertEqual(
+            cli_config_overrides(command)["model_reasoning_effort"],
+            settings.reasoning_effort,
+        )
         self.assertEqual(result.thread_id, "thread-1")
 
     @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
@@ -163,6 +216,7 @@ class CodexProxyTest(unittest.TestCase):
             stderr="",
         )
         settings = load()
+        settings.config.set("proxy", "lean_context", "true")
 
         result = codex_cli.call(
             config=settings.config,
@@ -179,7 +233,40 @@ class CodexProxyTest(unittest.TestCase):
         self.assertIn("thread-1", command)
         self.assertNotIn("--sandbox", command)
         self.assertNotIn("--add-dir", command)
+        self.assert_lean_context_overrides(command)
+        self.assertEqual(process_run.call_args.kwargs["input"], "NEXT INPUT")
+        self.assertEqual(
+            cli_config_overrides(command)["model_reasoning_effort"],
+            settings.reasoning_effort,
+        )
         self.assertEqual(result.thread_id, "thread-1")
+
+    @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
+    @patch("codex_proxy.codex_cli.subprocess.run")
+    def test_cli_lean_context_can_be_disabled_for_initial_and_resumed_calls(
+        self, process_run, unused_which,
+    ) -> None:
+        process_run.return_value = SimpleNamespace(returncode=0, stdout="", stderr="")
+        settings = load()
+        settings.config.set("proxy", "lean_context", "false")
+
+        for thread_id in (None, "thread-1"):
+            with self.subTest(thread_id=thread_id):
+                codex_cli.call(
+                    config=settings.config,
+                    prompt="BUSINESS PROMPT",
+                    model=settings.model,
+                    reasoning_effort=settings.reasoning_effort,
+                    cwd=DRIVER_ROOT,
+                    output_schema=DRIVER_ROOT / "contracts" / "job_analysis.schema.json",
+                    thread_id=thread_id,
+                )
+                command = process_run.call_args.args[0]
+                self.assertEqual(cli_config_overrides(command), {
+                    "model_reasoning_effort": settings.reasoning_effort,
+                })
+                self.assertEqual(process_run.call_args.kwargs["input"], "BUSINESS PROMPT")
+                self.assertEqual("resume" in command, thread_id is not None)
 
     @patch("codex_proxy.codex_cli.shutil.which")
     @patch("codex_proxy.codex_cli.subprocess.run")
@@ -187,6 +274,7 @@ class CodexProxyTest(unittest.TestCase):
         which.side_effect = lambda name: {"codex.cmd": "codex", "node": "node"}.get(name)
         process_run.return_value = SimpleNamespace(returncode=0, stdout="", stderr="")
         settings = load()
+        settings.config.set("proxy", "lean_context", "true")
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             script = root / "node_modules/@playwright/mcp/cli.js"
@@ -202,18 +290,21 @@ class CodexProxyTest(unittest.TestCase):
                     output_schema=DRIVER_ROOT.parent / "Applier/result.schema.json",
                     browser_cdp_endpoint="http://127.0.0.1:9222",
                 )
-                codex_cli.call(**arguments)
-                command = process_run.call_args.args[0]
-                override = next(value for value in command if value.startswith("mcp_servers.playwright="))
-                server = tomllib.loads(override)["mcp_servers"]["playwright"]
-                self.assertEqual(server["command"], "node")
-                self.assertEqual(server["args"], [str(script), "--cdp-endpoint", "http://127.0.0.1:9222"])
-                self.assertTrue(server["required"])
+                for thread_id in (None, "browser-thread"):
+                    with self.subTest(thread_id=thread_id):
+                        codex_cli.call(**arguments, thread_id=thread_id)
+                        command = process_run.call_args.args[0]
+                        self.assert_lean_context_overrides(command)
+                        server = cli_config_overrides(command)["mcp_servers.playwright"]
+                        self.assertEqual(server["command"], "node")
+                        self.assertEqual(server["args"], [str(script), "--cdp-endpoint", "http://127.0.0.1:9222"])
+                        self.assertTrue(server["required"])
+                        self.assertEqual(process_run.call_args.kwargs["input"], "PROMPT")
                 self.assertNotIn("npx.cmd", [call.args[0] for call in which.call_args_list])
                 script.unlink()
                 with self.assertRaisesRegex(RuntimeError, "npm ci --prefix Driver/codex_proxy"):
                     codex_cli.call(**arguments)
-                self.assertEqual(process_run.call_count, 1)
+                self.assertEqual(process_run.call_count, 2)
 
     @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
     def test_cli_rejects_resume_in_ephemeral_mode(self, unused_which) -> None:
