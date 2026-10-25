@@ -25,7 +25,7 @@ public class OllamaConfiguration {
         String baseUrl = environment.getProperty("spring.ai.ollama.base-url",
                 easyReasoningProperties.getProperty("spring.ai.ollama.base-url", "http://localhost:11434"));
         String model = environment.getProperty("spring.ai.ollama.chat.model",
-                easyReasoningProperties.getProperty("spring.ai.ollama.chat.model", "qwen2.5:0.5b"));
+                easyReasoningProperties.getProperty("spring.ai.ollama.chat.model", "qwen2.5:7b"));
         Assert.hasText(model, "spring.ai.ollama.chat.model must not be blank");
         return new OllamaSettings(baseUrl, model);
     }

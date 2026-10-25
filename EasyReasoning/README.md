@@ -30,7 +30,7 @@ contract. The CLI and application configuration live alongside that API.
 All Spring AI/Ollama settings, calls, and model unloading are implemented in
 `com.seeker.easyreasoning.llm`. There is no provider registry or backend selector.
 
-The initial setup uses native Windows Ollama and `qwen2.5:0.5b`. Hosting Ollama
+The initial setup uses native Windows Ollama and `qwen2.5:7b`. Hosting Ollama
 on Oracle Cloud is a later deployment option to free local RAM; JobSeeker and
 the Java gateway remain local.
 
@@ -58,7 +58,7 @@ or Windows environment settings are needed.
 
 ```properties
 spring.ai.ollama.base-url=http://localhost:11434
-spring.ai.ollama.chat.model=qwen2.5:0.5b
+spring.ai.ollama.chat.model=qwen2.5:7b
 ```
 
 If the file or a setting is absent, the defaults below apply. JVM system
@@ -69,7 +69,7 @@ No Boot `application.properties` loading is used.
 | JVM system property | Environment variable | Default |
 | --- | --- | --- |
 | `spring.ai.ollama.base-url` | `SPRING_AI_OLLAMA_BASE_URL` | `http://localhost:11434` |
-| `spring.ai.ollama.chat.model` | `SPRING_AI_OLLAMA_CHAT_MODEL` | `qwen2.5:0.5b` |
+| `spring.ai.ollama.chat.model` | `SPRING_AI_OLLAMA_CHAT_MODEL` | `qwen2.5:7b` |
 
 The current API is `String generate(String prompt)`: send an arbitrary prompt
 and receive the model's text response. Vacancy cleanup is a later operation.
@@ -211,7 +211,7 @@ Start-Process .\.tools\ollama\ollama.exe -ArgumentList 'serve' -WindowStyle Hidd
 Install the test model once:
 
 ```powershell
-& .\.tools\ollama\ollama.exe pull qwen2.5:0.5b
+& .\.tools\ollama\ollama.exe pull qwen2.5:7b
 ```
 
 Model weights use Ollama's default user directory (`$HOME/.ollama/models`).

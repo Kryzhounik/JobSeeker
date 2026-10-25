@@ -38,7 +38,7 @@ class OllamaConfigurationTest {
             context.refresh();
             ChatModel model = context.getBean(ChatModel.class);
             assertInstanceOf(OllamaChatModel.class, model);
-            assertEquals("qwen2.5:0.5b", model.getOptions().getModel());
+            assertEquals("qwen2.5:7b", model.getOptions().getModel());
             assertNotNull(context.getBean(EasyReasoningService.class));
         }
     }

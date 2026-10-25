@@ -133,3 +133,31 @@ per-call timings/resources and comparison are in the single report:
 `Data/easy-reasoning/experiments/qwen2.5-3b-20261025-173021/report.md`.
 Input and instruction equality with the previous runs were verified.
 No production source, default model/switch or prompt tuning was changed.
+
+Evaluation criterion clarified by the user: the aim is useful removal of
+remaining boilerplate without losing important vacancy content, not matching
+or outperforming Luna. Retaining extra boilerplate is acceptable; cutting
+useful content is degradation. Prompt revisions and examples remain possible
+later; these unchanged-prompt runs first establish practical model/resource fit.
+
+On 2026-10-25 the user-installed `qwen2.5:7b` was run on the same 10 frozen
+inputs and unchanged instruction via `cleanVacancy`. All 10 calls returned
+valid source fragments with no format/range errors or 120-second overruns.
+Manual inspection found 5 clear content-loss cases: 4 (qualification details),
+5 (qualifications/pay/contract conditions), 6 (salary), 9 (preferred
+qualifications/application instructions), 10 (duties/education/experience).
+Cases 1, 3 and 8 removed extra material without noticed loss of useful facts;
+cases 2 and 7 preserved the main description but removed employer/region/header
+context and are reported separately rather than silently accepted as harmless.
+This is one unchanged-prompt run, not a final verdict after possible prompt work.
+The machine completed 7b with 12/29 layers on GPU and the remainder on CPU.
+Cold first call: 81.36 s; later calls: 5.50–16.12 s; total 162.41 s, median
+8.64 s. Sampled working-set peaks: Java 121.2 MiB, Ollama+runner 3691.9 MiB.
+An additional external observer sampled total-card VRAM and available RAM:
+peak VRAM used 3103/4096 MiB (includes desktop/other apps), minimum available
+system RAM 1285.3 MiB. Therefore 7b is executable on this machine but slower
+and with less RAM headroom than 3b. All pairs, raw model responses, per-case
+quality notes, timings and resource observations are in:
+`Data/easy-reasoning/experiments/qwen2.5-7b-20261025-193041/report.md`.
+Input/instruction equality was checked; production code/default settings
+were unchanged.
