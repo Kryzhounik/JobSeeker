@@ -269,15 +269,8 @@ final class LinkedInCollector {
     }
 
     private ProcessResult processHtml(Preview preview, LinkedInPageClient.JobDetails details) {
-        try {
-            progress("filtering_content", preview.jobId() + " " + preview.title());
-            return python.processHtml(preview, details.html(), details.easyApply());
-        } catch (RuntimeException error) {
-            if (message(error).contains("Cannot insert source job ")) {
-                throw error;
-            }
-            return logOutcome(preview, "incomplete_raw", message(error));
-        }
+        progress("filtering_content", preview.jobId() + " " + preview.title());
+        return python.processHtml(preview, details.html(), details.easyApply());
     }
 
     private ProcessResult logOutcome(Preview preview, String status, String reason) {

@@ -91,8 +91,48 @@ exit rather than a successful stop acknowledgement. This is the local lifecycle
 policy of the current Ollama backend, not a requirement that every future
 backend manages local model weights. Reconsider it before cloud deployment.
 
-The client is not yet connected to vacancy processing. Vacancy cleanup, its
-CLI command and collector integration are checkpoint 5.
+## Optional vacancy cleanup
+
+`VacancyCleaner.cleanVacancy(String text)` identifies one contiguous vacancy
+fragment through the common `generate(prompt)` API. `EasyReasoningApplication`
+owns a standalone Spring context and exposes both `generate` and `cleanVacancy`
+for callers that need an initialized gateway. Reuse it across operations and
+close it afterwards; callers already owning a Spring context can use its beans.
+
+Set `vacancy.trimming.enabled=true` in `EasyReasoning/easy-reasoning.properties`
+to enable cleanup. The default is `false`: the operation returns the original
+string without a model request or diagnostic files. The setting belongs to
+EasyReasoning. Collector code always invokes cleanup and does not inspect it.
+Settings are read when the gateway is created (at CLI startup or collection start).
+
+When enabled, EasyReasoning numbers source lines only in the prompt and asks for
+boundaries using the UTF-8 instructions in `EasyReasoning/prompts/clean-vacancy.md`.
+Edit that file without rebuilding or restarting: it is read for each nonempty
+cleanup call. The numbered source text is appended automatically. When cleanup
+is disabled, the prompt file is not read.
+The model returns
+integer, 1-based inclusive `from_line` and `to_line` boundaries. EasyReasoning validates the
+response and slices the original string at the selected lines' character offsets.
+Line terminators belonging to the selected lines are retained, including mixed
+LF/CRLF/CR, along with the original wording and whitespace. There is no rewriting
+or deletion of passages inside the fragment. Empty input needs no inference.
+Malformed responses, invalid boundaries, model errors and diagnostic write
+failures propagate; there is no fallback to the original text when enabled.
+The parser accepts a JSON object or one JSON code block, using only the boundary
+fields. Any additional model-generated description is ignored, never used as text.
+
+Each enabled attempt saves a UUID-prefixed `.before.txt` and `.response.txt`;
+successful cleanup also saves `.after.txt`, under `Data/easy-reasoning/trimming/`.
+The files use UTF-8 and preserve source line endings. A failed model request may
+leave only the before file. These are local inspection files, ignored by Git.
+
+The Java collector owns one `EasyReasoningApplication` per collection and passes
+it to `python_bridge.process_html`. Python invokes `cleanVacancy` immediately
+after the existing HTML cleaner, then persists and content-filters the selected
+text through the existing pipeline. The HTML cleaner is unchanged. Closing the
+collector gateway closes EasyReasoning and unloads a used local model. Failed
+cleanup follows the collector's existing per-vacancy failure reporting and does
+not persist/filter the original readable text instead.
 
 ## Standalone CLI
 
@@ -119,6 +159,10 @@ commands after the readiness message:
 ```text
 generate "Привет, как дела?"
 generate Reply with exactly HELLO
+clean-vacancy "Navigation
+Java Developer
+Responsibilities: build Java services.
+Footer"
 stop
 ```
 
@@ -136,6 +180,7 @@ Inside double quotes, `\"` inserts a quote and `\\` inserts a backslash. Other
 backslashes are literal. Multiline input uses LF between lines.
 
 Each generation invokes the same `EasyReasoningService.generate(prompt)` API.
+`clean-vacancy` invokes the configured `cleanVacancy(text)` operation.
 The model's answer is printed directly to stdout, followed by a line ending if
 needed. Requests are independent, without accumulating chat history. Readiness,
 errors and shutdown messages are plain text on stderr. After a command or
@@ -192,52 +237,17 @@ checked for prompt failure without automatic retries. CLI tests cover repeated
 operations, independent prompts, command/request errors, stop/EOF unloading,
 and reporting unload failure. These automated tests do not call a real model.
 
-Checkpoint 2 verification also passed with the application dependency graph:
+Java integration verification:
 
 ```powershell
-mvn -f Driver/pom.xml -pl api -am '-Dtest=OllamaConfigurationTest,EasyReasoningCliTest,DriverConfigurationTest,MainTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
+mvn -f Driver/pom.xml -pl api -am '-Dtest=VacancyCleanerTest,OllamaConfigurationTest,EasyReasoningCliTest,DriverConfigurationTest,MainTest' '-Dsurefire.failIfNoSpecifiedTests=false' test
 ```
 
-Result: 10 EasyReasoning tests passed after the plain-text CLI update; the
-previous Java integration check passed 5 Driver API tests. The dependency tree contains
-both Jackson mapper generations with `jackson-annotations` 2.21 and no Spring
-Boot dependencies.
-
-Checkpoint 3 was verified on 2026-10-24 with native Ollama 0.40.10 and
-`qwen2.5:0.5b`. The executable JAR was started from outside the project root.
-Two real requests were served by the same Java process: approximately 34.4 s
-for the first request including model loading, then 54 ms for the second.
-The model was present in `/api/ps` after each request. Explicit `stop` returned
-success, the process exited 0, and `/api/ps` returned an empty model list.
-Generated verification evidence is kept outside tracked source in
-`.tools/llm-local-verification.json`.
-
-Direct JAR launch was also checked without encoding flags or a PowerShell
-launcher. Two UTF-8 stdin commands containing Cyrillic text and multiline
-content reached a local echo HTTP stub unchanged and returned unchanged in
-the CLI's UTF-8 stdout, including LF/CRLF and quoted text. The process handled
-both commands and `stop`, unloaded the model on the stub, and exited 0.
-Evidence is in `.tools/llm-direct-utf8-verification.json`.
-
-The small model produced an incorrect arithmetic answer in this check. This
-checkpoint establishes inference and lifecycle integration, not output quality.
-
-Checkpoint 4 was verified on 2026-10-24 after the rename. The 14 automated tests
-passed using the new Maven artifact. JavaFX compiled with the renamed dependency
-and its Spring lifecycle smoke check passed. The standalone
-`EasyReasoning/easy-reasoning.jar` preserved Cyrillic, LF/CRLF and quoted text in
-two commands without encoding flags. Two real Ollama requests ran in one process
-from outside the project root; explicit stop unloaded the model and exited 0.
-Generated evidence is in `.tools/easy-reasoning-direct-utf8-verification.json`
-and `.tools/easy-reasoning-local-verification.json`.
-
-The plain-text CLI update passed 10 module tests and direct executable-JAR checks.
-Cyrillic, multiline prompts and embedded quotes reached an echo server unchanged.
-Two plain-text commands also returned real Ollama answers in one process, and
-`stop` unloaded the model. Evidence is in `.tools/easy-reasoning-text-utf8.json`
-and `.tools/easy-reasoning-text-real.json`.
+Experiment observations and historical verification reports are in
+[EXPERIMENTS.md](EXPERIMENTS.md). Research tasks are in [PLAN.md](PLAN.md).
 
 Implementation instructions:
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): agreed decisions and integration context.
 - [PLAN.md](PLAN.md): staged implementation and review checkpoints.
+- [EXPERIMENTS.md](EXPERIMENTS.md): observations and historical verification reports.

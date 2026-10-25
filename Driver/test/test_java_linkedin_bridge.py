@@ -9,6 +9,7 @@ import sqlite3
 import sys
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 
 
 DRIVER_ROOT = Path(__file__).resolve().parents[1]
@@ -20,6 +21,46 @@ from collector.filtering.publication_age import publication_age_days
 
 
 class JavaLinkedInBridgeTest(unittest.TestCase):
+    def test_cleanup_runs_between_html_cleaner_and_persistence_and_filter(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.addCleanup(python_bridge.close_session)
+            preview = {"job_id": "7111111111", "source_url": "https://www.linkedin.com/jobs/view/7111111111/",
+                       "title": "Java Developer"}
+            original = "Navigation\r\nBuild Java services.\r\nFooter"
+            cleaned = "Build Java services.\r\n"
+            cleaner = Mock()
+            cleaner.cleanVacancy.return_value = cleaned
+            vacancy_filter = python_bridge._require_session().vacancy_filter
+            with patch.object(python_bridge, "readable_text", return_value=original), \
+                    patch.object(vacancy_filter, "filter_text", wraps=vacancy_filter.filter_text) as content_filter:
+                result = json.loads(python_bridge.process_html(json.dumps(preview),
+                    "<h2>About the job</h2><p>Build Java services.</p>", False, cleaner))
+            self.assertEqual("raw_saved", result["status"])
+            cleaner.cleanVacancy.assert_called_once_with(original)
+            content_filter.assert_called_once_with("Java Developer", cleaned)
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual((cleaned,), connection.execute("SELECT readable_text FROM source_job_texts").fetchone())
+
+    def test_cleanup_error_does_not_save_or_filter_original_text(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.addCleanup(python_bridge.close_session)
+            preview = {"job_id": "7222222222", "source_url": "https://www.linkedin.com/jobs/view/7222222222/",
+                       "title": "Java Developer"}
+            cleaner = Mock()
+            cleaner.cleanVacancy.side_effect = RuntimeError("Invalid vacancy boundaries")
+            with patch.object(python_bridge, "readable_text", return_value="Original text"), \
+                    patch.object(python_bridge._require_session().vacancy_filter, "filter_text") as content_filter:
+                with self.assertRaisesRegex(RuntimeError, "Invalid vacancy boundaries"):
+                    python_bridge.process_html(json.dumps(preview),
+                        "<h2>About the job</h2><p>Build Java services.</p>", False, cleaner)
+            content_filter.assert_not_called()
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual(0, connection.execute("SELECT count(*) FROM source_job_texts").fetchone()[0])
+
     def test_publication_age_reads_metadata_not_description(self) -> None:
         for marker, expected in [
             ("21 minutes ago", 0), ("Reposted 2 weeks ago", 14),

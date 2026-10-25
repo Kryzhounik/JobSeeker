@@ -123,6 +123,10 @@ class EasyReasoningCliTest {
     }
 
     private HttpServer server(List<JsonNode> requests, boolean failFirst, boolean failUnload) throws Exception {
+        return server(requests, failFirst, failUnload, "  Ответ\n");
+    }
+
+    private HttpServer server(List<JsonNode> requests, boolean failFirst, boolean failUnload, String answer) throws Exception {
         var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/api/chat", exchange -> {
             var request = JSON.readTree(exchange.getRequestBody().readAllBytes());
@@ -131,7 +135,8 @@ class EasyReasoningCliTest {
             boolean failure = (failFirst && requests.size() == 1) || (failUnload && unload);
             String response = failure ? "{\"error\":\"unavailable\"}"
                     : unload ? "{\"model\":\"test-model\",\"done\":true,\"done_reason\":\"unload\"}"
-                    : "{\"model\":\"test-model\",\"message\":{\"role\":\"assistant\",\"content\":\"  Ответ\\n\"},\"done\":true}";
+                    : JSON.writeValueAsString(java.util.Map.of("model", "test-model", "message",
+                            java.util.Map.of("role", "assistant", "content", answer), "done", true));
             byte[] bytes = response.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(failure ? 503 : 200, bytes.length);
@@ -177,4 +182,27 @@ class EasyReasoningCliTest {
     }
 
     private record CliOutput(String text, String errors, int exitCode) {}
+
+    @Test
+    void cleanVacancyCommandUsesConfiguredSwitchAndSameGenerationBackend() throws Exception {
+        List<JsonNode> requests = new ArrayList<>();
+        var server = server(requests, false, false, "{\"from_line\":2,\"to_line\":2}");
+        try {
+            var disabled = run("clean-vacancy \"before\nJava developer\nafter\"\nstop\n");
+            assertEquals(0, disabled.exitCode());
+            assertEquals("before\nJava developer\nafter" + System.lineSeparator(), disabled.text());
+            assertEquals(0, requests.size());
+            Files.createDirectories(root.resolve("EasyReasoning/prompts"));
+            Files.writeString(root.resolve("EasyReasoning/prompts/clean-vacancy.md"),
+                    "Select vacancy boundaries as from_line and to_line.\nNumbered source:\n");
+            Files.writeString(root.resolve("EasyReasoning/easy-reasoning.properties"),
+                    "vacancy.trimming.enabled=true\n", java.nio.file.StandardOpenOption.APPEND);
+            var enabled = run("clean-vacancy \"before\nJava developer\nafter\"\nstop\n");
+            assertEquals(0, enabled.exitCode());
+            assertEquals("Java developer\n", enabled.text());
+            assertEquals(2, requests.size());
+            assertTrue(requests.getFirst().path("messages").get(0).path("content").asString().contains("2: Java developer"));
+            assertEquals("0", requests.getLast().path("keep_alive").asString());
+        } finally { server.stop(0); }
+    }
 }

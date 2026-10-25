@@ -696,7 +696,7 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
         connection.execute("PRAGMA foreign_keys = ON")
         return connection.execute(
             "SELECT 1 FROM source_jobs WHERE source = ? AND source_job_id = ? "
-            "AND availability <> 'deleted'",
+            "AND availability <> 'deleted' AND processing_status <> 'RAW'",
             ("linkedin", job_id),
         ).fetchone() is not None
 
@@ -718,6 +718,7 @@ def is_duplicate_company_title(preview: dict[str, Any], db_path: Path = DEFAULT_
             JOIN linkedin_collection_runs AS run ON run.run_id = source.collection_run_id
             WHERE source.source = 'linkedin'
                 AND source.availability <> 'deleted'
+                AND source.processing_status <> 'RAW'
                 AND company.name = ? COLLATE NOCASE
                 AND run.started_at >= datetime('now', '-7 days')
             """,

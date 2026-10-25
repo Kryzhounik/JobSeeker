@@ -17,7 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_registry import insert_source_job, is_registered, mark_status, source_job_id
+from db.job_registry import insert_source_job, mark_status, source_job_id, validate_identity
 from db.migrate import migrate_database
 
 
@@ -85,6 +85,7 @@ def save_content(
     collection_method: str | None = None,
     collection_run_id: str | None = None,
 ) -> Path:
+    """Save raw HTML, automatically refreshing only non-deleted RAW registrations."""
     validate_content(source, content)
 
     pages_dir = out_dir / "pages"
@@ -94,8 +95,20 @@ def save_content(
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        job_id = source_job_id(source, url)
-        if force and is_registered(connection, source, job_id):
+        source, job_id = validate_identity(source, source_job_id(source, url))
+        existing = connection.execute(
+            "SELECT processing_status, availability FROM source_jobs "
+            "WHERE source = ? AND source_job_id = ?",
+            (source, job_id),
+        ).fetchone()
+        resume_raw = existing is not None and existing[0] == "RAW" and existing[1] != "deleted"
+        if resume_raw:
+            registry_id = mark_status(connection, source, job_id, "RAW", collection_method=collection_method)
+            connection.execute(
+                "UPDATE source_jobs SET collection_run_id = coalesce(?, collection_run_id) WHERE id = ?",
+                (collection_run_id, registry_id),
+            )
+        elif force and existing is not None:
             mark_status(connection, source, job_id, "RAW", collection_method=collection_method)
         else:
             insert_source_job(
@@ -104,7 +117,7 @@ def save_content(
                 collection_run_id=collection_run_id,
             )
         pages_dir.mkdir(parents=True, exist_ok=True)
-        if path.exists() and not force:
+        if path.exists() and not (force or resume_raw):
             print(f"skip existing {path}")
         else:
             path.write_text(content, encoding="utf-8")

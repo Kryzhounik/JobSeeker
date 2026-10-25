@@ -17,7 +17,9 @@ Item 1 is complete. Item 2 is implemented and has undergone independent review;
 final acceptance is pending.
 Item 3 is implemented and verified against local Ollama; independent review is
 pending. Item 4 is implemented and verified; independent review is pending.
-Do not start item 5 or later without the user's explicit go-ahead.
+Item 5 is implemented and verified; independent review is pending. The default
+trimming switch remains off. Do not start item 6 or later without the user's
+explicit go-ahead.
 Discussion or documentation updates do not authorize implementation.
 The EasyReasoning supervisor coordinates assignments and review; that role alone
 is not an implementation assignment. Later items may be reconsidered or never
@@ -70,12 +72,21 @@ with larger models possible.
    without redesigning the processing flow for comparison. Verify both enabled
    and disabled paths; do not rewrite the cleaner.
 
-6. **Local experiments.** Exercise configuration, request/response handling,
-   and real vacancy text through the integrated path. Check that the retained
-   text is an exact source fragment. Record sample inputs, boundaries, outputs,
-   and timings; quality is secondary at this checkpoint. Keep generated data
-   outside tracked source files. External scripts can assemble input/output pairs
-   into one report for manual ChatGPT assessment.
+6. **Local experiment on saved cleaned texts.** Take 10–20 existing script-cleaned
+   texts from the database and pass each directly to cleanVacancy(text).
+   Save one readable file containing input/output pairs, response times, failures
+   or unfinished calls and their waiting times. Observe CPU and RAM externally
+   during the run. The user will send the file to ChatGPT for quality analysis.
+   Do not rerun the collector, repeat integration checks, or investigate/tune
+   long generation separately at this checkpoint. Determine further work from
+   the run results. Store the report under
+   Data/easy-reasoning/experiments/<run-id>/report.md.
+   Completed on 2026-10-25 with a corrected sample of 10 inspected vacancy
+   descriptions: 7 returned fragments, 1 model-response error, and 2 calls
+   did not finish within 120 seconds each. The earlier sample was invalid.
+   Returned boundaries were generally unsuitable for useful vacancy trimming.
+   See [EXPERIMENTS.md](EXPERIMENTS.md) for the report location and limitations.
+   Await user review before proceeding.
 
 7. **Oracle Cloud inference (Ollama deployment option).** Agree on VM resources,
    a larger model and the remote model lifecycle policy separately from the

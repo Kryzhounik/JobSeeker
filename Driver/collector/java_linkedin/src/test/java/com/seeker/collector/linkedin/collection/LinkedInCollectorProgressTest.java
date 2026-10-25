@@ -9,6 +9,7 @@ import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
+import java.lang.reflect.InvocationTargetException;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -19,6 +20,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LinkedInCollectorProgressTest {
@@ -53,6 +55,30 @@ class LinkedInCollectorProgressTest {
         assertEquals("Collection", updates.getLast().stage());
         assertEquals("Collection stopped", updates.getLast().action());
         assertEquals("test failure", updates.getLast().details());
+    }
+
+    @Test
+    void processingFailureIsNotConvertedIntoIncompleteRaw() throws Exception {
+        IllegalStateException failure = new IllegalStateException("content filter failed");
+        PythonGateway python = (PythonGateway) Proxy.newProxyInstance(
+                PythonGateway.class.getClassLoader(), new Class<?>[]{PythonGateway.class},
+                (proxy, method, args) -> {
+                    if (method.getName().equals("processHtml")) throw failure;
+                    throw new AssertionError("Unexpected gateway call: " + method.getName());
+                });
+        LinkedInCollector collector = new LinkedInCollector(null, python, CONFIG,
+                "failed-filter-run", ignored -> { });
+        var process = LinkedInCollector.class.getDeclaredMethod(
+                "processHtml", Preview.class, LinkedInPageClient.JobDetails.class);
+        process.setAccessible(true);
+        Preview preview = new Preview("123", "https://www.linkedin.com/jobs/view/123/",
+                "Java Developer", "Company", "", "", "", "Poland", 0, 1);
+
+        InvocationTargetException error = assertThrows(InvocationTargetException.class,
+                () -> process.invoke(collector, preview,
+                        new LinkedInPageClient.JobDetails("html", "", "", "", false)));
+
+        assertSame(failure, error.getCause());
     }
 
     @Test

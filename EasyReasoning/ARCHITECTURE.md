@@ -75,6 +75,12 @@ files or batch configuration.
 The CLI accepts plain text commands: `generate "text"` and `stop`, and prints
 model responses as plain text. Quoted prompts may span multiple input lines.
 Readiness and errors go to stderr; no JSON command/response protocol is required.
+`clean-vacancy "text"` invokes `VacancyCleaner.cleanVacancy(text)`. The
+`vacancy.trimming.enabled` switch belongs to EasyReasoning's configuration and
+defaults to false; the operation returns the input unchanged when disabled.
+Collectors call that operation unconditionally. `EasyReasoningApplication`
+provides a standalone, reusable context for such callers; callers with an
+existing context can obtain `VacancyCleaner` directly.
 
 Use a long-lived Java process: initialize Spring and the selected backend once,
 accept repeated operations through the CLI, and shut down through a separate
@@ -150,6 +156,12 @@ processing with the selected text. Use the smallest necessary adaptation of the
 existing pipeline; do not move filtering or persistence into LLM merely to
 connect it. When trimming is disabled, the existing path remains unchanged.
 Do not replace the current Codex agent operations.
+
+The Java collector passes its collection-scoped EasyReasoning application into
+the existing Python bridge. The bridge calls cleanup after `readable_text` and
+before `save_collected_job` and content filtering. All switch interpretation,
+prompting, boundary validation and local before/after diagnostics remain in
+EasyReasoning. Existing pure-Python bridge callers can omit that Java callback.
 
 ## Cloud Boundary
 

@@ -128,7 +128,7 @@ def decide_preview(preview_json: str) -> str:
     return _json(result)
 
 
-def process_html(preview_json: str, html: str, easy_apply: bool) -> str:
+def process_html(preview_json: str, html: str, easy_apply: bool, cleaner=None) -> str:
     session = _require_session()
     preview = _object(preview_json)
     html = _normalize_unicode(html)
@@ -157,6 +157,8 @@ def process_html(preview_json: str, html: str, easy_apply: bool) -> str:
         collection_run_id=session.run_id,
     )
     text = readable_text("linkedin", raw_path)
+    if cleaner is not None:
+        text = _normalize_unicode(cleaner.cleanVacancy(text))
 
     with closing(sqlite3.connect(session.db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")

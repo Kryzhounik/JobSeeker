@@ -27,6 +27,10 @@ continue to another item on your own.
 
 ## Coding Task Handoff
 
+Use this format for small, scoped coding tasks. For larger module-level
+development requiring a documentation set, use Module Implementation
+Documentation below instead.
+
 When asked to prepare an implementation task for another coding agent, base
 it on the decisions already agreed upon. The receiving agent has access to
 the repository but not necessarily to the discussion history.
@@ -65,6 +69,133 @@ authorize implementing the task or reopening agreed design decisions.
 
 The result should resemble a well-written engineering issue or delegation
 to an experienced colleague, not a tutorial.
+
+## Module Implementation Documentation
+
+Use this format for larger developments requiring a module documentation set,
+rather than a compact Coding Task Handoff.
+
+### Purpose
+
+Based on the already agreed requirements, architectural decisions, and current
+project state, prepare a set of documents sufficient for subsequent
+implementation by coding agents.
+
+This task is about **formalizing existing decisions**, not designing the module
+from scratch.
+
+Do not reconsider agreed decisions, introduce new functionality, or add
+unnecessary architectural complexity. Do not start implementation.
+
+### README.md - Module Overview
+
+A short navigation document.
+
+Its purpose is to help a person or agent quickly determine whether the module
+is relevant to the task they are investigating.
+
+Include:
+
+- Module purpose.
+- Responsibility boundaries: what the module does and does not do.
+- Main capabilities provided by the module.
+- High-level interactions with other modules.
+- Links to other module documentation.
+
+Do not include implementation details, internal algorithms, or technical
+information unnecessary for understanding the module's purpose.
+
+**Keep the README short.** It is an entry point, not comprehensive module
+documentation.
+
+### REQUIREMENTS.md - Requirements
+
+Defines **what the implementation must satisfy**.
+
+Include where applicable:
+
+- Functional requirements.
+- Constraints and invariants.
+- External contracts and compatibility requirements.
+- Input and output requirements.
+- Non-functional requirements.
+- Verifiable acceptance criteria.
+
+Do not describe implementation approaches unless they are part of the agreed
+constraints.
+
+Do not duplicate contracts already defined in other documents or schemas.
+Reference them instead.
+
+Create this file only when there are meaningful requirements worth maintaining
+separately.
+
+### ARCHITECTURE.md - Architecture
+
+Documents **how the module is intended to work and why**.
+
+Include:
+
+- Major components and their responsibilities.
+- Architectural boundaries.
+- Component interactions and data flows.
+- Significant technical decisions.
+- Rationale behind non-obvious decisions.
+- Important rejected alternatives and reasons for rejection, if previously
+  discussed.
+- Architectural constraints and invariants.
+
+Do not enumerate every class and method. Do not repeat requirements. Do not
+include implementation sequencing.
+
+Document only agreed architectural decisions. Do not invent new ones.
+
+### PLAN.md - Implementation Plan
+
+Transforms the requirements and architecture into **a sequence of concrete
+tasks for coding agents**.
+
+Break the implementation into logically complete stages.
+
+For each stage, specify:
+
+- Objective.
+- Concrete changes to be made.
+- Dependencies on other stages.
+- Expected outcome.
+- Completion criteria and verification methods.
+
+Plan requirements:
+
+- Each stage must be sufficiently specific to assign to a separate coding agent.
+- Whenever practical, each stage should leave the project in a working state.
+- Stage ordering must respect dependencies.
+- All significant agreed requirements must be covered.
+- Do not introduce optional improvements or speculative future features.
+- Reference other documents instead of duplicating large sections.
+- Avoid prescribing unnecessary implementation details when specifying the
+  expected outcome is sufficient.
+
+`PLAN.md` is a working document that may be deleted after implementation is
+complete.
+
+### General Rules
+
+1. Use the existing discussion context, project code, and agreed decisions as
+   the source material.
+2. Do not start another design or requirements discussion.
+3. Do not turn assumptions into approved requirements or decisions.
+4. If essential information is missing, explicitly identify the gap rather than
+   inventing an answer.
+5. Avoid duplication between documents.
+6. Do not create unnecessary documents or sections. Documentation depth should
+   match module complexity.
+7. Use exact names of existing components, interfaces, and files where useful.
+8. Documentation must be understandable to both humans and coding agents
+   responsible for implementation.
+9. Preserve important architectural rationale, but not the discussion transcript.
+10. **Do not modify implementation code. The only deliverables are documents
+    for subsequent development.**
 
 ## Independent Review - Test Execution Policy
 

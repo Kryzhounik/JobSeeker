@@ -82,6 +82,12 @@ class PreviewTitleDedupTest(unittest.TestCase):
         self.connection.commit()
         self.assertEqual(self.preview()["preview_decision"], "open")
 
+    def test_unfinished_raw_blocks_neither_id_nor_company_title(self) -> None:
+        self.connection.execute("UPDATE source_jobs SET processing_status = 'RAW'")
+        self.connection.commit()
+        self.assertEqual(self.preview(job_id="100")["preview_decision"], "open")
+        self.assertEqual(self.preview(job_id="200")["preview_decision"], "open")
+
 
 if __name__ == "__main__":
     unittest.main()

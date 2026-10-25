@@ -9,6 +9,7 @@ import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.support.JsonSupport;
 import com.seeker.python.JpyRuntime;
+import com.seeker.easyreasoning.EasyReasoningApplication;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
@@ -20,6 +21,7 @@ public final class JpyPythonGateway implements PythonGateway {
     }.getType();
 
     private final PyModule bridge;
+    private final EasyReasoningApplication reasoning;
     private boolean closed;
 
     public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime) {
@@ -41,6 +43,12 @@ public final class JpyPythonGateway implements PythonGateway {
                 paths.databasePath().toString(),
                 paths.rawDirectory().toString()
         );
+        try {
+            reasoning = new EasyReasoningApplication(paths.driverRoot().getParent());
+        } catch (RuntimeException | Error failure) {
+            try { callVoid("close_session"); } finally { bridge.close(); }
+            throw failure;
+        }
     }
 
     @Override
@@ -94,7 +102,8 @@ public final class JpyPythonGateway implements PythonGateway {
                         "process_html",
                         JsonSupport.GSON.toJson(preview),
                         html,
-                        easyApply
+                        easyApply,
+                        reasoning
                 ),
                 ProcessResult.class
         );
@@ -119,7 +128,7 @@ public final class JpyPythonGateway implements PythonGateway {
         try {
             callVoid("close_session");
         } finally {
-            bridge.close();
+            try { bridge.close(); } finally { reasoning.close(); }
         }
     }
 

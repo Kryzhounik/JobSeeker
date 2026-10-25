@@ -10,6 +10,15 @@ collection logging functions through jpy.
 Python service. The underlying Python functions and their CLI entry points stay
 available to agents, tests, and the GUI.
 
+The gateway also owns one `EasyReasoningApplication` for a collection. It passes
+that application to the Python bridge, which calls `cleanVacancy(text)` after
+HTML cleanup and before readable-text persistence and content filtering. The
+optional trimming switch is configured only in
+`EasyReasoning/easy-reasoning.properties` (`vacancy.trimming.enabled=false` by
+default); collector code does not check it. Closing the gateway closes
+EasyReasoning and unloads a used local model. Cleanup errors are reported through
+the existing collection failure path; original readable text is not substituted.
+
 ## Module boundaries
 
 The Java code is split by responsibility:

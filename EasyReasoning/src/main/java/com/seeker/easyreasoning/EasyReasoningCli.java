@@ -1,6 +1,5 @@
 package com.seeker.easyreasoning;
 
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -30,42 +29,35 @@ public final class EasyReasoningCli {
 
     static int run(Path root, BufferedReader input, PrintWriter output, PrintWriter errors) throws Exception {
         boolean hadErrors = false;
-        try (var context = new AnnotationConfigApplicationContext()) {
-            context.registerBean(Path.class, () -> root);
-            context.register(EasyReasoningConfiguration.class);
-            context.refresh();
-            var service = context.getBean(EasyReasoningService.class);
-            try {
-                errors.println("Ready. Enter generate \"text\" or stop.");
-                errors.flush();
-                String line;
-                while ((line = input.readLine()) != null) {
-                    if (line.isBlank()) continue;
-                    try {
-                        String commandLine = line.stripLeading();
-                        int separator = 0;
-                        while (separator < commandLine.length()
-                                && !Character.isWhitespace(commandLine.charAt(separator))) separator++;
-                        String command = commandLine.substring(0, separator);
-                        String argument = commandLine.substring(separator).stripLeading();
-                        if ("stop".equals(command) && argument.isEmpty()) break;
-                        if (!"generate".equals(command)) {
-                            throw new IllegalArgumentException("Usage: generate \"text\" or stop");
-                        }
-                        String response = service.generate(readPrompt(argument, input));
-                        output.print(response);
-                        if (!response.endsWith("\n")) output.println();
-                        output.flush();
-                    } catch (RuntimeException failure) {
-                        hadErrors = true;
-                        errors.println("Error: " + (failure.getMessage() == null
-                                ? failure.getClass().getSimpleName() : failure.getMessage()));
-                        errors.flush();
+        try (var application = new EasyReasoningApplication(root)) {
+            errors.println("Ready. Enter generate \"text\", clean-vacancy \"text\" or stop.");
+            errors.flush();
+            String line;
+            while ((line = input.readLine()) != null) {
+                if (line.isBlank()) continue;
+                try {
+                    String commandLine = line.stripLeading();
+                    int separator = 0;
+                    while (separator < commandLine.length()
+                            && !Character.isWhitespace(commandLine.charAt(separator))) separator++;
+                    String command = commandLine.substring(0, separator);
+                    String argument = commandLine.substring(separator).stripLeading();
+                    if ("stop".equals(command) && argument.isEmpty()) break;
+                    if (!"generate".equals(command) && !"clean-vacancy".equals(command)) {
+                        throw new IllegalArgumentException("Usage: generate \"text\", clean-vacancy \"text\" or stop");
                     }
+                    String prompt = readPrompt(argument, input);
+                    String response = "generate".equals(command) ? application.generate(prompt)
+                            : application.cleanVacancy(prompt);
+                    output.print(response);
+                    if (!response.endsWith("\n")) output.println();
+                    output.flush();
+                } catch (RuntimeException failure) {
+                    hadErrors = true;
+                    errors.println("Error: " + (failure.getMessage() == null
+                            ? failure.getClass().getSimpleName() : failure.getMessage()));
+                    errors.flush();
                 }
-            } finally {
-                // Explicit close exposes backend shutdown failures; Spring also owns lifecycle cleanup.
-                service.close();
             }
         }
         errors.println("Stopped.");

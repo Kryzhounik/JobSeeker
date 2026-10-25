@@ -1,6 +1,7 @@
 package com.seeker.easyreasoning.llm;
 
 import com.seeker.easyreasoning.EasyReasoningService;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.ollama.api.OllamaApi;
@@ -14,28 +15,17 @@ import org.springframework.core.retry.RetryPolicy;
 import org.springframework.core.retry.RetryTemplate;
 import org.springframework.util.Assert;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Properties;
 
 /** Manual Spring AI wiring; constructing the context does not contact Ollama. */
 @Configuration(proxyBeanMethods = false)
 public class OllamaConfiguration {
     @Bean
-    OllamaSettings ollamaSettings(Environment environment, Path projectRoot) throws IOException {
-        Properties settings = new Properties();
-        Path configFile = projectRoot.resolve("EasyReasoning/easy-reasoning.properties");
-        if (Files.exists(configFile)) {
-            try (var reader = Files.newBufferedReader(configFile, StandardCharsets.UTF_8)) {
-                settings.load(reader);
-            }
-        }
+    OllamaSettings ollamaSettings(Environment environment, @Qualifier("easyReasoningProperties") Properties easyReasoningProperties) {
         String baseUrl = environment.getProperty("spring.ai.ollama.base-url",
-                settings.getProperty("spring.ai.ollama.base-url", "http://localhost:11434"));
+                easyReasoningProperties.getProperty("spring.ai.ollama.base-url", "http://localhost:11434"));
         String model = environment.getProperty("spring.ai.ollama.chat.model",
-                settings.getProperty("spring.ai.ollama.chat.model", "qwen2.5:0.5b"));
+                easyReasoningProperties.getProperty("spring.ai.ollama.chat.model", "qwen2.5:0.5b"));
         Assert.hasText(model, "spring.ai.ollama.chat.model must not be blank");
         return new OllamaSettings(baseUrl, model);
     }
