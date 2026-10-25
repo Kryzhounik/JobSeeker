@@ -93,3 +93,11 @@ with larger models possible.
 * **Optional ideas for future development and use.** Possible email analysis to
   identify the company and what the message says. This is an idea only, not an
   implementation assignment; do not design its API or expand the topic yet.
+
+* **Optional session/dialogue experiments.** Explore whether explicit dialogues
+  improve vacancy trimming: compare independent prompts, fixed verified examples,
+  refinement of one vacancy after feedback, and history across related vacancies.
+  Assess trimming quality, latency and context/token cost. Preserve independent
+  `generate(prompt)` calls and avoid implicit process-wide history. This is an
+  optional future experiment, not a current implementation assignment; follow
+  the session boundaries described in [ARCHITECTURE.md](ARCHITECTURE.md).

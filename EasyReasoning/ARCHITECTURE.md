@@ -17,8 +17,9 @@ or introduce a separate SDK/CLI transport. This integration is not assigned yet.
 Keep backend-specific requests and lifecycle behavior behind the gateway.
 Vacancy cleanup is an application operation inside EasyReasoning over
 `generate`; its prompting, line numbering, parsing and slicing must not become
-responsibilities of each backend. Preserve independent requests without shared
-chat history. Backend choice is explicit configuration, not automatic routing
+responsibilities of each backend. Preserve independent `generate(prompt)` requests
+without implicit shared chat history; optional explicit dialogues are discussed
+below. Backend choice is explicit configuration, not automatic routing
 or fallback. Do not build a provider registry, placeholder Codex configuration
 or adapter infrastructure before the second backend is assigned.
 
@@ -82,6 +83,34 @@ Ollama inference, normal module shutdown must explicitly unload the configured
 model from Ollama memory rather than leave it waiting for idle eviction. This is
 the local Ollama backend's policy, not a universal model-unload contract.
 Reconsider lifecycle separately for cloud Ollama and the future Codex backend.
+
+## Optional Dialogue Sessions
+
+Dialogue sessions are a possible future extension, not a current implementation
+assignment. Keep `generate(prompt)` independent. If dialogue support is added,
+make it explicit through a separate session with repeated generation calls and
+a matching CLI capability. History belongs to that dialogue, not to the entire
+Java process. Session boundaries are separate from application and model
+lifecycles. Keep the session contract backend-independent; storage and concrete
+API/CLI details are not decided yet.
+
+History supplies previous messages as context for later requests; it does not
+train the model. For trimming, a dialogue could help refine one vacancy after
+feedback such as "you removed part of the requirements". Across different
+vacancies, previous inputs and answers could serve as examples, especially for
+similar source templates. They can also carry forward incorrect cuts: without
+feedback, the model does not know which previous answers were correct.
+
+Growing history consumes the available context window and can increase memory
+use, latency and token cost. Results also depend on the preceding conversation
+and processing order, while old documents or instructions may distract from the
+current vacancy. Benefit for the small model is an experimental question.
+
+For trimming, first consider a few fixed, verified examples in independent
+prompts. Optional later experiments can compare those with dialogue-based
+refinement of one vacancy and history across related vacancies. Preserve the
+unchanged-source-fragment contract in every mode. Do not add session machinery
+or history persistence before that experiment is explicitly assigned.
 
 ## Boundary Detection, Not Rewriting
 
