@@ -273,6 +273,27 @@ public APIs and architectural boundaries, evaluate design decisions
 independently rather than accepting them merely because they follow existing
 patterns.
 
+## No Unrequested Scope Expansion
+
+Implement the requested behavior and the changes necessary to support it.
+
+Do not treat useful follow-ups, convenience features, or anticipated future
+needs as implied requirements.
+
+Do not add unrequested public APIs, CLI commands, GUI controls, configuration
+options, or other externally visible capabilities unless they are necessary
+for the agreed task.
+
+If such an addition is not necessary, omit it. If it is necessary but introduces
+a significant decision not already agreed upon, obtain approval before
+implementing it.
+
+Routine internal helpers and straightforward integration changes needed for
+the requested behavior do not require separate approval.
+
+**Module ownership defines where you may work, not which additional features
+you may invent.**
+
 ## Cross-Module Changes
 
 Implementation agents must obtain the user's approval before making

@@ -26,7 +26,7 @@ def start_collection_run(
             """
             INSERT INTO linkedin_collection_runs (
                 run_id,
-                status,
+                collection_status,
                 config_json
             )
             VALUES (?, 'running', ?)
@@ -34,6 +34,9 @@ def start_collection_run(
                 started_at = CURRENT_TIMESTAMP,
                 finished_at = NULL,
                 status = 'running',
+                stage = 'Collection',
+                collection_status = 'running',
+                collection_finished_at = NULL,
                 stop_reason = '',
                 accepted_count = 0,
                 config_json = excluded.config_json,
@@ -153,14 +156,18 @@ def finish_collection_run(
             """
             UPDATE linkedin_collection_runs
             SET
-                finished_at = CURRENT_TIMESTAMP,
-                status = ?,
+                collection_finished_at = CURRENT_TIMESTAMP,
+                collection_status = ?,
+                status = CASE WHEN ? = 'complete' THEN status ELSE 'failed' END,
+                finished_at = CASE WHEN ? = 'complete' THEN finished_at ELSE CURRENT_TIMESTAMP END,
                 stop_reason = ?,
                 accepted_count = ?,
                 message = ?
             WHERE run_id = ?
             """,
             (
+                status.strip(),
+                status.strip(),
                 status.strip(),
                 stop_reason.strip(),
                 int(accepted_count),

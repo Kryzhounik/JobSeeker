@@ -94,7 +94,12 @@ public final class WorkflowOrchestrator {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
-        return processCollected(linkedinCollection.collect(run::collection), run);
+        try {
+            return processCollected(linkedinCollection.collect(run::collection), run);
+        } catch (IOException | UsageLimitExceededException | RuntimeException error) {
+            failBatch(run.runId(), error);
+            throw error;
+        }
     }
 
     public WorkflowResult processUrls(String... urls) throws IOException, UsageLimitExceededException {
@@ -125,7 +130,13 @@ public final class WorkflowOrchestrator {
 
     private WorkflowResult processUrls(List<String> urls, String runPrefix, WorkflowProgress.Run run)
             throws IOException, UsageLimitExceededException {
-        WorkflowResult report = processCollected(linkedinUrls.collect(urls, runPrefix, run::collection), run);
+        WorkflowResult report;
+        try {
+            report = processCollected(linkedinUrls.collect(urls, runPrefix, run::collection), run);
+        } catch (IOException | UsageLimitExceededException | RuntimeException error) {
+            failBatch(run.runId(), error);
+            throw error;
+        }
         int agentFiltered = report.agentFilteredCount();
         if (agentFiltered > 0) {
             String reason = urls.size() == 1
@@ -142,15 +153,23 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult resume(String runId, Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
-        List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
-        return processScope("linkedin", runId, scope, null, new WorkflowProgress.Run(progress));
+        try {
+            List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
+            return processScope("linkedin", runId, scope, null, new WorkflowProgress.Run(progress));
+        } catch (UsageLimitExceededException | RuntimeException error) {
+            failBatch(runId, error);
+            throw error;
+        }
     }
 
     private WorkflowResult processCollected(CollectionReport collected, WorkflowProgress.Run run)
             throws UsageLimitExceededException {
         run.collectionResult(collected);
         if (!"complete".equals(collected.status()) || collected.scope().isEmpty()) {
-            if ("complete".equals(collected.status())) run.complete(collected.message());
+            boolean complete = "complete".equals(collected.status());
+            processingGateway.updateBatch(collected.runId(), complete ? "complete" : "failed",
+                    "Collection", collected.message());
+            if (complete) run.complete(collected.message());
             return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
                     collected, List.of(), 0, collected.message());
         }
@@ -163,12 +182,14 @@ public final class WorkflowOrchestrator {
         run.identify(runId);
         run.count("Scope", scope.size());
         run.preparing(collected == null ? "Relevance filter" : "Collection", "Loading processing scope");
+        processingGateway.updateBatch(runId, "running", "", "");
         Map<String, String> statuses = new HashMap<>(processingGateway.loadStatuses(source, scope));
         run.count("Already saved", atStatus(scope, statuses, "SAVED").size());
         run.count("Rejected by relevance", atStatus(scope, statuses, "NONRELEVANT").size());
         Set<String> acceptedStatuses = Set.of("RELEVANT", "ANALYZED", "SCORED", "SAVED");
         List<ScopeItem> unfiltered = atStatus(scope, statuses, "CLEANED");
         if (!unfiltered.isEmpty()) {
+            batchStage(runId, "Relevance filter");
             run.work("Relevance filter", "Filtering vacancies", 0, unfiltered.size(), null);
             AgentFilterResult result = processingGateway.runRelevanceFilter(runId, unfiltered);
             List<String> nonrelevantIds = validateResult(unfiltered, result.nonrelevantJobIds());
@@ -189,6 +210,7 @@ public final class WorkflowOrchestrator {
         run.total("Job facts", facts.size());
         run.total("Candidate fit", facts.size() + atStatus(remaining, statuses, "ANALYZED").size());
         if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
+            batchStage(runId, facts.isEmpty() ? "Candidate fit" : "Job facts");
             run.preparing(facts.isEmpty() ? "Candidate fit" : "Job facts", "Preparing analysis");
             processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
         }
@@ -197,8 +219,10 @@ public final class WorkflowOrchestrator {
         runFinishAnalysis(runId, source, atStatus(remaining, statuses, "ANALYZED"), run);
         List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
         if (!scored.isEmpty()) {
+            batchStage(runId, "Saving");
             run.saved(processingGateway.saveScored(source, scored.stream().map(ScopeItem::jobId).toList()));
         }
+        processingGateway.updateBatch(runId, "complete", "", collected == null ? "" : collected.message());
         run.complete(collected == null ? "" : collected.message());
         return new WorkflowResult(source, runId, "complete", collected, remaining,
                 atStatus(scope, statuses, "NONRELEVANT").size(), run.savedCount(),
@@ -216,10 +240,16 @@ public final class WorkflowOrchestrator {
         run.count("Scope", scope.size());
         run.total("Job facts", scope.size());
         run.preparing("Job facts", "Preparing analysis");
-        processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
-        runJobFacts(runId, source, scope, run);
-        run.complete("");
-        return new StageResult(source, runId, scope);
+        try {
+            batchStage(runId, "Job facts");
+            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
+            runJobFacts(runId, source, scope, run);
+            run.complete("");
+            return new StageResult(source, runId, scope);
+        } catch (UsageLimitExceededException | RuntimeException error) {
+            failBatch(runId, error);
+            throw error;
+        }
     }
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope)
@@ -234,10 +264,17 @@ public final class WorkflowOrchestrator {
         run.count("Scope", scope.size());
         run.total("Candidate fit", scope.size());
         run.preparing("Candidate fit", "Preparing analysis");
-        processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
-        runFinishAnalysis(runId, source, scope, run);
-        run.complete("");
-        return new StageResult(source, runId, scope, run.savedCount());
+        try {
+            batchStage(runId, "Candidate fit");
+            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
+            runFinishAnalysis(runId, source, scope, run);
+            processingGateway.updateBatch(runId, "complete", "", "");
+            run.complete("");
+            return new StageResult(source, runId, scope, run.savedCount());
+        } catch (UsageLimitExceededException | RuntimeException error) {
+            failBatch(runId, error);
+            throw error;
+        }
     }
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)
@@ -262,6 +299,7 @@ public final class WorkflowOrchestrator {
     private void runFinishAnalysis(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)
             throws UsageLimitExceededException {
         if (scope.isEmpty()) return;
+        batchStage(runId, "Candidate fit");
         String threadId = null;
         String target = source + ":candidate_fit";
         int completed = 0;
@@ -271,7 +309,22 @@ public final class WorkflowOrchestrator {
             run.work("Candidate fit", "Fit evaluated", ++completed, scope.size(), item);
             processingGateway.calculateJobInterest(source, item.jobId());
         }
+        batchStage(runId, "Saving");
         run.saved(processingGateway.saveScored(source, scope.stream().map(ScopeItem::jobId).toList()));
+    }
+
+    private void batchStage(String runId, String stage) {
+        processingGateway.updateBatch(runId, "running", stage, "");
+    }
+
+    private void failBatch(String runId, Exception error) {
+        if (runId == null) return; // Collection may fail before creating a run.
+        String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
+        try {
+            processingGateway.updateBatch(runId, "failed", "", message);
+        } catch (RuntimeException persistenceError) {
+            error.addSuppressed(persistenceError);
+        }
     }
 
     private static List<ScopeItem> atStatus(

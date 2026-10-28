@@ -162,6 +162,8 @@ def migration_already_effective(
                 "cumulative_reasoning_output_tokens",
             )
         )
+    if version == "042_batch_state":
+        return column_exists(connection, "linkedin_collection_runs", "collection_status")
     return False
 
 

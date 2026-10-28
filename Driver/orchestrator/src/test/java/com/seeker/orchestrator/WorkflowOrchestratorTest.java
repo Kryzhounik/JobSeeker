@@ -63,6 +63,10 @@ class WorkflowOrchestratorTest {
         assertEquals("2 / 2", updates.getLast().fields().get("Candidate fit"));
         assertEquals("2", updates.getLast().fields().get("Saved"));
         assertEquals(2, result.savedCount());
+        assertEquals("complete", gateway.batchStatuses.get("run-1"));
+        assertEquals("Saving", gateway.batchStages.get("run-1"));
+        assertEquals(List.of("running:", "running:Relevance filter", "running:Job facts",
+                "running:Candidate fit", "running:Saving", "complete:"), gateway.batchUpdates);
     }
 
     @Test
@@ -80,6 +84,8 @@ class WorkflowOrchestratorTest {
         assertEquals("run-1", updates.getLast().runId());
         assertEquals("0 / 1", updates.getLast().fields().get("Job facts"));
         assertFalse(updates.stream().anyMatch(update -> update.action().equals("Complete")));
+        assertEquals("failed", gateway.batchStatuses.get("run-1"));
+        assertEquals("Job facts", gateway.batchStages.get("run-1"));
     }
 
     @Test
@@ -358,6 +364,7 @@ class WorkflowOrchestratorTest {
         assertEquals(result.processedScope(), resumed.processedScope());
         assertEquals(0, resumed.savedCount());
         assertEquals(completedCalls, filter.calls.size());
+        assertEquals("complete", filter.batchStatuses.get("run-1"));
     }
 
     @Test
@@ -569,9 +576,20 @@ class WorkflowOrchestratorTest {
         private UsageLimitExceededException usageLimit;
         private String limitStage;
         private Integer confirmedSaved;
+        private final Map<String, String> batchStatuses = new HashMap<>();
+        private final Map<String, String> batchStages = new HashMap<>();
+        private final List<String> batchUpdates = new ArrayList<>();
 
         private FakeProcessingGateway(List<String> rejectedIds) {
             this.rejectedIds = rejectedIds;
+        }
+
+        @Override
+        public void updateBatch(String runId, String status, String stage, String message) {
+            batchUpdates.add(status + ":" + stage);
+            batchStatuses.put(runId, status);
+            batchStages.putIfAbsent(runId, "Collection");
+            if (!stage.isEmpty()) batchStages.put(runId, stage);
         }
 
         @Override

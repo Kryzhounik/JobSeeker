@@ -66,6 +66,10 @@ public record WorkflowProgress(String runId, String stage, String action, String
             runId = value;
         }
 
+        String runId() {
+            return runId;
+        }
+
         void count(String label, int value) {
             fields.put(label, Integer.toString(value));
         }

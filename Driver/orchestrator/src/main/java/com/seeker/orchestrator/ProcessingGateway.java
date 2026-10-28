@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Map;
 
 interface ProcessingGateway {
+    void updateBatch(String runId, String status, String stage, String message);
+
     List<ScopeItem> loadCollectedScope(String runId);
 
     Map<String, String> loadStatuses(String source, List<ScopeItem> scope);

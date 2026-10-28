@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+import json
 from pathlib import Path
 import sqlite3
 import sys
@@ -17,9 +18,71 @@ from codex_proxy.backend import Result
 from orchestrator import python_bridge
 from db.job_registry import insert_source_job
 from db.migrate import migrate_database
+from collector.logging.linkedin_run_logger import start_collection_run, finish_collection_run
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    @staticmethod
+    def _batch(database: Path) -> dict:
+        with closing(sqlite3.connect(database)) as connection:
+            connection.row_factory = sqlite3.Row
+            return dict(connection.execute("SELECT * FROM linkedin_collection_runs WHERE run_id = 'batch-1'").fetchone())
+
+    def test_batch_continues_after_collection_limit_and_can_resume_after_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            migrate_database(database)
+            start_collection_run("batch-1", {}, database)
+            with closing(sqlite3.connect(database)) as connection:
+                insert_source_job(connection, "linkedin", "1", "CLEANED", collection_run_id="batch-1")
+                connection.execute(
+                    "INSERT INTO source_job_texts (source_job_ref, readable_text, title) "
+                    "SELECT id, 'Job description', 'Java' FROM source_jobs"
+                )
+                connection.commit()
+            finish_collection_run("batch-1", "complete", "limit_reached", 1, "", database)
+            batch = self._batch(database)
+            self.assertEqual(("running", "Collection", "complete", None),
+                             (batch["status"], batch["stage"], batch["collection_status"], batch["finished_at"]))
+
+            python_bridge.update_batch("batch-1", "running", "Job facts", "", str(database))
+            python_bridge.update_batch("batch-1", "failed", "", "Failed to extract facts", str(database))
+            batch = self._batch(database)
+            self.assertEqual(("failed", "Job facts"), (batch["status"], batch["stage"]))
+            self.assertIsNotNone(batch["finished_at"])
+            self.assertEqual("1", json.loads(python_bridge.load_collected_scope("batch-1", str(database)))[0]["job_id"])
+            python_bridge.update_batch("batch-1", "running", "Job facts", "", str(database))
+            self.assertIsNone(self._batch(database)["finished_at"])
+            python_bridge.update_batch("batch-1", "complete", "Saving", "", str(database))
+            self.assertEqual("running", self._batch(database)["status"])
+            with closing(sqlite3.connect(database)) as connection:
+                connection.execute("UPDATE source_jobs SET processing_status = 'SAVED'")
+                connection.commit()
+            python_bridge.update_batch("batch-1", "complete", "Saving", "", str(database))
+            self.assertEqual("complete", self._batch(database)["status"])
+
+    def test_migration_preserves_collection_state_and_existing_links(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            migrate_database(database)
+            start_collection_run("old-batch", {}, database)
+            finish_collection_run("old-batch", "complete", "limit_reached", 1, "", database)
+            with closing(sqlite3.connect(database)) as connection:
+                insert_source_job(connection, "linkedin", "1", "CLEANED", collection_run_id="old-batch")
+                connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN status")
+                connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN stage")
+                connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN finished_at")
+                connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_status TO status")
+                connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_finished_at TO finished_at")
+                connection.execute("DELETE FROM schema_migrations WHERE version = '042_batch_state'")
+                connection.commit()
+            migrate_database(database)
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual(("running", "complete", 1, "old-batch"), connection.execute(
+                    "SELECT run.status, run.collection_status, run.collection_finished_at IS NOT NULL, job.collection_run_id "
+                    "FROM linkedin_collection_runs run JOIN source_jobs job ON job.collection_run_id = run.run_id"
+                ).fetchone())
+
     @patch("orchestrator.python_bridge.save_records")
     def test_saved_count_excludes_skipped_records(self, save) -> None:
         save.return_value = [("save", "new"), ("skip", "already present")]

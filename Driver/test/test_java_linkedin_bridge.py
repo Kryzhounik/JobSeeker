@@ -249,7 +249,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 ).fetchone()
                 logged_run = connection.execute(
                     """
-                    SELECT status, stop_reason, accepted_count, finished_at IS NOT NULL
+                    SELECT collection_status, stop_reason, accepted_count, collection_finished_at IS NOT NULL
                     FROM linkedin_collection_runs
                     WHERE run_id = ?
                     """,

@@ -30,6 +30,15 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
+    public void updateBatch(String runId, String status, String stage, String message) {
+        try (PyModule bridge = bridge();
+             PyObject ignored = bridge.callMethod(
+                     "update_batch", runId, status, stage, message, paths.databasePath().toString())) {
+            // Update the existing collection row, never a second batch registry.
+        }
+    }
+
+    @Override
     public List<ScopeItem> loadCollectedScope(String runId) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(

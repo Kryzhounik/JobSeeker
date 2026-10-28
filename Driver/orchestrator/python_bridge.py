@@ -60,7 +60,7 @@ def load_collected_scope(run_id: str, db_path: str) -> str:
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         run_row = connection.execute(
-            "SELECT status, accepted_count FROM linkedin_collection_runs WHERE run_id = ?",
+            "SELECT collection_status, accepted_count FROM linkedin_collection_runs WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         if run_row is None or run_row[0] != "complete":
@@ -88,6 +88,30 @@ def load_collected_scope(run_id: str, db_path: str) -> str:
         {"source": "linkedin", "job_id": job_id, "title": title}
         for job_id, title in rows
     ])
+
+
+def update_batch(run_id: str, status: str, stage: str, message: str, db_path: str) -> None:
+    database = Path(db_path)
+    migrate_database(database)
+    with closing(sqlite3.connect(database)) as connection:
+        # A partial finish-analysis command must not complete the rest of its batch.
+        if status == "complete" and connection.execute(
+            "SELECT 1 FROM source_jobs WHERE collection_run_id = ? "
+            "AND processing_status IN ('RAW', 'CLEANED', 'RELEVANT', 'ANALYZED', 'SCORED') LIMIT 1",
+            (run_id,),
+        ).fetchone():
+            status = "running"
+        connection.execute(
+            """
+            UPDATE linkedin_collection_runs
+            SET status = ?, stage = CASE WHEN ? = '' THEN stage ELSE ? END,
+                finished_at = CASE WHEN ? = 'running' THEN NULL ELSE CURRENT_TIMESTAMP END,
+                message = ?
+            WHERE run_id = ?
+            """,
+            (status, stage, stage, status, message, run_id),
+        )
+        connection.commit()
 
 
 def load_statuses(source: str, job_ids_json: str, db_path: str) -> str:
