@@ -153,8 +153,8 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult resume(String runId, Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
+        List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
         try {
-            List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
             return processScope("linkedin", runId, scope, null, new WorkflowProgress.Run(progress));
         } catch (UsageLimitExceededException | RuntimeException error) {
             failBatch(runId, error);
@@ -244,6 +244,7 @@ public final class WorkflowOrchestrator {
             batchStage(runId, "Job facts");
             processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
             runJobFacts(runId, source, scope, run);
+            processingGateway.updateBatch(runId, "pending", "", "");
             run.complete("");
             return new StageResult(source, runId, scope);
         } catch (UsageLimitExceededException | RuntimeException error) {

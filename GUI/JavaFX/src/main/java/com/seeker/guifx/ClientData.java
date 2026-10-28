@@ -122,6 +122,10 @@ final class ClientData {
         }
     }
 
+    synchronized List<CollectionRunDto> loadCollectionRuns() throws Exception {
+        return readRows(call("load_collection_runs", databasePath.toString()), CollectionRunDto.class);
+    }
+
     synchronized List<CollectedJobDto> loadCollectedJobs() throws Exception {
         return readRows(call("load_collected_jobs", databasePath.toString()), CollectedJobDto.class);
     }

@@ -373,6 +373,20 @@ def load_job_detail(db_path: str | Path, source_url: str | int) -> str:
     })
 
 
+def load_collection_runs(db_path: str | Path) -> str:
+    with _connection(db_path, readonly=True) as connection:
+        rows = connection.execute(
+            """
+            SELECT run_id, started_at, finished_at, status, stage,
+                   collection_status, collection_finished_at, accepted_count,
+                   stop_reason, message
+            FROM linkedin_collection_runs
+            ORDER BY started_at DESC, run_id DESC
+            """
+        ).fetchall()
+        return _json(_rows_as_dicts(rows))
+
+
 def load_collected_jobs(db_path: str | Path) -> str:
     with _connection(db_path, readonly=True) as connection:
         rows = load_collected_jobs_from_connection(connection)

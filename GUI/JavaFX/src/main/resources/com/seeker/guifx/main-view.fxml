@@ -20,6 +20,7 @@
 <?import javafx.scene.layout.Priority?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.layout.StackPane?>
+<?import com.seeker.guifx.WindowStatusBar?>
 
 <BorderPane xmlns="http://javafx.com/javafx/21"
             xmlns:fx="http://javafx.com/fxml/1"
@@ -40,6 +41,7 @@
                     <Button fx:id="refilterButton" text="Refilter" />
                     <Button fx:id="refilterDetailButton" text="Refilter detail" />
                 </HBox>
+                <Button fx:id="runsButton" text="Runs" />
                 <Button fx:id="companiesButton" text="Companies" />
                 <Button fx:id="applicationsButton" text="Applications" />
                 <Button fx:id="collectedButton" text="Collected" />
@@ -173,11 +175,9 @@
         </StackPane>
     </center>
     <bottom>
-        <HBox alignment="CENTER_LEFT" spacing="8.0" styleClass="toolbar">
-            <padding><Insets top="5.0" right="10.0" bottom="5.0" left="10.0" /></padding>
-            <Button fx:id="blackTitlesButton" text="Black titles" />
-            <Region HBox.hgrow="ALWAYS" />
-            <Label fx:id="statusLabel" text="Starting..." styleClass="status-label" alignment="CENTER_RIGHT" />
-        </HBox>
+        <WindowStatusBar>
+            <left><Button fx:id="blackTitlesButton" text="Black titles" /></left>
+            <status><Label fx:id="statusLabel" text="Starting..." /></status>
+        </WindowStatusBar>
     </bottom>
 </BorderPane>

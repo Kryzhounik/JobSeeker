@@ -158,8 +158,8 @@ def finish_collection_run(
             SET
                 collection_finished_at = CURRENT_TIMESTAMP,
                 collection_status = ?,
-                status = CASE WHEN ? = 'complete' THEN status ELSE 'failed' END,
-                finished_at = CASE WHEN ? = 'complete' THEN finished_at ELSE CURRENT_TIMESTAMP END,
+                status = CASE WHEN ? = 'complete' THEN 'pending' ELSE 'failed' END,
+                finished_at = CASE WHEN ? = 'complete' THEN NULL ELSE CURRENT_TIMESTAMP END,
                 stop_reason = ?,
                 accepted_count = ?,
                 message = ?

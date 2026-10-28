@@ -21,7 +21,15 @@ public final class FxmlSmoke {
                 Button batch = (Button) loader.getNamespace().get("batchButton");
                 Button collect = (Button) loader.getNamespace().get("collectButton");
                 Button config = (Button) loader.getNamespace().get("configButton");
+                Button runs = (Button) loader.getNamespace().get("runsButton");
+                Button companies = (Button) loader.getNamespace().get("companiesButton");
                 Button refresh = (Button) loader.getNamespace().get("refreshButton");
+                javafx.scene.control.Label statusLabel = (javafx.scene.control.Label) loader.getNamespace().get("statusLabel");
+                Button blackTitles = (Button) loader.getNamespace().get("blackTitlesButton");
+                if (!(statusLabel.getParent() instanceof WindowStatusBar footer)
+                        || footer.getStatus() != statusLabel || footer.getLeft() != blackTitles) {
+                    throw new AssertionError("Main window does not use the shared status bar");
+                }
                 Button refilter = (Button) loader.getNamespace().get("refilterButton");
                 Button refilterDetail = (Button) loader.getNamespace().get("refilterDetailButton");
                 HBox collectionGroup = (HBox) batch.getParent();
@@ -34,6 +42,8 @@ public final class FxmlSmoke {
                         || !collectionGroup.getStyleClass().contains("toolbar-button-group")
                         || !refilterGroup.getStyleClass().contains("toolbar-button-group")
                         || actions.getChildren().getLast() != config
+                        || actions.getChildren().indexOf(runs) + 1 != actions.getChildren().indexOf(companies)
+                        || !runs.getText().equals("Runs") || runs.getOnAction() == null
                         || actions == filters || filters.getChildren().getFirst() != refresh
                         || batch.getOnAction() == null
                         || !batch.getStyleClass().containsAll(java.util.List.of("collect-button", "batch-button"))

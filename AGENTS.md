@@ -266,6 +266,14 @@ Do not ignore real defects. But distinguish problems that materially affect
 the tool's usefulness from speculative risks that are acceptable for this
 project.
 
+## Prefer Existing Libraries
+
+Prefer suitable standard-library APIs and open-source libraries over equivalent
+custom implementations, even when they replace only a few lines of code.
+
+Do not add a dependency when integrating it would be more complex than a small
+local implementation.
+
 ## Independent Design Judgment During Review
 
 Existing code is not proof of good design. When reviewing new or modified

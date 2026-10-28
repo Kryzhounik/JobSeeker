@@ -60,11 +60,15 @@ def load_collected_scope(run_id: str, db_path: str) -> str:
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         run_row = connection.execute(
-            "SELECT collection_status, accepted_count FROM linkedin_collection_runs WHERE run_id = ?",
+            "SELECT collection_status, accepted_count, status FROM linkedin_collection_runs WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         if run_row is None or run_row[0] != "complete":
             raise ValueError(f"LinkedIn collection is not complete: {run_id}")
+        if run_row[2] == "running":
+            raise ValueError(f"Batch is already running: {run_id}")
+        if run_row[2] == "complete":
+            raise ValueError(f"Batch is already complete: {run_id}")
         rows = connection.execute(
             """
             SELECT job.source_job_id, text.title
@@ -100,12 +104,12 @@ def update_batch(run_id: str, status: str, stage: str, message: str, db_path: st
             "AND processing_status IN ('RAW', 'CLEANED', 'RELEVANT', 'ANALYZED', 'SCORED') LIMIT 1",
             (run_id,),
         ).fetchone():
-            status = "running"
+            status = "pending"
         connection.execute(
             """
             UPDATE linkedin_collection_runs
             SET status = ?, stage = CASE WHEN ? = '' THEN stage ELSE ? END,
-                finished_at = CASE WHEN ? = 'running' THEN NULL ELSE CURRENT_TIMESTAMP END,
+                finished_at = CASE WHEN ? IN ('running', 'pending') THEN NULL ELSE CURRENT_TIMESTAMP END,
                 message = ?
             WHERE run_id = ?
             """,

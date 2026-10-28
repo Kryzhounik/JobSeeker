@@ -109,15 +109,20 @@ Codex exhaustion leaves the last progress snapshot unchanged and propagates the 
 `UsageLimitExceededException` with its `retryAt`. There is no automatic retry.
 
 Batch state is persisted in the existing `linkedin_collection_runs` row.
-`status` is `running`, `failed`, or `complete`;
+`status` is `running`, `pending`, `failed`, or `complete`;
 `stage` records Collection, Relevance filter, Job facts, Candidate fit, or Saving.
 The collector's own result/timestamp are kept in `collection_status` and
-`collection_finished_at`. Reaching the collection limit does not finish the batch.
+`collection_finished_at`. A successful standalone Collect leaves the batch `pending`.
+In a full Batch, the orchestrator immediately continues as `running` after collection.
+Reaching the collection limit does not finish the batch.
 Failures keep the last stage; resume still selects work by individual vacancy statuses.
-Partial analysis commands update the same record; completion requires no unfinished
+Resume accepts `pending` and `failed` batches with completed collection;
+`running` and `complete` are rejected without changing their state.
+Partial analysis commands leave `pending` when further work remains; completion requires no unfinished
 vacancies in the batch. Saving remains absent from intermediate GUI progress events.
 Migration 042 preserves IDs and existing vacancy/page links. Historical collection
-completion alone is not treated as proof that the whole workflow completed.
+completion alone is not treated as proof that the whole workflow completed;
+historical rows are marked `failed`, not active `running`.
 CLI retains exit code `3` for that expected limit, rather than an application-error
 stack trace. CLI notifications are emitted as
 `WORKFLOW_PROGRESS ` JSON lines on stderr. JPy gateways do not

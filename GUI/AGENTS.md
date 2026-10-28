@@ -35,7 +35,6 @@ directly under `GUI/`, such as `client_data.py`, are not part of this restrictio
 
 5. Prefer standard Java and JavaFX features.
 
-   - Do not reimplement functionality already provided by a suitable standard feature or a mature library. Do not add an external dependency for a trivial function.
    - Use standard JavaFX controls and mechanisms such as TableView, ListView, TreeView, cell factories, dialogs, context menus, and layout containers.
    - Keep the application's appearance simple and standard. Do not create custom controls or event systems when JavaFX already handles the task.
 

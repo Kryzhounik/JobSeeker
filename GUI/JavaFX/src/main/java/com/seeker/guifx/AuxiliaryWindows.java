@@ -44,6 +44,8 @@ final class AuxiliaryWindows {
     private final Consumer<Integer> openJob;
     private final SettingsStore settingsStore;
     private final Consumer<String> addTitleToBlacklist;
+    private final Consumer<CollectionRunDto> resumeRun;
+    private final BooleanProperty workflowRunning = new SimpleBooleanProperty();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "javafx-auxiliary-data");
         thread.setDaemon(true);
@@ -52,6 +54,10 @@ final class AuxiliaryWindows {
     private Stage companiesStage;
     private Stage applicationsStage;
     private Stage collectedStage;
+    private Stage runsStage;
+    private TableView<CollectionRunDto> runsTable;
+    private Button runsRefresh;
+    private Label runsCount;
     private TableView<CompanyRow> companiesTable;
     private List<CompanyRow> companyRows = new ArrayList<>();
 
@@ -59,12 +65,22 @@ final class AuxiliaryWindows {
             ClientData data,
             Consumer<Integer> openJob,
             SettingsStore settingsStore,
-            Consumer<String> addTitleToBlacklist
+            Consumer<String> addTitleToBlacklist,
+            Consumer<CollectionRunDto> resumeRun
     ) {
         this.data = data;
         this.openJob = openJob;
         this.settingsStore = settingsStore;
         this.addTitleToBlacklist = addTitleToBlacklist;
+        this.resumeRun = resumeRun;
+    }
+
+    void setWorkflowRunning(boolean running) {
+        workflowRunning.set(running);
+    }
+
+    void refreshRunsIfOpen() {
+        if (runsStage != null && runsStage.isShowing()) refreshRuns();
     }
 
     void shutdown() {
@@ -322,6 +338,85 @@ final class AuxiliaryWindows {
             applicationsStage.setScene(new Scene(table, 1050, 650));
             applicationsStage.show();
             applicationsStage.toFront();
+    }
+
+    void showRuns() {
+        if (runsStage == null) {
+            runsStage = stage("Runs", 1250, 620);
+            runsTable = new TableView<>();
+            FillLastColumnResizePolicy.install(runsTable);
+            TableColumn<CollectionRunDto, String> id = runColumn("Run ID", CollectionRunDto::runId, 310);
+            TableColumn<CollectionRunDto, String> status = runColumn("Status", CollectionRunDto::status, 85);
+            TableColumn<CollectionRunDto, String> stage = runColumn("Stage", CollectionRunDto::stage, 135);
+            TableColumn<CollectionRunDto, String> started = runColumn("Started", CollectionRunDto::startedAt, 155);
+            TableColumn<CollectionRunDto, String> finished = runColumn("Finished", CollectionRunDto::finishedAt, 155);
+            TableColumn<CollectionRunDto, String> accepted = runColumn("Accepted",
+                    row -> Integer.toString(row.acceptedCount()), 80);
+            accepted.setComparator(java.util.Comparator.comparingInt(Integer::parseInt));
+            TableColumn<CollectionRunDto, String> reason = runColumn("Stop reason", CollectionRunDto::stopReason, 180);
+            runsTable.getColumns().setAll(id, status, stage, started, finished, accepted, reason);
+            runsTable.setPlaceholder(new Label("No runs"));
+            restoreTableSort(runsTable, "runs");
+            TextArea details = new TextArea();
+            details.setEditable(false);
+            details.setWrapText(true);
+            details.setPrefRowCount(4);
+            runsTable.getSelectionModel().selectedItemProperty().addListener((obs, old, row) ->
+                    details.setText(row == null ? "" : "Collection status: " + row.collectionStatus()
+                            + "\nCollection finished: " + row.collectionFinishedAt()
+                            + (row.message().isBlank() ? "" : "\n\n" + row.message())));
+            runsRefresh = new Button("Refresh");
+            runsRefresh.setOnAction(event -> refreshRuns());
+            runsCount = new Label();
+            HBox toolbar = new HBox(10, runsRefresh,
+                    resumeButton(runsTable, workflowRunning.or(runsRefresh.disableProperty()), resumeRun));
+            toolbar.setPadding(new javafx.geometry.Insets(8));
+            VBox footer = new VBox(details, new WindowStatusBar(runsCount));
+            BorderPane content = new BorderPane(runsTable, toolbar, null, footer, null);
+            runsStage.setScene(new Scene(content, 1250, 620));
+        }
+        runsStage.show();
+        runsStage.toFront();
+        refreshRuns();
+    }
+
+    static Button resumeButton(TableView<CollectionRunDto> table,
+            javafx.beans.value.ObservableBooleanValue busy, Consumer<CollectionRunDto> action) {
+        Button resume = new Button("Resume");
+        resume.disableProperty().bind(javafx.beans.binding.Bindings.createBooleanBinding(() -> {
+            CollectionRunDto row = table.getSelectionModel().getSelectedItem();
+            return busy.get() || row == null || "running".equals(row.status())
+                    || "complete".equals(row.status());
+        }, busy, table.getSelectionModel().selectedItemProperty()));
+        resume.setOnAction(event -> action.accept(table.getSelectionModel().getSelectedItem()));
+        return resume;
+    }
+
+    private void refreshRuns() {
+        runsRefresh.setDisable(true);
+        runsCount.setText("Loading...");
+        CollectionRunDto selected = runsTable.getSelectionModel().getSelectedItem();
+        submit(data::loadCollectionRuns, rows -> {
+            runsTable.setItems(FXCollections.observableArrayList(rows));
+            runsTable.sort();
+            if (selected != null) rows.stream().filter(row -> row.runId().equals(selected.runId()))
+                    .findFirst().ifPresent(row -> runsTable.getSelectionModel().select(row));
+            runsRefresh.setDisable(false);
+            runsCount.setText(rows.size() + " runs");
+        }, error -> {
+            runsRefresh.setDisable(false);
+            runsCount.setText("Load failed");
+            showError("Runs load failed", error);
+        });
+    }
+
+    private TableColumn<CollectionRunDto, String> runColumn(String title,
+            java.util.function.Function<CollectionRunDto, String> value, double width) {
+        TableColumn<CollectionRunDto, String> column = new TableColumn<>(title);
+        column.setCellValueFactory(cell -> new SimpleStringProperty(value.apply(cell.getValue())));
+        column.setPrefWidth(width);
+        CopyableTextCell.install(column);
+        return column;
     }
 
     void showCollected() {

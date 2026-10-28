@@ -1,3 +1,17 @@
+"""Current LinkedIn HTML-to-text cleaner (v2), retained for comparison.
+
+This version flattens the page into text before removing known interface lines
+and textual tails. That removes much of the HTML markup, but external company
+cards, advertising and hiring statistics can survive as ordinary text. Their
+HTML boundaries are lost before the content cleanup can use them; adding more
+text markers can also cut useful content inside the vacancy.
+
+The Svitla Senior Java Software Engineer example (4480013168) demonstrates this
+limitation: the separate company profile and Premium insights remain in the
+output. V3 addresses this by removing identified unwanted HTML subtrees first.
+Keep v2 available and connected until v3 is explicitly adopted.
+"""
+
 from __future__ import annotations
 
 import argparse

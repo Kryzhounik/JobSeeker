@@ -164,6 +164,11 @@ def migration_already_effective(
         )
     if version == "042_batch_state":
         return column_exists(connection, "linkedin_collection_runs", "collection_status")
+    if version == "043_pending_batch_status":
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_collection_runs'"
+        ).fetchone()
+        return bool(row and "'pending'" in row[0])
     return False
 
 

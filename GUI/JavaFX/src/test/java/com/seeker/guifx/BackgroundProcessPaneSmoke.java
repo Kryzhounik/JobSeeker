@@ -111,10 +111,16 @@ public final class BackgroundProcessPaneSmoke {
     }
 
     private static void checkUsageLimits(BackgroundProcessPane.Area area) {
+        SnapshotProgressPane resume = new SnapshotProgressPane(area, "Resume");
+        resume.begin("resume-run");
+        resume.fail(new IllegalStateException("Scope loading failed"));
+        if (!resume.fieldText("Run ID").equals("resume-run")) {
+            throw new AssertionError("Resume lost its Run ID before receiving progress");
+        }
         Instant retry = Instant.parse("2026-11-01T12:34:56Z");
         String expectedTime = DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm:ss z")
                 .withZone(ZoneId.systemDefault()).format(retry);
-        for (String title : List.of("Collect", "Batch")) {
+        for (String title : List.of("Collect", "Batch", "Resume")) {
             SnapshotProgressPane pane = new SnapshotProgressPane(area, title);
             HBox badge = (HBox) area.docks().getChildren().getLast();
             Button close = (Button) badge.getChildren().getLast();

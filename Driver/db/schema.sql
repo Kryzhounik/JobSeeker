@@ -269,7 +269,7 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_runs (
     run_id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TEXT,
-    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'failed', 'complete')),
+    status TEXT NOT NULL DEFAULT 'running' CHECK (status IN ('running', 'pending', 'failed', 'complete')),
     stage TEXT NOT NULL DEFAULT 'Collection',
     collection_status TEXT NOT NULL DEFAULT 'running',
     collection_finished_at TEXT,

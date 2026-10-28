@@ -12,6 +12,7 @@ public final class ClientDataContractsSmoke {
         companies();
         applications();
         collected();
+        runs();
         config();
         statusUpdates();
         availability();
@@ -44,6 +45,20 @@ public final class ClientDataContractsSmoke {
                         && empty.path("id_query").asText().isEmpty()
                         && empty.path("added_from").asText().isEmpty(),
                 "Empty filters or explicit availability setting changed");
+    }
+
+    private static void runs() throws IOException {
+        CollectionRunDto row = ClientData.readRows("""
+                [{"run_id":"test-run","started_at":"2026-10-28 10:00:00","finished_at":null,
+                  "status":"running","stage":"Job facts","collection_status":"complete",
+                  "collection_finished_at":"2026-10-28 10:30:00","accepted_count":50,
+                  "stop_reason":"limit_reached","message":"Error\\nURL: https://example.com"}]
+                """, CollectionRunDto.class).getFirst();
+        check(row.runId().equals("test-run") && row.acceptedCount() == 50
+                        && row.finishedAt().isEmpty() && row.stage().equals("Job facts")
+                        && row.status().equals("running") && row.collectionStatus().equals("complete")
+                        && row.message().contains("\nURL:"),
+                "Run fields, nullable times, or separate collection/workflow status were lost");
     }
 
     private static void companies() throws IOException {

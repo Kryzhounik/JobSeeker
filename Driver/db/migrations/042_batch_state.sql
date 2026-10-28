@@ -5,7 +5,6 @@ ALTER TABLE linkedin_collection_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'ru
 ALTER TABLE linkedin_collection_runs ADD COLUMN stage TEXT NOT NULL DEFAULT 'Collection';
 ALTER TABLE linkedin_collection_runs ADD COLUMN finished_at TEXT;
 
--- Old completion timestamps describe collection, not the complete workflow.
+-- Historical rows have no live workflow owner; they can be resumed explicitly.
 UPDATE linkedin_collection_runs
-SET status = 'failed', finished_at = collection_finished_at
-WHERE collection_status NOT IN ('running', 'complete');
+SET status = 'failed', finished_at = collection_finished_at;

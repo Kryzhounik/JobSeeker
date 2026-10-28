@@ -42,8 +42,13 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 connection.commit()
             finish_collection_run("batch-1", "complete", "limit_reached", 1, "", database)
             batch = self._batch(database)
-            self.assertEqual(("running", "Collection", "complete", None),
+            self.assertEqual(("pending", "Collection", "complete", None),
                              (batch["status"], batch["stage"], batch["collection_status"], batch["finished_at"]))
+            self.assertEqual(1, len(json.loads(python_bridge.load_collected_scope("batch-1", str(database)))))
+            python_bridge.update_batch("batch-1", "running", "Job facts", "", str(database))
+            with self.assertRaisesRegex(ValueError, "already running"):
+                python_bridge.load_collected_scope("batch-1", str(database))
+            self.assertEqual("running", self._batch(database)["status"])
 
             python_bridge.update_batch("batch-1", "running", "Job facts", "", str(database))
             python_bridge.update_batch("batch-1", "failed", "", "Failed to extract facts", str(database))
@@ -54,11 +59,15 @@ class OrchestratorBridgeTest(unittest.TestCase):
             python_bridge.update_batch("batch-1", "running", "Job facts", "", str(database))
             self.assertIsNone(self._batch(database)["finished_at"])
             python_bridge.update_batch("batch-1", "complete", "Saving", "", str(database))
-            self.assertEqual("running", self._batch(database)["status"])
+            self.assertEqual("pending", self._batch(database)["status"])
+            self.assertIsNone(self._batch(database)["finished_at"])
             with closing(sqlite3.connect(database)) as connection:
                 connection.execute("UPDATE source_jobs SET processing_status = 'SAVED'")
                 connection.commit()
             python_bridge.update_batch("batch-1", "complete", "Saving", "", str(database))
+            self.assertEqual("complete", self._batch(database)["status"])
+            with self.assertRaisesRegex(ValueError, "already complete"):
+                python_bridge.load_collected_scope("batch-1", str(database))
             self.assertEqual("complete", self._batch(database)["status"])
 
     def test_migration_preserves_collection_state_and_existing_links(self) -> None:
@@ -74,14 +83,16 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN finished_at")
                 connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_status TO status")
                 connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_finished_at TO finished_at")
-                connection.execute("DELETE FROM schema_migrations WHERE version = '042_batch_state'")
+                connection.execute("DELETE FROM schema_migrations WHERE version IN ('042_batch_state', '043_pending_batch_status')")
                 connection.commit()
             migrate_database(database)
             with closing(sqlite3.connect(database)) as connection:
-                self.assertEqual(("running", "complete", 1, "old-batch"), connection.execute(
+                self.assertEqual(("failed", "complete", 1, "old-batch"), connection.execute(
                     "SELECT run.status, run.collection_status, run.collection_finished_at IS NOT NULL, job.collection_run_id "
                     "FROM linkedin_collection_runs run JOIN source_jobs job ON job.collection_run_id = run.run_id"
                 ).fetchone())
+                connection.execute("UPDATE linkedin_collection_runs SET status = 'pending'")
+                self.assertEqual([], connection.execute("PRAGMA foreign_key_check").fetchall())
 
     @patch("orchestrator.python_bridge.save_records")
     def test_saved_count_excludes_skipped_records(self, save) -> None:

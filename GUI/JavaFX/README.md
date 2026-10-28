@@ -81,9 +81,24 @@ so changing the Config limit affects the next call on the existing facade.
 
 The main window loads vacancies through the shared data API, displays details,
 skills and full text, and supports filters, sorting, copyable text and editable
-Fit/Interest. Companies, Applications, Collected and Config open as separate
+Fit/Interest. Runs, Companies, Applications, Collected and Config open as separate
 windows. Status actions apply to the selected vacancies; Applied creates the
 application records and links to them.
+
+Runs displays `linkedin_collection_runs`, newest first: Run ID, overall status,
+stage, start/finish times, accepted count, and stop reason. Selecting a row shows
+collection status, collection finish time, and the full message below the table.
+Refresh reloads the data in the background; Run IDs and details are copyable.
+Resume calls `DriverApi.resume(runId, handler)` for the selected run in a
+background task. It is disabled without a selection, for running/complete runs,
+during a table refresh, and while Collect, Batch, or Resume is executing.
+Resume uses the main window's shared top-right progress area with its own badge
+and the same snapshot display, completion/error states, and Codex-limit handling
+as Batch. Finishing or stopping refreshes the Runs and Collected windows when open.
+
+The main window and Runs share `WindowStatusBar`: status/count text is always
+at the bottom right with common padding and styling. Other table windows can
+reuse this footer rather than positioning their own count labels.
 
 In the main and Collected Title columns, select text and right-click to add
 only that fragment to the title blacklist; right-click without a selection to

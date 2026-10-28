@@ -4,6 +4,7 @@ import com.seeker.api.DriverApi;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.orchestrator.WorkflowResult;
+import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.codex.UsageLimitExceededException;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
@@ -87,6 +88,7 @@ public final class MainController {
     @FXML private Button refilterDetailButton;
     @FXML private Button blackTitlesButton;
     @FXML private Button clearButton;
+    @FXML private Button runsButton;
     @FXML private Button companiesButton;
     @FXML private Button applicationsButton;
     @FXML private Button collectedButton;
@@ -168,6 +170,7 @@ public final class MainController {
     });
     private SnapshotProgressPane collectorProgress;
     private SnapshotProgressPane batchProgress;
+    private SnapshotProgressPane resumeProgress;
     private BackgroundProcessPane.Area backgroundProcesses;
     private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
             1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
@@ -212,6 +215,9 @@ public final class MainController {
                 ignored -> statusLabel.setText("Opened Black titles"), "Black titles failed"));
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
         clearButton.setOnAction(event -> clearTextFilters());
+        runsButton.setOnAction(event -> {
+            if (auxiliaryWindows != null) auxiliaryWindows.showRuns();
+        });
         companiesButton.setOnAction(event -> showCompanies(null));
         applicationsButton.setOnAction(event -> showApplications(null));
         collectedButton.setOnAction(event -> auxiliaryWindows.showCollected());
@@ -261,7 +267,7 @@ public final class MainController {
             directCollector = new DirectCollectorClient(driverApi);
             auxiliaryWindows = new AuxiliaryWindows(
                     clientData, this::focusJobFromAuxiliary, settingsStore,
-                    this::addTitleToBlacklist
+                    this::addTitleToBlacklist, this::startResume
             );
             loadStatusFilters(connectionTask.getValue().statuses());
             availableStatuses = connectionTask.getValue().statuses();
@@ -360,6 +366,7 @@ public final class MainController {
     }
 
     private void setOperationButtonsDisabled(boolean disabled) {
+        runsButton.setDisable(clientData == null);
         updateCollectionButtons();
         linkedinCheckButton.setDisable(disabled || operationRunning);
         refilterButton.setDisable(disabled || operationRunning);
@@ -449,6 +456,7 @@ public final class MainController {
         boolean disabled = clientData == null || collectionRunning;
         collectButton.setDisable(disabled);
         batchButton.setDisable(disabled);
+        if (auxiliaryWindows != null) auxiliaryWindows.setWorkflowRunning(collectionRunning);
     }
 
     private void collectionFailed(SnapshotProgressPane progressPane, Throwable error, String title) {
@@ -461,15 +469,26 @@ public final class MainController {
 
     private void startBatch() {
         if (collectionRunning || clientData == null) return;
+        if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
+        runWorkflow(batchProgress, null);
+    }
+
+    private void startResume(CollectionRunDto run) {
+        if (collectionRunning || clientData == null || run == null) return;
+        if (resumeProgress == null) resumeProgress = new SnapshotProgressPane(backgroundProcesses, "Resume");
+        runWorkflow(resumeProgress, run.runId());
+    }
+
+    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId) {
         collectionRunning = true;
         updateCollectionButtons();
-        if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
-        SnapshotProgressPane progressPane = batchProgress;
-        progressPane.begin();
+        if (resumeRunId == null) progressPane.begin();
+        else progressPane.begin(resumeRunId);
         Task<WorkflowResult> task = new Task<>() {
             @Override protected WorkflowResult call() throws Exception {
-                return driverApi.processBatch("linkedin",
-                        progress -> Platform.runLater(() -> progressPane.update(progress)));
+                Consumer<ProgressSnapshot> progress = update -> Platform.runLater(() -> progressPane.update(update));
+                return resumeRunId == null ? driverApi.processBatch("linkedin", progress)
+                        : driverApi.resume(resumeRunId, progress);
             }
         };
         task.setOnSucceeded(event -> {
@@ -477,12 +496,18 @@ public final class MainController {
             updateCollectionButtons();
             progressPane.complete("complete".equals(task.getValue().status()));
             refreshJobs();
-            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+            if (auxiliaryWindows != null) {
+                auxiliaryWindows.refreshCollectedIfOpen();
+                auxiliaryWindows.refreshRunsIfOpen();
+            }
         });
         task.setOnFailed(event -> {
-            collectionFailed(progressPane, task.getException(), "Batch");
+            collectionFailed(progressPane, task.getException(), resumeRunId == null ? "Batch" : "Resume");
             refreshJobs();
-            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
+            if (auxiliaryWindows != null) {
+                auxiliaryWindows.refreshCollectedIfOpen();
+                auxiliaryWindows.refreshRunsIfOpen();
+            }
         });
         collectionExecutor.execute(task);
     }

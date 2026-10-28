@@ -328,7 +328,20 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void resumesMixedStagesAndDoesNoWorkOnCompletedRun() throws Exception {
+    void refusesToResumeRunningBatchWithoutChangingItsState() {
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
+        gateway.batchStatuses.put("run-1", "running");
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                progress -> { throw new AssertionError("collector must not be called"); }, gateway);
+
+        assertThrows(IllegalStateException.class, () -> workflow.resume("run-1"));
+        assertEquals("running", gateway.batchStatuses.get("run-1"));
+        assertTrue(gateway.batchUpdates.isEmpty());
+        assertTrue(gateway.calls.isEmpty());
+    }
+
+    @Test
+    void resumesMixedStagesAndRejectsCompletedRun() throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
         filter.recoveredScope = List.of(
                 item("1", "Java"), item("2", "Java"), item("3", "Java"),
@@ -360,9 +373,7 @@ class WorkflowOrchestratorTest {
         assertEquals(JsonNull.INSTANCE, Main.GSON.toJsonTree(result).getAsJsonObject().get("collection"));
         int completedCalls = filter.calls.size();
 
-        WorkflowResult resumed = orchestrator.resume("run-1");
-        assertEquals(result.processedScope(), resumed.processedScope());
-        assertEquals(0, resumed.savedCount());
+        assertThrows(IllegalStateException.class, () -> orchestrator.resume("run-1"));
         assertEquals(completedCalls, filter.calls.size());
         assertEquals("complete", filter.batchStatuses.get("run-1"));
     }
@@ -440,9 +451,10 @@ class WorkflowOrchestratorTest {
 
     @Test
     void partialMethodsReturnTheirJsonContract() throws Exception {
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
                 progress -> { throw new AssertionError("collector must not be called"); },
-                new FakeProcessingGateway(List.of())
+                gateway
         );
         List<ScopeItem> scope = List.of(item("1", "Java"));
         Gson gson = Main.GSON;
@@ -453,6 +465,7 @@ class WorkflowOrchestratorTest {
                 """, com.google.gson.JsonObject.class);
 
         assertEquals(expected, gson.toJsonTree(orchestrator.jobFacts("run-1", "linkedin", scope)));
+        assertEquals("pending", gateway.batchStatuses.get("run-1"));
         expected.addProperty("saved_count", 1);
         assertEquals(expected, gson.toJsonTree(orchestrator.finishAnalysis("run-1", "linkedin", scope)));
     }
@@ -594,6 +607,12 @@ class WorkflowOrchestratorTest {
 
         @Override
         public List<ScopeItem> loadCollectedScope(String runId) {
+            if ("running".equals(batchStatuses.get(runId))) {
+                throw new IllegalStateException("Batch is already running: " + runId);
+            }
+            if ("complete".equals(batchStatuses.get(runId))) {
+                throw new IllegalStateException("Batch is already complete: " + runId);
+            }
             return recoveredScope;
         }
 
