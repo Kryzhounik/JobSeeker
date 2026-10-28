@@ -13,6 +13,7 @@ import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
+import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
@@ -371,8 +372,12 @@ final class AuxiliaryWindows {
             HBox toolbar = new HBox(10, runsRefresh,
                     resumeButton(runsTable, workflowRunning.or(runsRefresh.disableProperty()), resumeRun));
             toolbar.setPadding(new javafx.geometry.Insets(8));
-            VBox footer = new VBox(details, new WindowStatusBar(runsCount));
-            BorderPane content = new BorderPane(runsTable, toolbar, null, footer, null);
+            runsTable.setMinHeight(100);
+            details.setMinHeight(50);
+            SplitPane split = new SplitPane(runsTable, details);
+            split.setOrientation(javafx.geometry.Orientation.VERTICAL);
+            split.setDividerPositions(0.82);
+            BorderPane content = new BorderPane(split, toolbar, null, new WindowStatusBar(runsCount), null);
             runsStage.setScene(new Scene(content, 1250, 620));
         }
         runsStage.show();

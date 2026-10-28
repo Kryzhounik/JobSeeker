@@ -88,6 +88,8 @@ application records and links to them.
 Runs displays `linkedin_collection_runs`, newest first: Run ID, overall status,
 stage, start/finish times, accepted count, and stop reason. Selecting a row shows
 collection status, collection finish time, and the full message below the table.
+The divider between the table and Details can be dragged vertically; the status
+bar stays at the bottom of the window.
 Refresh reloads the data in the background; Run IDs and details are copyable.
 Resume calls `DriverApi.resume(runId, handler)` for the selected run in a
 background task. It is disabled without a selection, for running/complete runs,
