@@ -76,7 +76,7 @@ final class ProcessCollectorClient implements CollectorClient {
     ProgressSnapshot parseProgress(String line) throws IOException {
         if (!line.startsWith(PROGRESS_PREFIX)) throw new IOException("Invalid progress prefix.");
         return parse(line.substring(PROGRESS_PREFIX.length()), ImmutableProgressSnapshot.class,
-                "stage", "action", "fields", "details");
+                "stage", "action", "progress", "fields", "details");
     }
 
     CollectionReport parseResult(String text) throws IOException {

@@ -15,7 +15,8 @@ for example `api.collectBatch(collectionHandler)` or
 uses `api.processUrls(urlsList, workflowHandler)`.
 All progress overloads accept `Consumer<ProgressSnapshot>` from
 `com.seeker.tools.api` (Tools). Collection and workflow snapshots expose
-`runId`, `stage`, `action`, an immutable ordered `fields` map, and `details`.
+`runId`, `stage`, `action`, display-ready compact `progress`, an immutable ordered
+`fields` map, and `details`. The badge shows `progress`, not the current action.
 Labels and values are ready for display; every snapshot replaces the previous one.
 Orchestrator handles Collector notifications internally and keeps their details
 in Batch snapshots during Collection. Later stages expose their own fields, and

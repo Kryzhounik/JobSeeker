@@ -27,22 +27,26 @@ Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
 Then double-click `SeekerJobs.exe` in this directory. The build generates this
 GUI's icon from `pink_panther_transparent_final.ico`, installs the backend Maven
 artifacts through `Driver`, then builds the independent GUI project. It creates
-the fat `seeker-gui-javafx.jar` in this directory, bundling all Java runtime
+the fat `dist/seeker-gui-javafx.jar`, bundling all Java runtime
 dependencies instead of loading them from the repository-root `libs/`.
 This lets other Java modules be rebuilt while the GUI stays open on Windows.
 It checks the database connection through jpy, runs small
 GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
 does not need Maven at startup and does not leave a console window. Its startup
-output and errors go to `launch.log` beside the executable. Rebuild after code
+output and errors go to a separate `logs/launch-*.log` for each run. Rebuild after code
 changes or a JDK move.
 The normal build does not open test windows. To run the interactive UI check,
 add `-UiSmoke` to the build command; it opens the main and auxiliary windows.
-If `SeekerJobs.exe` is open during a rebuild, the script writes
-`SeekerJobs-updated.exe` beside it instead; both launch the current JavaFX
-JAR through `javaw -jar`, with dependencies bundled inside it.
-An already running thin GUI needs one restart to switch to the isolated fat jar.
-Changes to the GUI or its bundled Java code still require a GUI rebuild/restart;
-configuration and Python modules remain external. See [ARCHITECTURE.md](ARCHITECTURE.md).
+The script publishes `SeekerJobs.exe` from a compiled staging file. When an older
+launcher is still running, its executable is retained under `target/` until it
+can be removed; no second launcher name is required in the GUI directory.
+Each launch runs its own temporary copy of the last completed fat jar. Rebuilds
+can run while older instances stay open: the next launch uses the new build,
+and existing instances keep the old one until exit. Their copies are deleted
+when Java exits. Maven clean keeps the last published jar, and publication
+replaces it atomically only after packaging completes. Processes launched before
+this change need one normal close to switch to this mechanism. Configuration
+and Python modules remain external. See [ARCHITECTURE.md](ARCHITECTURE.md).
 
 For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 
@@ -56,7 +60,7 @@ commands from the repository root are:
 ```powershell
 mvn -f Driver/pom.xml install
 mvn -f GUI/JavaFX/pom.xml clean package
-java -jar GUI/JavaFX/seeker-gui-javafx.jar
+.\GUI\JavaFX\SeekerJobs.exe
 ```
 
 JavaFX is not a child or reactor module of `Driver`. It uses normal Maven
@@ -91,7 +95,7 @@ stage filter are saved in `gui-settings.json`.
 Collect launches the configured Java LinkedIn collector in the background.
 A collapsible panel inside the main window shows Run ID, Stage, Action, the
 backend's ordered fields, and Details. Its top-right toolbar toggle shows the
-backend's current action and
+backend's `progress` summary (stage and counters), not the current action, and
 expands or minimizes the panel. The usual status text is at the bottom right.
 The panel retains the last snapshot on completion or error. Completion changes
 only its visual state; the GUI never recalculates or replaces reported counters.

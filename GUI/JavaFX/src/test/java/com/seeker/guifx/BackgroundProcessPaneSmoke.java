@@ -123,7 +123,7 @@ public final class BackgroundProcessPaneSmoke {
             for (Instant retryAt : new Instant[]{retry, null}) {
                 pane.begin();
                 pane.update(new ImmutableProgressSnapshot("limited-run", "Job facts", "Extracting facts",
-                        metrics, "Last backend details"));
+                        "Job facts 7 / 10", metrics, "Last backend details"));
                 pane.fail(new UsageLimitExceededException("Quota exhausted", retryAt));
                 assertState(badge, "waiting");
                 assertFields(panel, metrics);
@@ -131,6 +131,7 @@ public final class BackgroundProcessPaneSmoke {
                 if (!pane.fieldText("Run ID").equals("limited-run")
                         || !pane.fieldText("Stage").equals("Job facts")
                         || !pane.fieldText("Action").equals("Extracting facts")
+                        || !((ToggleButton) badge.getChildren().getFirst()).getText().contains("Job facts 7 / 10")
                         || !text.contains("Last backend details") || !text.contains("Quota exhausted")
                         || !close.isVisible() || !close.isManaged()) {
                     throw new AssertionError("Usage limit lost progress, reason, or dismiss control");
@@ -156,7 +157,7 @@ public final class BackgroundProcessPaneSmoke {
                 }
                 assertFields(panel, Map.of());
                 pane.update(new ImmutableProgressSnapshot("manual-run", "Backend stage", "Backend action",
-                        Map.of("Confirmed", "1"), "New details"));
+                        "1 / 1", Map.of("Confirmed", "1"), "New details"));
                 pane.complete(true);
                 assertState(badge, "completed");
             }
@@ -184,8 +185,10 @@ public final class BackgroundProcessPaneSmoke {
             area.overlay().resize(900, height);
             area.overlay().applyCss();
             area.overlay().layout();
-            if (Math.abs(panel.getHeight() - (height - 16)) > 1) {
-                throw new AssertionError("Progress panel does not fill the available height");
+            double expectedHeight = Math.min(panel.prefHeight(panel.getWidth()), height - 16);
+            if (Math.abs(panel.getHeight() - expectedHeight) > 1
+                    || panel.getHeight() >= height - 100) {
+                throw new AssertionError("Progress panel stretches beyond its content");
             }
             ScrollPane scroll = (ScrollPane) panel.getChildren().get(1);
             boolean scrolling = scroll.lookupAll(".scroll-bar").stream()
@@ -202,20 +205,44 @@ public final class BackgroundProcessPaneSmoke {
         initial.put("Z first field", "7 / 100");
         initial.put("A second field", "25");
         batch.update(new WorkflowProgress("batch-run", "Unknown stage", "Unknown action",
-                initial, "Backend details"));
+                "7 / 100", initial, "Backend details"));
+        if (!dock.getText().equals("Batch: 7 / 100")) {
+            throw new AssertionError("Badge shows an action instead of backend progress: " + dock.getText());
+        }
         assertFields(panel, initial);
+        area.overlay().applyCss();
+        area.overlay().layout();
+        double compactHeight = panel.getHeight();
+        Map<String, String> collectionFields = new LinkedHashMap<>();
+        for (int i = 0; i < 13; i++) collectionFields.put("Metric " + i, "0");
+        batch.update(new ImmutableProgressSnapshot("batch-run", "Collection", "Working",
+                "Collection 7 / 100", collectionFields, "Details"));
+        area.overlay().applyCss();
+        area.overlay().layout();
+        TextArea detailsArea = (TextArea) content(panel).getChildren().getLast();
+        if (panel.getHeight() <= compactHeight || panel.getHeight() >= 800
+                || detailsArea.getHeight() > 140) {
+            throw new AssertionError("Collection panel has excessive empty space: " + panel.getHeight());
+        }
+        batch.update(new WorkflowProgress("batch-run", "Unknown stage", "Unknown action",
+                "7 / 100", initial, "Backend details"));
+        area.overlay().applyCss();
+        area.overlay().layout();
+        if (Math.abs(panel.getHeight() - compactHeight) > 1) {
+            throw new AssertionError("Panel did not shrink after fields were removed");
+        }
         assertState(badge, "running");
         if (dismiss.isVisible()) throw new AssertionError("A snapshot finished the operation");
         Map<String, String> next = new LinkedHashMap<>();
         next.put("A second field", "123");
         next.put("New metric", "6 / 20");
-        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", next,
+        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", "6 / 20", next,
                 "Details with URL: https://example.com/job"));
         assertFields(panel, next);
         Map<String, String> reordered = new LinkedHashMap<>();
         reordered.put("New metric", "9 / 20");
         reordered.put("A second field", "456");
-        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", reordered,
+        batch.update(new ImmutableProgressSnapshot("batch-run", "Next stage", "Next action", "9 / 20", reordered,
                 "Details with URL: https://example.com/job"));
         assertFields(panel, reordered);
         batch.fail(new IllegalStateException("analysis failed"));
@@ -234,7 +261,7 @@ public final class BackgroundProcessPaneSmoke {
             throw new AssertionError("Restart retained old snapshot");
         }
         batch.update(new ImmutableProgressSnapshot("next-run", "Final backend stage", "Final backend action",
-                initial, "Final backend details"));
+                "20 / 20", initial, "Final backend details"));
         assertState(badge, "running");
         batch.complete(true);
         assertState(badge, "completed");
@@ -249,17 +276,17 @@ public final class BackgroundProcessPaneSmoke {
 
         SnapshotProgressPane collect = new SnapshotProgressPane(area, "Collect");
         collect.begin();
-        collect.update(new CollectionProgress("collect-run", "Same stage", "Same action", next, ""));
+        collect.update(new CollectionProgress("collect-run", "Same stage", "Same action", "6 / 20", next, ""));
         VBox collectPanel = (VBox) area.overlay().getChildren().getLast();
         assertFields(collectPanel, next);
-        collect.update(new ImmutableProgressSnapshot("collect-run", "No metrics", "Still working", Map.of(), ""));
+        collect.update(new ImmutableProgressSnapshot("collect-run", "No metrics", "Still working", "", Map.of(), ""));
         assertFields(collectPanel, Map.of());
-        collect.update(new ImmutableProgressSnapshot("collect-run", "Same stage", "Same action", next, ""));
+        collect.update(new ImmutableProgressSnapshot("collect-run", "Same stage", "Same action", "6 / 20", next, ""));
         collect.complete(false);
         assertFields(collectPanel, next);
         assertState(area.docks().getChildren().getLast(), "failed");
         collect.begin();
-        collect.update(new ImmutableProgressSnapshot("empty-fields", "Stage", "Action", Map.of(), ""));
+        collect.update(new ImmutableProgressSnapshot("empty-fields", "Stage", "Action", "", Map.of(), ""));
         assertFields(collectPanel, Map.of());
     }
 

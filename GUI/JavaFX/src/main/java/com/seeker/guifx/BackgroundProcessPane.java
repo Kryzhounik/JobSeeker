@@ -1,6 +1,5 @@
 package com.seeker.guifx;
 
-import javafx.beans.binding.Bindings;
 import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -131,8 +130,7 @@ abstract class BackgroundProcessPane {
         panel.setPrefWidth(570);
         panel.setMinSize(0, 0);
         panel.setMaxWidth(570);
-        panel.maxHeightProperty().bind(Bindings.max(0,
-                area.overlay().heightProperty().subtract(16)));
+        panel.setMaxHeight(Region.USE_PREF_SIZE);
         panel.visibleProperty().bind(dock.selectedProperty());
         panel.managedProperty().bind(panel.visibleProperty());
         VBox.setVgrow(scroll, Priority.ALWAYS);

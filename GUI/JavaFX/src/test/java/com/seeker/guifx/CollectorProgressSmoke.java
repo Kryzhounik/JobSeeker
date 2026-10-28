@@ -20,11 +20,12 @@ public final class CollectorProgressSmoke {
         fields.put("Z arbitrary field", "7 / 100");
         fields.put("A another field", "Anything");
         ProgressSnapshot direct = new CollectionProgress("test-run", "A backend stage",
-                "A backend action", fields, "123 Software Engineer\nChecking content");
+                "A backend action", "7 / 100", fields, "123 Software Engineer\nChecking content");
         ProgressSnapshot progress = runner.parseProgress("COLLECTOR_PROGRESS "
                 + JsonSupport.GSON.toJson(direct));
         if (!progress.runId().equals(direct.runId()) || !progress.stage().equals(direct.stage())
                 || !progress.action().equals(direct.action()) || !progress.fields().equals(direct.fields())
+                || !progress.progress().equals(direct.progress())
                 || !progress.details().equals(direct.details())
                 || !List.copyOf(progress.fields().keySet()).equals(List.copyOf(fields.keySet()))) {
             throw new AssertionError("Direct and process progress contracts differ");
@@ -40,14 +41,15 @@ public final class CollectorProgressSmoke {
             // Process snapshots have the same immutability as direct callbacks.
         }
         ProgressSnapshot early = runner.parseProgress("""
-                COLLECTOR_PROGRESS {"runId":null,"stage":"Stage","action":"Preparing",
+                COLLECTOR_PROGRESS {"runId":null,"stage":"Stage","action":"Preparing","progress":"",
                 "fields":{},"details":""}
                 """);
         if (early.runId() != null || !early.fields().isEmpty()) {
             throw new AssertionError("Early snapshot without an assigned run ID was changed");
         }
         for (String invalid : new String[]{"COLLECTOR_PROGRESS {}", "invalid prefix",
-                "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"details\":\"\"}"}) {
+                "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"details\":\"\"}",
+                "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"fields\":{},\"details\":\"\"}"}) {
             try {
                 runner.parseProgress(invalid);
                 throw new AssertionError("Incomplete progress contract was accepted");

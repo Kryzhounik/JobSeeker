@@ -30,7 +30,7 @@ final class SnapshotProgressPane extends BackgroundProcessPane {
         replaceExtraFields(progress.fields());
         snapshotDetails = progress.details();
         setDetails(snapshotDetails);
-        setSummary(progress.action());
+        setSummary(progress.progress());
         setContext(progress.stage() + "\n" + progress.action() + "\n" + fieldText("Run ID"));
     }
 

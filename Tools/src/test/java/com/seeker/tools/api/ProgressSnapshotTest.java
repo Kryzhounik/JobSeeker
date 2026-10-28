@@ -18,7 +18,7 @@ class ProgressSnapshotTest {
         fields.put("Accepted", "7");
         fields.put("Limit", "100");
         ProgressSnapshot snapshot = new ImmutableProgressSnapshot(
-                "run-1", "Collection", "Loading vacancy", fields, "Current details");
+                "run-1", "Collection", "Loading vacancy", "Collection 7 / 100", fields, "Current details");
 
         fields.put("Accepted", "8");
         fields.remove("Limit");
@@ -37,13 +37,14 @@ class ProgressSnapshotTest {
         fields.put("Current vacancy", "123");
         fields.put("Completed", "2 / 5");
         ProgressSnapshot snapshot = new ImmutableProgressSnapshot(
-                "run-1", "Job facts", "Extracting facts", fields, "Java Developer");
+                "run-1", "Job facts", "Extracting facts", "Job facts 2 / 5", fields, "Java Developer");
 
         var json = new Gson().toJsonTree(snapshot).getAsJsonObject();
 
         assertEquals("run-1", json.get("runId").getAsString());
         assertEquals("Job facts", json.get("stage").getAsString());
         assertEquals("Extracting facts", json.get("action").getAsString());
+        assertEquals("Job facts 2 / 5", json.get("progress").getAsString());
         assertEquals("Java Developer", json.get("details").getAsString());
         assertEquals(List.of("Current vacancy", "Completed"),
                 new ArrayList<>(json.getAsJsonObject("fields").keySet()));

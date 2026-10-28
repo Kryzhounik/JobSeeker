@@ -45,12 +45,15 @@ Other exceptions remain FAILED. There is no automatic retry or scheduler.
 
 ## Runtime Packaging
 
-The supported desktop launch uses the fat `seeker-gui-javafx.jar`. Maven Shade
+The supported desktop launch uses the fat `dist/seeker-gui-javafx.jar`. Maven Shade
 bundles the GUI and its Java runtime dependencies, including Driver modules,
 JavaFX, JPy, and Playwright, into this artifact. Service descriptors are merged
 and dependency signatures/module descriptors are removed. The manifest has no
-external `Class-Path`. Maven publishes the bundled jar to `GUI/JavaFX/` for
+external `Class-Path`. Maven publishes the bundled jar to `GUI/JavaFX/dist/` for
 the existing Windows launcher; intermediate and original jars stay in `target/`.
+Publication copies the complete result to a sibling staging file and atomically
+replaces the published jar. Maven clean leaves the last published build intact,
+so launches during a build still have a complete version available.
 
 This isolation is intentional: on Windows a running thin GUI holds shared
 dependency jars open. It must not block rebuilding another Java module or
@@ -58,10 +61,19 @@ replacing jars in the repository-root `libs/`. The GUI therefore uses its own
 bundled snapshot, not the backend's shared runtime files. The GUI package step
 does not copy dependencies into `libs/`.
 
-Backend Java changes become visible to the GUI after rebuilding its fat jar
-and restarting the GUI. Rebuilding the GUI itself may require closing the GUI
-because its own jar can be locked. Switching an already running thin GUI to
-this packaging requires one restart. No hot code replacement is implied.
+Each Windows-launcher invocation copies the published jar to its own directory
+under `%TEMP%/SeekerJobs/` and runs that copy. Source handles permit rename/delete,
+so publishing while a launch copies the previous version does not block either
+operation. The working directory remains the repository root. The launcher
+removes its runtime copy after Java exits; `run.ps1` uses the same isolation.
+Launch logs are separate files in `GUI/JavaFX/logs/`, allowing concurrent runs.
+
+New launches see the latest fully published build. Existing processes retain
+their own build until exit, even while the GUI or backend is rebuilt. There is
+no forced restart, update lock, or hot code replacement. A direct
+`java -jar GUI/JavaFX/dist/seeker-gui-javafx.jar` bypasses this isolation and must not
+be used for a process that should survive GUI rebuilds. Processes started by
+the old launcher still need one normal close to switch to the new mechanism.
 
 Configuration, database, Python source modules, and Python/JNI installation
 files remain external. The fat jar is not a portable Python/JDK installation.

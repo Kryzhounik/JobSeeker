@@ -110,6 +110,8 @@ class LinkedInCollectorProgressTest {
         assertFalse(parsed.fields().containsKey("Run ID"));
         assertEquals("Collection", parsed.stage());
         assertEquals("Loading vacancy", parsed.action());
+        assertEquals("Collection 7 / 100", direct.progress());
+        assertEquals(direct.progress(), parsed.progress());
         assertEquals(direct.fields(), parsed.fields());
         assertEquals(new ArrayList<>(direct.fields().keySet()), new ArrayList<>(parsed.fields().keySet()));
         assertEquals(direct.details(), parsed.details());

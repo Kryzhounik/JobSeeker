@@ -97,10 +97,11 @@ Pass `Consumer<ProgressSnapshot>` (`com.seeker.tools.api`) to the individual ope
 Orchestrator creates its own per-call Collector handler and retains all collection
 details during the Collection stage. Other stages expose only their own fields;
 the final snapshot provides summary statistics. Lower modules never receive the caller's
-workflow handler. Snapshots expose `runId`, `stage`, `action`, immutable ordered
+workflow handler. Snapshots expose `runId`, `stage`, `action`, compact `progress`, immutable ordered
 `fields`, and `details`, with display-ready labels and values. Each replaces the
 previous snapshot. Detailed stages are `Collection`, `Relevance filter`, `Job facts`,
-and `Candidate fit`; initialization is an action, not a separate stage. Job interest
+and `Candidate fit`; `progress` shows stage counters rather than the current activity.
+Initialization is an action, not a separate stage. Job interest
 and saving still run in the same order without separate panel stages or saving
 events. Final statistics include actual `Saved` writes and a separate `Already saved`
 count. An idle repeat of a completed run therefore reports zero new saves.

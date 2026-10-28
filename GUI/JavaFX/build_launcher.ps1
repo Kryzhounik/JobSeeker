@@ -34,7 +34,18 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $classpath = (Join-Path $directory "target\test-classes") + ";" + `
-    (Join-Path $directory "seeker-gui-javafx.jar")
+    (Join-Path $directory "dist\seeker-gui-javafx.jar")
+$launcherSmoke = Join-Path $directory "target\LauncherSnapshotSmoke.exe"
+& $compiler /nologo /target:exe /main:LauncherSnapshotSmoke "/out:$launcherSmoke" `
+    /reference:System.Windows.Forms.dll (Join-Path $directory "SeekerLauncher.cs") `
+    (Join-Path $directory "src\test\csharp\LauncherSnapshotSmoke.cs")
+if ($LASTEXITCODE -ne 0) {
+    throw "Launcher snapshot check compilation failed with exit code $LASTEXITCODE."
+}
+& $launcherSmoke (Join-Path $directory "publish_jar.ps1")
+if ($LASTEXITCODE -ne 0) {
+    throw "Launcher snapshot check failed with exit code $LASTEXITCODE."
+}
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.FatJarSmoke
 if ($LASTEXITCODE -ne 0) {
     throw "Fat GUI jar isolation check failed with exit code $LASTEXITCODE."
@@ -94,17 +105,20 @@ try {
 $source = Join-Path $directory "SeekerLauncher.cs"
 $icon = Join-Path $directory "SeekerJobsIcon.ico"
 $output = Join-Path $directory "SeekerJobs.exe"
-try {
-    $stream = [System.IO.File]::Open($output, 'OpenOrCreate', 'ReadWrite', 'None')
-    $stream.Dispose()
-} catch [System.IO.IOException] {
-    $output = Join-Path $directory "SeekerJobs-updated.exe"
-    Write-Output "SeekerJobs.exe is running; building $output instead."
-}
-& $compiler /nologo /target:winexe "/win32icon:$icon" "/out:$output" `
+$stagedLauncher = Join-Path $directory "target\SeekerJobs.exe"
+& $compiler /nologo /target:winexe "/win32icon:$icon" "/out:$stagedLauncher" `
     /reference:System.Windows.Forms.dll $source
 if ($LASTEXITCODE -ne 0) {
     throw "Launcher compilation failed with exit code $LASTEXITCODE."
+}
+if ([System.IO.File]::Exists($output)) {
+    $previousLauncher = Join-Path $directory ("target\SeekerJobs-previous-" + [Guid]::NewGuid().ToString("N") + ".exe")
+    [System.IO.File]::Replace($stagedLauncher, $output, $previousLauncher)
+    try { [System.IO.File]::Delete($previousLauncher) }
+    catch [System.IO.IOException] { }
+    catch [System.UnauthorizedAccessException] { }
+} else {
+    [System.IO.File]::Move($stagedLauncher, $output)
 }
 [System.IO.File]::WriteAllText((Join-Path $directory "java-home.txt"), $javaHomePath)
 Write-Output "Built $output"

@@ -46,6 +46,9 @@ class WorkflowOrchestratorTest {
                 "Candidate fit", List.of("Candidate fit", "Current vacancy"));
         for (ProgressSnapshot update : updates) {
             assertFalse(update.fields().containsKey("Run ID"));
+            assertEquals(update.stage().equals("Collection")
+                    ? "Collection " + update.fields().get("Accepted / limit")
+                    : update.stage() + " " + update.fields().get(update.stage()), update.progress());
             if (!update.action().equals("Complete")) {
                 assertEquals(stageFields.get(update.stage()), new ArrayList<>(update.fields().keySet()));
             }

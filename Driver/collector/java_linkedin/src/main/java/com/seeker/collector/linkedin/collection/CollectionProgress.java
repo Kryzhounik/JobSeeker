@@ -6,7 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Complete collection snapshot, including display-ready counters and labels. */
-public record CollectionProgress(String runId, String stage, String action,
+public record CollectionProgress(String runId, String stage, String action, String progress,
                                  Map<String, String> fields, String details) implements ProgressSnapshot {
     public CollectionProgress {
         fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
@@ -16,6 +16,7 @@ public record CollectionProgress(String runId, String stage, String action,
                               int page, int cards, int accepted, int limit,
                               Map<String, Integer> outcomes, String message) {
         this(runId, "Collection", actionName(action),
+                "Collection " + accepted + (limit > 0 ? " / " + limit : ""),
                 collectionFields(location, search, page, cards, accepted, limit, outcomes),
                 switch (message == null ? "" : message) {
                     case "limit_reached" -> "Accepted-vacancy limit reached.";

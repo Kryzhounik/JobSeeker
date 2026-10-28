@@ -35,10 +35,23 @@ if ($LASTEXITCODE -ne 0) {
     throw "JavaFX Maven build failed with exit code $LASTEXITCODE."
 }
 Push-Location $root
+$runtimeDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("SeekerJobs\" + [Guid]::NewGuid().ToString("N"))
+$runtimeJar = Join-Path $runtimeDirectory "seeker-gui-javafx.jar"
 try {
-    & $javaExecutable -jar (Join-Path $PSScriptRoot "seeker-gui-javafx.jar")
+    [System.IO.Directory]::CreateDirectory($runtimeDirectory) | Out-Null
+    $inputJar = [System.IO.File]::Open((Join-Path $PSScriptRoot "dist\seeker-gui-javafx.jar"),
+        'Open', 'Read', ([System.IO.FileShare]::ReadWrite -bor [System.IO.FileShare]::Delete))
+    try {
+        $outputJar = [System.IO.File]::Create($runtimeJar)
+        try { $inputJar.CopyTo($outputJar) } finally { $outputJar.Dispose() }
+    } finally { $inputJar.Dispose() }
+    & $javaExecutable -jar $runtimeJar
     $exitCode = $LASTEXITCODE
 } finally {
     Pop-Location
+    [System.IO.File]::Delete($runtimeJar)
+    if ([System.IO.Directory]::Exists($runtimeDirectory)) {
+        [System.IO.Directory]::Delete($runtimeDirectory)
+    }
 }
 exit $exitCode

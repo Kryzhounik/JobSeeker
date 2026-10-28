@@ -121,23 +121,28 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <version>3.4.0</version>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.6.4</version>
                 <executions>
                     <execution>
                         <id>publish-gui-jar</id>
                         <phase>package</phase>
-                        <goals><goal>copy-resources</goal></goals>
+                        <goals><goal>exec</goal></goals>
                         <configuration>
-                            <outputDirectory>${project.basedir}</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>${project.build.directory}</directory>
-                                    <includes><include>${project.build.finalName}.jar</include></includes>
-                                    <filtering>false</filtering>
-                                </resource>
-                            </resources>
+                            <executable>powershell.exe</executable>
+                            <arguments>
+                                <argument>-NoProfile</argument>
+                                <argument>-NonInteractive</argument>
+                                <argument>-ExecutionPolicy</argument>
+                                <argument>Bypass</argument>
+                                <argument>-File</argument>
+                                <argument>${project.basedir}/publish_jar.ps1</argument>
+                                <argument>-SourcePath</argument>
+                                <argument>${project.build.directory}/${project.build.finalName}.jar</argument>
+                                <argument>-DestinationPath</argument>
+                                <argument>${project.basedir}/dist/${project.build.finalName}.jar</argument>
+                            </arguments>
                         </configuration>
                     </execution>
                 </executions>
@@ -146,15 +151,6 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
                 <version>3.4.1</version>
-                <configuration>
-                    <filesets>
-                        <fileset>
-                            <directory>${project.basedir}</directory>
-                            <includes><include>${project.build.finalName}.jar</include></includes>
-                            <followSymlinks>false</followSymlinks>
-                        </fileset>
-                    </filesets>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

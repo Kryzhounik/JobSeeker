@@ -45,7 +45,7 @@ Callbacks run synchronously on the
 calling worker thread, before browser startup and during collection, including
 the final state. A UI caller marshals snapshots to its UI thread. Calls without
 a listener remain available with progress ignored. `CollectionProgress` implements
-the common contract: `runId`, `stage`, `action`, ordered immutable `fields`, and
+the common contract: `runId`, `stage`, `action`, compact `progress` (accepted / limit), ordered immutable `fields`, and
 `details`. Stage is always `Collection`; browser startup, reading results and
 loading vacancies are actions. Display-ready fields include location/search,
 page/cards, processed, accepted/limit, and each rejection/failure counter.

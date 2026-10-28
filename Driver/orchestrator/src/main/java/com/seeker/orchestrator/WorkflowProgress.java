@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Complete immutable workflow snapshot, emitted on the caller's thread. */
-public record WorkflowProgress(String runId, String stage, String action,
+public record WorkflowProgress(String runId, String stage, String action, String progress,
                                Map<String, String> fields, String details) implements ProgressSnapshot {
     public WorkflowProgress {
         fields = Collections.unmodifiableMap(new LinkedHashMap<>(fields));
@@ -23,6 +23,7 @@ public record WorkflowProgress(String runId, String stage, String action,
         private final Consumer<ProgressSnapshot> listener;
         private final Map<String, String> fields = new LinkedHashMap<>();
         private Map<String, String> collectionFields;
+        private String collectionProgress = "Collection";
         private String runId;
         private String stage = "Collection";
         private String action = "Starting";
@@ -50,6 +51,7 @@ public record WorkflowProgress(String runId, String stage, String action,
             action = update.action();
             details = update.details();
             collectionFields = update.fields();
+            collectionProgress = update.progress();
             emit();
         }
 
@@ -106,8 +108,9 @@ public record WorkflowProgress(String runId, String stage, String action,
         }
 
         private void emit() {
+            String progress = stage.equals("Collection") ? collectionProgress : stage + " " + fields.get(stage);
             if (stage.equals("Collection") && !action.equals("Complete")) {
-                listener.accept(new WorkflowProgress(runId, stage, action, collectionFields, details));
+                listener.accept(new WorkflowProgress(runId, stage, action, progress, collectionFields, details));
                 return;
             }
             String[] labels = action.equals("Complete")
@@ -122,7 +125,7 @@ public record WorkflowProgress(String runId, String stage, String action,
                     };
             Map<String, String> currentFields = new LinkedHashMap<>();
             for (String label : labels) currentFields.put(label, fields.get(label));
-            listener.accept(new WorkflowProgress(runId, stage, action, currentFields, details));
+            listener.accept(new WorkflowProgress(runId, stage, action, progress, currentFields, details));
         }
     }
 }

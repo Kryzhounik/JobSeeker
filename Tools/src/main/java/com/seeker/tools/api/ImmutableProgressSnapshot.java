@@ -9,6 +9,7 @@ public record ImmutableProgressSnapshot(
         String runId,
         String stage,
         String action,
+        String progress,
         Map<String, String> fields,
         String details
 ) implements ProgressSnapshot {
