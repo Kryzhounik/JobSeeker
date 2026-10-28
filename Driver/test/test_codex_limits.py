@@ -34,7 +34,8 @@ class CodexLimitsTest(unittest.TestCase):
         now = datetime(2026, 10, 22, tzinfo=timezone.utc)
         error = usage_limit_error([json.dumps({"error": {
             "code": "usage_limit_reached", "message": "Quota exhausted", "resets_at": 1792671600,
-        }})], now)
+        }}), "CLI diagnostics: Data/logs/codex/test"], now)
+        self.assertIn("CLI diagnostics: Data/logs/codex/test", str(error))
         self.assertEqual(error.retry_at, datetime.fromtimestamp(1792671600, timezone.utc))
         error = usage_limit_error([json.dumps({"message": "You've hit your usage limit."})], now)
         self.assertIsNone(error.retry_at)

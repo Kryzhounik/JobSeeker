@@ -3,6 +3,9 @@ package com.seeker.guifx;
 import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Cursor;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -60,6 +63,9 @@ abstract class BackgroundProcessPane {
     private boolean finished;
     private String summary = "";
     private String context = "";
+    private boolean resizingWidth;
+    private boolean resizingHeight;
+    private double dragX, dragY, dragWidth, dragHeight;
 
     protected BackgroundProcessPane(Area area, String title, String... fieldNames) {
         this.title = title;
@@ -129,8 +135,10 @@ abstract class BackgroundProcessPane {
         panel.getStyleClass().add("background-process");
         panel.setPrefWidth(570);
         panel.setMinSize(0, 0);
-        panel.setMaxWidth(570);
+        panel.setMaxWidth(Region.USE_PREF_SIZE);
         panel.setMaxHeight(Region.USE_PREF_SIZE);
+        panel.setPadding(new Insets(0, 0, 6, 6));
+        installResize(panel, area);
         panel.visibleProperty().bind(dock.selectedProperty());
         panel.managedProperty().bind(panel.visibleProperty());
         VBox.setVgrow(scroll, Priority.ALWAYS);
@@ -138,6 +146,50 @@ abstract class BackgroundProcessPane {
         StackPane.setMargin(panel, new Insets(8));
         area.overlay().getChildren().add(panel);
         setProcessState(State.RUNNING);
+    }
+
+    private void installResize(VBox panel, Area area) {
+        panel.addEventFilter(MouseEvent.MOUSE_MOVED, event -> {
+            var point = panel.sceneToLocal(event.getSceneX(), event.getSceneY());
+            boolean left = point.getX() <= 6;
+            boolean bottom = point.getY() >= panel.getHeight() - 6;
+            panel.setCursor(left && bottom ? Cursor.SW_RESIZE
+                    : left ? Cursor.W_RESIZE : bottom ? Cursor.S_RESIZE : Cursor.DEFAULT);
+        });
+        panel.addEventFilter(MouseEvent.MOUSE_EXITED, event -> {
+            if (!resizingWidth && !resizingHeight) panel.setCursor(Cursor.DEFAULT);
+        });
+        panel.addEventFilter(MouseEvent.MOUSE_PRESSED, event -> {
+            if (event.getButton() != MouseButton.PRIMARY) return;
+            var point = panel.sceneToLocal(event.getSceneX(), event.getSceneY());
+            resizingWidth = point.getX() <= 6;
+            resizingHeight = point.getY() >= panel.getHeight() - 6;
+            if (!resizingWidth && !resizingHeight) return;
+            dragX = event.getSceneX();
+            dragY = event.getSceneY();
+            dragWidth = panel.getWidth();
+            dragHeight = panel.getHeight();
+            event.consume();
+        });
+        panel.addEventFilter(MouseEvent.MOUSE_DRAGGED, event -> {
+            if (!resizingWidth && !resizingHeight) return;
+            if (resizingWidth) {
+                panel.setPrefWidth(Math.min(Math.max(0, area.overlay().getWidth() - 16),
+                        Math.max(340, dragWidth + dragX - event.getSceneX())));
+            }
+            if (resizingHeight) {
+                panel.setPrefHeight(Math.min(Math.max(0, area.overlay().getHeight() - 16),
+                        Math.max(180, dragHeight + event.getSceneY() - dragY)));
+            }
+            event.consume();
+        });
+        panel.addEventFilter(MouseEvent.MOUSE_RELEASED, event -> {
+            if (!resizingWidth && !resizingHeight) return;
+            resizingWidth = false;
+            resizingHeight = false;
+            panel.setCursor(Cursor.DEFAULT);
+            event.consume();
+        });
     }
 
     protected final void beginProcess() {

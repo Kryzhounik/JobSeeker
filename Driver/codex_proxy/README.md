@@ -79,6 +79,17 @@ when the reset time was not supplied or recognized. Callers decide how to
 handle or retry the operation.
 
 The proxy records metrics before raising its Python `UsageLimitExceededError`.
+
+Failed CLI invocations preserve their full stdout/stderr (with credentials
+redacted) under `Data/logs/codex/<timestamp-id>/stdout.log` and `stderr.log`.
+The error and existing `codex_invocations.error_message` include the directory
+path. Successful calls do not create these files. CLI diagnostics are enabled
+only for the child process through `RUST_LOG=warn,codex_api=debug,codex_core::client=debug`;
+HTTP details, request IDs and retry headers are available when the CLI emits them.
+Debug stderr is kept out of ordinary error messages. The proxy does not separately
+dump prompts or the environment, add retries, or change model/session settings.
+See the [official diagnostics documentation](https://learn.chatgpt.com/docs/config-file/environment-variables).
+
 `codex_proxy.bridge` carries that failure across JPy as a structured response;
 `--json-result` provides the same protocol for process callers. Normal CLI
 output stays unchanged when that flag is absent. Limit recognition and reset

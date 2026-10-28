@@ -7,9 +7,10 @@ before converting the rest of the HTML into readable text.
 
 Removal rules use element attributes, not the position/order of page sections.
 Unrecognized elements retain their text, including company/client introductions
-inside the vacancy. There is no required description container, line-based
-content filter, tail cutoff or fallback to the v2 extractor. Only v2's Unicode
-repair helper is reused.
+inside the vacancy. Recognized job-alert/similar-jobs modules start the page
+tail: remove that module and everything following it, as v2's text markers did.
+There is no required description container or fallback to the v2 extractor.
+Only v2's Unicode repair helper is reused.
 
 Standalone benefit cards are retained: they may contain useful job conditions,
 such as relocation assistance, that are absent from the main description.
@@ -64,6 +65,9 @@ NOISE_COMPONENTS = {
 NOISE_VIEW_NAMES = {
     "job-details-about-company-module", "premium-jdp-company-insights-upsell",
 }
+# Module names are stable; the source-job ID appended by LinkedIn is ignored.
+TAIL_MODULE_PREFIXES = ("JobDetails_JobAlertToggle_", "JobDetailsSimilarJobsSlot_")
+TAIL_COMPONENTS = {"jobAlertToggle", "similarJobs"}
 INLINE_TAGS = {
     "a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "dfn",
     "em", "i", "ins", "kbd", "label", "mark", "q", "rp", "rt", "ruby",
@@ -107,6 +111,23 @@ def _prune(root: html.HtmlElement) -> None:
             child.drop_tree()
         else:
             _prune(child)
+
+
+def _trim_tail(root: html.HtmlElement) -> None:
+    """Discard the first recognized tail module and all later document content."""
+    boundary = next((node for node in root.iterdescendants() if
+        any(node.get(key, "").startswith(TAIL_MODULE_PREFIXES) for key in ("id", "componentkey"))
+        or node.get("data-sdui-component", "").rsplit(".", 1)[-1] in TAIL_COMPONENTS
+    ), None)
+    if boundary is None:
+        return
+    # Later content may be outside the module's immediate parent. Remove later
+    # siblings and following text at every ancestor level, keeping earlier text.
+    for node in (boundary, *boundary.iterancestors()):
+        node.tail = None
+        for following in list(node.itersiblings()):
+            following.getparent().remove(following)
+    boundary.getparent().remove(boundary)
 
 
 def _render(root: html.HtmlElement) -> str:
@@ -163,6 +184,7 @@ def readable_text(source: str, raw_path: Path) -> str:
     root = html.document_fromstring(raw_html if raw_html.strip() else "<html><body></body></html>",
                                     parser=html.HTMLParser(remove_comments=True, remove_pis=True))
     _prune(root)
+    _trim_tail(root)
     text = _render(root)
     metadata = [f"source: {source}", f"raw_file: {raw_path.as_posix()}"]
     url = source_url(source, raw_path)

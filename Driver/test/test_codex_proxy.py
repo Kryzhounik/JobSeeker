@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import closing
 from pathlib import Path
 import sqlite3
+import json
+import os
 from types import SimpleNamespace
 import sys
 import tempfile
@@ -165,6 +167,58 @@ class CodexProxyTest(unittest.TestCase):
         )
         self.assertIn("Use only Playwright MCP browser tools", browser_prompt)
         self.assertNotIn("Do not use tools", browser_prompt)
+
+    @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
+    @patch("codex_proxy.codex_cli.subprocess.run")
+    def test_failed_cli_preserves_full_diagnostics_without_credentials(self, process_run, unused_which) -> None:
+        response = {"type": "http.response", "status": 429, "request_id": "req-test", "headers": {
+            "Authorization": "Bearer fake-bearer-secret", "Retry-After": "9",
+            "Set-Cookie": "session=fake-cookie-secret; other=fake-other-cookie",
+            "X-Api-Key": "fake-header-key",
+        }}
+        output = json.dumps(response) + '\n{"type":"error","message":"429 Too Many Requests"}\n'
+        stderr = (json.dumps({"transport": json.dumps({"refresh_token": "fake-refresh-secret"})})
+                  + '\nCookie: session=fake-stderr-cookie; other=fake-more-cookies\n'
+                  + 'DEBUG request-id=req-test Retry-After=9 fake-env-secret\n')
+        process_run.return_value = SimpleNamespace(returncode=1, stdout=output, stderr=stderr)
+        settings = load()
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(codex_cli, "DATA_ROOT", Path(directory)), \
+                patch.dict(os.environ, {"OPENAI_API_KEY": "fake-env-secret", "RUST_LOG": "info"}):
+            result = codex_cli.call(
+                config=settings.config, prompt="PROMPT", model=settings.model,
+                reasoning_effort=settings.reasoning_effort, cwd=DRIVER_ROOT,
+                output_schema=DRIVER_ROOT / "contracts/job_analysis.schema.json",
+            )
+            log = next(Path(directory).glob("logs/codex/*"))
+            stdout = (log / "stdout.log").read_text(encoding="utf-8")
+            saved_stderr = (log / "stderr.log").read_text(encoding="utf-8")
+            self.assertEqual(json.loads(stdout.splitlines()[0])["request_id"], "req-test")
+            self.assertIn("Retry-After", stdout)
+            self.assertIn("Retry-After=9", saved_stderr)
+            for secret in ("fake-bearer-secret", "fake-cookie-secret", "fake-other-cookie", "fake-header-key",
+                           "fake-refresh-secret", "fake-stderr-cookie", "fake-more-cookies", "fake-env-secret"):
+                self.assertNotIn(secret, stdout + saved_stderr + "\n".join(result.errors))
+            self.assertIn(f"CLI diagnostics: {log}", result.errors)
+            self.assertFalse(any("DEBUG" in error for error in result.errors))
+            self.assertIn("codex_api=debug", process_run.call_args.kwargs["env"]["RUST_LOG"])
+            self.assertEqual(process_run.call_args.kwargs["input"], "PROMPT")
+            self.assertEqual(os.environ["RUST_LOG"], "info")
+            self.assertEqual(process_run.call_count, 1)
+
+    @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
+    @patch("codex_proxy.codex_cli.subprocess.run")
+    def test_successful_cli_does_not_save_debug_logs_or_error_text(self, process_run, unused_which) -> None:
+        process_run.return_value = SimpleNamespace(returncode=0, stdout="", stderr="DEBUG transport details")
+        settings = load()
+        with tempfile.TemporaryDirectory() as directory, patch.object(codex_cli, "DATA_ROOT", Path(directory)):
+            result = codex_cli.call(
+                config=settings.config, prompt="PROMPT", model=settings.model,
+                reasoning_effort=settings.reasoning_effort, cwd=DRIVER_ROOT,
+                output_schema=DRIVER_ROOT / "contracts/job_analysis.schema.json",
+            )
+            self.assertFalse((Path(directory) / "logs").exists())
+            self.assertEqual(result.errors, [])
 
     @patch("codex_proxy.codex_cli.shutil.which", return_value="codex")
     @patch("codex_proxy.codex_cli.subprocess.run")

@@ -38,7 +38,8 @@ def usage_limit_error(errors: list[str], now: datetime) -> UsageLimitExceededErr
                 continue
             reset = details.get("retry_at") or details.get("resets_at")
             retry_at = _reset_time(reset) if reset is not None else _message_time(message, now)
-            return UsageLimitExceededError(message, retry_at)
+            diagnostics = [value for value in errors if value.startswith("CLI diagnostics: ")]
+            return UsageLimitExceededError("\n".join((message, *diagnostics)), retry_at)
     return None
 
 

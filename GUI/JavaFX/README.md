@@ -168,6 +168,11 @@ names and creates the copyable fields, details area, toolbar toggle, and
 collapsible panel. All toggles appear at the top right; selecting one panel
 collapses the previously selected panel.
 
+Expanded panels can be resized by dragging their left/bottom edges or the
+bottom-left corner. The right/top position remains anchored, Details grows
+with the panel, and manual dimensions survive minimization within the session.
+Panel size is constrained by the main window's available area.
+
 Collect/Batch use `SnapshotProgressPane.update(ProgressSnapshot)` for universal
 rendering. `replaceExtraFields(...)` replaces the ordered dynamic rows without
 altering the fixed fields. Fixed-form panels may continue to use `setField(...)`.

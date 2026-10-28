@@ -4,6 +4,10 @@ import javafx.application.Platform;
 import javafx.css.PseudoClass;
 import javafx.scene.Node;
 import javafx.scene.Scene;
+import javafx.event.Event;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.input.PickResult;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollBar;
 import javafx.scene.control.ScrollPane;
@@ -100,6 +104,7 @@ public final class BackgroundProcessPaneSmoke {
                 }
                 checkSnapshotProgress(area);
                 checkUsageLimits(area);
+                checkResize();
                 return null;
             });
             Platform.runLater(check);
@@ -108,6 +113,70 @@ public final class BackgroundProcessPaneSmoke {
         } finally {
             Platform.exit();
         }
+    }
+
+    private static void checkResize() {
+        StackPane overlay = new StackPane();
+        HBox docks = new HBox();
+        BackgroundProcessPane pane = new BackgroundProcessPane(
+                new BackgroundProcessPane.Area(overlay, docks), "Resize", "Run ID") { };
+        pane.beginProcess();
+        new Scene(overlay, 1100, 850);
+        overlay.getStylesheets().add(BackgroundProcessPaneSmoke.class.getResource(
+                "/com/seeker/guifx/application.css").toExternalForm());
+        overlay.resize(1100, 850);
+        overlay.applyCss();
+        overlay.layout();
+        VBox panel = (VBox) overlay.getChildren().getFirst();
+        double originalWidth = panel.getWidth();
+        double originalHeight = panel.getHeight();
+        drag(panel, 2, 20, -170, 0);
+        overlay.layout();
+        if (Math.abs(panel.getWidth() - originalWidth - 170) > 1
+                || Math.abs(panel.getHeight() - originalHeight) > 1) {
+            throw new AssertionError("Left-edge resize did not change only width");
+        }
+        TextArea details = (TextArea) content(panel).getChildren().getLast();
+        double detailsHeight = details.getHeight();
+        drag(panel, panel.getWidth() / 2, panel.getHeight() - 2, 0, 120);
+        overlay.layout();
+        if (Math.abs(panel.getHeight() - originalHeight - 120) > 1
+                || details.getHeight() < detailsHeight + 119) {
+            throw new AssertionError("Bottom-edge resize did not expand the Details area");
+        }
+        double width = panel.getWidth();
+        double height = panel.getHeight();
+        ToggleButton toggle = (ToggleButton) ((HBox) docks.getChildren().getFirst()).getChildren().getFirst();
+        toggle.fire();
+        toggle.fire();
+        overlay.layout();
+        if (panel.getWidth() != width || panel.getHeight() != height) {
+            throw new AssertionError("Minimize/reopen lost manual panel size");
+        }
+        drag(panel, 2, panel.getHeight() - 2, -5000, 5000);
+        overlay.layout();
+        if (panel.getWidth() > 1084 || panel.getHeight() > 834) {
+            throw new AssertionError("Corner resize escaped the main window");
+        }
+        overlay.resize(650, 420);
+        overlay.layout();
+        if (panel.getWidth() > 634 || panel.getHeight() > 404) {
+            throw new AssertionError("Resized panel no longer fits a smaller main window");
+        }
+    }
+
+    private static void drag(VBox panel, double x, double y, double dx, double dy) {
+        var start = panel.localToScene(x, y);
+        mouse(panel, MouseEvent.MOUSE_PRESSED, start.getX(), start.getY(), true);
+        mouse(panel, MouseEvent.MOUSE_DRAGGED, start.getX() + dx, start.getY() + dy, true);
+        mouse(panel, MouseEvent.MOUSE_RELEASED, start.getX() + dx, start.getY() + dy, false);
+    }
+
+    private static void mouse(VBox panel, javafx.event.EventType<MouseEvent> type,
+            double sceneX, double sceneY, boolean down) {
+        Event.fireEvent(panel, new MouseEvent(type, sceneX, sceneY, sceneX, sceneY,
+                MouseButton.PRIMARY, 1, false, false, false, false, down, false, false,
+                false, false, true, new PickResult(panel, sceneX, sceneY)));
     }
 
     private static void checkUsageLimits(BackgroundProcessPane.Area area) {
