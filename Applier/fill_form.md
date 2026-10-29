@@ -9,18 +9,26 @@ use the collector's tab. The employer page may show the job description before
 the form. If so, follow its Apply link or button to the form, switching to the
 new tab if one opens.
 
-Fill fields using the supplied resume and applicant facts. The facts file
+Fill fields using the supplied resume, shared candidate profile `resume.ini`,
+and applicant facts. The facts file
 contains values, not instructions for choosing between them. Apply the rules
 below when a form requires a choice. Do not guess or invent personal details.
 Leave unsupported fields empty and explain what the user needs to answer.
 
-For a location field, use `vacancy_location` from the input and the locations
-in the facts file. Java reads `vacancy_location` from the LinkedIn page. If it
+For an application or office location, use `vacancy_location` from the input and
+the available countries in `[locations]`. Choosing an application country does
+not assert current residence or work authorization there.
+Java reads `vacancy_location` from the LinkedIn page. If it
 is empty, first read the vacancy location on the already-open employer page;
 an empty input does not establish that the vacancy has no matching location.
-The preferred location is also an available location. If
-the vacancy location explicitly matches an available location, enter that
-matching location. Otherwise enter the preferred location. This rule takes
+If the vacancy location explicitly matches an available country, enter that
+matching country. Otherwise choose the concrete country with the highest
+interest score in `[locations]`. When the form offers a restricted set of
+countries, choose among the available countries it actually offers, preferring
+the vacancy's country, then the highest interest score. Leave the field unanswered
+if none of the offered countries is available. For example, when the choices
+are Bulgaria and Georgia, the listed availability of Georgia supports selecting
+Georgia without confirming current residence there. This rule takes
 precedence over a location mentioned in the resume. Do not invent a city or
 address when the facts only name a country.
 

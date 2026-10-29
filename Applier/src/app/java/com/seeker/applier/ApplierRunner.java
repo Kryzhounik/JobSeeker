@@ -140,6 +140,7 @@ public final class ApplierRunner {
         Path schema = projectRoot.resolve("Applier/result.schema.json");
         Path resumePdf = projectRoot.resolve("Data/applier/CV_DokE2026M.pdf");
         Path resumeText = projectRoot.resolve("Data/applier/resume.txt");
+        Path candidateProfile = projectRoot.resolve("Driver/analyzer/config/resume.ini");
         if (!Files.isRegularFile(resumePdf) || !Files.isRegularFile(resumeText)) {
             throw new IOException("Applier resume is missing from Data/applier.");
         }
@@ -161,7 +162,8 @@ public final class ApplierRunner {
                     "--output-schema", schema.toString(),
                     "--allow-browser-tools",
                     "--browser-cdp-endpoint", ManagedBrowser.CDP_ENDPOINT,
-                    "--context", resumeText.toString()
+                    "--context", resumeText.toString(),
+                    "--context", candidateProfile.toString()
             ));
             Path facts = projectRoot.resolve("Data/applier/facts.md");
             if (Files.isRegularFile(facts)) {

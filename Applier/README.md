@@ -21,14 +21,35 @@ for review. Form preparation never submits or marks a vacancy Applied.
 The local resume lives at `Data/applier/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
 `Data/applier/resume.txt` is passed to Codex as context; the PDF path is passed
 for form uploads. Replace both files together when updating the resume.
-Applicant facts, separate from the decision rules in `fill_form.md`, go in
-`Data/applier/facts.md`. The current file lists the preferred and other
-available locations. Applier reads the vacancy location from the LinkedIn page
+The shared candidate profile at `Driver/analyzer/config/resume.ini` supplies
+available locations, relocation options, language levels, and technology levels.
+Additional applicant facts, such as phone numbers, work authorization, compensation,
+and notice period, go in `Data/applier/facts.md`; do not duplicate the shared profile
+there. Keep decision rules in `fill_form.md`. Applier reads the vacancy location
+from the LinkedIn page
 so Codex can apply the location rule. If the extracted location is empty, Codex
 first reads it on the open employer page. Add confirmed facts as testing reveals new fields;
 add choice rules to `fill_form.md`. `Data/` is excluded from Git.
 
-`REQUIREMENTS.md` defines the expected behavior.
+`REQUIREMENTS.md` defines the expected behavior. [BACKLOG.md](BACKLOG.md) records
+deferred optimization ideas.
+
+## Configuration dependencies
+
+Applier reuses these existing files; it has no separate copies of these settings:
+
+- `Driver/analyzer/config/resume.ini`: shared candidate profile. The Codex path
+  passes its complete contents alongside the resume text and facts in the initial
+  prompt. A path or link in the facts file alone does not load another file;
+  the agent uses browser tools and does not fetch profile files on demand.
+- `Driver/collector/java_linkedin/runtime.properties`: `profile.directory` selects
+  the persistent browser profile; `python.executable` starts the Codex Proxy.
+- `Driver/collector/config/linkedin.properties`: `browserChannel` selects the
+  browser when starting it (default `chrome`), and `pageTimeoutSeconds` sets
+  browser action and navigation timeouts (default `60`).
+
+Changes to these shared settings affect Applier as well as their owning modules.
+The configuration dependency does not require a running collector.
 
 ## Build and console API
 
