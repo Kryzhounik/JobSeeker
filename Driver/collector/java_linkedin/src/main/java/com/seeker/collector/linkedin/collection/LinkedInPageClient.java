@@ -329,6 +329,10 @@ final class LinkedInPageClient {
 
     void openSeed(SearchPlan.Target target) {
         openSearch(target, 0);
+        // LinkedIn may retain the previous search geography if AccountRemote opens
+        // too soon after the seed. This 20-second wait is an observed workaround,
+        // not a guarantee that LinkedIn has persisted the new geography.
+        page.waitForTimeout(20_000);
     }
 
     String openSearch(SearchPlan.Target target, int start) {
