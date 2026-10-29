@@ -17,6 +17,7 @@ class GptEvaluationTest {
         Integer jobId = 42;
         GptEvaluation.Result saved;
         Exception saveFailure;
+        Exception loadFailure;
         final List<String> events = new ArrayList<>();
 
         @Override public Integer findJobId(String url) {
@@ -29,6 +30,12 @@ class GptEvaluationTest {
             events.add("save");
             if (saveFailure != null) throw saveFailure;
             saved = new GptEvaluation.Result(id, answer, time);
+        }
+
+        @Override public GptEvaluation.Result load(int id) throws Exception {
+            events.add("load:" + id);
+            if (loadFailure != null) throw loadFailure;
+            return saved;
         }
     }
 
@@ -43,7 +50,7 @@ class GptEvaluationTest {
     @Test void urlOnlyResolvesIdThenEvaluatesAndSavesFullAnswer() throws Exception {
         Store store = new Store();
         GptEvaluation.Result result = operation(store).run(URL);
-        assertEquals(List.of("find", "evaluate", "save"), store.events);
+        assertEquals(List.of("find", "load:42", "evaluate", "save"), store.events);
         assertEquals(store.saved, result);
         assertEquals(ANSWER, result.answer());
         assertEquals(42, result.jobId());
@@ -53,7 +60,7 @@ class GptEvaluationTest {
     @Test void explicitGuiIdSkipsLookupAndTrustsSuppliedPair() throws Exception {
         Store store = new Store();
         GptEvaluation.Result result = operation(store).run(URL, 71);
-        assertEquals(List.of("evaluate", "save"), store.events);
+        assertEquals(List.of("load:71", "evaluate", "save"), store.events);
         assertEquals(71, result.jobId());
         assertEquals(store.saved, result);
     }
@@ -68,26 +75,57 @@ class GptEvaluationTest {
         assertEquals(ANSWER, result.answer());
     }
 
-    @Test void savingFailurePreservesPreviousAnswerAndNeverRepeatsEvaluation() {
+    @Test void savingFailureRetainsObtainedAnswerAndNeverRepeatsEvaluation() {
         Store store = new Store();
-        store.saved = new GptEvaluation.Result(42, "previous", "before");
         store.saveFailure = new IOException("disk full");
         GptEvaluation.SaveException error = assertThrows(GptEvaluation.SaveException.class,
                 () -> operation(store).run(URL));
         assertSame(store.saveFailure, error.getCause());
         assertEquals(ANSWER, error.answer());
         assertTrue(error.getMessage().contains("saving failed"));
-        assertEquals("previous", store.saved.answer());
-        assertEquals(List.of("find", "evaluate", "save"), store.events);
+        assertNull(store.saved);
+        assertEquals(List.of("find", "load:42", "evaluate", "save"), store.events);
     }
 
-    @Test void evaluationFailureDoesNotTouchSavedAnswer() {
+    @Test void evaluationFailureDoesNotWriteAnAnswer() {
         Store store = new Store();
-        store.saved = new GptEvaluation.Result(42, "previous", "before");
         IOException failure = new IOException("evaluation failed");
         GptEvaluation evaluation = new GptEvaluation(url -> { throw failure; }, store);
         assertSame(failure, assertThrows(IOException.class, () -> evaluation.run(URL)));
-        assertEquals(List.of("find"), store.events);
-        assertEquals("previous", store.saved.answer());
+        assertEquals(List.of("find", "load:42"), store.events);
+        assertNull(store.saved);
+    }
+
+    @Test void urlOnlyReturnsStoredAnswerWithoutEvaluationOrUpdatingTimestamp() throws Exception {
+        Store store = new Store();
+        store.saved = new GptEvaluation.Result(42, ANSWER, "2026-10-22T14:00:00Z");
+        GptEvaluation evaluation = new GptEvaluation(url -> {
+            throw new AssertionError("Stored answer must bypass HTTP and browser evaluation");
+        }, store);
+        assertSame(store.saved, evaluation.run(URL));
+        assertEquals(List.of("find", "load:42"), store.events);
+        assertEquals("2026-10-22T14:00:00Z", store.saved.evaluatedAt());
+    }
+
+    @Test void guiIdReturnsStoredAnswerWithoutLookupOrEvaluation() throws Exception {
+        Store store = new Store();
+        store.saved = new GptEvaluation.Result(71, ANSWER, "before");
+        assertSame(store.saved, operation(store).run(URL, 71));
+        assertEquals(List.of("load:71"), store.events);
+    }
+
+    @Test void repeatedCallReadsFirstSavedAnswerInsteadOfSendingAgain() throws Exception {
+        Store store = new Store();
+        GptEvaluation evaluation = operation(store);
+        GptEvaluation.Result first = evaluation.run(URL);
+        assertEquals(first, evaluation.run(URL));
+        assertEquals(List.of("find", "load:42", "evaluate", "save", "find", "load:42"), store.events);
+    }
+
+    @Test void readingFailureIsNotTreatedAsAnAbsentAnswer() {
+        Store store = new Store();
+        store.loadFailure = new IOException("read failed");
+        assertSame(store.loadFailure, assertThrows(IOException.class, () -> operation(store).run(URL)));
+        assertEquals(List.of("find", "load:42"), store.events);
     }
 }

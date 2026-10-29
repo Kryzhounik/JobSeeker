@@ -25,7 +25,7 @@ handled as HTML elements/cards. Consecutive repeated lines collapse as in v2.
 The public readable_text(source, raw_path) contract matches v2: return only the
 page text, without source, raw_file or source_url headers. The CLI reads one
 HTML file and prints text; it does not write to the database. The collector
-still imports v2 until explicitly switched to v3.
+imports v3 as its active HTML cleaner.
 """
 
 from __future__ import annotations

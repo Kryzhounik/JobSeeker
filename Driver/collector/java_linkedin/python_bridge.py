@@ -21,7 +21,7 @@ for import_root in (DRIVER_ROOT, COLLECTOR_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from collector.extract_linkedin_readable_text_v2 import readable_text
+from collector.extract_linkedin_readable_text_v3 import readable_text
 from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import apply_preview_decision_with_filter
 from collector.filtering.linkedin_filter import content_response

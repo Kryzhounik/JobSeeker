@@ -58,6 +58,8 @@ def execute_request(database: Path, request: dict):
         connection.execute("PRAGMA foreign_keys = ON")
         if request['operation'] == 'find_job_id':
             return find_job_id(connection, request['url'])
+        if request['operation'] == 'load':
+            return load_evaluation(connection, request['job_id'])
         if request['operation'] == 'save':
             with connection:
                 save_evaluation(connection, request['job_id'], request['answer'], request['evaluated_at'])

@@ -29,6 +29,18 @@ final class PythonEvaluationStore implements GptEvaluation.Store {
     }
 
     @Override
+    public GptEvaluation.Result load(int jobId) throws Exception {
+        JsonObject request = new JsonObject();
+        request.addProperty("operation", "load");
+        request.addProperty("job_id", jobId);
+        JsonElement result = call(request);
+        if (result.isJsonNull()) return null;
+        JsonObject row = result.getAsJsonObject();
+        return new GptEvaluation.Result(row.get("job_id").getAsInt(),
+                row.get("answer").getAsString(), row.get("evaluated_at").getAsString());
+    }
+
+    @Override
     public void save(int jobId, String answer, String evaluatedAt) throws Exception {
         JsonObject request = new JsonObject();
         request.addProperty("operation", "save");

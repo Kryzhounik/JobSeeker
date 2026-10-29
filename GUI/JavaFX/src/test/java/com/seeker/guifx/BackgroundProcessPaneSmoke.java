@@ -23,6 +23,7 @@ import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.codex.UsageLimitExceededException;
+import com.seeker.applier.ApplierRunner;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -105,6 +106,7 @@ public final class BackgroundProcessPaneSmoke {
                 checkSnapshotProgress(area);
                 checkUsageLimits(area);
                 checkResize();
+                checkApplyProgress();
                 return null;
             });
             Platform.runLater(check);
@@ -112,6 +114,46 @@ public final class BackgroundProcessPaneSmoke {
             System.out.println("Background process pane states and docking OK");
         } finally {
             Platform.exit();
+        }
+    }
+
+    private static void checkApplyProgress() {
+        StackPane overlay = new StackPane();
+        HBox docks = new HBox();
+        ApplyProgressPane apply = new ApplyProgressPane(new BackgroundProcessPane.Area(overlay, docks));
+        HBox badge = (HBox) docks.getChildren().getFirst();
+        Button close = (Button) badge.getChildren().getLast();
+        VBox panel = (VBox) overlay.getChildren().getFirst();
+        apply.begin(123, "https://example.com/123");
+        assertState(badge, "running");
+        if (!badge.isVisible() || !panel.isVisible() || close.isVisible()
+                || !apply.fieldText("Job ID").equals("123")
+                || !apply.fieldText("URL").equals("https://example.com/123")) {
+            throw new AssertionError("Apply does not show active work and its original vacancy");
+        }
+        apply.complete(new ApplierRunner.Result("partially_filled", "Inspect the open form.", false));
+        assertState(badge, "completed");
+        if (!apply.fieldText("Result").equals("partially_filled")
+                || !details(panel).equals("Inspect the open form.") || !close.isVisible()) {
+            throw new AssertionError("Apply result was lost or misrepresented");
+        }
+        close.fire();
+        if (badge.isVisible() || panel.isVisible()) throw new AssertionError("Apply could not be dismissed");
+        apply.begin(456, "https://example.com/456");
+        assertState(badge, "running");
+        if (!apply.fieldText("Result").isEmpty() || !details(panel).isEmpty()) {
+            throw new AssertionError("Apply restart retained a previous result");
+        }
+        apply.fail(new IllegalStateException("Browser connection failed"));
+        assertState(badge, "failed");
+        if (!apply.fieldText("Job ID").equals("456")
+                || !details(panel).equals("Browser connection failed") || !close.isVisible()) {
+            throw new AssertionError("Apply failure lost vacancy context or error details");
+        }
+        apply.begin(789, "https://example.com/789");
+        apply.complete(new ApplierRunner.Result("filled", "Review before submitting.", true));
+        if (!details(panel).contains("may already have been submitted")) {
+            throw new AssertionError("Apply submission warning was omitted");
         }
     }
 

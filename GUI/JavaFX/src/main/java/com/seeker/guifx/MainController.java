@@ -163,6 +163,7 @@ public final class MainController {
     private boolean chatEvalRunning;
     private Task<GptEvaluation.Result> chatEvalTask;
     private GptEvaluationProgressPane chatEvalProgress;
+    private ApplyProgressPane applyProgress;
     private final ExecutorService chatEvalExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "gui-gpt-evaluation");
         thread.setDaemon(true);
@@ -392,6 +393,16 @@ public final class MainController {
             Consumer<T> success,
             String errorTitle
     ) {
+        runTask(initialMessage, work, success, errorTitle, null);
+    }
+
+    private <T> void runTask(
+            String initialMessage,
+            TaskWork<T> work,
+            Consumer<T> success,
+            String errorTitle,
+            Consumer<Throwable> failure
+    ) {
         if (operationRunning) return;
         operationRunning = true;
         setOperationButtonsDisabled(true);
@@ -412,6 +423,7 @@ public final class MainController {
         task.setOnFailed(event -> {
             operationRunning = false;
             setOperationButtonsDisabled(false);
+            if (failure != null) failure.accept(task.getException());
             String message = task.getException() == null ? "Unknown error"
                     : String.valueOf(task.getException().getMessage());
             statusLabel.setText(errorTitle);
@@ -1310,9 +1322,13 @@ public final class MainController {
 
     private void startApply() {
         JobRecord job = selectedJob;
-        if (job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
+        if (operationRunning || job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
+        if (applyProgress == null) applyProgress = new ApplyProgressPane(backgroundProcesses);
+        ApplyProgressPane progressPane = applyProgress;
+        progressPane.begin(job.jobId(), job.sourceUrl());
         runTask("Opening application form...", updater ->
                 driverApi.prepareApplication(job.sourceUrl()), result -> {
+            progressPane.complete(result);
             String summary = result.submissionObserved()
                     ? "Application may already have been submitted. " + result.note()
                     : ("filled".equals(result.status()) ? "Filled. "
@@ -1323,7 +1339,7 @@ public final class MainController {
             alert.setTitle("Application preparation");
             alert.initOwner(stage);
             alert.show();
-        }, "Application preparation failed");
+        }, "Application preparation failed", progressPane::fail);
     }
 
     private void startChatEval() {

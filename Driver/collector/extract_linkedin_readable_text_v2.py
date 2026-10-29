@@ -1,4 +1,4 @@
-"""Current LinkedIn HTML-to-text cleaner (v2), retained for comparison.
+"""Previous LinkedIn HTML-to-text cleaner (v2), retained for comparison.
 
 This version flattens the page into text before removing known interface lines
 and textual tails. That removes much of the HTML markup, but external company
@@ -9,7 +9,7 @@ text markers can also cut useful content inside the vacancy.
 The Svitla Senior Java Software Engineer example (4480013168) demonstrates this
 limitation: the separate company profile and Premium insights remain in the
 output. V3 addresses this by removing identified unwanted HTML subtrees first.
-Keep v2 available and connected until v3 is explicitly adopted.
+V3 is the collector's active cleaner; v2 remains available for comparison.
 """
 
 from __future__ import annotations

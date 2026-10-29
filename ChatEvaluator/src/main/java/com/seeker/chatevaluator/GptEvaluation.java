@@ -11,6 +11,7 @@ public final class GptEvaluation {
 
     public interface Store {
         Integer findJobId(String url) throws Exception;
+        Result load(int jobId) throws Exception;
         void save(int jobId, String answer, String evaluatedAt) throws Exception;
     }
 
@@ -41,6 +42,10 @@ public final class GptEvaluation {
 
     /** The GUI supplies a consistent URL/ID pair; null means the lookup found no job. */
     public Result run(String url, Integer jobId) throws Exception {
+        if (jobId != null) {
+            Result previous = store.load(jobId);
+            if (previous != null) return previous;
+        }
         String answer = evaluator.evaluate(url);
         String evaluatedAt = Instant.now().toString();
         if (jobId != null) {

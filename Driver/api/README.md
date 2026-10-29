@@ -44,8 +44,10 @@ exit code `3` for this condition and print it without an error stack trace.
 ChatEvaluator receives the project root explicitly, without changing JVM
 properties. This module does not contain GUI data access.
 
-`evaluateWithChatGPT(url)` resolves a saved job by URL, evaluates it and saves
-the answer when a job is found; it returns the complete answer text. An unknown
+`evaluateWithChatGPT(url)` resolves a saved job by URL and returns its stored
+answer if present. Otherwise it evaluates and saves the answer when a job is
+found. A stored answer keeps its original timestamp and bypasses all HTTP and
+browser work. The method returns the complete answer text. An unknown
 URL is evaluated normally without persistence. The GUI uses
 `evaluateWithChatGPT(url, jobId)`, which skips lookup and returns
 `GptEvaluation.Result`; the caller guarantees that URL and ID refer to the same

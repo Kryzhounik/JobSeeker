@@ -64,10 +64,13 @@ class GptEvaluationsTest(unittest.TestCase):
                          (0, dict(result=1)))
         self.assertEqual(request(dict(operation='find_job_id', url='https://example.com/absent')),
                          (0, dict(result=None)))
+        self.assertEqual(request(dict(operation='load', job_id=1)), (0, dict(result=None)))
         answer = 'Ответ GPT\n\n' + 'Полный текст. ' * 1000
         self.assertEqual(request(dict(operation='save', job_id=1, answer=answer, evaluated_at='now')),
                          (0, dict(result=None)))
         self.assertEqual(self.load(1)['answer'], answer)
+        self.assertEqual(request(dict(operation='load', job_id=1)),
+                         (0, dict(result=dict(job_id=1, answer=answer, evaluated_at='now'))))
         code, response = request(dict(operation='save', job_id=1, answer='', evaluated_at='after'))
         self.assertEqual(code, 1)
         self.assertIn('error', response)
