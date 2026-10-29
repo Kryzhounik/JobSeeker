@@ -22,9 +22,10 @@ The HTML tree is built and modified with lxml.html.
 V2's interface/control labels, AI prompts, recruiter and sign-in sections are
 handled as HTML elements/cards. Consecutive repeated lines collapse as in v2.
 
-The public readable_text(source, raw_path) contract matches v2, including source
-metadata. The CLI reads one HTML file and prints text; it does not write to the
-database. The collector still imports v2 until explicitly switched to v3.
+The public readable_text(source, raw_path) contract matches v2: return only the
+page text, without source, raw_file or source_url headers. The CLI reads one
+HTML file and prints text; it does not write to the database. The collector
+still imports v2 until explicitly switched to v3.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ import sys
 
 from lxml import html
 
-from extract_linkedin_readable_text_v1 import SKIP_TAGS, source_url
+from extract_linkedin_readable_text_v1 import SKIP_TAGS
 from extract_linkedin_readable_text_v2 import repair_mojibake
 
 
@@ -303,12 +304,7 @@ def readable_text(source: str, raw_path: Path) -> str:
     _remove_promoted_badges(root)
     _prune(root)
     _trim_tail(root)
-    text = _render(root)
-    metadata = [f"source: {source}", f"raw_file: {raw_path.as_posix()}"]
-    url = source_url(source, raw_path)
-    if url:
-        metadata.append(f"source_url: {url}")
-    return "\n".join(metadata) + "\n\n" + text
+    return _render(root)
 
 
 def main() -> None:
