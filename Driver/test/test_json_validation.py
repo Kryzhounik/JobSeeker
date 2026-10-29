@@ -23,9 +23,7 @@ AGENT_FILTER_SCHEMA = DRIVER_ROOT / "contracts" / "agent_filter_result.schema.js
 
 def valid_analysis() -> dict:
     return {
-        "source": "linkedin",
         "added_at": "2026-09-08",
-        "source_url": "https://www.linkedin.com/jobs/view/1/",
         "title": "Java Developer",
         "company": "Example",
         "location": "Moldova",
@@ -67,6 +65,18 @@ class JsonValidationTest(unittest.TestCase):
         value["candidate_fit_percent"] = 70
         with self.assertRaises(SchemaValidationError):
             validate_json(value, ANALYSIS_SCHEMA)
+
+    def test_rejects_transport_metadata_in_analysis(self) -> None:
+        for name, value in (
+            ("source", "linkedin"),
+            ("source_url", "https://www.linkedin.com/jobs/view/1/"),
+            ("raw_file", "Data/raw/linkedin/pages/1.html"),
+        ):
+            with self.subTest(name=name):
+                record = valid_analysis()
+                record[name] = value
+                with self.assertRaises(SchemaValidationError):
+                    validate_json(record, ANALYSIS_SCHEMA)
 
     def test_rejects_invalid_nested_analysis_value(self) -> None:
         value = copy.deepcopy(valid_analysis())

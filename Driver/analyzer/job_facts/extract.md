@@ -3,8 +3,7 @@ Purpose: extract structured vacancy facts from one readable vacancy.
 Task: perform only the job-facts operation for one stored readable vacancy.
 
 Job-facts call:
-- Input: one readable vacancy text loaded from SQLite, plus source/source_url when
-  available.
+- Input: one readable vacancy text loaded from SQLite.
 - Do not run search or collection here.
 - Do not reopen the vacancy in the browser unless the user explicitly asks.
 - Return one analyzed JSON object matching
@@ -31,7 +30,6 @@ interpretation.
 
 Job fields:
 - added_at: current date in YYYY-MM-DD format.
-- source_url: original vacancy URL.
 - title: job title.
 - company: company name.
 - location: one or more places from which the candidate may perform the role;

@@ -11,8 +11,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterable
 
-from db.job_registry import mark_url_status
-from db.job_registry import source_job_id
+from db.job_registry import mark_status
+from db.job_registry import validate_identity
 
 
 JOB_COLUMNS = (
@@ -410,9 +410,14 @@ def get_or_create_id(
     return int(row[0])
 
 
-def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int:
-    source = required_text(record, "source")
-    source_url = required_text(record, "source_url")
+def save_job_json(
+    connection: sqlite3.Connection,
+    record: dict[str, Any],
+    *,
+    source: str,
+    source_job_id: str,
+) -> int:
+    source, source_job_id = validate_identity(source, source_job_id)
     required_text(record, "title")
     collected = connection.execute(
         """
@@ -421,12 +426,12 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
         JOIN source_job_texts text ON text.source_job_ref = source_job.id
         WHERE source_job.source = ? AND source_job.source_job_id = ?
         """,
-        (source, source_job_id(source, source_url)),
+        (source, source_job_id),
     ).fetchone()
     if collected is None:
         raise ValueError(
             "Collected job data is missing for "
-            f"{source}:{source_url}; save collector output before analysis"
+            f"{source}:{source_job_id}; save collector output before analysis"
         )
     source_job_ref = int(collected[0])
     salary = clean(record["salary"])
@@ -498,7 +503,7 @@ def save_job_json(connection: sqlite3.Connection, record: dict[str, Any]) -> int
 
     replace_languages(connection, job_id, record["languages"])
     replace_technologies(connection, job_id, record["technologies"])
-    mark_url_status(connection, source, source_url, "SAVED")
+    mark_status(connection, source, source_job_id, "SAVED")
     return job_id
 
 

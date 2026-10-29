@@ -21,8 +21,6 @@ from db.save import save_records
 
 def record(job_id: str) -> dict[str, object]:
     return {
-        "source": "linkedin",
-        "source_url": f"https://www.linkedin.com/jobs/view/{job_id}",
         "status": "New",
         "title": f"Java Developer {job_id}",
         "company": "Example",
@@ -74,7 +72,7 @@ class SaveAtomicityTest(unittest.TestCase):
                         "linkedin",
                         job_id,
                         "Collected vacancy text",
-                        source_url=value["source_url"],
+                        source_url=f"https://www.linkedin.com/jobs/view/{job_id}",
                         title=value["title"],
                         company=value["company"],
                         location=value["location"],

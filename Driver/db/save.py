@@ -16,8 +16,8 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_mapper import existing_source_urls
 from db.job_mapper import save_job_json
+from db.job_registry import validate_identity
 from db.migrate import migrate_database
 
 
@@ -39,7 +39,7 @@ def record_from_payload(payload: Any, label: str, source: str) -> dict[str, Any]
     record = payload.get("analysis", payload) if isinstance(payload, dict) else payload
     if not isinstance(record, dict):
         raise ValueError(f"{label} must contain a job analysis object")
-    if source and record.get("source") != source:
+    if source and record.get("source") and record["source"] != source:
         raise ValueError(
             f"{label} source mismatch: JSON has {record.get('source')!r}, "
             f"command expected {source!r}"
@@ -127,23 +127,27 @@ def validate_scored_record(record: dict[str, Any]) -> None:
 def save_one_record(
     connection: sqlite3.Connection,
     record: dict[str, Any],
-    done: set[str],
+    done: set[tuple[str, str]],
     force: bool,
+    *,
+    source: str,
+    job_id: str,
 ) -> tuple[str, str]:
     connection.execute("SAVEPOINT save_one_record")
     try:
-        source_url = str(record["source_url"] or "").strip()
-        if not source_url:
-            raise ValueError("source_url is empty")
-        if source_url in done and not force:
-            result = ("skip", source_url)
+        identity = validate_identity(source, job_id)
+        label = f"{identity[0]}:{identity[1]}"
+        if identity in done and not force:
+            result = ("skip", label)
         else:
             validate_scored_record(record)
-            save_job_json(connection, record)
-            done.add(source_url)
+            save_job_json(
+                connection, record, source=identity[0], source_job_id=identity[1]
+            )
+            done.add(identity)
             result = (
                 "save",
-                f"{source_url} interest={record['job_interest']} "
+                f"{label} interest={record['job_interest']} "
                 f"fit={record['candidate_fit_percent']}",
             )
     except Exception:
@@ -168,15 +172,24 @@ def save_records(
 
     with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        done = existing_source_urls(connection)
+        done = set(connection.execute(
+            "SELECT source_job.source, source_job.source_job_id "
+            "FROM jobs job JOIN source_jobs source_job ON source_job.id = job.source_job_ref"
+        ))
 
         if input_value == "-":
             try:
+                if not job_ids or len(job_ids) != 1:
+                    raise ValueError("stdin requires exactly one --job-ids value")
+                record = load_stdin_record(source)
+                record_source = source or str(record.get("source") or "")
                 result = save_one_record(
                     connection,
-                    load_stdin_record(source),
+                    record,
                     done,
                     force,
+                    source=record_source,
+                    job_id=job_ids[0],
                 )
                 results.append(result)
             except Exception as error:
@@ -184,11 +197,14 @@ def save_records(
         else:
             for path in json_paths(Path(input_value), job_ids):
                 try:
+                    record = load_record(path, source)
                     result = save_one_record(
                         connection,
-                        load_record(path, source),
+                        record,
                         done,
                         force,
+                        source=source or str(record.get("source") or path.parent.name),
+                        job_id=path.stem,
                     )
                     results.append(result)
                 except Exception as error:
@@ -213,7 +229,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     parser.add_argument(
         "--job-ids",
-        help="Comma-separated source-job IDs to select from the input directory.",
+        help="Source-job IDs to select from a directory, or one ID for stdin.",
     )
     args = parser.parse_args()
 

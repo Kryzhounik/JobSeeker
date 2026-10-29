@@ -120,6 +120,8 @@ class CodexProxyTest(unittest.TestCase):
         self.assertFalse(schema["additionalProperties"])
         self.assertNotIn("allOf", schema)
         self.assertNotIn("not", schema["properties"]["salary"])
+        self.assertNotIn("source", schema["properties"])
+        self.assertNotIn("source_url", schema["properties"])
 
     def test_cli_prompt_materializes_only_explicit_operation_files(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

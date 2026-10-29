@@ -171,15 +171,7 @@ def normalize_text(text: str) -> str:
 def readable_text(source: str, raw_path: Path) -> str:
     parser = LinkedInTextExtractor()
     parser.feed(raw_path.read_text(encoding="utf-8", errors="replace"))
-    text = normalize_text(parser.text())
-    metadata = [
-        f"source: {source}",
-        f"raw_file: {raw_path.as_posix()}",
-    ]
-    url = source_url(source, raw_path)
-    if url:
-        metadata.append(f"source_url: {url}")
-    return "\n".join(metadata) + "\n\n" + text
+    return normalize_text(parser.text())
 
 
 def convert(

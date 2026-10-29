@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+import io
 import json
 from pathlib import Path
 import sqlite3
@@ -18,10 +19,81 @@ from codex_proxy.backend import Result
 from orchestrator import python_bridge
 from db.job_registry import insert_source_job
 from db.migrate import migrate_database
+from db.readable_text import save_collected_job
+from db.save import save_records
 from collector.logging.linkedin_run_logger import start_collection_run, finish_collection_run
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    @patch("orchestrator.python_bridge.run")
+    def test_analysis_to_save_uses_known_identity_without_model_metadata(self, proxy_run) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "jobs.sqlite"
+            migrate_database(database)
+            url = "https://www.linkedin.com/jobs/view/123/"
+            body = "Java Developer\nEnglish B2\nRemote Moldova\n"
+            stored_text = f"source: linkedin\nraw_file: Data/raw/123.html\nsource_url: {url}\n\n{body}"
+            with closing(sqlite3.connect(database)) as connection:
+                insert_source_job(connection, "linkedin", "123")
+                save_collected_job(
+                    connection, "linkedin", "123", stored_text,
+                    source_url=url, title="Java Developer", company="Example",
+                    location="Moldova", workplace="remote",
+                )
+                connection.commit()
+
+            analysis = {
+                "added_at": "2026-10-29", "title": "Java Developer",
+                "company": "Example", "location": "Moldova",
+                "remote_type": "remote", "remote_scope": "Moldova",
+                "relocation": "NO", "seniority": "senior", "role": "backend",
+                "salary": "", "summary": "Java backend role", "notes": "",
+                "languages": [], "technologies": [],
+            }
+            fit = {
+                "candidate_fit_percent": 80, "candidate_fit_reason_code": "ok",
+                "candidate_fit_reason": "Backend match",
+            }
+            proxy_run.side_effect = [
+                Result(["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, []),
+                Result(["codex", "exec"], 0, "fit-thread", json.dumps(fit), {}, []),
+            ]
+
+            with patch.object(python_bridge, "DATA_ROOT", root):
+                self.assertEqual("facts-thread", python_bridge.run_job_facts(
+                    "run-1", "linkedin", "123", "facts", None, str(database),
+                ))
+                request = json.loads(proxy_run.call_args.kwargs["input_text"])
+                self.assertEqual(set(request), {"readable_text", "authoritative_language_facts"})
+                self.assertEqual(request["readable_text"], body)
+                self.assertEqual(request["authoritative_language_facts"][0]["level"], "B2")
+                self.assertEqual("fit-thread", python_bridge.run_candidate_fit(
+                    "run-1", "linkedin", "123", "fit", "fit-thread", str(database),
+                ))
+                python_bridge.run_job_interest("linkedin", "123", str(database))
+                self.assertEqual(1, python_bridge.save_scored("linkedin", '["123"]', str(database)))
+                self.assertEqual(0, python_bridge.save_scored("linkedin", '["123"]', str(database)))
+
+            for stage in ("analyzed", "scored"):
+                artifact = json.loads((root / stage / "linkedin" / "123.json").read_text(encoding="utf-8"))
+                self.assertNotIn("source", artifact)
+                self.assertNotIn("source_url", artifact)
+            with patch("db.save.sys.stdin", io.StringIO(json.dumps(artifact))):
+                self.assertEqual(save_records(
+                    "-", database, DRIVER_ROOT / "db/schema.sql", "linkedin", True, ["123"],
+                )[0][0], "save")
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual(
+                    connection.execute(
+                        "SELECT source_job.source_job_id, source_job.processing_status, "
+                        "text.source_url, text.readable_text, job.candidate_fit_percent "
+                        "FROM jobs job JOIN source_jobs source_job ON source_job.id = job.source_job_ref "
+                        "JOIN source_job_texts text ON text.source_job_ref = source_job.id"
+                    ).fetchone(),
+                    ("123", "SAVED", url, stored_text, 80),
+                )
+
     @staticmethod
     def _batch(database: Path) -> dict:
         with closing(sqlite3.connect(database)) as connection:

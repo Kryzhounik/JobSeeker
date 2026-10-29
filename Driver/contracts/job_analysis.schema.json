@@ -13,9 +13,7 @@
     "analysisCore": {
       "type": "object",
       "required": [
-        "source",
         "added_at",
-        "source_url",
         "title",
         "company",
         "location",
@@ -31,16 +29,8 @@
         "technologies"
       ],
       "properties": {
-        "source": {
-          "type": "string",
-          "enum": ["justjoin", "linkedin"]
-        },
         "added_at": {
           "type": "string"
-        },
-        "source_url": {
-          "type": "string",
-          "minLength": 1
         },
         "title": {
           "type": "string",

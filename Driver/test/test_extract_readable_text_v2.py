@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 
@@ -18,6 +19,15 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RepairMojibakeTests(unittest.TestCase):
+    def test_readable_text_contains_only_vacancy_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            raw_path = Path(directory) / "123.html"
+            raw_path.write_text("<h1>Java Developer</h1><p>English B2</p>", encoding="utf-8")
+            self.assertEqual(
+                MODULE.readable_text("linkedin", raw_path),
+                "Java Developer\nEnglish B2\n",
+            )
+
     def test_repairs_linkedin_punctuation(self) -> None:
         damaged = "Ukraine В· Remote вЂў Rate: в‚¬500 вЂ“ в‚¬650 в†’ apply"
         expected = "Ukraine · Remote • Rate: €500 – €650 → apply"

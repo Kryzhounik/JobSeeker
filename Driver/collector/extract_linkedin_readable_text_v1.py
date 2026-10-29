@@ -114,15 +114,7 @@ def source_url(source: str, raw_path: Path) -> str:
 def readable_text(source: str, raw_path: Path) -> str:
     parser = TextExtractor()
     parser.feed(raw_path.read_text(encoding="utf-8", errors="replace"))
-    text = normalize_text(parser.text())
-    metadata = [
-        f"source: {source}",
-        f"raw_file: {raw_path.as_posix()}",
-    ]
-    url = source_url(source, raw_path)
-    if url:
-        metadata.append(f"source_url: {url}")
-    return "\n".join(metadata) + "\n\n" + text
+    return normalize_text(parser.text())
 
 
 def input_paths(input_path: Path) -> list[Path]:

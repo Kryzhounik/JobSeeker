@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import configparser
+from contextlib import closing
 import json
 import sqlite3
 import sys
@@ -20,7 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
-from db.job_registry import mark_url_status
+from db.job_registry import mark_status
 from db.migrate import migrate_database
 from analyzer.location import location_contains
 from analyzer.location import location_tokens
@@ -265,7 +266,7 @@ def score_json_files(
     results: list[tuple[Path, int, str]] = []
     migrate_database(db_path)
 
-    with sqlite3.connect(db_path) as connection:
+    with closing(sqlite3.connect(db_path)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         for path in json_paths(input_path):
             record = json.loads(path.read_text(encoding="utf-8"))
@@ -282,10 +283,10 @@ def score_json_files(
                 json.dumps(record, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8",
             )
-            mark_url_status(
+            mark_status(
                 connection,
-                str(record.get("source") or ""),
-                str(record.get("source_url") or ""),
+                str(record.get("source") or path.parent.name),
+                path.stem,
                 "SCORED",
             )
             connection.commit()

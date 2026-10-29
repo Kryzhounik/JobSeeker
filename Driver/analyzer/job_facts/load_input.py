@@ -35,13 +35,15 @@ def load_input(
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
         readable = load_readable_text(connection, source, job_id)
+    lines = readable.splitlines(keepends=True)
+    while lines and lines[0].startswith(("source: ", "raw_file: ", "source_url: ")):
+        lines.pop(0)
+    readable = "".join(lines).lstrip("\r\n")
     language_facts = [
         requirement.as_filter_row()
         for requirement in extract_language_requirements(readable, LANGUAGE_CONFIG)
     ]
     return {
-        "source": source,
-        "job_id": job_id,
         "readable_text": readable,
         "authoritative_language_facts": language_facts,
     }

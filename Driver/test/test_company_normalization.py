@@ -75,7 +75,9 @@ class CompanyNormalizationTest(unittest.TestCase):
                 salary="",
             )
             self.assertNotIn(record["source_url"], existing_source_urls(connection))
-            job_id = save_job_json(connection, record)
+            job_id = save_job_json(
+                connection, record, source="linkedin", source_job_id="123"
+            )
             self.assertIn(record["source_url"], existing_source_urls(connection))
             connection.commit()
             company = connection.execute(
