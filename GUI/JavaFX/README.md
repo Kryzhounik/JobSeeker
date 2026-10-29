@@ -232,6 +232,8 @@ review and manual submission. Apply is disabled for vacancies marked Easy Apply
 by the collector. Like GPT Eval, it shows an Apply badge and expandable panel in
 the shared top-right progress area. Its panel contains the original URL and the
 full result or exception, without separate completion or error dialogs.
+Apply runs independently of data operations and disables only its own button
+until completion; status changes, availability checks and refilter stay usable.
 The badge is light green while preparing, green when
 the task returns, and red on an exception; a finished preparation is not a claim
 that an application was submitted. Finished panels can be dismissed or resized

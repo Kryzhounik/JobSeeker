@@ -1,6 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
+import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.orchestrator.WorkflowResult;
@@ -162,7 +163,14 @@ public final class MainController {
     private boolean chatEvalRunning;
     private Task<GptEvaluation.Result> chatEvalTask;
     private GptEvaluationProgressPane chatEvalProgress;
+    private boolean applyRunning;
+    private Task<ApplierRunner.Result> applyTask;
     private ApplyProgressPane applyProgress;
+    private final ExecutorService applyExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "gui-application-preparation");
+        thread.setDaemon(true);
+        return thread;
+    });
     private final ExecutorService chatEvalExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "gui-gpt-evaluation");
         thread.setDaemon(true);
@@ -372,8 +380,7 @@ public final class MainController {
         refilterButton.setDisable(disabled || operationRunning);
         refilterDetailButton.setDisable(disabled || operationRunning);
         statusActions.setDisable(disabled || operationRunning);
-        applyButton.setDisable(disabled || operationRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
+        updateApplyButton();
         updateChatEvalButton();
     }
 
@@ -391,16 +398,6 @@ public final class MainController {
             TaskWork<T> work,
             Consumer<T> success,
             String errorTitle
-    ) {
-        runTask(initialMessage, work, success, errorTitle, null);
-    }
-
-    private <T> void runTask(
-            String initialMessage,
-            TaskWork<T> work,
-            Consumer<T> success,
-            String errorTitle,
-            Consumer<Throwable> failure
     ) {
         if (operationRunning) return;
         operationRunning = true;
@@ -422,11 +419,9 @@ public final class MainController {
         task.setOnFailed(event -> {
             operationRunning = false;
             setOperationButtonsDisabled(false);
-            if (failure != null) failure.accept(task.getException());
             String message = task.getException() == null ? "Unknown error"
                     : String.valueOf(task.getException().getMessage());
             statusLabel.setText(errorTitle);
-            if (failure != null) return;
             Alert alert = new Alert(Alert.AlertType.ERROR, message);
             alert.setTitle(errorTitle);
             alert.initOwner(stage);
@@ -1263,7 +1258,7 @@ public final class MainController {
         setDetailEnabled(true);
         sourceLink.setDisable(job.sourceUrl().isBlank());
         openButton.setDisable(job.sourceUrl().isBlank());
-        applyButton.setDisable(job.sourceUrl().isBlank() || operationRunning || job.easyApply());
+        updateApplyButton();
         applyButton.setTooltip(job.easyApply() ? new Tooltip("LinkedIn Easy Apply") : null);
         updateChatEvalButton();
         fitField.setDisable(scoreSaveRunning);
@@ -1294,7 +1289,7 @@ public final class MainController {
         skillsPane.setDisable(!enabled);
         sourceLink.setDisable(!enabled);
         openButton.setDisable(!enabled);
-        applyButton.setDisable(!enabled || operationRunning || selectedJob == null
+        applyButton.setDisable(!enabled || applyRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
         chatEvalButton.setDisable(!enabled || chatEvalRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
@@ -1322,15 +1317,40 @@ public final class MainController {
 
     private void startApply() {
         JobRecord job = selectedJob;
-        if (operationRunning || job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
+        if (applyRunning || job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
+        applyRunning = true;
+        updateApplyButton();
         if (applyProgress == null) applyProgress = new ApplyProgressPane(backgroundProcesses);
         ApplyProgressPane progressPane = applyProgress;
         progressPane.begin(job.sourceUrl());
-        runTask("Opening application form...", updater ->
-                driverApi.prepareApplication(job.sourceUrl()), result -> {
+        Task<ApplierRunner.Result> task = new Task<>() {
+            @Override protected ApplierRunner.Result call() throws Exception {
+                return driverApi.prepareApplication(job.sourceUrl());
+            }
+        };
+        applyTask = task;
+        task.setOnSucceeded(event -> {
+            applyRunning = false;
+            applyTask = null;
+            updateApplyButton();
+            ApplierRunner.Result result = task.getValue();
             progressPane.complete(result);
             statusLabel.setText("Apply: " + result.status());
-        }, "Application preparation failed", progressPane::fail);
+        });
+        task.setOnFailed(event -> {
+            applyRunning = false;
+            applyTask = null;
+            updateApplyButton();
+            progressPane.fail(task.getException());
+            statusLabel.setText("Application preparation failed");
+        });
+        applyExecutor.execute(task);
+    }
+
+    private void updateApplyButton() {
+        applyButton.setDisable(applyRunning || selectedJob == null
+                || detailLoadedJobId != selectedJob.jobId()
+                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
     }
 
     private void startChatEval() {
@@ -1482,6 +1502,8 @@ public final class MainController {
         collectionExecutor.shutdownNow();
         if (chatEvalTask != null) chatEvalTask.cancel(true);
         chatEvalExecutor.shutdownNow();
+        if (applyTask != null) applyTask.cancel(true);
+        applyExecutor.shutdownNow();
         saveWindowSettings();
         if (pendingDetailTask != null) {
             pendingDetailTask.cancel(true);

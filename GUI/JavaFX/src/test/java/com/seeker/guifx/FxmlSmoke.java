@@ -50,6 +50,7 @@ public final class FxmlSmoke {
                         || loader.getNamespace().containsKey("searchButton")) {
                     throw new AssertionError("Toolbar order or Batch action/style changed");
                 }
+                checkApplyIsolation(loader);
             } catch (Throwable error) {
                 failure.set(error);
             } finally {
@@ -64,5 +65,41 @@ public final class FxmlSmoke {
             throw new IllegalStateException("FXML load failed", failure.get());
         }
         System.out.println("FXML load OK");
+    }
+
+    private static void checkApplyIsolation(FXMLLoader loader) throws Exception {
+        MainController controller = loader.getController();
+        JobRecord job = ClientData.readResponse("""
+                {"job_id":123,"source_url":"https://example.com/job","easy_apply":false}
+                """, JobRecord.class);
+        set(controller, "selectedJob", job);
+        set(controller, "detailLoadedJobId", 123);
+        set(controller, "applyRunning", true);
+        var buttons = MainController.class.getDeclaredMethod("setOperationButtonsDisabled", boolean.class);
+        buttons.setAccessible(true);
+        buttons.invoke(controller, false);
+        Button apply = (Button) loader.getNamespace().get("applyButton");
+        for (String name : java.util.List.of("linkedinCheckButton", "refilterButton", "refilterDetailButton")) {
+            if (((Button) loader.getNamespace().get(name)).isDisabled()) {
+                throw new AssertionError("Apply disabled unrelated action: " + name);
+            }
+        }
+        if (((javafx.scene.Node) loader.getNamespace().get("statusActions")).isDisabled()
+                || !apply.isDisabled()) {
+            throw new AssertionError("Apply did not isolate its own busy state");
+        }
+        var detail = MainController.class.getDeclaredMethod("setDetailEnabled", boolean.class);
+        detail.setAccessible(true);
+        detail.invoke(controller, true);
+        if (!apply.isDisabled()) throw new AssertionError("Detail refresh re-enabled active Apply");
+        set(controller, "applyRunning", false);
+        buttons.invoke(controller, true);
+        if (apply.isDisabled()) throw new AssertionError("Unrelated operation disabled Apply");
+    }
+
+    private static void set(MainController controller, String name, Object value) throws Exception {
+        var field = MainController.class.getDeclaredField(name);
+        field.setAccessible(true);
+        field.set(controller, value);
     }
 }
