@@ -107,7 +107,13 @@ public final class ApplierRunner {
         try {
             return jobPage.context().waitForPage(
                     new BrowserContext.WaitForPageOptions().setTimeout(popupTimeoutMs)
-                            .setPredicate(isApplyPage), apply::click);
+                            .setPredicate(isApplyPage), () -> {
+                        try {
+                            apply.click();
+                        } catch (TimeoutError clickTimeout) {
+                            throw new IllegalStateException("Clicking external Apply timed out.", clickTimeout);
+                        }
+                    });
         } catch (TimeoutError noPopup) {
             for (Page page : jobPage.context().pages()) {
                 if (!pagesBeforeClick.contains(page) && isApplyPage.test(page)) {
