@@ -51,6 +51,7 @@ TECHNOLOGY_LIST_TEMPLATES = (
     r"\bfluency\s+in\s+{technologies}",
     r"\bproficiency\s+(?:with|in)\s+{technologies}",
     r"\bproven\s+experience\s+(?:with|in|using)\s+{technologies}",
+    r"\bproven\s+expertise\s+delivering\s+solutions\s+in\s+{technologies}",
     r"\bstrong\s+(?:commercial\s+)?experience\s+(?:with|in|using)\s+{technologies}",
     r"\bprofessional\s+software\s+development\s+experience\s+in\s+{technologies}",
     r"\b{years}\s+(?:of\s+)?experience\s+building\b[^.;:\r\n]{0,120}?\bwith\s+{technologies}",
