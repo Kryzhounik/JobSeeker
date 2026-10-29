@@ -9,7 +9,6 @@ import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
-import java.lang.reflect.InvocationTargetException;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -20,7 +19,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LinkedInCollectorProgressTest {
@@ -58,27 +56,41 @@ class LinkedInCollectorProgressTest {
     }
 
     @Test
-    void processingFailureIsNotConvertedIntoIncompleteRaw() throws Exception {
-        IllegalStateException failure = new IllegalStateException("content filter failed");
+    void recordsProcessingFailureAndAllowsTheNextVacancy() throws Exception {
+        List<String> logged = new ArrayList<>();
         PythonGateway python = (PythonGateway) Proxy.newProxyInstance(
                 PythonGateway.class.getClassLoader(), new Class<?>[]{PythonGateway.class},
                 (proxy, method, args) -> {
-                    if (method.getName().equals("processHtml")) throw failure;
+                    if (method.getName().equals("decidePreview")) {
+                        if (((Preview) args[0]).jobId().equals("123")) {
+                            throw new IllegalStateException("preview filter failed");
+                        }
+                        return new PreviewDecision("skip", "duplicate", "", List.of());
+                    }
+                    if (method.getName().equals("logOutcome")) {
+                        logged.add(args[1] + ": " + args[2]);
+                        return null;
+                    }
                     throw new AssertionError("Unexpected gateway call: " + method.getName());
                 });
         LinkedInCollector collector = new LinkedInCollector(null, python, CONFIG,
                 "failed-filter-run", ignored -> { });
         var process = LinkedInCollector.class.getDeclaredMethod(
-                "processHtml", Preview.class, LinkedInPageClient.JobDetails.class);
+                "operate", Preview.class, LinkedInPageClient.MaterializedPage.class);
         process.setAccessible(true);
+        var page = new LinkedInPageClient.MaterializedPage(null, List.of(), 0, null, 0,
+                "", 0, 0, "", true, "", 0, false, false, "", "");
         Preview preview = new Preview("123", "https://www.linkedin.com/jobs/view/123/",
                 "Java Developer", "Company", "", "", "", "Poland", 0, 1);
-
-        InvocationTargetException error = assertThrows(InvocationTargetException.class,
-                () -> process.invoke(collector, preview,
-                        new LinkedInPageClient.JobDetails("html", "", "", "", false)));
-
-        assertSame(failure, error.getCause());
+        ProcessResult failure = (ProcessResult) process.invoke(collector, preview, page);
+        assertEquals("processing_failed", failure.status());
+        assertEquals(List.of("processing_failed: preview filter failed"), logged);
+        Preview next = new Preview("124", "https://www.linkedin.com/jobs/view/124/",
+                "Java Developer", "Company", "", "", "", "Poland", 0, 2);
+        assertEquals("preview_filtered", ((ProcessResult) process.invoke(collector, next, page)).status());
+        CollectionProgress snapshot = new CollectionProgress("run", "complete", "", "",
+                0, 0, 0, 100, Map.of(failure.status(), 1), failure.reason());
+        assertEquals("1", snapshot.fields().get("Processing failures"));
     }
 
     @Test

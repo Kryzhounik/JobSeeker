@@ -476,9 +476,9 @@ class WorkflowOrchestratorTest {
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(progress -> {
             String runId = "run-" + runs.incrementAndGet();
             progress.accept(new CollectionProgress(runId, "processing", "Poland", "priority", 1, 25,
-                    1, 100, Map.of("raw_saved", 1, "age_filtered", 2), "collecting"));
+                    1, 100, Map.of("raw_saved", 1, "age_filtered", 2, "processing_failed", 1), "collecting"));
             return new CollectionReport("linkedin", runId, "complete", 1,
-                    List.of(item("1", "Java")), Map.of("raw_saved", 1), List.of(), "");
+                    List.of(item("1", "Java")), Map.of("raw_saved", 1, "processing_failed", 1), List.of(), "");
         }, new FakeProcessingGateway(List.of()));
         List<ProgressSnapshot> first = new ArrayList<>();
         List<ProgressSnapshot> second = new ArrayList<>();
@@ -497,10 +497,12 @@ class WorkflowOrchestratorTest {
         assertEquals("1 / 100", first.getFirst().fields().get("Accepted / limit"));
         assertFalse(first.getFirst().fields().containsKey("Saved"));
         assertEquals("1", first.getLast().fields().get("Saved"));
+        assertEquals("1", first.getLast().fields().get("Collection failures"));
         assertEquals("Poland", first.getFirst().fields().get("Location"));
         assertEquals("Priority companies", first.getFirst().fields().get("Search"));
         assertEquals("25", first.getFirst().fields().get("Cards on page"));
         assertEquals("2", first.getFirst().fields().get("Rejected by age"));
+        assertEquals("1", first.getFirst().fields().get("Processing failures"));
         assertFalse(first.getLast().fields().containsKey("Cards on page"));
         assertEquals("Complete", second.getLast().action());
         assertEquals("1", second.getLast().fields().get("Already saved"));

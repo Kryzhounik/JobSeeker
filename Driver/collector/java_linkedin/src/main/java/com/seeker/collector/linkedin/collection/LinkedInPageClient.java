@@ -208,17 +208,21 @@ final class LinkedInPageClient {
                 }
                 return '';
               };
+              // The direct-page layout puts company and title in consecutive paragraphs.
+              const header = root.querySelector('[id^="JobDetails_ManageJobBanner_"]')?.nextElementSibling;
+              const paragraphs = [...(header?.querySelectorAll('p') || [])];
+              const companyIndex = paragraphs.findIndex(p => p.querySelector('a[href*="/company/"]'));
               return {
                 title: first([
                   '.job-details-jobs-unified-top-card__job-title h1',
                   '.jobs-unified-top-card__job-title',
                   'h1'
-                ]),
+                ]) || (companyIndex >= 0 ? clean(paragraphs[companyIndex + 1]?.textContent) : ''),
                 company: first([
                   '.job-details-jobs-unified-top-card__company-name',
                   '.jobs-unified-top-card__company-name',
                   'a[href*="/company/"]'
-                ])
+                ]) || clean(paragraphs[companyIndex]?.textContent)
               };
             }
             """;

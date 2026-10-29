@@ -35,7 +35,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
             this.listener = Objects.requireNonNull(listener);
             collectionFields = new CollectionProgress(null, "starting", "", "", 0, 0, 0, 0,
                     Map.of(), "").fields();
-            for (String label : new String[]{"Scope", "Relevant", "Rejected by relevance", "Already saved", "Saved"}) {
+            for (String label : new String[]{"Collection failures", "Scope", "Relevant", "Rejected by relevance", "Already saved", "Saved"}) {
                 count(label, 0);
             }
             for (String label : new String[]{"Relevance filter", "Job facts", "Candidate fit"}) {
@@ -56,6 +56,9 @@ public record WorkflowProgress(String runId, String stage, String action, String
         }
 
         void collectionResult(CollectionReport report) {
+            count("Collection failures", report.outcomes().getOrDefault("open_failed", 0)
+                    + report.outcomes().getOrDefault("incomplete_raw", 0)
+                    + report.outcomes().getOrDefault("processing_failed", 0));
             if (!collected) {
                 collection(new CollectionProgress(report.runId(), report.status(), "", "", 0, 0,
                         report.acceptedCount(), 0, report.outcomes(), report.message()));
@@ -118,7 +121,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
                 return;
             }
             String[] labels = action.equals("Complete")
-                    ? new String[]{"Scope", "Relevant", "Rejected by relevance",
+                    ? new String[]{"Collection failures", "Scope", "Relevant", "Rejected by relevance",
                             "Job facts", "Candidate fit", "Already saved", "Saved"}
                     : switch (stage) {
                         case "Relevance filter" -> new String[]{"Scope", "Relevance filter",

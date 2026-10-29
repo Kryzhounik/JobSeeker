@@ -50,6 +50,7 @@ public record CollectionProgress(String runId, String stage, String action, Stri
         fields.put("Rejected by age", Integer.toString(outcomes.getOrDefault("age_filtered", 0)));
         fields.put("Rejected by content", Integer.toString(outcomes.getOrDefault("content_filtered", 0)));
         fields.put("Open failures", Integer.toString(outcomes.getOrDefault("open_failed", 0)));
+        fields.put("Processing failures", Integer.toString(outcomes.getOrDefault("processing_failed", 0)));
         fields.put("Incomplete data", Integer.toString(outcomes.getOrDefault("incomplete_raw", 0)));
         fields.put("Skipped at limit", Integer.toString(outcomes.getOrDefault("not_processed_due_to_limit", 0)));
         return fields;

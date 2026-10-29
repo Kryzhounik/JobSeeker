@@ -100,9 +100,9 @@ development, login, and testing.
 `CollectionReport`.
 
 `LinkedInApplication.collectUrl(url)` collects one vacancy through the same
-preview and content filters as batch collection. The URL entry loads its HTML
-once and passes it to the common operation; batch collection applies the
-preview filters before loading details. Both return `CollectionReport` with
+preview and content filters as batch collection. The common vacancy operation
+opens the URL once; batch collection applies the preview filters before loading
+details from the search card. Both return `CollectionReport` with
 only accepted vacancies in `scope`. A skipped URL returns an empty scope and
 the reason in `message`. Existing source IDs are skipped without reanalysis.
 The overload `collectUrl(runId, url)` uses the supplied collection run ID.
@@ -115,6 +115,12 @@ multiple URLs were supplied. `collectUrl(url)` delegates to this operation for o
 URL. The orchestrator runs analysis once after collection of the whole list.
 The overload `collectUrls(urls, runPrefix)` prepends the supplied label to the
 generated run ID; the default overload preserves the existing ID format.
+
+Both collection paths record individual vacancy failures and continue with the
+next vacancy. Results distinguish `open_failed`, `incomplete_raw`, and
+`processing_failed`; counts appear in progress and report `outcomes`, with
+failure reasons in the report message and collection event log. Authentication
+failure still stops collection, as does inability to persist a failure outcome.
 
 ## Requirements
 

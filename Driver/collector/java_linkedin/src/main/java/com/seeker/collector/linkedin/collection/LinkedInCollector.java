@@ -23,6 +23,7 @@ final class LinkedInCollector {
     private final Consumer<ProgressSnapshot> progressListener;
     private final List<ScopeItem> scope = new ArrayList<>();
     private final List<PageReport> pages = new ArrayList<>();
+    private final List<String> failures = new ArrayList<>();
     private final OutcomeCounter outcomes = new OutcomeCounter();
     private final Set<String> seenIds = new LinkedHashSet<>();
     private String currentLocation = "";
@@ -103,20 +104,7 @@ final class LinkedInCollector {
                     1
             );
             try {
-                LinkedInPageClient.JobDetails direct = browser.openDirect(url, jobId);
-                preview = new Preview(
-                        jobId,
-                        LinkedInPageClient.canonicalUrl(jobId),
-                        direct.title(),
-                        direct.company(),
-                        direct.location(),
-                        "",
-                        "",
-                        "from-url",
-                        0,
-                        1
-                );
-                ProcessResult result = operate(preview, null, direct);
+                ProcessResult result = operate(preview, null);
                 recordResult(result);
                 if (!result.accepted()) {
                     rejections.add(urls.size() == 1
@@ -126,7 +114,7 @@ final class LinkedInCollector {
             } catch (AuthenticationRequiredException error) {
                 return finish("login_required", "authentication_required", failureMessage(error));
             } catch (RuntimeException error) {
-                return failedDirectCollection(preview, error);
+                return finish("blocked", "collection_error", failureMessage(error));
             }
         }
         return finish(
@@ -200,7 +188,7 @@ final class LinkedInCollector {
                     ));
                     break;
                 }
-                recordResult(operate(preview, materialized, null));
+                recordResult(operate(preview, materialized));
                 if (scope.size() >= config.limit()) {
                     break;
                 }
@@ -237,35 +225,46 @@ final class LinkedInCollector {
 
     private ProcessResult operate(
             Preview preview,
-            LinkedInPageClient.MaterializedPage materialized,
-            LinkedInPageClient.JobDetails details
+            LinkedInPageClient.MaterializedPage materialized
     ) {
         currentUrl = preview.sourceUrl();
-        progress("filtering_preview", preview.jobId() + " " + preview.title());
-        PreviewDecision decision = python.decidePreview(preview);
-        if (!decision.shouldOpen()) {
-            return result(preview, "preview_filtered", decision.reason());
-        }
-        if (details != null) {
-            return processHtml(preview, details);
-        }
+        boolean processing = false;
         try {
-            progress("opening_job", preview.jobId() + " " + preview.title());
-            details = browser.openCard(materialized, preview.jobId());
-        } catch (CardClickException clickError) {
-            try {
+            LinkedInPageClient.JobDetails details = null;
+            if (materialized == null) {
+                progress("opening_job", preview.jobId() + " " + preview.title());
                 details = browser.openDirect(preview.sourceUrl(), preview.jobId());
-            } catch (AuthenticationRequiredException error) {
-                throw error;
-            } catch (RuntimeException fallbackError) {
-                String reason = "search-card click failed: " + message(clickError)
-                        + "; direct URL fallback failed: " + message(fallbackError);
-                return logOutcome(preview, "open_failed", reason);
+                preview = new Preview(preview.jobId(), preview.sourceUrl(), details.title(),
+                        details.company(), details.location(), "", "", preview.label(),
+                        preview.start(), preview.index());
             }
+            processing = true;
+            progress("filtering_preview", preview.jobId() + " " + preview.title());
+            PreviewDecision decision = python.decidePreview(preview);
+            if (!decision.shouldOpen()) {
+                return result(preview, "preview_filtered", decision.reason());
+            }
+            if (details == null) {
+                processing = false;
+                progress("opening_job", preview.jobId() + " " + preview.title());
+                try {
+                    details = browser.openCard(materialized, preview.jobId());
+                } catch (CardClickException error) {
+                    details = browser.openDirect(preview.sourceUrl(), preview.jobId());
+                }
+            }
+            if (preview.title().isBlank()) {
+                throw new DetailsNotReadyException("LinkedIn vacancy title is empty");
+            }
+            processing = true;
+            return processHtml(preview, details);
+        } catch (AuthenticationRequiredException error) {
+            throw error;
         } catch (DetailsNotReadyException error) {
             return logOutcome(preview, "incomplete_raw", message(error));
+        } catch (RuntimeException error) {
+            return logOutcome(preview, processing ? "processing_failed" : "open_failed", message(error));
         }
-        return processHtml(preview, details);
     }
 
     private ProcessResult processHtml(Preview preview, LinkedInPageClient.JobDetails details) {
@@ -282,6 +281,11 @@ final class LinkedInCollector {
                             + " for " + preview.jobId(),
                     error
             );
+        }
+        if (!"not_processed_due_to_limit".equals(status)) {
+            failures.add(preview.jobId() + ": " + reason);
+            System.err.printf("LinkedIn vacancy failed: job_id=%s status=%s reason=%s%n",
+                    preview.jobId(), status, reason);
         }
         return result(preview, status, reason);
     }
@@ -406,6 +410,9 @@ final class LinkedInCollector {
     }
 
     private CollectionReport finish(String status, String stopReason, String message) {
+        if (message.isBlank()) {
+            message = String.join("\n", failures);
+        }
         CollectionReport report = report(status, message);
         progress(status, message.isBlank() ? stopReason : message);
         python.finishRun(
@@ -423,14 +430,6 @@ final class LinkedInCollector {
                 stopReason
         );
         return report;
-    }
-
-    private CollectionReport failedDirectCollection(
-            Preview preview,
-            RuntimeException error
-    ) {
-        recordResult(logOutcome(preview, "open_failed", message(error)));
-        return finish("blocked", "direct_url_error", failureMessage(error));
     }
 
     private String failureMessage(Throwable error) {
