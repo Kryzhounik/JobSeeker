@@ -192,6 +192,20 @@ Location and remote-work rules:
   APAC, US time zones, Poland, Germany. Do not expand regions into countries
   and do not treat EU, Europe, and EMEA as interchangeable.
 
+Remote-scope examples:
+These examples illustrate the meaning of the rules. Apply the same reasoning
+to equivalent wording; they are not an exhaustive list of phrases to match.
+- Listed location: Warsaw. Text: "Fully remote and flexible - set your own
+  schedule and work from anywhere." With no explicit residency or country
+  restriction elsewhere, use `remote_type: remote`, `remote_scope: worldwide`.
+  The listed city alone does not narrow explicitly worldwide eligibility.
+- Text: "Fully remote. Applicants must reside in Germany." Use
+  `remote_type: remote`, `remote_scope: Germany`; the residency requirement
+  limits the eligible geography.
+- Text: "Fully remote, flexible schedule." With no candidate geography stated
+  elsewhere, use `remote_type: remote`, `remote_scope: unknown`. Remote work
+  and schedule flexibility alone do not establish geographic eligibility.
+
 Relocation rules:
 - Use NO when relocation is not offered or not mentioned.
 - If relocation is offered, write the destination countries/places, for example
