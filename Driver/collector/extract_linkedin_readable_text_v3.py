@@ -85,6 +85,8 @@ UI_CARD_CONTROLS = {
     "People you can reach out to": {"Message"},
     "Meet the hiring team": {"Message"},
 }
+PERSONALIZED_TIPS_TITLE = "Get personalized tips to stand out to hirers"
+PERSONALIZED_TIPS_DESCRIPTION = "Find jobs where you’re a top applicant and tailor your resume with the help of AI."
 INLINE_TAGS = {
     "a", "abbr", "b", "bdi", "bdo", "cite", "code", "data", "del", "dfn",
     "em", "i", "ins", "kbd", "label", "mark", "q", "rp", "rt", "ruby",
@@ -121,6 +123,30 @@ def _remove_ui_cards(root: html.HtmlElement) -> None:
                 card.tail = " " + (card.tail or "")
                 card.drop_tree()
                 break
+    # This SDUI promotion uses paragraphs instead of a heading and its
+    # auto-component UUID/classes change. Match the complete card signature.
+    for title in root.xpath(".//p[normalize-space(.)=$title]", title=PERSONALIZED_TIPS_TITLE):
+        card = title.getparent()
+        if (_inside_description(title) or card is None
+                or not card.xpath("./p[normalize-space(.)=$description]", description=PERSONALIZED_TIPS_DESCRIPTION)
+                or not card.xpath(".//a[contains(@href, '/premium/')]")):
+            continue
+        card.tail = " " + (card.tail or "")
+        card.drop_tree()
+
+
+def _remove_promoted_badges(root: html.HtmlElement) -> None:
+    """Remove the promotion badge, keeping location and adjacent metadata."""
+    badges = root.xpath(".//span[normalize-space(.)=$label or normalize-space(.)=concat($label, ' ·')]",
+                        label="Promoted by hirer")
+    for badge in badges:
+        if _inside_description(badge):
+            continue
+        following = badge.getnext()
+        if following is not None and _label(following) == "·":
+            following.drop_tree()
+        badge.tail = " " + re.sub(r"^\s*·\s*", " ", badge.tail or "")
+        badge.drop_tree()
 
 
 def _is_noise(node: html.HtmlElement) -> bool:
@@ -132,6 +158,10 @@ def _is_noise(node: html.HtmlElement) -> bool:
         name.startswith(NOISE_CLASS_PREFIXES) for name in classes
     ):
         return True
+    if "artdeco-card" in classes and not _inside_description(node):
+        headings = node.xpath(".//h1 | .//h2 | .//h3")
+        if len(headings) == 1 and _label(headings[0]) == "Assessing your job match":
+            return True
     if any(node.get(key, "").startswith(NOISE_MODULE_PREFIXES)
            for key in ("id", "componentkey")):
         return True
@@ -270,6 +300,7 @@ def readable_text(source: str, raw_path: Path) -> str:
     root = html.document_fromstring(raw_html if raw_html.strip() else "<html><body></body></html>",
                                     parser=html.HTMLParser(remove_comments=True, remove_pis=True))
     _remove_ui_cards(root)
+    _remove_promoted_badges(root)
     _prune(root)
     _trim_tail(root)
     text = _render(root)
