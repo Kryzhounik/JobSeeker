@@ -174,13 +174,21 @@ public final class ChatEvaluatorRunner {
             Thread.currentThread().interrupt();
             throw interrupted;
         } catch (IllegalStateException | IOException error) {
-            throw new IOException("Vacancy availability check failed: " + error.getMessage()
+            throw new IOException("Vacancy HTTP availability check failed: " + failureDetails(error)
                     + " The URL was not sent to ChatGPT.", error);
         }
         if (!"available".equals(outcome)) {
             throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
         }
         return true;
+    }
+
+    static String failureDetails(Throwable error) {
+        StringBuilder details = new StringBuilder(error.toString());
+        for (Throwable cause = error.getCause(); cause != null; cause = cause.getCause()) {
+            details.append("; caused by ").append(cause);
+        }
+        return details.toString();
     }
 
     private static void requireAvailableVacancyInBrowser(ManagedBrowser browser, String vacancyUrl)
@@ -232,7 +240,7 @@ public final class ChatEvaluatorRunner {
             throw new IOException("Vacancy browser check after HTTP 429 timed out while " + stage
                     + ". Current URL: " + vacancy.url() + ". The URL was not sent to ChatGPT.", error);
         } catch (PlaywrightException | IllegalStateException error) {
-            throw new IOException("Vacancy browser check after HTTP 429 failed: " + error.getMessage()
+            throw new IOException("Vacancy browser check after HTTP 429 failed: " + failureDetails(error)
                     + " The URL was not sent to ChatGPT.", error);
         } finally {
             vacancy.close();

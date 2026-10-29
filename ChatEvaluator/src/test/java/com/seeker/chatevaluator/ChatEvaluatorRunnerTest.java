@@ -7,6 +7,8 @@ import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
+import java.io.IOException;
+import java.net.ConnectException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -14,6 +16,24 @@ class ChatEvaluatorRunnerTest {
     private static final String URL = "https://www.linkedin.com/jobs/view/123/";
     private static final Turn OLD = new Turn("old", "user-old", URL, "answer-old", "Previous answer", true);
     private static final Turn SENT = new Turn("new", "user-new", URL, "", "", false);
+
+    @Test
+    void networkFailureWithNullMessageIncludesTypeAndUnderlyingCause() {
+        ConnectException failure = new ConnectException();
+        failure.initCause(new IOException("connection refused"));
+        String details = ChatEvaluatorRunner.failureDetails(failure);
+        assertTrue(details.contains("ConnectException"));
+        assertTrue(details.contains("connection refused"));
+        assertFalse(details.contains("null"));
+    }
+
+    @Test
+    void availabilityFailureKeepsExplicitReason() {
+        String details = ChatEvaluatorRunner.failureDetails(
+                new IllegalStateException("LinkedIn requires authentication."));
+        assertTrue(details.contains("IllegalStateException"));
+        assertTrue(details.contains("LinkedIn requires authentication."));
+    }
 
     @Test
     void cliDoesNotAcceptJobIdArgument() {
