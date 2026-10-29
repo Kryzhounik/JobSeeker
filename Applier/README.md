@@ -51,6 +51,10 @@ Applier reuses these existing files; it has no separate copies of these settings
 Changes to these shared settings affect Applier as well as their owning modules.
 The configuration dependency does not require a running collector.
 
+Connection diagnostics use stderr with timestamped `[browser-connect]` messages.
+They report browser startup, driver creation, and CDP attach timings and failures.
+In the GUI, these messages go to its existing `logs/launch-*.log`.
+
 ## Build and console API
 
 Install Playwright MCP once from the Seeker project root, using Node.js/npm:

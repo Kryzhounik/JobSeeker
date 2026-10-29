@@ -14,6 +14,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -24,6 +25,7 @@ public final class ManagedBrowser implements AutoCloseable {
     public static final String CDP_ENDPOINT = "http://127.0.0.1:9222";
     private static final String VERSION_ENDPOINT = CDP_ENDPOINT + "/json/version";
     private static final Duration START_TIMEOUT = Duration.ofSeconds(90);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(30);
 
     private final Playwright playwright;
     private final BrowserContext context;
@@ -42,27 +44,49 @@ public final class ManagedBrowser implements AutoCloseable {
             throws IOException {
         Path profile = profileDirectory.toAbsolutePath().normalize();
         Files.createDirectories(profile);
-        if (!isManagedBrowserRunning()) {
+        long started = System.nanoTime();
+        boolean running = isManagedBrowserRunning();
+        log("browser=" + (running ? "running" : "starting")
+                + " endpoint=" + CDP_ENDPOINT);
+        if (!running) {
             startBrowser(profile, browserChannel);
         }
         awaitBrowser();
+        log("endpoint_ready elapsed_ms=" + elapsedMillis(started));
+        log("driver_create_start");
+        long driverStarted = System.nanoTime();
         Playwright playwright = Playwright.create();
+        log("driver_ready elapsed_ms=" + elapsedMillis(driverStarted));
+        long attachStarted = System.nanoTime();
+        log("attach_start timeout_ms=" + CONNECT_TIMEOUT.toMillis());
         try {
             var browser = playwright.chromium().connectOverCDP(
                     CDP_ENDPOINT,
                     new com.microsoft.playwright.BrowserType.ConnectOverCDPOptions()
                             .setIsLocal(true)
                             .setNoDefaults(true)
-                            .setTimeout(Duration.ofSeconds(30).toMillis()));
+                            .setTimeout(CONNECT_TIMEOUT.toMillis()));
             BrowserContext context = browser.contexts().stream().findFirst()
                     .orElseThrow(() -> new IllegalStateException(
                             "Managed browser has no default context"));
+            log("attach_ready elapsed_ms=" + elapsedMillis(attachStarted)
+                    + " contexts=" + browser.contexts().size() + " pages=" + context.pages().size());
             return new ManagedBrowser(playwright, context);
         } catch (RuntimeException error) {
+            log("attach_failed elapsed_ms=" + elapsedMillis(attachStarted)
+                    + " error=" + error.getClass().getSimpleName());
             playwright.close();
             throw new IOException("Could not attach to managed browser at "
                     + CDP_ENDPOINT + ": " + error.getMessage(), error);
         }
+    }
+
+    private static long elapsedMillis(long started) {
+        return (System.nanoTime() - started) / 1_000_000;
+    }
+
+    private static void log(String message) {
+        System.err.println(Instant.now() + " [browser-connect] " + message);
     }
 
     public BrowserContext context() {
