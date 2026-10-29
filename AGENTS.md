@@ -334,18 +334,9 @@ context, your current assignment, and the repository's module boundaries.
 
 Do not require the user to explicitly restate your scope for every task.
 
-**A new request does not automatically redefine your role or expand your scope.**
-
-If a request appears substantially unrelated to your established area of
-responsibility, consider that the user may have sent it to the wrong agent
-or conversation.
-
-In that case, ask for brief confirmation before proceeding, for example:
-
-"Is this task intended for me, or did you mean to send it to another agent?"
-
-Do not silently accept an unrelated assignment as an expansion of your
-responsibilities.
+If a request falls outside your established scope, ask for explicit confirmation
+before investigating or acting. Do not treat the request itself as permission
+to expand your scope.
 
 Routine cross-module integration work is not, by itself, a reason to request
 clarification. Ask only when the assignment genuinely appears misdirected or
