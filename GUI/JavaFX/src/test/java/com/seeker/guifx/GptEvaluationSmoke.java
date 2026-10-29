@@ -4,7 +4,10 @@ import com.seeker.chatevaluator.GptEvaluation;
 
 import javafx.application.Platform;
 import javafx.css.PseudoClass;
+import javafx.scene.Scene;
 import javafx.scene.control.ToggleButton;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 
@@ -30,24 +33,34 @@ public final class GptEvaluationSmoke {
         try {
             FutureTask<Void> panelChecks = new FutureTask<>(() -> {
                 HBox docks = new HBox();
+                StackPane overlay = new StackPane();
                 GptEvaluationProgressPane pane = new GptEvaluationProgressPane(
-                        new BackgroundProcessPane.Area(new StackPane(), docks));
+                        new BackgroundProcessPane.Area(overlay, docks));
+                pane.begin("https://example.com/42");
+                new Scene(overlay, 1000, 800);
+                overlay.resize(1000, 800);
+                overlay.applyCss();
+                overlay.layout();
+                TextField url = (TextField) overlay.lookup("#chatEvaluationUrl");
+                TextArea answerArea = (TextArea) overlay.lookup("#chatEvaluationAnswer");
+                TextArea errorArea = (TextArea) overlay.lookup("#chatEvaluationError");
                 ToggleButton badge = (ToggleButton) ((HBox) docks.getChildren().getFirst()).getChildren().getFirst();
-                pane.begin(42, "https://example.com/42");
                 state(badge, "running");
-                check(pane.fieldText("Job ID").equals("42"), "Panel lost original ID");
+                check(url.getText().equals("https://example.com/42"), "Panel lost original URL");
                 pane.complete(result);
                 state(badge, "completed");
-                check(pane.fieldText("Stage").equals("Saved"), "Success before storage completion");
-                pane.begin(43, "https://example.com/43");
+                check(answerArea.getText().equals(answer), "Full answer is not displayed in the panel");
+                pane.begin("https://example.com/43");
                 state(badge, "running");
                 pane.fail(new GptEvaluation.SaveException(answer, storageError));
                 state(badge, "failed");
-                check(pane.fieldText("Stage").equals("Saving failed"), "Storage error mislabeled");
-                pane.begin(44, "https://example.com/44");
+                check(answerArea.getText().equals(answer) && errorArea.getText().contains("disk full"),
+                        "Storage failure did not retain the answer and error together");
+                pane.begin("https://example.com/44");
                 pane.fail(evaluationError);
                 state(badge, "failed");
-                check(pane.fieldText("Stage").equals("Evaluation failed"), "Evaluation error mislabeled");
+                check(answerArea.getText().isEmpty() && errorArea.getText().contains("evaluation failed"),
+                        "Evaluation failure did not replace the old result");
                 return null;
             });
             Platform.runLater(panelChecks);

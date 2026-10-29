@@ -4,6 +4,7 @@ import javafx.css.PseudoClass;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
+import javafx.scene.Node;
 import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.control.Button;
@@ -59,6 +60,7 @@ abstract class BackgroundProcessPane {
     private final Map<String, TextField> extraFields = new LinkedHashMap<>();
     private final GridPane extraGrid = new GridPane();
     private final TextArea details = new TextArea();
+    private final ScrollPane scroll = new ScrollPane();
     private State state = State.RUNNING;
     private boolean finished;
     private String summary = "";
@@ -117,7 +119,7 @@ abstract class BackgroundProcessPane {
         VBox content = new VBox(8, grid, extraGrid, new Label("Details"), details);
         content.setPadding(new Insets(12));
         VBox.setVgrow(details, Priority.ALWAYS);
-        ScrollPane scroll = new ScrollPane(content);
+        scroll.setContent(content);
         scroll.setFitToWidth(true);
         scroll.setFitToHeight(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
@@ -271,6 +273,10 @@ abstract class BackgroundProcessPane {
 
     protected final void setDetails(String text) {
         details.setText(text);
+    }
+
+    protected final void setContent(Node content) {
+        scroll.setContent(content);
     }
 
     private void refreshDock() {

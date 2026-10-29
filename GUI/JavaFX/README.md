@@ -221,6 +221,11 @@ Refilter uses the existing
 `Tools.filter_database` filter implementation through `GUI.client_data` and
 `jpy`. Refilter detail previews transitions and applies only checked rows.
 
+GPT Eval keeps the full answer in its shared top-right panel instead of opening
+a separate result window. The panel contains the vacancy URL and a copyable,
+wrapped answer; exception details appear only on failure. If saving fails after
+evaluation, the received answer remains readable alongside the error.
+
 Apply opens the selected vacancy in the shared logged-in browser, starts
 application preparation in the background, and leaves the form tab open for
 review and manual submission. Apply is disabled for vacancies marked Easy Apply

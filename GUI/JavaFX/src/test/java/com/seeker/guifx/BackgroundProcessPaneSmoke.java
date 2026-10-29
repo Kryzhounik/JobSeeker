@@ -24,6 +24,7 @@ import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.applier.ApplierRunner;
+import com.seeker.chatevaluator.GptEvaluation;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -107,6 +108,7 @@ public final class BackgroundProcessPaneSmoke {
                 checkUsageLimits(area);
                 checkResize();
                 checkApplyProgress();
+                checkGptEvaluation();
                 return null;
             });
             Platform.runLater(check);
@@ -114,6 +116,60 @@ public final class BackgroundProcessPaneSmoke {
             System.out.println("Background process pane states and docking OK");
         } finally {
             Platform.exit();
+        }
+    }
+
+    private static void checkGptEvaluation() {
+        StackPane overlay = new StackPane();
+        HBox docks = new HBox();
+        GptEvaluationProgressPane evaluation = new GptEvaluationProgressPane(
+                new BackgroundProcessPane.Area(overlay, docks));
+        VBox panel = (VBox) overlay.getChildren().getFirst();
+        VBox body = content(panel);
+        TextField url = (TextField) body.getChildren().get(1);
+        TextArea answer = (TextArea) body.getChildren().get(2);
+        VBox errors = (VBox) body.getChildren().get(3);
+        TextArea error = (TextArea) errors.getChildren().getLast();
+        HBox badge = (HBox) docks.getChildren().getFirst();
+        ToggleButton toggle = (ToggleButton) badge.getChildren().getFirst();
+        Button close = (Button) badge.getChildren().getLast();
+        evaluation.begin("https://example.com/job");
+        assertState(badge, "running");
+        if (body.getChildren().size() != 4 || !url.getText().equals("https://example.com/job")
+                || !answer.getText().isEmpty() || errors.isVisible() || errors.isManaged()) {
+            throw new AssertionError("GPT Eval shows extra fields or stale error content");
+        }
+        String fullAnswer = "Full evaluation\n" + "Long answer paragraph. ".repeat(200);
+        evaluation.complete(new GptEvaluation.Result(123, fullAnswer, "2026-10-29T12:00:00Z"));
+        assertState(badge, "completed");
+        if (!answer.getText().equals(fullAnswer) || answer.isEditable() || !answer.isWrapText()
+                || errors.isManaged() || !close.isVisible() || answer.getCaretPosition() != 0) {
+            throw new AssertionError("GPT Eval answer is not readable in its progress panel");
+        }
+        toggle.fire();
+        toggle.fire();
+        if (!panel.isVisible() || !answer.getText().equals(fullAnswer)) {
+            throw new AssertionError("GPT Eval minimize/reopen lost the answer");
+        }
+        evaluation.begin("https://example.com/next");
+        evaluation.fail(new IllegalStateException("Evaluation failed", new Exception("Browser disconnected")));
+        assertState(badge, "failed");
+        if (!errors.isVisible() || !errors.isManaged() || !answer.getText().isEmpty()
+                || !error.getText().contains("Browser disconnected")) {
+            throw new AssertionError("GPT Eval exception details are missing from the panel");
+        }
+        evaluation.begin("https://example.com/next");
+        if (errors.isManaged() || !error.getText().isEmpty()) {
+            throw new AssertionError("GPT Eval restart retained an old exception");
+        }
+        evaluation.fail(new GptEvaluation.SaveException(fullAnswer, new Exception("Database unavailable")));
+        assertState(badge, "failed");
+        if (!answer.getText().equals(fullAnswer) || !error.getText().contains("Database unavailable")) {
+            throw new AssertionError("GPT Eval save failure lost the answer or error");
+        }
+        close.fire();
+        if (badge.isVisible() || panel.isVisible()) {
+            throw new AssertionError("GPT Eval cannot be dismissed after failure");
         }
     }
 

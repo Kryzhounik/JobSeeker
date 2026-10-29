@@ -31,7 +31,6 @@ import javafx.scene.Cursor;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
-import javafx.scene.Scene;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
@@ -1345,14 +1344,13 @@ public final class MainController {
     private void startChatEval() {
         JobRecord job = selectedJob;
         if (chatEvalRunning || clientData == null || job == null || job.sourceUrl().isBlank()) return;
-        String vacancyTitle = job.title();
         int jobId = job.jobId();
         String url = job.sourceUrl();
         chatEvalRunning = true;
         updateChatEvalButton();
         if (chatEvalProgress == null) chatEvalProgress = new GptEvaluationProgressPane(backgroundProcesses);
         GptEvaluationProgressPane progressPane = chatEvalProgress;
-        progressPane.begin(jobId, url);
+        progressPane.begin(url);
         Task<GptEvaluation.Result> task = new Task<>() {
             @Override protected GptEvaluation.Result call() throws Exception {
                 return driverApi.evaluateWithChatGPT(url, jobId);
@@ -1365,7 +1363,6 @@ public final class MainController {
             updateChatEvalButton();
             GptEvaluation.Result result = task.getValue();
             progressPane.complete(result);
-            showChatEvaluation(vacancyTitle, result.answer());
         });
         task.setOnFailed(event -> {
             chatEvalRunning = false;
@@ -1373,9 +1370,6 @@ public final class MainController {
             updateChatEvalButton();
             Throwable error = task.getException();
             progressPane.fail(error);
-            if (error instanceof GptEvaluation.SaveException saving) {
-                showChatEvaluation(vacancyTitle, saving.answer());
-            }
         });
         chatEvalExecutor.execute(task);
     }
@@ -1383,21 +1377,6 @@ public final class MainController {
     private void updateChatEvalButton() {
         chatEvalButton.setDisable(clientData == null || chatEvalRunning || selectedJob == null
                 || selectedJob.sourceUrl().isBlank());
-    }
-
-    private void showChatEvaluation(String vacancyTitle, String answer) {
-        Stage answerStage = new Stage();
-        answerStage.setTitle("GPT Eval — " + vacancyTitle);
-        if (stage != null) answerStage.initOwner(stage);
-        TextArea answerArea = new TextArea(answer);
-        answerArea.setEditable(false);
-        answerArea.setWrapText(true);
-        answerArea.setId("chatEvaluationAnswer");
-        VBox content = new VBox(answerArea);
-        content.setFillWidth(true);
-        VBox.setVgrow(answerArea, javafx.scene.layout.Priority.ALWAYS);
-        answerStage.setScene(new Scene(content, 760, 560));
-        answerStage.show();
     }
 
     private void showCompanies(Integer companyId) {
