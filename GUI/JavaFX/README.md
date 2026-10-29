@@ -230,8 +230,9 @@ Apply opens the selected vacancy in the shared logged-in browser, starts
 application preparation in the background, and leaves the form tab open for
 review and manual submission. Apply is disabled for vacancies marked Easy Apply
 by the collector. Like GPT Eval, it shows an Apply badge and expandable panel in
-the shared top-right progress area, retaining the original Job ID/URL and the
-backend result or error. The badge is light green while preparing, green when
+the shared top-right progress area. Its panel contains the original URL and the
+full result or exception, without separate completion or error dialogs.
+The badge is light green while preparing, green when
 the task returns, and red on an exception; a finished preparation is not a claim
 that an application was submitted. Finished panels can be dismissed or resized
 like the other background panels. Approved answers can be added to

@@ -180,33 +180,36 @@ public final class BackgroundProcessPaneSmoke {
         HBox badge = (HBox) docks.getChildren().getFirst();
         Button close = (Button) badge.getChildren().getLast();
         VBox panel = (VBox) overlay.getChildren().getFirst();
-        apply.begin(123, "https://example.com/123");
+        VBox body = content(panel);
+        TextField url = (TextField) body.getChildren().get(1);
+        TextArea result = (TextArea) body.getChildren().getLast();
+        apply.begin("https://example.com/123");
         assertState(badge, "running");
         if (!badge.isVisible() || !panel.isVisible() || close.isVisible()
-                || !apply.fieldText("Job ID").equals("123")
-                || !apply.fieldText("URL").equals("https://example.com/123")) {
+                || body.getChildren().size() != 3 || result.isEditable() || !result.isWrapText()
+                || !url.getText().equals("https://example.com/123")) {
             throw new AssertionError("Apply does not show active work and its original vacancy");
         }
         apply.complete(new ApplierRunner.Result("partially_filled", "Inspect the open form.", false));
         assertState(badge, "completed");
-        if (!apply.fieldText("Result").equals("partially_filled")
-                || !details(panel).equals("Inspect the open form.") || !close.isVisible()) {
+        if (!result.getText().contains("Preparation incomplete.")
+                || !result.getText().contains("Inspect the open form.") || !close.isVisible()) {
             throw new AssertionError("Apply result was lost or misrepresented");
         }
         close.fire();
         if (badge.isVisible() || panel.isVisible()) throw new AssertionError("Apply could not be dismissed");
-        apply.begin(456, "https://example.com/456");
+        apply.begin("https://example.com/456");
         assertState(badge, "running");
-        if (!apply.fieldText("Result").isEmpty() || !details(panel).isEmpty()) {
+        if (!result.getText().isEmpty()) {
             throw new AssertionError("Apply restart retained a previous result");
         }
         apply.fail(new IllegalStateException("Browser connection failed"));
         assertState(badge, "failed");
-        if (!apply.fieldText("Job ID").equals("456")
-                || !details(panel).equals("Browser connection failed") || !close.isVisible()) {
+        if (!url.getText().equals("https://example.com/456")
+                || !result.getText().contains("Browser connection failed") || !close.isVisible()) {
             throw new AssertionError("Apply failure lost vacancy context or error details");
         }
-        apply.begin(789, "https://example.com/789");
+        apply.begin("https://example.com/789");
         apply.complete(new ApplierRunner.Result("filled", "Review before submitting.", true));
         if (!details(panel).contains("may already have been submitted")) {
             throw new AssertionError("Apply submission warning was omitted");

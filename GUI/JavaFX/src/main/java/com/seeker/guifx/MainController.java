@@ -426,6 +426,7 @@ public final class MainController {
             String message = task.getException() == null ? "Unknown error"
                     : String.valueOf(task.getException().getMessage());
             statusLabel.setText(errorTitle);
+            if (failure != null) return;
             Alert alert = new Alert(Alert.AlertType.ERROR, message);
             alert.setTitle(errorTitle);
             alert.initOwner(stage);
@@ -1324,20 +1325,11 @@ public final class MainController {
         if (operationRunning || job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
         if (applyProgress == null) applyProgress = new ApplyProgressPane(backgroundProcesses);
         ApplyProgressPane progressPane = applyProgress;
-        progressPane.begin(job.jobId(), job.sourceUrl());
+        progressPane.begin(job.sourceUrl());
         runTask("Opening application form...", updater ->
                 driverApi.prepareApplication(job.sourceUrl()), result -> {
             progressPane.complete(result);
-            String summary = result.submissionObserved()
-                    ? "Application may already have been submitted. " + result.note()
-                    : ("filled".equals(result.status()) ? "Filled. "
-                    : "skipped".equals(result.status()) ? "Skipped. " : "Preparation incomplete. ")
-                    + result.note();
-            statusLabel.setText(summary);
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, summary);
-            alert.setTitle("Application preparation");
-            alert.initOwner(stage);
-            alert.show();
+            statusLabel.setText("Apply: " + result.status());
         }, "Application preparation failed", progressPane::fail);
     }
 
