@@ -183,8 +183,8 @@ def run_job_facts(
     return result.thread_id
 
 
-def start_analysis(run_id: str, vacancies_per_agent: int, db_path: str) -> None:
-    start_analysis_run(run_id, 1, int(vacancies_per_agent), Path(db_path))
+def start_analysis(run_id: str, parallel_agents: int, vacancies_per_agent: int, db_path: str) -> None:
+    start_analysis_run(run_id, int(parallel_agents), int(vacancies_per_agent), Path(db_path))
 
 
 def run_candidate_fit(

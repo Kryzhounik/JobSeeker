@@ -17,6 +17,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionService;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /** Top-level Java workflow entry point. */
@@ -25,6 +29,7 @@ public final class WorkflowOrchestrator {
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
     private final RecommendationSource recommendations;
+    private final int parallelAgents;
     private final int vacanciesPerAgent;
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
@@ -32,7 +37,8 @@ public final class WorkflowOrchestrator {
                 new LinkedInApplication(projectRoot),
                 new JpyProcessingGateway(projectRoot),
                 new Mailer(projectRoot)::getRecommendationUrls,
-                vacanciesPerAgent(projectRoot)
+                executionSetting(projectRoot, "parallel_agents"),
+                executionSetting(projectRoot, "vacancies_per_agent")
         );
     }
 
@@ -40,10 +46,11 @@ public final class WorkflowOrchestrator {
             LinkedInApplication linkedin,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
+            int parallelAgents,
             int vacanciesPerAgent
     ) {
         this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
-                recommendations, vacanciesPerAgent);
+                recommendations, parallelAgents, vacanciesPerAgent);
     }
 
     WorkflowOrchestrator(
@@ -67,20 +74,25 @@ public final class WorkflowOrchestrator {
             ProcessingGateway processingGateway,
             RecommendationSource recommendations
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, recommendations, Integer.MAX_VALUE);
+        this(linkedinCollection, linkedinUrls, processingGateway, recommendations, 1, Integer.MAX_VALUE);
     }
 
-    private WorkflowOrchestrator(
+    WorkflowOrchestrator(
             LinkedInCollection linkedinCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
+            int parallelAgents,
             int vacanciesPerAgent
     ) {
         this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
         this.recommendations = Objects.requireNonNull(recommendations);
+        if (parallelAgents <= 0 || vacanciesPerAgent <= 0) {
+            throw new IllegalArgumentException("Analysis settings must be positive");
+        }
+        this.parallelAgents = parallelAgents;
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
@@ -212,7 +224,7 @@ public final class WorkflowOrchestrator {
         if (!facts.isEmpty() || !atStatus(remaining, statuses, "ANALYZED").isEmpty()) {
             batchStage(runId, facts.isEmpty() ? "Candidate fit" : "Job facts");
             run.preparing(facts.isEmpty() ? "Candidate fit" : "Job facts", "Preparing analysis");
-            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
+            processingGateway.initializeAnalysisRun(runId, parallelAgents, vacanciesPerAgent);
         }
         runJobFacts(runId, source, facts, run);
         for (ScopeItem item : facts) statuses.put(item.jobId(), "ANALYZED");
@@ -242,7 +254,7 @@ public final class WorkflowOrchestrator {
         run.preparing("Job facts", "Preparing analysis");
         try {
             batchStage(runId, "Job facts");
-            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
+            processingGateway.initializeAnalysisRun(runId, parallelAgents, vacanciesPerAgent);
             runJobFacts(runId, source, scope, run);
             processingGateway.updateBatch(runId, "pending", "", "");
             run.complete("");
@@ -267,7 +279,7 @@ public final class WorkflowOrchestrator {
         run.preparing("Candidate fit", "Preparing analysis");
         try {
             batchStage(runId, "Candidate fit");
-            processingGateway.initializeAnalysisRun(runId, vacanciesPerAgent);
+            processingGateway.initializeAnalysisRun(runId, parallelAgents, vacanciesPerAgent);
             runFinishAnalysis(runId, source, scope, run);
             processingGateway.updateBatch(runId, "complete", "", "");
             run.complete("");
@@ -280,21 +292,56 @@ public final class WorkflowOrchestrator {
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)
             throws UsageLimitExceededException {
-        int completed = 0;
-        // TODO: process groups in parallel using parallel_agents.
-        for (int start = 0, group = 1; start < scope.size(); start += vacanciesPerAgent, group++) {
-            String target = source + ":job_facts:group-" + group;
-            String threadId = null;
-            for (ScopeItem item : scope.subList(start, Math.min(start + vacanciesPerAgent, scope.size()))) {
-                run.work("Job facts", "Extracting facts", completed, scope.size(), item);
-                System.err.println("Job facts start: job_id=" + item.jobId());
-                long started = System.nanoTime();
-                threadId = processingGateway.extractJobFacts(runId, source, item.jobId(), target, threadId);
-                run.work("Job facts", "Facts extracted", ++completed, scope.size(), item);
-                System.err.printf("Job facts complete: job_id=%s duration_ms=%d%n",
-                        item.jobId(), (System.nanoTime() - started) / 1_000_000);
+        if (scope.isEmpty()) return;
+        run.work("Job facts", "Extracting facts", 0, scope.size(), null);
+        try (var executor = Executors.newFixedThreadPool(parallelAgents)) {
+            CompletionService<FactsGroup> results = new ExecutorCompletionService<>(executor);
+            int nextGroup = 0;
+            for (int worker = 0; worker < parallelAgents && nextGroup < scope.size(); worker++) {
+                submitFacts(results, runId, source, scope, newFactsGroup(source, scope.size(), nextGroup));
+                nextGroup += Math.min(vacanciesPerAgent, scope.size() - nextGroup);
             }
+            for (int completed = 1; completed <= scope.size(); completed++) {
+                FactsGroup group = results.take().get();
+                run.work("Job facts", "Extracting facts", completed, scope.size(), null);
+                if (group.next() < group.end()) {
+                    submitFacts(results, runId, source, scope, group);
+                } else if (nextGroup < scope.size()) {
+                    submitFacts(results, runId, source, scope, newFactsGroup(source, scope.size(), nextGroup));
+                    nextGroup += Math.min(vacanciesPerAgent, scope.size() - nextGroup);
+                }
+            }
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Job facts interrupted", error);
+        } catch (ExecutionException error) {
+            Throwable cause = error.getCause();
+            if (cause instanceof UsageLimitExceededException limit) throw limit;
+            if (cause instanceof RuntimeException failure) throw failure;
+            if (cause instanceof Error failure) throw failure;
+            throw new IllegalStateException("Job facts failed", cause);
         }
+    }
+
+    private record FactsGroup(int next, int end, String target, String threadId) { }
+
+    private FactsGroup newFactsGroup(String source, int total, int start) {
+        return new FactsGroup(start, start + Math.min(vacanciesPerAgent, total - start),
+                source + ":job_facts:group-" + (start / vacanciesPerAgent + 1), null);
+    }
+
+    private void submitFacts(CompletionService<FactsGroup> results, String runId, String source,
+                             List<ScopeItem> scope, FactsGroup group) {
+        results.submit(() -> {
+            ScopeItem item = scope.get(group.next());
+            System.err.println("Job facts start: job_id=" + item.jobId());
+            long started = System.nanoTime();
+            String threadId = processingGateway.extractJobFacts(runId, source, item.jobId(),
+                    group.target(), group.threadId());
+            System.err.printf("Job facts complete: job_id=%s duration_ms=%d%n",
+                    item.jobId(), (System.nanoTime() - started) / 1_000_000);
+            return new FactsGroup(group.next() + 1, group.end(), group.target(), threadId);
+        });
     }
 
     private void runFinishAnalysis(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)
@@ -336,12 +383,12 @@ public final class WorkflowOrchestrator {
                 .toList();
     }
 
-    private static int vacanciesPerAgent(Path projectRoot) throws IOException {
+    private static int executionSetting(Path projectRoot, String key) throws IOException {
         Path config = projectRoot.toAbsolutePath().normalize()
                 .resolve("Driver/analyzer/config/execution.ini");
         for (String rawLine : Files.readAllLines(config)) {
             String line = rawLine.strip();
-            if (line.startsWith("vacancies_per_agent")) {
+            if (line.contains("=") && line.substring(0, line.indexOf('=')).strip().equals(key)) {
                 int value = Integer.parseInt(
                         line.substring(line.indexOf('=') + 1).strip()
                 );
@@ -351,7 +398,7 @@ public final class WorkflowOrchestrator {
             }
         }
         throw new IllegalArgumentException(
-                "Missing positive vacancies_per_agent in " + config
+                "Missing positive " + key + " in " + config
         );
     }
 

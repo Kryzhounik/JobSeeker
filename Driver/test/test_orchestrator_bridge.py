@@ -25,6 +25,16 @@ from collector.logging.linkedin_run_logger import start_collection_run, finish_c
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    def test_start_analysis_records_effective_parallelism(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "jobs.sqlite"
+            python_bridge.start_analysis("parallel-run", 3, 5, str(database))
+            with closing(sqlite3.connect(database)) as connection:
+                self.assertEqual((3, 5), connection.execute(
+                    "SELECT parallel_agents, vacancies_per_agent FROM analyzer_runs WHERE run_id=?",
+                    ("parallel-run",),
+                ).fetchone())
+
     @patch("orchestrator.python_bridge.run")
     def test_analysis_to_save_uses_known_identity_without_model_metadata(self, proxy_run) -> None:
         with tempfile.TemporaryDirectory() as directory:

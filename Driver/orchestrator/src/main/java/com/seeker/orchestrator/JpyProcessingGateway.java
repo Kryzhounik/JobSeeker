@@ -141,11 +141,12 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
-    public void initializeAnalysisRun(String runId, int vacanciesPerAgent) {
+    public void initializeAnalysisRun(String runId, int parallelAgents, int vacanciesPerAgent) {
         try (PyModule bridge = bridge();
              PyObject ignored = bridge.callMethod(
                      "start_analysis",
                      runId,
+                     parallelAgents,
                      vacanciesPerAgent,
                      paths.databasePath().toString()
              )) {

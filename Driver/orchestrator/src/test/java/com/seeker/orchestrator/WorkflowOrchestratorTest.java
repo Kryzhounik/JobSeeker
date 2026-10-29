@@ -16,6 +16,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +45,7 @@ class WorkflowOrchestratorTest {
         Map<String, List<String>> stageFields = Map.of(
                 "Collection", new ArrayList<>(updates.getFirst().fields().keySet()),
                 "Relevance filter", List.of("Scope", "Relevance filter", "Relevant", "Rejected by relevance"),
-                "Job facts", List.of("Job facts", "Current vacancy"),
+                "Job facts", List.of("Job facts"),
                 "Candidate fit", List.of("Candidate fit", "Current vacancy"));
         for (ProgressSnapshot update : updates) {
             assertFalse(update.fields().containsKey("Run ID"));
@@ -80,7 +83,7 @@ class WorkflowOrchestratorTest {
         assertEquals(gateway.factsFailure, assertThrows(IllegalStateException.class,
                 () -> workflow.processBatch("linkedin", updates::add)));
         assertEquals("Job facts", updates.getLast().stage());
-        assertEquals("1", updates.getLast().fields().get("Current vacancy"));
+        assertFalse(updates.getLast().fields().containsKey("Current vacancy"));
         assertEquals("run-1", updates.getLast().runId());
         assertEquals("0 / 1", updates.getLast().fields().get("Job facts"));
         assertFalse(updates.stream().anyMatch(update -> update.action().equals("Complete")));
@@ -531,8 +534,8 @@ class WorkflowOrchestratorTest {
                 default -> throw new AssertionError(stage);
             };
             assertEquals(lastAction, updates.getLast().action());
-            assertEquals(stage.equals("filter") ? "" : "Java", updates.getLast().details());
-            assertEquals(stage.equals("filter") ? null : "1", updates.getLast().fields().get("Current vacancy"));
+            assertEquals(stage.equals("candidate_fit") ? "Java" : "", updates.getLast().details());
+            assertEquals(stage.equals("candidate_fit") ? "1" : null, updates.getLast().fields().get("Current vacancy"));
             int previousCount = updates.size();
             gateway.usageLimit = null;
             assertEquals("complete", workflow.processBatch("linkedin").status());
@@ -556,6 +559,85 @@ class WorkflowOrchestratorTest {
         assertEquals("Complete", updates.getLast().action());
     }
 
+    @Test
+    void runsThreeGroupsConcurrentlyWithSequentialSessionsAndCallerThreadProgress() throws Exception {
+        CountDownLatch firstThree = new CountDownLatch(3);
+        AtomicInteger active = new AtomicInteger();
+        AtomicInteger maximum = new AtomicInteger();
+        Map<String, List<String>> groups = new ConcurrentHashMap<>();
+        Map<String, Boolean> seen = new ConcurrentHashMap<>();
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of()) {
+            @Override
+            public void initializeAnalysisRun(String runId, int parallelAgents, int vacanciesPerAgent) {
+                assertEquals(3, parallelAgents);
+                assertEquals(2, vacanciesPerAgent);
+            }
+
+            @Override
+            public String extractJobFacts(String runId, String source, String jobId,
+                                          String target, String threadId) {
+                int running = active.incrementAndGet();
+                maximum.accumulateAndGet(running, Math::max);
+                try {
+                    firstThree.countDown();
+                    assertTrue(firstThree.await(5, TimeUnit.SECONDS), "Three groups must overlap");
+                    assertNull(seen.putIfAbsent(jobId, true), "Each job must run exactly once");
+                    List<String> jobs = groups.computeIfAbsent(target, ignored -> new ArrayList<>());
+                    assertEquals(jobs.isEmpty() ? null : "thread-" + target, threadId);
+                    jobs.add(jobId);
+                    return "thread-" + target;
+                } catch (InterruptedException error) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(error);
+                } finally {
+                    active.decrementAndGet();
+                }
+            }
+        };
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                progress -> { throw new AssertionError("No collection expected"); },
+                (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
+                gateway, List::of, 3, 2);
+        List<ScopeItem> scope = java.util.stream.IntStream.rangeClosed(1, 8)
+                .mapToObj(id -> item(Integer.toString(id), "Job " + id)).toList();
+        Thread caller = Thread.currentThread();
+        List<ProgressSnapshot> updates = new ArrayList<>();
+
+        workflow.jobFacts("parallel-run", "linkedin", scope, update -> {
+            assertSame(caller, Thread.currentThread());
+            updates.add(update);
+        });
+
+        assertEquals(3, maximum.get());
+        assertEquals(0, active.get());
+        assertEquals(8, seen.size());
+        for (int group = 1; group <= 4; group++) {
+            assertEquals(List.of(Integer.toString(group * 2 - 1), Integer.toString(group * 2)),
+                    groups.get("linkedin:job_facts:group-" + group));
+        }
+        assertEquals(java.util.stream.IntStream.rangeClosed(0, 8).mapToObj(n -> n + " / 8").toList(),
+                updates.stream().filter(update -> update.action().equals("Extracting facts"))
+                        .map(update -> update.fields().get("Job facts")).toList());
+        assertTrue(updates.stream().noneMatch(update -> update.fields().containsKey("Current vacancy")));
+        assertEquals("pending", gateway.batchStatuses.get("parallel-run"));
+    }
+
+    @Test
+    void failedGroupDoesNotStartItsNextVacancyOrQueuedGroups() {
+        FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
+        gateway.factsFailure = new IllegalStateException("failed first turn");
+        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+                progress -> { throw new AssertionError("No collection expected"); },
+                (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
+                gateway, List::of, 1, 2);
+
+        assertSame(gateway.factsFailure, assertThrows(IllegalStateException.class,
+                () -> workflow.jobFacts("failed-run", "linkedin",
+                        List.of(item("1", "Java"), item("2", "Java"), item("3", "Java")))));
+        assertEquals(List.of("start-analysis:failed-run", "job-facts:1"), gateway.calls);
+        assertEquals("failed", gateway.batchStatuses.get("failed-run"));
+    }
+
     private static CollectionReport report(String status, List<ScopeItem> scope) {
         return new CollectionReport(
                 "linkedin",
@@ -577,7 +659,7 @@ class WorkflowOrchestratorTest {
         return scope.stream().map(ScopeItem::jobId).toList();
     }
 
-    private static final class FakeProcessingGateway implements ProcessingGateway {
+    private static class FakeProcessingGateway implements ProcessingGateway {
         private final List<String> rejectedIds;
         private final List<String> calls = new ArrayList<>();
         private final Map<String, String> states = new HashMap<>();
@@ -651,7 +733,7 @@ class WorkflowOrchestratorTest {
         }
 
         @Override
-        public void initializeAnalysisRun(String runId, int vacanciesPerAgent) {
+        public void initializeAnalysisRun(String runId, int parallelAgents, int vacanciesPerAgent) {
             calls.add("start-analysis:" + runId);
         }
 

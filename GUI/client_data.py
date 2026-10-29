@@ -151,9 +151,6 @@ def load_reason_code_descriptions_from_connection(
 def load_jobs(db_path: str | Path, filters_json: str) -> str:
     filters = json.loads(filters_json or "{}")
     statuses = [str(value) for value in filters.get("statuses", []) if value]
-    # Legacy Closed remains a working status; the new checkbox controls availability.
-    if statuses and "show_unavailable" in filters and "Closed" not in statuses:
-        statuses.append("Closed")
     reasons = [str(value).strip() for value in filters.get("reasons", []) if str(value).strip()]
     where_parts: list[str] = []
     parameters: list[Any] = []

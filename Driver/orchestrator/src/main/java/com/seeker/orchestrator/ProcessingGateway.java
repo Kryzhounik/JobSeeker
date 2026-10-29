@@ -17,7 +17,7 @@ interface ProcessingGateway {
 
     void markRelevance(String source, List<ScopeItem> scope, List<String> nonrelevantIds);
 
-    void initializeAnalysisRun(String runId, int vacanciesPerAgent);
+    void initializeAnalysisRun(String runId, int parallelAgents, int vacanciesPerAgent);
 
     String extractJobFacts(
             String runId,

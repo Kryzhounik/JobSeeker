@@ -126,7 +126,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
                     : switch (stage) {
                         case "Relevance filter" -> new String[]{"Scope", "Relevance filter",
                                 "Relevant", "Rejected by relevance"};
-                        case "Job facts" -> new String[]{"Job facts", "Current vacancy"};
+                        case "Job facts" -> new String[]{"Job facts"};
                         case "Candidate fit" -> new String[]{"Candidate fit", "Current vacancy"};
                         default -> throw new IllegalStateException("Unknown workflow stage: " + stage);
                     };

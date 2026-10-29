@@ -34,6 +34,14 @@ The application performs these operations:
 6. Calculate `job_interest`.
 7. Save the fully scored vacancies to SQLite.
 
+Job-facts groups run in a fixed thread pool sized by `parallel_agents` in
+`Driver/analyzer/config/execution.ini` (currently 3). Each group processes up to
+`vacancies_per_agent` vacancies sequentially in its own persistent agent session.
+Progress reports only the total completed count, for example `34 / 89`, after
+each successful vacancy; notifications are emitted on the workflow caller's thread.
+On failure no further turns are scheduled, already running turns finish, and
+the original failure is propagated. Completed facts remain available for resume.
+
 ## Console entry points
 
 Run commands from the project root.
