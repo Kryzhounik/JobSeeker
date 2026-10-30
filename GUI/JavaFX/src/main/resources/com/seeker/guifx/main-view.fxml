@@ -56,7 +56,7 @@
                         <padding><Insets top="3.0" right="10.0" bottom="7.0" left="10.0" /></padding>
                         <Button fx:id="refreshButton" text="Refresh" />
                         <Label text="Status" styleClass="muted-label" />
-                        <HBox fx:id="statusFilters" alignment="CENTER_LEFT" spacing="6.0" />
+                        <HBox fx:id="statusFilters" alignment="CENTER_LEFT" spacing="16.0" />
                         <CheckBox fx:id="showZeroCheck" text="Show zero" />
                         <Label text="ID" styleClass="muted-label" />
                         <TextField fx:id="idFilterField" promptText="ID or URL" prefWidth="115.0" />

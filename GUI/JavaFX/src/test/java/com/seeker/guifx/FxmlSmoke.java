@@ -24,6 +24,10 @@ public final class FxmlSmoke {
                 Button runs = (Button) loader.getNamespace().get("runsButton");
                 Button companies = (Button) loader.getNamespace().get("companiesButton");
                 Button refresh = (Button) loader.getNamespace().get("refreshButton");
+                HBox statusFilters = (HBox) loader.getNamespace().get("statusFilters");
+                if (statusFilters.getSpacing() < 16) {
+                    throw new AssertionError("Status checkboxes are not visually separated");
+                }
                 javafx.scene.control.Label statusLabel = (javafx.scene.control.Label) loader.getNamespace().get("statusLabel");
                 Button blackTitles = (Button) loader.getNamespace().get("blackTitlesButton");
                 if (!(statusLabel.getParent() instanceof WindowStatusBar footer)
