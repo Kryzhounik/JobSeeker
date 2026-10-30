@@ -1,5 +1,10 @@
 # JobSeeker
 
+JobSeeker is not an MCP server, but an agent with local execution access can use
+its [API and CLI](Driver/api/README.md) to carry out natural-language requests:
+configure locations and collection limits, collect vacancies, and summarize the
+results in the requested format. A simple desktop GUI is also available.
+
 Top-level layout:
 
 - `GUI`: human viewer for inspecting the SQLite database.

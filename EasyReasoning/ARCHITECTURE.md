@@ -1,5 +1,11 @@
 # EasyReasoning Architecture
 
+**Current status:** vacancy trimming via `String cleanVacancy(String text)` in its
+current form and signature has not produced practically useful, consistent results
+without losing useful content with the available models. Script-based cleanup
+achieved better quality, so this operation is currently unused. Reconsider it for
+other tasks or if a more powerful model becomes available.
+
 ## Gateway Role
 
 EasyReasoning is a gateway to models for inexpensive tasks. Preserve the stable

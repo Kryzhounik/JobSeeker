@@ -1,5 +1,10 @@
 # EasyReasoning
 
+**Current status:** the module is currently unused. Available models did not
+provide a substantial, consistent improvement in vacancy trimming without losing
+useful content; script-based cleanup achieved better quality. Its gateway purpose
+remains; revisit it for other tasks or a more powerful model.
+
 Java gateway to models for inexpensive text and reasoning tasks. Its core API is
 `String generate(String prompt)`. The intended configuration selects the backend
 and model; callers use the same programmatic API and CLI whichever backend runs
