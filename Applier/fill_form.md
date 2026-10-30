@@ -1,11 +1,13 @@
 Prepare the application using the employer page that Java already opened in the
 shared browser.
 
-Use Playwright MCP's `browser_tabs` tool with action `list`. Select the tab at
-`tab_index` in the input only after confirming its listed URL matches
-`form_url`. If the index has shifted, locate the tab by the exact URL and select
-its listed index. Continue in that tab; do not reopen the LinkedIn vacancy or
-use the collector's tab. The employer page may show the job description before
+Use Playwright MCP's `browser_tabs` tool with action `list`. Confirm that the
+tab at `tab_index` matches `form_url`; if the index shifted, locate it by exact
+URL. If that tab is already marked `(current)`, continue without selecting it
+again. Select only when changing to a different tab needed for the application.
+Do not call `bringToFront()`, focus browser windows, or reselect the current tab
+for filling or verification. Continue in the form tab; do not reopen the LinkedIn
+vacancy or use the collector's tab. The employer page may show the job description before
 the form. If so, follow its Apply link or button to the form, switching to the
 new tab if one opens.
 
@@ -32,11 +34,14 @@ Georgia without confirming current residence there. This rule takes
 precedence over a location mentioned in the resume. Do not invent a city or
 address when the facts only name a country.
 
-For a phone number field, apply the same location-selection rule above and use
-the number listed for that location in the facts file. If the selected
-location has no listed number, leave the phone field unanswered and mention
-it in the result. If the form asks for neither location nor phone, there is
-no need to select a location.
+For a phone number field, use the number in the facts for the applicant's
+residence country selected in the form. The application/office country must
+not override this choice. If the form does not ask for residence, match the
+vacancy location to the countries with phone numbers in the facts; otherwise
+choose the highest-interest of those countries using `[locations]`. If the
+selected residence has no listed number, leave the phone unanswered and mention
+it in the result. If neither residence nor phone is required, do not select
+an applicant location just for those fields.
 
 For a compensation field, use the monthly range in the facts. Lower requested
 pay corresponds to a more attractive vacancy; higher requested pay corresponds
