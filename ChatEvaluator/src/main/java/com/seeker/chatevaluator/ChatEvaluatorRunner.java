@@ -69,6 +69,7 @@ public final class ChatEvaluatorRunner {
             boolean openConversation = page == null;
             if (openConversation) page = browser.newPage();
             browser.keepOpen(page);
+            enableFocusEmulation(browser, page);
             page.setDefaultTimeout(30_000);
             page.setDefaultNavigationTimeout(60_000);
             if (openConversation) {
@@ -103,7 +104,7 @@ public final class ChatEvaluatorRunner {
             if (!historyReadyForMessage(page, before)) {
                 throw new IOException("ChatGPT is not ready for another message; no send action was attempted.");
             }
-            submitOnce(page, chatUrl);
+            submitOnce(page, chatUrl, composer.first());
             Turn submitted = null;
             long submissionDeadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
             while (System.nanoTime() < submissionDeadline) {
@@ -138,27 +139,37 @@ public final class ChatEvaluatorRunner {
         }
     }
 
-    private static void submitOnce(Page page, String chatUrl) throws IOException {
+    private static void enableFocusEmulation(ManagedBrowser browser, Page page) {
+        JsonObject focus = new JsonObject();
+        focus.addProperty("enabled", true);
+        browser.context().newCDPSession(page).send("Emulation.setFocusEmulationEnabled", focus);
+    }
+
+    private static void submitOnce(Page page, String chatUrl, Locator composer) throws IOException {
         long deadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
-        Locator sendButton = page.locator("button[type='submit']:visible");
+        Locator sendButton = composer.locator("xpath=ancestor::form[1]")
+                .locator("button[type='submit']:visible");
+        String lastState = "not checked";
         while (System.nanoTime() < deadline) {
             requireConversation(page, chatUrl);
             // Check readiness and click in one task; background tabs need not produce animation frames.
-            boolean clicked = Boolean.TRUE.equals(sendButton.evaluateAll("""
+            lastState = (String) sendButton.evaluateAll("""
                 buttons => {
-                  if (buttons.length !== 1) return false;
+                  const visibility = 'visibility=' + document.visibilityState;
+                  if (buttons.length !== 1) return 'matches=' + buttons.length + ', ' + visibility;
                   const button = buttons[0];
-                  if (!button.isConnected || button.matches(':disabled')
-                      || button.closest('[aria-disabled="true" i]')) return false;
+                  if (!button.isConnected) return 'detached, ' + visibility;
+                  if (button.matches(':disabled')) return 'disabled, ' + visibility;
+                  if (button.closest('[aria-disabled="true" i], [inert]')) return 'aria-disabled/inert, ' + visibility;
                   button.click();
-                  return true;
+                  return 'clicked';
                 }
-                """));
-            if (clicked) return;
+                """);
+            if ("clicked".equals(lastState)) return;
             page.waitForTimeout(250);
         }
-        throw new IOException("The ChatGPT send button did not become uniquely visible and enabled "
-                + "within 15 seconds; no send action was attempted.");
+        throw new IOException("The ChatGPT send button in the message composer was not ready "
+                + "within 15 seconds (" + lastState + "); no send action was attempted.");
     }
 
     /** False means HTTP 429 requires a check with the existing browser session. */
@@ -196,9 +207,7 @@ public final class ChatEvaluatorRunner {
         Page vacancy = browser.newBackgroundPage();
         String stage = "opening the vacancy page";
         try {
-            JsonObject focus = new JsonObject();
-            focus.addProperty("enabled", true);
-            browser.context().newCDPSession(vacancy).send("Emulation.setFocusEmulationEnabled", focus);
+            enableFocusEmulation(browser, vacancy);
             Response response = vacancy.navigate(vacancyUrl, new Page.NavigateOptions()
                     .setWaitUntil(WaitUntilState.DOMCONTENTLOADED).setTimeout(30_000));
             if (response == null) throw new IOException("The browser returned no vacancy response.");

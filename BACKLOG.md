@@ -184,6 +184,7 @@ execution contract; the Java orchestrator owns pipeline behavior.
   и передачу downstream только реально используемых полей. Не удалять audit
   evidence вслепую и не оптимизировать candidate-fit input отдельно, если
   deterministic scoring устранит этот input полностью.
+- **MEDIUM: [Семантические дубликаты вакансий через EasyReasoning](EasyReasoning/BACKLOG.md).**
 - **LOW: Дедупликация вакансий**
   Investigate dedup for near-identical LinkedIn jobs:
   - compare raw/card/analyzed data for 4441196528, 4441182950,
