@@ -932,6 +932,44 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "Go"])
 
+    def test_at_least_one_parenthesized_engine_keeps_unknown_alternatives(self) -> None:
+        result = decide_content(
+            "Advanced proficiency with at least one major game engine "
+            "(Unity, Godot, Unreal), including editor tools, scene management, "
+            "and debugging utilities."
+        )
+        self.assertEqual(result["content_decision"], "analyze")
+
+    def test_at_least_one_parenthesized_list_is_independent_of_category(self) -> None:
+        for category, options in (
+            ("prog lang", "C#, Java, Golang"),
+            ("framework", "Wildfly, Spring, Struts"),
+            ("framework", "C#, Spring, Golang"),
+        ):
+            with self.subTest(category=category, options=options):
+                result = decide_content(
+                    f"Advanced proficiency with at least one {category} ({options})"
+                )
+                self.assertEqual(result["content_decision"], "analyze")
+
+    def test_at_least_one_parenthesized_list_blocks_all_prohibited_options(self) -> None:
+        result = decide_content(
+            "Advanced proficiency with at least one language (C#, Python, Golang), "
+            "including debugging tools."
+        )
+        self.assertEqual(result["content_decision"], "skip")
+        self.assertEqual(result["content_technologies"], ["C#", "Python", "Golang"])
+
+    def test_at_least_one_parenthesized_list_preserves_surrounding_and(self) -> None:
+        for requirement in (
+            "at least one language (Java, C#) and Python",
+            "Python and at least one framework (Spring, Struts)",
+        ):
+            with self.subTest(requirement=requirement):
+                result = decide_content("Advanced proficiency with " + requirement)
+                self.assertEqual(result["content_decision"], "skip")
+                self.assertIn("Python", result["content_technologies"])
+
     def test_backend_language_preference_for_go_is_not_blocked(self) -> None:
         result = decide_content(
             "Proficiency in at least one backend language with strong "

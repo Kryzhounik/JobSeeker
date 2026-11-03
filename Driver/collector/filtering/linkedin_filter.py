@@ -170,6 +170,10 @@ TECHNOLOGY_SERIAL_COMMA = re.compile(
     r",\s*(?=(?:and/or|and|or|або|чи|та|і)\b)",
     re.IGNORECASE,
 )
+TECHNOLOGY_ONE_OF_GROUP = re.compile(
+    r"\bat\s+least\s+one\b[^().;:\r\n]*\((?P<options>[^()\r\n]+)\)",
+    re.IGNORECASE,
+)
 TECHNOLOGY_VERSION_QUALIFIER = re.compile(
     r"\(\s*or\s+(?:later|newer|higher)\s*\)",
     re.IGNORECASE,
@@ -269,6 +273,19 @@ def technology_list_groups(
     alternatives_only: bool,
     pass_word_patterns: tuple[tuple[str, re.Pattern[str]], ...],
 ) -> list[list[str]]:
+    one_of = TECHNOLOGY_ONE_OF_GROUP.search(value)
+    if one_of is not None:
+        # Expand only this choice group; surrounding AND requirements still apply.
+        groups = []
+        for option in technology_list_groups(
+            one_of.group("options"), True, pass_word_patterns
+        ):
+            expanded = value[:one_of.start()] + option[0] + value[one_of.end():]
+            groups.extend(technology_list_groups(
+                expanded, alternatives_only, pass_word_patterns
+            ))
+        return groups
+
     parts = TECHNOLOGY_LIST_SEPARATOR.split(TECHNOLOGY_SERIAL_COMMA.sub(" ", value))
     groups: list[list[str]] = []
     parenthesis_depth = 0
