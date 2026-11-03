@@ -153,9 +153,12 @@ tracks successful URL extraction, independently of subsequent vacancy processing
 
 ### Resume a partially processed run
 
-Reads the completed collection's vacancies from SQLite and uses the same
-status-based processing as a fresh batch. It requires the collection run ID
-recorded on the vacancies. Completed stages are skipped:
+Reads saved vacancies from SQLite, including after a failed collection, and uses
+the same status-based processing as a fresh batch. The database records determine
+the scope, even if collection stopped before updating its accepted count. It
+requires the collection run ID recorded on the vacancies. Collection is not
+restarted; running and fully completed batches cannot be resumed. Completed
+processing stages are skipped:
 
 | Current status | Next operation |
 | --- | --- |

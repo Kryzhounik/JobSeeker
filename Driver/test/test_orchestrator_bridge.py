@@ -110,7 +110,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
             connection.row_factory = sqlite3.Row
             return dict(connection.execute("SELECT * FROM linkedin_collection_runs WHERE run_id = 'batch-1'").fetchone())
 
-    def test_batch_continues_after_collection_limit_and_can_resume_after_failure(self) -> None:
+    def test_batch_resumes_after_collection_or_processing_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
             migrate_database(database)
@@ -122,6 +122,12 @@ class OrchestratorBridgeTest(unittest.TestCase):
                     "SELECT id, 'Job description', 'Java' FROM source_jobs"
                 )
                 connection.commit()
+            finish_collection_run("batch-1", "blocked", "collection_error", 0, "timeout", database)
+            self.assertEqual("1", json.loads(
+                python_bridge.load_collected_scope("batch-1", str(database))
+            )[0]["job_id"])
+            self.assertEqual("blocked", self._batch(database)["collection_status"])
+            self.assertEqual(0, self._batch(database)["accepted_count"])
             finish_collection_run("batch-1", "complete", "limit_reached", 1, "", database)
             batch = self._batch(database)
             self.assertEqual(("pending", "Collection", "complete", None),

@@ -55,19 +55,19 @@ def run_agent_filter(run_id: str, scope_json: str, db_path: str) -> str:
 
 
 def load_collected_scope(run_id: str, db_path: str) -> str:
-    """Return the accepted collection scope, including later processing stages."""
+    """Return saved, processable vacancies even if collection stopped early."""
     database = Path(db_path)
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         run_row = connection.execute(
-            "SELECT collection_status, accepted_count, status FROM linkedin_collection_runs WHERE run_id = ?",
+            "SELECT status FROM linkedin_collection_runs WHERE run_id = ?",
             (run_id,),
         ).fetchone()
-        if run_row is None or run_row[0] != "complete":
-            raise ValueError(f"LinkedIn collection is not complete: {run_id}")
-        if run_row[2] == "running":
+        if run_row is None:
+            raise ValueError(f"Batch not found: {run_id}")
+        if run_row[0] == "running":
             raise ValueError(f"Batch is already running: {run_id}")
-        if run_row[2] == "complete":
+        if run_row[0] == "complete":
             raise ValueError(f"Batch is already complete: {run_id}")
         rows = connection.execute(
             """
@@ -83,11 +83,6 @@ def load_collected_scope(run_id: str, db_path: str) -> str:
             """,
             (run_id,),
         ).fetchall()
-    if len(rows) != run_row[1]:
-        raise ValueError(
-            f"Collected scope for {run_id} has {len(rows)} jobs, "
-            f"expected {run_row[1]}"
-        )
     return _json([
         {"source": "linkedin", "job_id": job_id, "title": title}
         for job_id, title in rows
