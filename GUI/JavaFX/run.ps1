@@ -5,6 +5,12 @@ param(
 $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($JavaHome)) {
+    $savedHome = Join-Path $PSScriptRoot "java-home.txt"
+    if (Test-Path -LiteralPath $savedHome) {
+        $JavaHome = (Get-Content -LiteralPath $savedHome -Raw).Trim()
+    }
+}
+if ([string]::IsNullOrWhiteSpace($JavaHome)) {
     $javaCommand = Get-Command java.exe -ErrorAction SilentlyContinue
     if ($null -eq $javaCommand) {
         throw "Set JAVA_HOME to a JDK 21 installation or add its bin directory to PATH."
@@ -17,23 +23,10 @@ if (-not (Test-Path -LiteralPath $javaExecutable -PathType Leaf)) {
     throw "JDK not found at '$JavaHome'. Expected '$javaExecutable'."
 }
 
-$mavenCommand = Get-Command mvn.cmd -ErrorAction SilentlyContinue
-if ($null -eq $mavenCommand) {
-    throw "Maven 3.9 or newer must be available as mvn.cmd on PATH."
-}
-
 $env:JAVA_HOME = (Resolve-Path -LiteralPath $JavaHome).Path
 $env:Path = (Join-Path $env:JAVA_HOME "bin") + ";" + $env:Path
-$pom = Join-Path $PSScriptRoot "pom.xml"
 $root = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
-& $mavenCommand.Source -f (Join-Path $root "Driver\pom.xml") install
-if ($LASTEXITCODE -ne 0) {
-    throw "Backend Maven install failed with exit code $LASTEXITCODE."
-}
-& $mavenCommand.Source -f $pom clean package
-if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX Maven build failed with exit code $LASTEXITCODE."
-}
+& (Join-Path $PSScriptRoot "prepare_runtime.ps1") -JavaHome $env:JAVA_HOME
 Push-Location $root
 $runtimeDirectory = Join-Path ([System.IO.Path]::GetTempPath()) ("SeekerJobs\" + [Guid]::NewGuid().ToString("N"))
 $runtimeJar = Join-Path $runtimeDirectory "seeker-gui-javafx.jar"

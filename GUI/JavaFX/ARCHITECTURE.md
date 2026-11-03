@@ -61,7 +61,13 @@ replacing jars in the repository-root `libs/`. The GUI therefore uses its own
 bundled snapshot, not the backend's shared runtime files. The GUI package step
 does not copy dependencies into `libs/`.
 
-Each Windows-launcher invocation copies the published jar to its own directory
+Before copying, the launcher runs `prepare_runtime.ps1`: newer production sources,
+POMs or module jars trigger the existing backend install and GUI packaging.
+Otherwise it skips Maven. Freshness uses file timestamps. The GUI owns this step; backend modules need no knowledge
+of consumers. `run.ps1` and `build_launcher.ps1` reuse it, with the latter forcing
+a refresh. Build failures abort the launch rather than starting a stale bundle.
+
+Each Windows-launcher invocation then copies the published jar to its own directory
 under `%TEMP%/SeekerJobs/` and runs that copy. Source handles permit rename/delete,
 so publishing while a launch copies the previous version does not block either
 operation. The working directory remains the repository root. The launcher

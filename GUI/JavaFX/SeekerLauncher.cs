@@ -17,11 +17,6 @@ internal static class SeekerLauncher
 
         try
         {
-            if (!File.Exists(jar))
-            {
-                throw new FileNotFoundException("JavaFX build is missing. Run build_launcher.ps1 first.");
-            }
-
             string javaHomeFile = Path.Combine(directory, "java-home.txt");
             string javaHome = File.Exists(javaHomeFile)
                     ? File.ReadAllText(javaHomeFile).Trim()
@@ -33,52 +28,71 @@ internal static class SeekerLauncher
                         + ". Run build_launcher.ps1 with a valid JDK 21 path.");
             }
 
-            runtimeJar = CreateRuntimeJar(jar);
             Directory.CreateDirectory(Path.GetDirectoryName(log));
-            ProcessStartInfo start = new ProcessStartInfo();
-            start.FileName = javaw;
-            start.Arguments = "-jar " + Quote(runtimeJar);
-            start.WorkingDirectory = root;
-            start.UseShellExecute = false;
-            start.CreateNoWindow = true;
-            start.RedirectStandardOutput = true;
-            start.RedirectStandardError = true;
-
             using (StreamWriter writer = new StreamWriter(log, true))
-            using (Process process = new Process())
             {
-                object logLock = new object();
                 writer.AutoFlush = true;
                 writer.WriteLine("--- " + DateTime.Now.ToString("u") + " ---");
-                process.StartInfo = start;
-                process.OutputDataReceived += (sender, eventArgs) => {
-                    if (eventArgs.Data != null) lock (logLock) writer.WriteLine(eventArgs.Data);
-                };
-                process.ErrorDataReceived += (sender, eventArgs) => {
-                    if (eventArgs.Data != null) lock (logLock) writer.WriteLine(eventArgs.Data);
-                };
-                process.Start();
-                process.BeginOutputReadLine();
-                process.BeginErrorReadLine();
-                process.WaitForExit();
-                if (process.ExitCode != 0)
+                PrepareRuntime(directory, javaHome, writer);
+                runtimeJar = CreateRuntimeJar(jar);
+                ProcessStartInfo start = new ProcessStartInfo(javaw, "-jar " + Quote(runtimeJar));
+                start.WorkingDirectory = root;
+                int exitCode = RunLogged(start, writer);
+                if (exitCode != 0)
                 {
-                    MessageBox.Show("JavaFX exited with code " + process.ExitCode
+                    MessageBox.Show("JavaFX exited with code " + exitCode
                             + ". See " + log, "Seeker Jobs", MessageBoxButtons.OK,
                             MessageBoxIcon.Error);
                 }
-                return process.ExitCode;
+                return exitCode;
             }
         }
         catch (Exception error)
         {
-            MessageBox.Show(error.Message, "Seeker Jobs", MessageBoxButtons.OK,
+            MessageBox.Show(error.Message + "\nSee " + log, "Seeker Jobs", MessageBoxButtons.OK,
                     MessageBoxIcon.Error);
             return 1;
         }
         finally
         {
             if (runtimeJar != null) DeleteRuntimeJar(runtimeJar);
+        }
+    }
+
+    internal static void PrepareRuntime(string directory, string javaHome, TextWriter log)
+    {
+        ProcessStartInfo start = new ProcessStartInfo("powershell.exe",
+                "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "
+                + Quote(Path.Combine(directory, "prepare_runtime.ps1")) + " -JavaHome " + Quote(javaHome));
+        start.WorkingDirectory = directory;
+        if (RunLogged(start, log) != 0)
+        {
+            throw new InvalidOperationException("GUI preparation failed; the previous build was not launched.");
+        }
+    }
+
+    private static int RunLogged(ProcessStartInfo start, TextWriter log)
+    {
+        start.UseShellExecute = false;
+        start.CreateNoWindow = true;
+        start.WindowStyle = ProcessWindowStyle.Hidden;
+        start.RedirectStandardOutput = true;
+        start.RedirectStandardError = true;
+        object logLock = new object();
+        using (Process process = new Process())
+        {
+            process.StartInfo = start;
+            process.OutputDataReceived += (sender, data) => {
+                if (data.Data != null) lock (logLock) log.WriteLine(data.Data);
+            };
+            process.ErrorDataReceived += (sender, data) => {
+                if (data.Data != null) lock (logLock) log.WriteLine(data.Data);
+            };
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            process.WaitForExit();
+            return process.ExitCode;
         }
     }
 

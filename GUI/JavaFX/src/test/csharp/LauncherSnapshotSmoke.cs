@@ -15,6 +15,19 @@ internal static class LauncherSnapshotSmoke
         try
         {
             File.WriteAllText(next, "first build");
+            string prepare = Path.Combine(fixture, "prepare_runtime.ps1");
+            File.WriteAllText(prepare, "param([string]$JavaHome)\nWrite-Output 'Preparation ran before launch'\n");
+            using (StringWriter output = new StringWriter())
+            {
+                SeekerLauncher.PrepareRuntime(fixture, "fixture JDK", output);
+                Check(output.ToString().Contains("Preparation ran before launch"), "Preparation output was not logged");
+            }
+            File.WriteAllText(prepare, "throw 'Build failed'\n");
+            bool rejected = false;
+            try { SeekerLauncher.PrepareRuntime(fixture, "fixture JDK", TextWriter.Null); }
+            catch (InvalidOperationException) { rejected = true; }
+            Check(rejected, "Launcher ignored a failed preparation");
+            File.Delete(prepare);
             Publish(args[0], next, published, true);
             first = SeekerLauncher.CreateRuntimeJar(published);
             using (FileStream reader = new FileStream(published, FileMode.Open, FileAccess.Read,
@@ -52,6 +65,7 @@ internal static class LauncherSnapshotSmoke
             if (second != null) SeekerLauncher.DeleteRuntimeJar(second);
             File.Delete(published);
             File.Delete(next);
+            File.Delete(Path.Combine(fixture, "prepare_runtime.ps1"));
             string previous = Path.Combine(fixture, ".runtime");
             if (Directory.Exists(previous)) Directory.Delete(previous);
             Directory.Delete(fixture);

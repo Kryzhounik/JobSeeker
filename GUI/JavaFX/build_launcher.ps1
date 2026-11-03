@@ -23,15 +23,9 @@ if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) {
 $env:JAVA_HOME = $javaHomePath
 $env:Path = (Join-Path $javaHomePath "bin") + ";" + $env:Path
 & (Join-Path $directory "create_icon.ps1")
-$pom = Join-Path $directory "pom.xml"
-& $maven.Source -f (Join-Path $root "Driver\pom.xml") install
-if ($LASTEXITCODE -ne 0) {
-    throw "Backend Maven install failed with exit code $LASTEXITCODE."
-}
-& $maven.Source -f $pom clean package
-if ($LASTEXITCODE -ne 0) {
-    throw "Maven build failed with exit code $LASTEXITCODE."
-}
+& (Join-Path $directory "prepare_runtime.ps1") -JavaHome $javaHomePath -MavenCommand $maven.Source -Force
+& (Join-Path $directory "src/test/powershell/PrepareRuntimeSmoke.ps1") `
+    -PrepareScript (Join-Path $directory "prepare_runtime.ps1")
 
 $classpath = (Join-Path $directory "target\test-classes") + ";" + `
     (Join-Path $directory "dist\seeker-gui-javafx.jar")

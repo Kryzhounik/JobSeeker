@@ -25,6 +25,13 @@ Wait for the user's response. The user decides whether to review, test, or
 revise that item and when to start the next one. Do not make that decision or
 continue to another item on your own.
 
+## Implementation Simplicity
+
+Choose the simplest implementation that satisfies the agreed requirements.
+Do not add internal mechanisms for hypothetical problems or future needs.
+Every added mechanism must address a concrete requirement or an observed
+problem that the simpler solution cannot handle.
+
 ## Coding Task Handoff
 
 Use this format for small, scoped coding tasks. For larger module-level

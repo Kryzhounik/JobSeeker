@@ -31,17 +31,24 @@ the fat `dist/seeker-gui-javafx.jar`, bundling all Java runtime
 dependencies instead of loading them from the repository-root `libs/`.
 This lets other Java modules be rebuilt while the GUI stays open on Windows.
 It checks the database connection through jpy, runs small
-GUI feature and FXML checks, and saves the JDK path in `java-home.txt`. The launcher
-does not need Maven at startup and does not leave a console window. Its startup
-output and errors go to a separate `logs/launch-*.log` for each run. Rebuild after code
-changes or a JDK move.
+GUI feature and FXML checks, and saves the JDK and Maven paths in `java-home.txt`
+and `maven-path.txt`. The launcher leaves no console window. Its startup output,
+build output and errors go to a separate `logs/launch-*.log` for each run.
+Rebuild the launcher after changing its C# source or moving the JDK.
 The normal build does not open test windows. To run the interactive UI check,
 add `-UiSmoke` to the build command; it opens the main and auxiliary windows.
 The script publishes `SeekerJobs.exe` from a compiled staging file. When an older
 launcher is still running, its executable is retained under `target/` until it
 can be removed; no second launcher name is required in the GUI directory.
-Each launch runs its own temporary copy of the last completed fat jar. Rebuilds
-can run while older instances stay open: the next launch uses the new build,
+Before each launch, `prepare_runtime.ps1` compares the published jar's timestamp
+with GUI/backend production sources, POMs and module jars. Newer inputs or a
+missing published jar run the existing backend install and GUI package steps;
+otherwise Maven is skipped. Explorer uses the saved Maven path. Build failure stops that launch
+instead of silently using stale code. Python, data and runtime settings stay
+external; startup only prepares the Java build.
+
+Each launch then runs its own temporary copy of the completed fat jar. Rebuilds
+can run while older instances stay open: the next launch uses the refreshed build,
 and existing instances keep the old one until exit. Their copies are deleted
 when Java exits. Maven clean keeps the last published jar, and publication
 replaces it atomically only after packaging completes. Processes launched before
@@ -54,19 +61,18 @@ For development, set `JAVA_HOME`, make sure `mvn.cmd` is on `PATH`, then run:
 .\run.ps1
 ```
 
-`run.ps1` builds the backend and GUI, then launches the GUI JAR. The equivalent
-commands from the repository root are:
+`run.ps1` uses the same preparation check as the EXE, then launches a private
+copy of the GUI JAR. To force a refresh from the repository root:
 
 ```powershell
-mvn -f Driver/pom.xml install
-mvn -f GUI/JavaFX/pom.xml clean package
+.\GUI\JavaFX\prepare_runtime.ps1 -Force
 .\GUI\JavaFX\SeekerJobs.exe
 ```
 
 JavaFX is not a child or reactor module of `Driver`. It uses normal Maven
 dependencies on Driver API, Collector result types, and Tools, and imports their managed
-versions from the installed Driver POM. After backend changes, run `install`
-again before building the GUI; both scripts do this automatically. Maven
+versions from the installed Driver POM. The GUI's preparation script installs
+changed backend dependencies automatically before rebuilding the GUI. Maven
 downloads the JavaFX platform modules on the first build.
 The Python/JNI library paths come from
 `Driver/collector/java_linkedin/runtime.properties`.
