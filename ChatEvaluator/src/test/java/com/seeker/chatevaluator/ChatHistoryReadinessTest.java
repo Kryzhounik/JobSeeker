@@ -42,9 +42,15 @@ class ChatHistoryReadinessTest {
                        data-chatgpt-search-message-ids="user-stopped">Previous question</div>
                   <div data-talvt-turn-state="cancelled">Thinking stopped</div>
                 </div>
-                <div id="prompt-textarea" contenteditable="true"></div>
+                <div class="writing-block-editor" role="textbox" contenteditable="true">Original block</div>
+                <form><div role="textbox" contenteditable="true"></div></form>
                 """);
             ChatEvaluatorRunner.awaitReadyHistory(page, page.url());
+            var composer = ChatEvaluatorRunner.messageComposer(page);
+            assertEquals(1, composer.count());
+            composer.fill("https://www.linkedin.com/jobs/view/123/");
+            assertEquals("https://www.linkedin.com/jobs/view/123/", composer.innerText());
+            assertEquals("Original block", page.locator(".writing-block-editor").innerText());
             assertTrue(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(STOPPED)));
         }
     }
@@ -59,7 +65,7 @@ class ChatHistoryReadinessTest {
                   <div data-chatgpt-search-unit-key="stopped:user"
                        data-chatgpt-search-message-ids="user-stopped">Previous question</div>
                 </div>
-                <div id="prompt-textarea" contenteditable="true"></div>
+                <form><div id="prompt-textarea" contenteditable="true"></div></form>
                 <button data-testid="stop-button">Stop</button>
                 """);
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(STOPPED)));
@@ -74,15 +80,18 @@ class ChatHistoryReadinessTest {
         try (var context = browser.newContext()) {
             context.setOffline(true);
             Page page = context.newPage();
-            page.setContent("<div id='prompt-textarea' contenteditable='true'></div>");
+            page.setContent("<div role='textbox' contenteditable='true'>Unrelated editor</div>"
+                    + "<form><div id='prompt-textarea' contenteditable='true'></div></form>");
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of()));
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(
                     new ChatEvaluatorRunner.Turn("stopped", "", "", "", "", false))));
             page.locator("#prompt-textarea").evaluate("node => node.contentEditable = 'false'");
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(STOPPED)));
-            page.setContent("<div id='prompt-textarea' contenteditable='true' aria-disabled='true'></div>");
+            page.setContent("<div role='textbox' contenteditable='true'>Unrelated editor</div>"
+                    + "<form><div id='prompt-textarea' contenteditable='true' aria-disabled='true'></div></form>");
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(STOPPED)));
-            page.setContent("<div id='prompt-textarea' contenteditable='true' hidden></div>");
+            page.setContent("<div role='textbox' contenteditable='true'>Unrelated editor</div>"
+                    + "<form><div id='prompt-textarea' contenteditable='true' hidden></div></form>");
             assertFalse(ChatEvaluatorRunner.historyReadyForMessage(page, List.of(STOPPED)));
         }
     }

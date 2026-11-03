@@ -26,6 +26,9 @@ public final class ChatEvaluatorRunner {
     private static final String CHAT_CONFIG = "Data/chat_evaluator/config.properties";
     private static final String LINKEDIN_RUNTIME = "Driver/collector/java_linkedin/runtime.properties";
     private static final String LINKEDIN_CONFIG = "Driver/collector/config/linkedin.properties";
+    private static final String COMPOSER_SELECTOR = "form #prompt-textarea, "
+            + "form [contenteditable='true'][data-testid='prompt-textarea'], "
+            + "form [contenteditable='true'][role='textbox']";
     private static final long SUBMISSION_TIMEOUT_MS = 15_000;
     private static final long RESPONSE_TIMEOUT_MS = 180_000;
 
@@ -82,11 +85,9 @@ public final class ChatEvaluatorRunner {
                         + "Sign in manually in the open browser once, then rerun the evaluation; the module does not store your password.");
             }
 
-            Locator composer = page.locator("#prompt-textarea, "
-                    + "[contenteditable='true'][data-testid='prompt-textarea'], "
-                    + "[contenteditable='true'][role='textbox']");
+            Locator composer = messageComposer(page);
             try {
-                composer.first().waitFor(new Locator.WaitForOptions()
+                composer.waitFor(new Locator.WaitForOptions()
                         .setState(WaitForSelectorState.VISIBLE).setTimeout(30_000));
             } catch (TimeoutError timeout) {
                 if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
@@ -98,19 +99,19 @@ public final class ChatEvaluatorRunner {
 
             requireConversation(page, chatUrl);
             awaitReadyHistory(page, chatUrl);
-            composer.first().fill(vacancyUrl);
+            composer.fill(vacancyUrl);
             requireConversation(page, chatUrl);
             List<Turn> before = readTurns(page);
             if (!historyReadyForMessage(page, before)) {
                 throw new IOException("ChatGPT is not ready for another message; no send action was attempted.");
             }
-            submitOnce(page, chatUrl, composer.first());
+            submitOnce(page, chatUrl, composer);
             Turn submitted = null;
             long submissionDeadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
             while (System.nanoTime() < submissionDeadline) {
                 requireConversation(page, chatUrl);
                 submitted = submittedTurn(before, readTurns(page), vacancyUrl,
-                        composer.first().innerText().isBlank());
+                        composer.innerText().isBlank());
                 if (submitted != null) break;
                 page.waitForTimeout(250);
             }
@@ -137,6 +138,10 @@ public final class ChatEvaluatorRunner {
             throw new TimeoutError("Timed out waiting for the completed ChatGPT answer to submitted turn "
                     + submitted.key() + ".");
         }
+    }
+
+    static Locator messageComposer(Page page) {
+        return page.locator(":is(" + COMPOSER_SELECTOR + "):visible");
     }
 
     private static void enableFocusEmulation(ManagedBrowser browser, Page page) {
@@ -291,21 +296,19 @@ public final class ChatEvaluatorRunner {
         // A stopped previous response need not be complete. Check whether the UI
         // accepts a new message without weakening completedResponse for our answer.
         return Boolean.TRUE.equals(page.evaluate("""
-            () => {
+            selector => {
               const visible = node => node.getClientRects().length
                 && getComputedStyle(node).visibility !== 'hidden';
               const stopping = [...document.querySelectorAll(
                 'button[data-testid="stop-button"], button#stop-button'
               )].some(visible);
-              const editor = [...document.querySelectorAll(
-                '#prompt-textarea, [contenteditable="true"][data-testid="prompt-textarea"], '
-                + '[contenteditable="true"][role="textbox"]'
-              )].find(visible);
+              const editors = [...document.querySelectorAll(selector)].filter(visible);
+              const editor = editors.length === 1 ? editors[0] : null;
               return !stopping && !!editor && !editor.matches(':disabled')
                 && editor.getAttribute('contenteditable') !== 'false'
                 && !editor.closest('[aria-disabled="true" i], [inert]');
             }
-            """));
+            """, COMPOSER_SELECTOR));
     }
 
     private static List<Turn> readTurns(Page page) {
