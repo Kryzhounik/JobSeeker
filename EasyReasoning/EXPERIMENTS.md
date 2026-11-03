@@ -161,3 +161,19 @@ quality notes, timings and resource observations are in:
 `Data/easy-reasoning/experiments/qwen2.5-7b-20261025-193041/report.md`.
 Input/instruction equality was checked; production code/default settings
 were unchanged.
+
+On 2026-11-03 a user-authored English prompt asking for substantive differences
+(ignoring location names and general local labor-market descriptions) was
+tested on job-description pairs 3052/3053 and 3164/3167 using qwen2.5:7b.
+After one successful exploratory answer per pair, each pair received three
+additional independent generate calls without history. Both pairs returned
+NO SUBSTANTIVE DIFFERENCES in all 3/3 repeats (6/6 overall); no call errors
+occurred. Exact prompts were held constant within each pair, generation
+settings were unchanged, and no fixed seed was supplied. Explanations varied
+and occasionally imprecisely listed location among matching fields, so this
+establishes observed decision repeatability on these pairs, not flawless
+explanations or general duplicate-detection reliability. Earlier broader
+duplicate-classification prompts had instead returned NOT DUPLICATE based on
+location, even when instructed to ignore it. The complete six responses and
+both full prompts are in:
+`Data/easy-reasoning/experiments/differences-repeat3-qwen7b-20261103-185101/report.md`.

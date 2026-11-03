@@ -18,6 +18,9 @@ form stays open for human review, completion of missing answers, and submission.
 client closes only the tabs it owns; Applier leaves an opened form tab available
 for review. Form preparation never submits or marks a vacancy Applied.
 
+The shared browser code currently under `Applier/shared` is a refactoring
+candidate for relocation to Tools; see the [project backlog](../BACKLOG.md#next).
+
 The local resume lives at `Data/applier/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
 `Data/applier/resume.txt` is passed to Codex as context; the PDF path is passed
 for form uploads. Replace both files together when updating the resume.
