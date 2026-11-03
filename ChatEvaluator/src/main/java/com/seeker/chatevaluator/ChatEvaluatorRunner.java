@@ -100,7 +100,7 @@ public final class ChatEvaluatorRunner {
             composer.first().fill(vacancyUrl);
             requireConversation(page, chatUrl);
             List<Turn> before = readTurns(page);
-            if (before.isEmpty() || !before.getLast().complete()) {
+            if (!historyReadyForMessage(page, before)) {
                 throw new IOException("ChatGPT is not ready for another message; no send action was attempted.");
             }
             submitOnce(page, chatUrl);
@@ -253,7 +253,7 @@ public final class ChatEvaluatorRunner {
         }
     }
 
-    private static void awaitReadyHistory(Page page, String chatUrl) throws IOException {
+    static void awaitReadyHistory(Page page, String chatUrl) throws IOException {
         long deadline = System.nanoTime() + 30_000_000_000L;
         String previousKey = "";
         int stableObservations = 0;
@@ -261,7 +261,7 @@ public final class ChatEvaluatorRunner {
             requireConversation(page, chatUrl);
             List<Turn> turns = readTurns(page);
             Turn last = turns.isEmpty() ? null : turns.getLast();
-            if (last != null && !last.userId().isBlank() && last.complete()) {
+            if (historyReadyForMessage(page, turns)) {
                 stableObservations = last.key().equals(previousKey) ? stableObservations + 1 : 0;
                 previousKey = last.key();
                 if (stableObservations >= 2) return;
@@ -273,6 +273,30 @@ public final class ChatEvaluatorRunner {
         }
         throw new IOException("ChatGPT history is not ready or the previous response is still in progress; "
                 + "no URL was sent.");
+    }
+
+    static boolean historyReadyForMessage(Page page, List<Turn> turns) {
+        if (turns.isEmpty() || turns.getLast().key().isBlank() || turns.getLast().userId().isBlank()) {
+            return false;
+        }
+        // A stopped previous response need not be complete. Check whether the UI
+        // accepts a new message without weakening completedResponse for our answer.
+        return Boolean.TRUE.equals(page.evaluate("""
+            () => {
+              const visible = node => node.getClientRects().length
+                && getComputedStyle(node).visibility !== 'hidden';
+              const stopping = [...document.querySelectorAll(
+                'button[data-testid="stop-button"], button#stop-button'
+              )].some(visible);
+              const editor = [...document.querySelectorAll(
+                '#prompt-textarea, [contenteditable="true"][data-testid="prompt-textarea"], '
+                + '[contenteditable="true"][role="textbox"]'
+              )].find(visible);
+              return !stopping && !!editor && !editor.matches(':disabled')
+                && editor.getAttribute('contenteditable') !== 'false'
+                && !editor.closest('[aria-disabled="true" i], [inert]');
+            }
+            """));
     }
 
     private static List<Turn> readTurns(Page page) {
