@@ -11,6 +11,7 @@ HEADER_CLASSES = {
     "jobs-unified-top-card__posted-date",
     "posted-time-ago__text",
 }
+LAZY_HEADER_ENDS = ("JobDetailsPeopleWhoCanHelpSlot_", "JobDetails_AboutTheJob_")
 VOID_TAGS = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "wbr"}
 RELATIVE_AGE = re.compile(r"\b(\d+)\+?\s+(minute|hour|day|week|month|year)s?\s+ago\b", re.I)
 
@@ -19,13 +20,19 @@ class PublicationDateParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.depth = 0
+        self.in_lazy_header = False
         self.parts: list[str] = []
         self.dates: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
+        component = values.get("componentkey") or values.get("id") or ""
+        if component.startswith("JobDetails_ManageJobBanner_"):
+            self.in_lazy_header = True
+        elif component.startswith(LAZY_HEADER_ENDS):
+            self.in_lazy_header = False
         in_header = self.depth > 0 or bool(HEADER_CLASSES.intersection((values.get("class") or "").split()))
-        if values.get("itemprop") == "datePosted" or (tag == "time" and in_header):
+        if values.get("itemprop") == "datePosted" or (tag == "time" and (in_header or self.in_lazy_header)):
             value = values.get("datetime") or values.get("content")
             if value:
                 self.dates.append(value)
@@ -37,7 +44,7 @@ class PublicationDateParser(HTMLParser):
             self.depth -= 1
 
     def handle_data(self, data: str) -> None:
-        if self.depth:
+        if self.depth or self.in_lazy_header:
             self.parts.append(data)
 
 

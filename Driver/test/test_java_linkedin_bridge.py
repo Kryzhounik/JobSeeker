@@ -20,6 +20,17 @@ from collector.java_linkedin import python_bridge
 from collector.filtering.publication_age import publication_age_days
 
 
+LAZY_OLD_VACANCY_HTML = '''
+<main id="workspace"><div data-testid="lazy-column">
+  <div id="JobDetails_ManageJobBanner_123" componentkey="JobDetails_ManageJobBanner_123"></div>
+  <p>Senior Java Services Engineer</p>
+  <p><span>Warsaw, Poland</span> · <span>3 months ago</span> · <span>95 people clicked apply</span></p>
+  <div id="JobDetailsPeopleWhoCanHelpSlot_123"><p>Joined 2 years ago</p></div>
+  <div id="JobDetails_AboutTheJob_123"><h2>About the job</h2><p>Updated 1 day ago.</p></div>
+</div></main>
+'''
+
+
 class JavaLinkedInBridgeTest(unittest.TestCase):
     def test_cleanup_runs_between_html_cleaner_and_persistence_and_filter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -74,6 +85,14 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
         self.assertEqual(15, publication_age_days(
             '<meta itemprop="datePosted" content="2026-10-01">', date(2026, 10, 16)))
 
+    def test_publication_age_reads_lazy_header_without_using_other_sections(self) -> None:
+        self.assertEqual(90, publication_age_days(LAZY_OLD_VACANCY_HTML))
+        self.assertIsNone(publication_age_days(
+            LAZY_OLD_VACANCY_HTML.replace("3 months ago", "Unknown")))
+        self.assertIsNone(publication_age_days(
+            LAZY_OLD_VACANCY_HTML.replace("3 months ago", "Unknown")
+            .replace('<div id="JobDetailsPeopleWhoCanHelpSlot_123"><p>Joined 2 years ago</p></div>', '')))
+
     def test_old_vacancy_is_rejected_before_raw_or_database_save(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
@@ -82,8 +101,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             self.addCleanup(python_bridge.close_session)
             preview = {"job_id": "123", "source_url": "https://www.linkedin.com/jobs/view/123/",
                        "title": "Java Developer"}
-            html = ('<div class="job-details-jobs-unified-top-card__tertiary-description-container">'
-                    '<span>2 months ago</span></div>')
+            html = LAZY_OLD_VACANCY_HTML
             result = json.loads(python_bridge.process_html(json.dumps(preview), html, False))
             self.assertEqual("age_filtered", result["status"])
             self.assertFalse(raw.exists())
