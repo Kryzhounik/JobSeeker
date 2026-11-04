@@ -13,6 +13,7 @@ import com.seeker.tools.LinkedInJobAvailability;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -65,7 +66,7 @@ public final class ChatEvaluatorRunner {
         if (!profile.isAbsolute()) profile = root.resolve(profile).normalize();
         String channel = linkedin.getProperty("browserChannel", "chrome").strip();
 
-        boolean availabilityConfirmed = availableViaHttp(vacancyUrl);
+        boolean availabilityConfirmed = availableViaHttp(() -> LinkedInJobAvailability.fetch(vacancyUrl));
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             if (!availabilityConfirmed) requireAvailableVacancyInBrowser(browser, vacancyUrl);
             Page page = findConversation(browser.context().pages(), chatUrl);
@@ -177,19 +178,29 @@ public final class ChatEvaluatorRunner {
                 + "within 15 seconds (" + lastState + "); no send action was attempted.");
     }
 
-    /** False means HTTP 429 requires a check with the existing browser session. */
-    private static boolean availableViaHttp(String vacancyUrl) throws IOException, InterruptedException {
+    @FunctionalInterface
+    interface AvailabilityRequest {
+        HttpResponse<String> fetch() throws IOException, InterruptedException;
+    }
+
+    /** False means HTTP could not confirm availability; check with the existing browser session. */
+    static boolean availableViaHttp(AvailabilityRequest request) throws IOException, InterruptedException {
+        HttpResponse<String> response;
+        try {
+            response = request.fetch();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw interrupted;
+        } catch (IOException networkFailure) {
+            return false;
+        }
         String outcome;
         try {
-            var response = LinkedInJobAvailability.fetch(vacancyUrl);
             if (response.statusCode() == 429) return false;
             outcome = LinkedInJobAvailability.classifyResponse(response.statusCode(), response.uri(),
                     response.headers().firstValue("Content-Type").orElse(""),
                     response.body() == null ? "" : response.body());
-        } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-            throw interrupted;
-        } catch (IllegalStateException | IOException error) {
+        } catch (IllegalStateException error) {
             throw new IOException("Vacancy HTTP availability check failed: " + failureDetails(error)
                     + " The URL was not sent to ChatGPT.", error);
         }
@@ -251,10 +262,10 @@ public final class ChatEvaluatorRunner {
                 throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
             }
         } catch (TimeoutError error) {
-            throw new IOException("Vacancy browser check after HTTP 429 timed out while " + stage
+            throw new IOException("Vacancy browser availability check timed out while " + stage
                     + ". Current URL: " + vacancy.url() + ". The URL was not sent to ChatGPT.", error);
         } catch (PlaywrightException | IllegalStateException error) {
-            throw new IOException("Vacancy browser check after HTTP 429 failed: " + failureDetails(error)
+            throw new IOException("Vacancy browser availability check failed: " + failureDetails(error)
                     + " The URL was not sent to ChatGPT.", error);
         } finally {
             vacancy.close();

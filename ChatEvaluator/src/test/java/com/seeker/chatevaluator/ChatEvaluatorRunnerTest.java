@@ -9,6 +9,8 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.http.HttpTimeoutException;
+import java.nio.channels.UnresolvedAddressException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -16,6 +18,33 @@ class ChatEvaluatorRunnerTest {
     private static final String URL = "https://www.linkedin.com/jobs/view/123/";
     private static final Turn OLD = new Turn("old", "user-old", URL, "answer-old", "Previous answer", true);
     private static final Turn SENT = new Turn("new", "user-new", URL, "", "", false);
+
+    @Test
+    void unresolvedHttpAddressRequiresBrowserCheck() throws Exception {
+        ConnectException failure = new ConnectException();
+        failure.initCause(new ConnectException());
+        failure.getCause().initCause(new UnresolvedAddressException());
+        assertFalse(ChatEvaluatorRunner.availableViaHttp(() -> { throw failure; }));
+    }
+
+    @Test
+    void httpTimeoutRequiresBrowserCheck() throws Exception {
+        assertFalse(ChatEvaluatorRunner.availableViaHttp(() -> {
+            throw new HttpTimeoutException("request timed out");
+        }));
+    }
+
+    @Test
+    void interruptedHttpCheckStopsWithoutBrowserFallback() {
+        InterruptedException interrupted = new InterruptedException("cancelled");
+        try {
+            assertSame(interrupted, assertThrows(InterruptedException.class,
+                    () -> ChatEvaluatorRunner.availableViaHttp(() -> { throw interrupted; })));
+            assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+    }
 
     @Test
     void networkFailureWithNullMessageIncludesTypeAndUnderlyingCause() {
