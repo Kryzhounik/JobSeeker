@@ -7,6 +7,7 @@ import java.util.Objects;
 
 /** In-process mail API. Construction does not read settings or connect. */
 public final class Mailer {
+    public record RecommendationStats(int checkedEmails, int filteredEmails, int uniqueUrls) { }
     private final ImapMailAccess mailAccess;
 
     public Mailer(Path projectRoot) {
@@ -34,5 +35,10 @@ public final class Mailer {
     /** Returns new recommendation URLs and commits one UID only after a successful complete pass. */
     public List<String> getRecommendationUrls() throws MailException {
         return mailAccess.getRecommendationUrls();
+    }
+
+    public List<String> getRecommendationUrls(java.util.function.Consumer<RecommendationStats> progress)
+            throws MailException {
+        return mailAccess.getRecommendationUrls(progress);
     }
 }

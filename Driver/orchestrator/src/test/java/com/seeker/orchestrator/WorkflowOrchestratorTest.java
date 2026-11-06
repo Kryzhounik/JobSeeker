@@ -420,10 +420,18 @@ class WorkflowOrchestratorTest {
                     assertEquals("recommendations", prefix);
                     return report("complete", List.of(item("1", "Java")));
                 }, processing,
-                () -> { mailCalls.incrementAndGet(); return urls; }
+                progress -> {
+                    mailCalls.incrementAndGet();
+                    progress.accept(new com.seeker.mailer.Mailer.RecommendationStats(7, 4, 1));
+                    return urls;
+                }
         );
 
-        WorkflowResult result = orchestrator.checkRecommendations();
+        List<com.seeker.tools.api.ProgressSnapshot> updates = new ArrayList<>();
+        WorkflowResult result = orchestrator.checkRecommendations(updates::add);
+        assertEquals("Email recommendations", updates.get(1).stage());
+        assertEquals(Map.of("Checked emails", "7", "Filtered emails", "4", "Unique vacancy URLs", "1"),
+                updates.get(1).fields());
 
         assertEquals(1, collections.get());
         assertEquals(1, mailCalls.get());
@@ -438,9 +446,14 @@ class WorkflowOrchestratorTest {
         WorkflowOrchestrator.LinkedInUrls urls =
                 (requested, prefix, progress) -> { throw new AssertionError("URLs must not be collected"); };
         WorkflowOrchestrator empty = new WorkflowOrchestrator(
-                search, urls, new FakeProcessingGateway(List.of()), List::of);
+                search, urls, new FakeProcessingGateway(List.of()), progress -> {
+                    progress.accept(new com.seeker.mailer.Mailer.RecommendationStats(3, 3, 0));
+                    return List.of();
+                });
 
-        WorkflowResult result = empty.checkRecommendations();
+        List<com.seeker.tools.api.ProgressSnapshot> updates = new ArrayList<>();
+        WorkflowResult result = empty.checkRecommendations(updates::add);
+        assertEquals("3", updates.getLast().fields().get("Checked emails"));
         assertEquals("complete", result.status());
         assertEquals(0, result.processedCount());
         assertNull(result.runId());
@@ -448,7 +461,7 @@ class WorkflowOrchestratorTest {
 
         IOException failure = new IOException("mail failed");
         WorkflowOrchestrator failed = new WorkflowOrchestrator(
-                search, urls, new FakeProcessingGateway(List.of()), () -> { throw failure; });
+                search, urls, new FakeProcessingGateway(List.of()), progress -> { throw failure; });
         assertEquals(failure, assertThrows(IOException.class, failed::checkRecommendations));
     }
 
@@ -597,7 +610,7 @@ class WorkflowOrchestratorTest {
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
                 progress -> { throw new AssertionError("No collection expected"); },
                 (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
-                gateway, List::of, 3, 2);
+                gateway, ignored -> List.of(), 3, 2);
         List<ScopeItem> scope = java.util.stream.IntStream.rangeClosed(1, 8)
                 .mapToObj(id -> item(Integer.toString(id), "Job " + id)).toList();
         Thread caller = Thread.currentThread();
@@ -629,7 +642,7 @@ class WorkflowOrchestratorTest {
         WorkflowOrchestrator workflow = new WorkflowOrchestrator(
                 progress -> { throw new AssertionError("No collection expected"); },
                 (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
-                gateway, List::of, 1, 2);
+                gateway, ignored -> List.of(), 1, 2);
 
         assertSame(gateway.factsFailure, assertThrows(IllegalStateException.class,
                 () -> workflow.jobFacts("failed-run", "linkedin",

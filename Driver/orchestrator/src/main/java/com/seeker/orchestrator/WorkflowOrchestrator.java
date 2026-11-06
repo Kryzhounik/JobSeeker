@@ -65,7 +65,7 @@ public final class WorkflowOrchestrator {
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, List::of);
+        this(linkedinCollection, linkedinUrls, processingGateway, ignored -> List.of());
     }
 
     WorkflowOrchestrator(
@@ -130,8 +130,8 @@ public final class WorkflowOrchestrator {
     public WorkflowResult checkRecommendations(Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
-        run.preparing("Collection", "Reading email recommendations");
-        List<String> urls = recommendations.load();
+        run.email(new Mailer.RecommendationStats(0, 0, 0));
+        List<String> urls = recommendations.load(run::email);
         if (urls.isEmpty()) {
             run.complete("No new recommendations");
             return new WorkflowResult("linkedin", null, "complete", null,
@@ -466,6 +466,6 @@ public final class WorkflowOrchestrator {
 
     @FunctionalInterface
     interface RecommendationSource {
-        List<String> load() throws IOException;
+        List<String> load(Consumer<Mailer.RecommendationStats> progress) throws IOException;
     }
 }

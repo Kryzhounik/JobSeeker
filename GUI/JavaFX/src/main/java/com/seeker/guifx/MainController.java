@@ -83,6 +83,8 @@ public final class MainController {
     @FXML private Button refreshButton;
     @FXML private Button collectButton;
     @FXML private Button batchButton;
+    @FXML private Button recommendationsButton;
+    private SnapshotProgressPane recommendationsProgress;
     @FXML private Button linkedinCheckButton;
     @FXML private Button refilterButton;
     @FXML private Button refilterDetailButton;
@@ -215,6 +217,13 @@ public final class MainController {
         refreshButton.setOnAction(event -> refreshJobs());
         collectButton.setOnAction(event -> startCollect());
         batchButton.setOnAction(event -> startBatch());
+        recommendationsButton.setOnAction(event -> {
+            if (collectionRunning || clientData == null) return;
+            if (recommendationsProgress == null) {
+                recommendationsProgress = new SnapshotProgressPane(backgroundProcesses, "Recommendations");
+            }
+            runWorkflow(recommendationsProgress, null, true);
+        });
         linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
         refilterButton.setOnAction(event -> startRefilter(false));
         refilterDetailButton.setOnAction(event -> startRefilter(true));
@@ -463,6 +472,7 @@ public final class MainController {
         boolean disabled = clientData == null || collectionRunning;
         collectButton.setDisable(disabled);
         batchButton.setDisable(disabled);
+        recommendationsButton.setDisable(disabled);
         if (auxiliaryWindows != null) auxiliaryWindows.setWorkflowRunning(collectionRunning);
     }
 
@@ -487,6 +497,10 @@ public final class MainController {
     }
 
     private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId) {
+        runWorkflow(progressPane, resumeRunId, false);
+    }
+
+    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId, boolean recommendations) {
         collectionRunning = true;
         updateCollectionButtons();
         if (resumeRunId == null) progressPane.begin();
@@ -494,6 +508,7 @@ public final class MainController {
         Task<WorkflowResult> task = new Task<>() {
             @Override protected WorkflowResult call() throws Exception {
                 Consumer<ProgressSnapshot> progress = update -> Platform.runLater(() -> progressPane.update(update));
+                if (recommendations) return driverApi.checkRecommendations(progress);
                 return resumeRunId == null ? driverApi.processBatch("linkedin", progress)
                         : driverApi.resume(resumeRunId, progress);
             }
@@ -509,7 +524,8 @@ public final class MainController {
             }
         });
         task.setOnFailed(event -> {
-            collectionFailed(progressPane, task.getException(), resumeRunId == null ? "Batch" : "Resume");
+            collectionFailed(progressPane, task.getException(), recommendations ? "Recommendations"
+                    : resumeRunId == null ? "Batch" : "Resume");
             refreshJobs();
             if (auxiliaryWindows != null) {
                 auxiliaryWindows.refreshCollectedIfOpen();

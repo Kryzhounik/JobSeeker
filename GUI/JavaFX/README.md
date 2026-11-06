@@ -18,6 +18,11 @@ Python function names or pass untyped values.
 
 ## Run on Windows
 
+The Recommendations button beside Batch/Collect runs `DriverApi.checkRecommendations`
+in the background using the shared progress panel. Email reading displays accumulated
+checked/filtered email counts and unique vacancy URLs, followed by the existing
+collection and analysis stages. Mailbox scanning and checkpoint rules are unchanged.
+
 Install JDK 21 and Maven 3.9 or newer. Build the double-click launcher once:
 
 ```powershell

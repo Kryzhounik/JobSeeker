@@ -20,6 +20,7 @@ public final class FxmlSmoke {
                 loader.load();
                 Button batch = (Button) loader.getNamespace().get("batchButton");
                 Button collect = (Button) loader.getNamespace().get("collectButton");
+                Button recommendations = (Button) loader.getNamespace().get("recommendationsButton");
                 Button config = (Button) loader.getNamespace().get("configButton");
                 Button runs = (Button) loader.getNamespace().get("runsButton");
                 Button companies = (Button) loader.getNamespace().get("companiesButton");
@@ -41,7 +42,8 @@ public final class FxmlSmoke {
                 HBox actions = (HBox) collectionGroup.getParent();
                 HBox filters = (HBox) refresh.getParent();
                 if (actions.getChildren().getFirst() != collectionGroup
-                        || !collectionGroup.getChildren().equals(java.util.List.of(batch, collect))
+                        || !collectionGroup.getChildren().equals(java.util.List.of(batch, collect, recommendations))
+                        || recommendations.getOnAction() == null
                         || !refilterGroup.getChildren().equals(java.util.List.of(refilter, refilterDetail))
                         || !collectionGroup.getStyleClass().contains("toolbar-button-group")
                         || !refilterGroup.getStyleClass().contains("toolbar-button-group")

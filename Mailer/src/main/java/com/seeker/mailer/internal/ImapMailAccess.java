@@ -1,6 +1,8 @@
 package com.seeker.mailer.internal;
 
 import com.seeker.mailer.MailException;
+import com.seeker.mailer.Mailer.RecommendationStats;
+import java.util.function.Consumer;
 import com.seeker.mailer.MailFolder;
 import com.seeker.mailer.MailMessageHeader;
 import com.seeker.mailer.MailMessageListing;
@@ -374,20 +376,29 @@ public final class ImapMailAccess {
     }
 
     public List<String> getRecommendationUrls() throws MailException {
+        return getRecommendationUrls(ignored -> { });
+    }
+
+    public List<String> getRecommendationUrls(
+            Consumer<RecommendationStats> progress) throws MailException {
         synchronized (RECOMMENDATION_PASS_LOCK) {
-            return scanRecommendations();
+            return scanRecommendations(Objects.requireNonNull(progress));
         }
     }
 
-    private List<String> scanRecommendations() throws MailException {
+    private List<String> scanRecommendations(
+            Consumer<RecommendationStats> progress) throws MailException {
         String currentId = null;
         String currentSubject = null;
         Boolean currentSeen = null;
         log.write("RECOMMENDATIONS_START", null, null, null, "Starting recommendation pass");
+        int checked = 0;
+        int filtered = 0;
+        progress.accept(new RecommendationStats(0, 0, 0));
         try {
             MailSettings mail = MailSettings.load(projectRoot);
             RecommendationSettings settings = RecommendationSettings.load(projectRoot);
-            var progress = new RecommendationProgress(projectRoot);
+            var checkpoint = new RecommendationProgress(projectRoot);
             String account = MessageSelector.accountScope(mail);
             var session = Session.getInstance(mail.sessionProperties());
             session.setDebug(false);
@@ -407,7 +418,7 @@ public final class ImapMailAccess {
                     }
                     validity = uids.getUIDValidity();
                     if (validity < 1 || validity > 0xffffffffL) throw new MailException("Invalid recommendation folder UIDVALIDITY");
-                    lastUid = progress.load(account, settings, validity);
+                    lastUid = checkpoint.load(account, settings, validity);
                     long nextUid = uids.getUIDNext();
                     if (nextUid < 1 || nextUid > 0x100000000L) throw new MailException("Server did not supply valid UIDNEXT");
                     long throughUid = nextUid - 1;
@@ -433,6 +444,7 @@ public final class ImapMailAccess {
                             currentSeen = message.isSet(Flags.Flag.SEEN);
                             String rejection = RecommendationParser.rejection(message, settings, mail.username);
                             if (rejection != null) {
+                                filtered++;
                                 log.write("RECOMMENDATION_FILTERED", currentId, currentSubject, currentSeen, rejection + "; body not read");
                             } else {
                                 String template = RecommendationParser.header(message, "X-LinkedIn-Template");
@@ -444,6 +456,7 @@ public final class ImapMailAccess {
                             }
                             if (message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
                             lastUid = entry.getKey();
+                            progress.accept(new RecommendationStats(++checked, filtered, urls.size()));
                         }
                     }
                     if (uids.getUIDValidity() != validity) throw new MailException("UIDVALIDITY changed during recommendation pass");
@@ -453,7 +466,7 @@ public final class ImapMailAccess {
             log.write("RECOMMENDATIONS_READY", null, null, null,
                     "Pass and mailbox cleanup succeeded; URLs: " + result.size() + "; committing UID: " + lastUid);
             // This is the last fallible operation. No message checkpoints are written above.
-            progress.save(account, settings, validity, lastUid);
+            checkpoint.save(account, settings, validity, lastUid);
             return result;
         } catch (MailException e) {
             log.failure("RECOMMENDATIONS_ERROR", currentId, currentSubject, currentSeen, e);

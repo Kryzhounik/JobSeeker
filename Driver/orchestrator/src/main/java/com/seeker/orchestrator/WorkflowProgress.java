@@ -30,6 +30,17 @@ public record WorkflowProgress(String runId, String stage, String action, String
         private String details = "";
         private boolean collected;
         private int savedCount;
+        private Map<String, String> emailFields;
+
+        void email(com.seeker.mailer.Mailer.RecommendationStats stats) {
+            stage = "Email recommendations";
+            action = "Reading emails";
+            emailFields = new LinkedHashMap<>();
+            emailFields.put("Checked emails", Integer.toString(stats.checkedEmails()));
+            emailFields.put("Filtered emails", Integer.toString(stats.filteredEmails()));
+            emailFields.put("Unique vacancy URLs", Integer.toString(stats.uniqueUrls()));
+            emit();
+        }
 
         Run(Consumer<ProgressSnapshot> listener) {
             this.listener = Objects.requireNonNull(listener);
@@ -115,6 +126,11 @@ public record WorkflowProgress(String runId, String stage, String action, String
         }
 
         private void emit() {
+            if (stage.equals("Email recommendations")) {
+                listener.accept(new WorkflowProgress(runId, stage, action,
+                        "Emails " + emailFields.get("Checked emails"), emailFields, details));
+                return;
+            }
             String progress = stage.equals("Collection") ? collectionProgress : stage + " " + fields.get(stage);
             if (stage.equals("Collection") && !action.equals("Complete")) {
                 listener.accept(new WorkflowProgress(runId, stage, action, progress, collectionFields, details));

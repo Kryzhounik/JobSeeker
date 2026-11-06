@@ -44,7 +44,12 @@ class RecommendationScanTest {
         excluded.failContent = true;
         var expected = new LinkedHashSet<String>();
         for (String name : List.of("recommendation-439", "turnitin-437", "luxoft-438", "intellias-432")) expected.addAll(RecommendationParserTest.expected(name));
-        assertEquals(List.copyOf(expected), access(store).getRecommendationUrls());
+        var updates = new ArrayList<com.seeker.mailer.Mailer.RecommendationStats>();
+        assertEquals(List.copyOf(expected), access(store).getRecommendationUrls(updates::add));
+        assertEquals(6, updates.size());
+        assertEquals(new com.seeker.mailer.Mailer.RecommendationStats(0, 0, 0), updates.getFirst());
+        assertEquals(new com.seeker.mailer.Mailer.RecommendationStats(5, 1, expected.size()), updates.getLast());
+        for (int i = 0; i < updates.size(); i++) assertEquals(i, updates.get(i).checkedEmails());
         assertEquals(430, saved());
         assertEquals(0, beforeRange.bodyReads);
         assertEquals(0, excluded.bodyReads);

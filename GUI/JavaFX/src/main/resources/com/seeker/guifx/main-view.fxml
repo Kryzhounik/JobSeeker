@@ -35,6 +35,7 @@
                 <HBox alignment="CENTER_LEFT" spacing="6.0" styleClass="toolbar-button-group">
                     <Button fx:id="batchButton" text="Batch" styleClass="collect-button, batch-button" />
                     <Button fx:id="collectButton" text="Collect" styleClass="collect-button" />
+                    <Button fx:id="recommendationsButton" text="Recommendations" styleClass="collect-button" />
                 </HBox>
                 <Button fx:id="linkedinCheckButton" text="Check LinkedIn" />
                 <HBox alignment="CENTER_LEFT" spacing="6.0" styleClass="toolbar-button-group">
