@@ -39,7 +39,15 @@ class LinkedInCollectorProgressTest {
         assertFalse(updates.getFirst().fields().containsKey("Run ID"));
         assertEquals("Collection", updates.getFirst().stage());
         assertEquals("Collection complete", updates.getFirst().action());
-        assertEquals("0 / 100", updates.getFirst().fields().get("Accepted / limit"));
+        assertEquals("Collection 0 / 0", updates.getFirst().progress());
+        assertEquals("0 / 0", updates.getFirst().fields().get("Processed"));
+        assertEquals("0", updates.getFirst().fields().get("Accepted"));
+        assertFalse(updates.getFirst().fields().containsKey("Accepted / limit"));
+        CollectionProgress urls = new CollectionProgress("run", "processing", "", "", 0, 0,
+                7, 0, Map.of("raw_saved", 7, "preview_filtered", 9, "age_filtered", 4), "", 30);
+        assertEquals("Collection 20 / 30", urls.progress());
+        assertEquals("20 / 30", urls.fields().get("Processed"));
+        assertEquals("7", urls.fields().get("Accepted"));
     }
 
     @Test

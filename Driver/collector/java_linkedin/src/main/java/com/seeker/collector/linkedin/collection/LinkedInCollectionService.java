@@ -85,10 +85,10 @@ public final class LinkedInCollectionService {
                 config.browserChannel(), false,
                 config.browserLaunchTimeoutSeconds(), config.pageTimeoutSeconds()
         );
-        progress.accept(CollectionProgress.starting(runId, "starting", config.limit()));
+        progress.accept(CollectionProgress.startingUrls(runId, "starting", urls.size()));
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, config);
-            progress.accept(CollectionProgress.starting(runId, "starting_browser", config.limit()));
+            progress.accept(CollectionProgress.startingUrls(runId, "starting_browser", urls.size()));
             // TODO: Check the existing duplicate rule before opening the browser
             // if starting a session for already collected URLs becomes a problem.
             try (PersistentLinkedInSession session = new PersistentLinkedInSession(
@@ -96,7 +96,7 @@ public final class LinkedInCollectionService {
                     browserSettings
             )) {
                 LinkedInPageClient browser = new LinkedInPageClient(session, config);
-                progress.accept(CollectionProgress.starting(runId, "checking_session", config.limit()));
+                progress.accept(CollectionProgress.startingUrls(runId, "checking_session", urls.size()));
                 browser.preflight();
                 return new LinkedInCollector(browser, python, config, runId, progress)
                         .runFromUrls(urls);

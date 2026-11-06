@@ -15,9 +15,16 @@ public record CollectionProgress(String runId, String stage, String action, Stri
     public CollectionProgress(String runId, String action, String location, String search,
                               int page, int cards, int accepted, int limit,
                               Map<String, Integer> outcomes, String message) {
+        this(runId, action, location, search, page, cards, accepted, limit, outcomes, message, null);
+    }
+
+    CollectionProgress(String runId, String action, String location, String search,
+                       int page, int cards, int accepted, int limit,
+                       Map<String, Integer> outcomes, String message, Integer urlCount) {
         this(runId, "Collection", actionName(action),
-                "Collection " + accepted + (limit > 0 ? " / " + limit : ""),
-                collectionFields(location, search, page, cards, accepted, limit, outcomes),
+                "Collection " + (urlCount == null ? accepted + (limit > 0 ? " / " + limit : "")
+                        : processed(outcomes) + " / " + urlCount),
+                collectionFields(location, search, page, cards, accepted, limit, outcomes, urlCount),
                 switch (message == null ? "" : message) {
                     case "limit_reached" -> "Accepted-vacancy limit reached.";
                     case "plan_exhausted" -> "Search plan exhausted.";
@@ -29,8 +36,12 @@ public record CollectionProgress(String runId, String stage, String action, Stri
         return new CollectionProgress(runId, action, "", "", 0, 0, 0, limit, Map.of(), "");
     }
 
+    static CollectionProgress startingUrls(String runId, String action, int urlCount) {
+        return new CollectionProgress(runId, action, "", "", 0, 0, 0, 0, Map.of(), "", urlCount);
+    }
+
     private static Map<String, String> collectionFields(String location, String search,
-            int page, int cards, int accepted, int limit, Map<String, Integer> outcomes) {
+            int page, int cards, int accepted, int limit, Map<String, Integer> outcomes, Integer urlCount) {
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("Location", location == null ? "" : location);
         fields.put("Search", switch (search == null ? "" : search) {
@@ -42,10 +53,9 @@ public record CollectionProgress(String runId, String stage, String action, Stri
         });
         fields.put("Page", page > 0 ? Integer.toString(page) : "");
         fields.put("Cards on page", Integer.toString(cards));
-        int processed = outcomes.values().stream().mapToInt(Integer::intValue).sum()
-                - outcomes.getOrDefault("not_processed_due_to_limit", 0);
-        fields.put("Processed", Integer.toString(processed));
-        fields.put("Accepted / limit", accepted + (limit > 0 ? " / " + limit : ""));
+        fields.put("Processed", processed(outcomes) + (urlCount == null ? "" : " / " + urlCount));
+        fields.put(urlCount == null ? "Accepted / limit" : "Accepted",
+                accepted + (urlCount == null && limit > 0 ? " / " + limit : ""));
         fields.put("Skipped by preview", Integer.toString(outcomes.getOrDefault("preview_filtered", 0)));
         fields.put("Rejected by age", Integer.toString(outcomes.getOrDefault("age_filtered", 0)));
         fields.put("Rejected by content", Integer.toString(outcomes.getOrDefault("content_filtered", 0)));
@@ -54,6 +64,11 @@ public record CollectionProgress(String runId, String stage, String action, Stri
         fields.put("Incomplete data", Integer.toString(outcomes.getOrDefault("incomplete_raw", 0)));
         fields.put("Skipped at limit", Integer.toString(outcomes.getOrDefault("not_processed_due_to_limit", 0)));
         return fields;
+    }
+
+    private static int processed(Map<String, Integer> outcomes) {
+        return outcomes.values().stream().mapToInt(Integer::intValue).sum()
+                - outcomes.getOrDefault("not_processed_due_to_limit", 0);
     }
 
     private static String actionName(String action) {

@@ -31,6 +31,7 @@ final class LinkedInCollector {
     private int currentPage;
     private int currentCards;
     private String currentUrl = "";
+    private Integer urlCount;
 
     LinkedInCollector(
             LinkedInPageClient browser,
@@ -87,6 +88,7 @@ final class LinkedInCollector {
     }
 
     CollectionReport runFromUrls(List<String> urls) {
+        urlCount = urls.size();
         List<String> rejections = new ArrayList<>();
         for (String url : urls) {
             currentUrl = url;
@@ -305,8 +307,8 @@ final class LinkedInCollector {
 
     private void progress(String stage, String message) {
         progressListener.accept(new CollectionProgress(runId, stage, currentLocation, currentSearch,
-                currentPage, currentCards, scope.size(), config.limit(),
-                outcomes.snapshot(), message));
+                currentPage, currentCards, scope.size(), urlCount == null ? config.limit() : 0,
+                outcomes.snapshot(), message, urlCount));
     }
 
     private int recordPage(
