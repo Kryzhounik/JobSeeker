@@ -4,11 +4,13 @@ import com.microsoft.playwright.Browser;
 import com.microsoft.playwright.BrowserType;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
+import com.microsoft.playwright.Route;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -29,6 +31,64 @@ class ChatHistoryReadinessTest {
     static void closeBrowser() {
         if (browser != null) browser.close();
         if (playwright != null) playwright.close();
+    }
+
+    @Test
+    void conversationCanBeReadyBeforeDomContentLoaded() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://chat.test/**", route -> {
+                if (route.request().url().endsWith("blocked.js")) return;
+                route.fulfill(new Route.FulfillOptions().setContentType("text/html").setBody("""
+                    <div data-turn-key="stopped">
+                      <div data-chatgpt-search-unit-key="stopped:user"
+                           data-chatgpt-search-message-ids="user-stopped">Previous question</div>
+                    </div>
+                    <form><div role="textbox" contenteditable="true"></div></form>
+                    <script defer src="/blocked.js"></script>
+                    """));
+            });
+            Page page = context.newPage();
+            String chatUrl = "https://chat.test/c/existing";
+            var composer = ChatEvaluatorRunner.prepareConversation(page, chatUrl, true);
+            assertEquals(1, composer.count());
+            assertNotEquals("complete", page.evaluate("document.readyState"));
+            assertEquals(0, ((Number) page.evaluate(
+                    "performance.getEntriesByType('navigation')[0].domContentLoadedEventStart")).intValue());
+            assertTrue(composer.innerText().isBlank());
+        }
+    }
+
+    @Test
+    void existingConversationIsPreparedWithoutReloadingOrChangingDraft() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent("""
+                <div data-turn-key="stopped">
+                  <div data-chatgpt-search-unit-key="stopped:user"
+                       data-chatgpt-search-message-ids="user-stopped">Previous question</div>
+                </div>
+                <form><div role="textbox" contenteditable="true">Existing draft</div></form>
+                """);
+            page.evaluate("window.preparationMarker = 'kept'");
+            var composer = ChatEvaluatorRunner.prepareConversation(page, page.url(), false);
+            assertEquals("kept", page.evaluate("window.preparationMarker"));
+            assertEquals("Existing draft", composer.innerText());
+        }
+    }
+
+    @Test
+    void failedNavigationReportsOpeningStageWithoutSending() {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://chat.test/**", route -> route.abort("namenotresolved"));
+            Page page = context.newPage();
+            IOException failure = assertThrows(IOException.class,
+                    () -> ChatEvaluatorRunner.prepareConversation(page, "https://chat.test/c/existing", true));
+            assertTrue(failure.getMessage().contains("opening the conversation"));
+            assertTrue(failure.getMessage().contains("No URL was sent"));
+        }
     }
 
     @Test

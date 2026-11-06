@@ -32,6 +32,7 @@ public final class ChatEvaluatorRunner {
             + "form [contenteditable='true'][role='textbox']";
     private static final long SUBMISSION_TIMEOUT_MS = 15_000;
     private static final long RESPONSE_TIMEOUT_MS = 180_000;
+    private static final long CONVERSATION_LOAD_TIMEOUT_MS = 90_000;
 
     private ChatEvaluatorRunner() { }
 
@@ -71,35 +72,11 @@ public final class ChatEvaluatorRunner {
             if (!availabilityConfirmed) requireAvailableVacancyInBrowser(browser, vacancyUrl);
             Page page = findConversation(browser.context().pages(), chatUrl);
             boolean openConversation = page == null;
-            if (openConversation) page = browser.newPage();
+            if (openConversation) page = browser.newBackgroundPage();
             browser.keepOpen(page);
             enableFocusEmulation(browser, page);
             page.setDefaultTimeout(30_000);
-            page.setDefaultNavigationTimeout(60_000);
-            if (openConversation) {
-                page.navigate(chatUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
-            }
-
-            boolean signInForm = page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0;
-            if (signInForm) {
-                throw new IOException("ChatGPT is showing its sign-in form in the managed LinkedIn browser profile. "
-                        + "Sign in manually in the open browser once, then rerun the evaluation; the module does not store your password.");
-            }
-
-            Locator composer = messageComposer(page);
-            try {
-                composer.waitFor(new Locator.WaitForOptions()
-                        .setState(WaitForSelectorState.VISIBLE).setTimeout(30_000));
-            } catch (TimeoutError timeout) {
-                if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
-                    throw new IOException("ChatGPT is showing its sign-in form in the managed LinkedIn browser profile. "
-                            + "Sign in manually in the open browser once, then rerun the evaluation; the module does not store your password.", timeout);
-                }
-                throw new IOException("The ChatGPT message composer did not become visible. Current page: " + page.url(), timeout);
-            }
-
-            requireConversation(page, chatUrl);
-            awaitReadyHistory(page, chatUrl);
+            Locator composer = prepareConversation(page, chatUrl, openConversation);
             composer.fill(vacancyUrl);
             requireConversation(page, chatUrl);
             List<Turn> before = readTurns(page);
@@ -143,6 +120,39 @@ public final class ChatEvaluatorRunner {
 
     static Locator messageComposer(Page page) {
         return page.locator(":is(" + COMPOSER_SELECTOR + "):visible");
+    }
+
+    static Locator prepareConversation(Page page, String chatUrl, boolean navigate) throws IOException {
+        long deadline = System.nanoTime() + CONVERSATION_LOAD_TIMEOUT_MS * 1_000_000L;
+        String stage = "opening the conversation";
+        try {
+            if (navigate) {
+                page.navigate(chatUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.COMMIT)
+                        .setTimeout(CONVERSATION_LOAD_TIMEOUT_MS));
+            }
+            stage = "waiting for the message composer";
+            if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
+                throw new IOException("ChatGPT requires sign-in in the managed browser profile. "
+                        + "Sign in manually in the open browser once, then rerun the evaluation.");
+            }
+            Locator composer = messageComposer(page);
+            composer.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE)
+                    .setTimeout(Math.max(1, (deadline - System.nanoTime()) / 1_000_000L)));
+            requireConversation(page, chatUrl);
+            stage = "waiting for the conversation history";
+            awaitReadyHistory(page, chatUrl);
+            return composer;
+        } catch (TimeoutError error) {
+            if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
+                throw new IOException("ChatGPT requires sign-in in the managed browser profile. "
+                        + "Sign in manually in the open browser once, then rerun the evaluation.", error);
+            }
+            throw new IOException("ChatGPT timed out while " + stage + ". Current page: " + page.url()
+                    + ". No URL was sent.", error);
+        } catch (PlaywrightException error) {
+            throw new IOException("ChatGPT failed while " + stage + ": " + failureDetails(error)
+                    + ". Current page: " + page.url() + ". No URL was sent.", error);
+        }
     }
 
     private static void enableFocusEmulation(ManagedBrowser browser, Page page) {
