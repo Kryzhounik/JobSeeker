@@ -37,8 +37,7 @@ Do not depend on conversation history, general knowledge about this particular c
 - For each main example, explain the candidate’s personal contribution, the engineering problem it addressed, and its relevance to this role. Include outcomes only when supported; concrete responsibilities and scope are sufficient when results are not documented.
 - Prioritize skills and experience the employer emphasizes, while remaining truthful.
 - Do not list missing skills unnecessarily, apologize for them, or fabricate familiarity. When useful, briefly explain how directly relevant adjacent experience transfers (e.g. NATS for messaging architecture), without claiming the candidate has used the requested technology (e.g. Kafka).
-- For roles emphasizing AI-assisted engineering, mention practical coding-agent use and the personal JobSeeker project if relevant. Never portray the personal project as a commercial production platform or portray planned agent features as delivered.
-- Include JobSeeker for conventional backend roles when the technologies or development methods used provide concrete evidence of fit. Prefer a stronger commercial example when one is available. Focus on the candidate's engineering experience, not on promoting the project's features.
+- Select AI-assisted development and JobSeeker examples using the same standards of relevance and factual support as other experience. Prefer stronger commercial evidence when available. Present JobSeeker as a personal project, and do not describe planned features as implemented.
 - Describe hands-on technical leadership accurately. Do not imply formal engineering-management duties without evidence.
 - Do not discuss geographical constraints, citizenship, visa eligibility, or salary unless the application specifically calls for them or the job description makes them materially relevant.
 
