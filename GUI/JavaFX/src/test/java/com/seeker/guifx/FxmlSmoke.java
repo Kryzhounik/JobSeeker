@@ -18,6 +18,16 @@ public final class FxmlSmoke {
                 FXMLLoader loader = new FXMLLoader(FxmlSmoke.class.getResource(
                         "/com/seeker/guifx/main-view.fxml"));
                 loader.load();
+                Button open = (Button) loader.getNamespace().get("openButton");
+                Button eval = (Button) loader.getNamespace().get("chatEvalButton");
+                Button letter = (Button) loader.getNamespace().get("letterButton");
+                Button applyAction = (Button) loader.getNamespace().get("applyButton");
+                var sourceActions = ((HBox) open.getParent()).getChildren();
+                int index = sourceActions.indexOf(open);
+                if (!sourceActions.subList(index, index + 4).equals(java.util.List.of(open, eval, letter, applyAction))
+                        || letter.getOnAction() == null) {
+                    throw new AssertionError("Source action order or Letter handler is incorrect");
+                }
                 Button batch = (Button) loader.getNamespace().get("batchButton");
                 Button collect = (Button) loader.getNamespace().get("collectButton");
                 Button recommendations = (Button) loader.getNamespace().get("recommendationsButton");

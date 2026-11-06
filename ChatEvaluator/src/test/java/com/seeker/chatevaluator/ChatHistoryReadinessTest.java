@@ -20,6 +20,11 @@ class ChatHistoryReadinessTest {
     private static Browser browser;
     private static final ChatEvaluatorRunner.Turn STOPPED = new ChatEvaluatorRunner.Turn(
             "stopped", "user-stopped", "Previous question", "", "", false);
+    private static final String READY_PAGE = """
+        <div data-turn-key="stopped"><div data-chatgpt-search-unit-key="stopped:user"
+             data-chatgpt-search-message-ids="user-stopped">Previous question</div></div>
+        <form><div role="textbox" contenteditable="true"></div></form>
+        """;
 
     @BeforeAll
     static void openBrowser() {
@@ -88,6 +93,105 @@ class ChatHistoryReadinessTest {
                     () -> ChatEvaluatorRunner.prepareConversation(page, "https://chat.test/c/existing", true));
             assertTrue(failure.getMessage().contains("opening the conversation"));
             assertTrue(failure.getMessage().contains("No URL was sent"));
+        }
+    }
+
+    @Test
+    void mainDocumentHttpErrorStopsBeforeWaitingForComposer() {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://chat.test/**", route -> route.fulfill(
+                    new Route.FulfillOptions().setStatus(503).setContentType("text/html").setBody("Unavailable")));
+            IOException failure = assertThrows(IOException.class, () -> ChatEvaluatorRunner.prepareConversation(
+                    context.newPage(), "https://chat.test/c/existing", true));
+            assertTrue(failure.getMessage().contains("HTTP 503"));
+            assertTrue(failure.getMessage().contains("No URL was sent"));
+        }
+    }
+
+    @Test
+    void failedImageAndChildFrameDoNotBlockReadyConversation() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://chat.test/**", route -> {
+                if (route.request().url().endsWith("existing")) {
+                    route.fulfill(new Route.FulfillOptions().setContentType("text/html")
+                            .setBody(READY_PAGE + "<img src='/image'><iframe src='/child'></iframe>"));
+                } else route.abort("failed");
+            });
+            Page page = context.newPage();
+            assertEquals(1, ChatEvaluatorRunner.prepareConversation(page, "https://chat.test/c/existing", true).count());
+        }
+    }
+
+    @Test
+    void signInAndCloudflareHaveExplicitErrors() {
+        for (String[] fixture : List.of(
+                new String[]{"<input id='mobile-auth-email'>", "sign-in required"},
+                new String[]{"<div id='challenge-stage'>Checking browser</div>", "Cloudflare verification required"})) {
+            try (var context = browser.newContext()) {
+                context.setOffline(true);
+                Page page = context.newPage();
+                page.setContent(fixture[0]);
+                IOException failure = assertThrows(IOException.class,
+                        () -> ChatEvaluatorRunner.prepareConversation(page, page.url(), false));
+                assertTrue(failure.getMessage().contains(fixture[1]));
+                assertTrue(failure.getMessage().contains("No URL was sent"));
+            }
+        }
+    }
+
+    @Test
+    void closedTabHasExplicitError() {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.close();
+            IOException failure = assertThrows(IOException.class,
+                    () -> ChatEvaluatorRunner.prepareConversation(page, "about:blank", false));
+            assertTrue(failure.getMessage().contains("tab was closed"));
+        }
+    }
+
+    @Test
+    void disconnectedBrowserHasExplicitError() {
+        Browser isolated = playwright.chromium().launch(new BrowserType.LaunchOptions().setHeadless(true));
+        Page page = isolated.newPage();
+        isolated.close();
+        IOException failure = assertThrows(IOException.class,
+                () -> ChatEvaluatorRunner.prepareConversation(page, "about:blank", false));
+        assertTrue(failure.getMessage().contains("Browser connection lost"));
+    }
+
+    @Test
+    void respondingPageCanFinishLoadingComposerAndHistory() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent("<p>Loading</p>");
+            page.evaluate("html => setTimeout(() => document.body.innerHTML = html, 500)", READY_PAGE);
+            assertEquals(1, ChatEvaluatorRunner.prepareConversation(page, page.url(), false).count());
+        }
+    }
+
+    @Test
+    void blockedRendererFailsShortDomProbe() {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent(READY_PAGE);
+            var cdp = context.newCDPSession(page);
+            try {
+                page.evaluate("setTimeout(() => { while (true) {} }, 100)");
+                page.waitForTimeout(200);
+                IOException failure = assertThrows(IOException.class,
+                        () -> ChatEvaluatorRunner.prepareConversation(page, page.url(), false));
+                assertTrue(failure.getMessage().contains("did not respond to a DOM check within 3 seconds"));
+                assertTrue(failure.getMessage().contains("No URL was sent"));
+            } finally {
+                cdp.send("Runtime.terminateExecution");
+                cdp.detach();
+            }
         }
     }
 

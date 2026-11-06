@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Properties;
 import java.time.Instant;
 
-/** Standalone, metered cover-letter generation for stored jobs. */
+/** Returns a saved cover letter or generates one through the metered Proxy. */
 public final class CoverLetterWriter {
     private final Path root;
     public CoverLetterWriter(Path root) { this.root = root.toAbsolutePath().normalize(); }
@@ -23,15 +23,14 @@ public final class CoverLetterWriter {
         }
         String python = runtime.getProperty("python.executable", "python");
         Path database = root.resolve(runtime.getProperty("database.path", "Data/jobs.sqlite")).normalize();
-        Process lookup = new ProcessBuilder(python, root.resolve("Applier/cover_letter_job.py").toString(),
-                database.toString(), Long.toString(jobId))
-                .directory(root.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT).start();
-        byte[] inputBytes = lookup.getInputStream().readAllBytes();
-        if (lookup.waitFor() != 0) throw new IllegalArgumentException("Cannot load cover-letter context for jobs.id=" + jobId);
+        byte[] inputBytes = loadContext(python, database, jobId);
+        ObjectMapper json = new ObjectMapper();
+        var savedLetter = json.readTree(inputBytes).path("letter");
+        if (savedLetter.isTextual()) return savedLetter.asText();
         Path input = Files.createTempFile("cover-letter-", ".json");
         try {
             Files.write(input, inputBytes);
-            String response = CodexClient.call(List.of(python, root.resolve("Driver/codex_proxy/metrics_proxy.py").toString(),
+            String response = invokeCodex(List.of(python, root.resolve("Driver/codex_proxy/metrics_proxy.py").toString(),
                     "--run-id", "cover-letter-" + Instant.now().toEpochMilli(),
                     "--operation", "cover_letter", "--target", Long.toString(jobId),
                     "--reasoning-effort", "xhigh",
@@ -40,19 +39,33 @@ public final class CoverLetterWriter {
                     "--input", input.toString(),
                     "--output-schema", root.resolve("Applier/cover_letter.schema.json").toString(),
                     "--context", root.resolve("Data/applier/resume.txt").toString(),
-                    "--context", root.resolve("Data/applier/candidate_context.md").toString()), root);
-            var text = new ObjectMapper().readTree(response).path("letter");
+                    "--context", root.resolve("Data/applier/candidate_context.md").toString()));
+            var text = json.readTree(response).path("letter");
             if (!text.isTextual() || text.asText().isBlank()) throw new IllegalStateException("Proxy returned no letter");
-            Process save = new ProcessBuilder(python, root.resolve("Applier/cover_letter_job.py").toString(),
-                    database.toString(), Long.toString(jobId), "--save")
-                    .directory(root.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT)
-                    .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
-            try (var stdin = save.getOutputStream()) {
-                stdin.write(text.asText().getBytes(StandardCharsets.UTF_8));
-            }
-            if (save.waitFor() != 0) throw new IOException("Cannot save cover letter for jobs.id=" + jobId);
+            saveLetter(python, database, jobId, text.asText());
             return text.asText();
         } finally { Files.deleteIfExists(input); }
+    }
+    byte[] loadContext(String python, Path database, long jobId) throws IOException, InterruptedException {
+        Process lookup = new ProcessBuilder(python, root.resolve("Applier/cover_letter_job.py").toString(),
+                database.toString(), Long.toString(jobId))
+                .directory(root.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT).start();
+        byte[] input = lookup.getInputStream().readAllBytes();
+        if (lookup.waitFor() != 0) throw new IllegalArgumentException("Cannot load cover-letter context for jobs.id=" + jobId);
+        return input;
+    }
+    String invokeCodex(List<String> command) throws IOException, InterruptedException, UsageLimitExceededException {
+        return CodexClient.call(command, root);
+    }
+    void saveLetter(String python, Path database, long jobId, String letter) throws IOException, InterruptedException {
+        Process save = new ProcessBuilder(python, root.resolve("Applier/cover_letter_job.py").toString(),
+                database.toString(), Long.toString(jobId), "--save")
+                .directory(root.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT)
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+        try (var stdin = save.getOutputStream()) {
+            stdin.write(letter.getBytes(StandardCharsets.UTF_8));
+        }
+        if (save.waitFor() != 0) throw new IOException("Cannot save cover letter for jobs.id=" + jobId);
     }
     public Path generate(long jobId, Path output) throws IOException, InterruptedException, UsageLimitExceededException {
         String text = generate(jobId);

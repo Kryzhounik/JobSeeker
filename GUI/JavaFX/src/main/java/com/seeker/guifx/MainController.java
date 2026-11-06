@@ -109,6 +109,14 @@ public final class MainController {
     @FXML private Hyperlink sourceLink;
     @FXML private Button openButton;
     @FXML private Button applyButton;
+    @FXML private Button letterButton;
+    private boolean letterRunning;
+    private GptEvaluationProgressPane letterProgress;
+    private final ExecutorService letterExecutor = Executors.newSingleThreadExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "gui-cover-letter");
+        thread.setDaemon(true);
+        return thread;
+    });
     @FXML private Button chatEvalButton;
     @FXML private GridPane metadataGrid;
     @FXML private TableView<TechnologyRecord> skillsTable;
@@ -213,6 +221,7 @@ public final class MainController {
         sourceLink.setOnAction(event -> openSelectedSource());
         openButton.setOnAction(event -> openSelectedSource());
         applyButton.setOnAction(event -> startApply());
+        letterButton.setOnAction(event -> startLetter());
         chatEvalButton.setOnAction(event -> startChatEval());
         refreshButton.setOnAction(event -> refreshJobs());
         collectButton.setOnAction(event -> startCollect());
@@ -1301,6 +1310,7 @@ public final class MainController {
     }
 
     private void setDetailEnabled(boolean enabled) {
+        letterButton.setDisable(!enabled || letterRunning || selectedJob == null);
         metadataGrid.setDisable(!enabled);
         skillsPane.setDisable(!enabled);
         sourceLink.setDisable(!enabled);
@@ -1400,6 +1410,29 @@ public final class MainController {
             progressPane.fail(error);
         });
         chatEvalExecutor.execute(task);
+    }
+
+    private void startLetter() {
+        JobRecord job = selectedJob;
+        if (letterRunning || job == null || clientData == null) return;
+        letterRunning = true;
+        letterButton.setDisable(true);
+        if (letterProgress == null) letterProgress = new GptEvaluationProgressPane(backgroundProcesses, "Letter");
+        letterProgress.begin(job.sourceUrl());
+        Task<String> task = new Task<>() {
+            @Override protected String call() throws Exception { return driverApi.coverLetter(job.jobId()); }
+        };
+        task.setOnSucceeded(event -> {
+            letterRunning = false;
+            letterButton.setDisable(selectedJob == null);
+            letterProgress.complete(task.getValue());
+        });
+        task.setOnFailed(event -> {
+            letterRunning = false;
+            letterButton.setDisable(selectedJob == null);
+            letterProgress.fail(task.getException());
+        });
+        letterExecutor.execute(task);
     }
 
     private void updateChatEvalButton() {
@@ -1518,6 +1551,7 @@ public final class MainController {
         collectionExecutor.shutdownNow();
         if (chatEvalTask != null) chatEvalTask.cancel(true);
         chatEvalExecutor.shutdownNow();
+        letterExecutor.shutdownNow();
         if (applyTask != null) applyTask.cancel(true);
         applyExecutor.shutdownNow();
         saveWindowSettings();

@@ -12,13 +12,19 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 
 final class GptEvaluationProgressPane extends BackgroundProcessPane {
+    private final String title;
     private final TextField url = new TextField();
     private final TextArea answer = new TextArea();
     private final TextArea errorDetails = new TextArea();
     private final VBox errorSection = new VBox(6, new Label("Error"), errorDetails);
 
     GptEvaluationProgressPane(Area area) {
-        super(area, "GPT Eval");
+        this(area, "GPT Eval");
+    }
+
+    GptEvaluationProgressPane(Area area, String title) {
+        super(area, title);
+        this.title = title;
         url.setEditable(false);
         url.setId("chatEvaluationUrl");
         answer.setEditable(false);
@@ -41,17 +47,21 @@ final class GptEvaluationProgressPane extends BackgroundProcessPane {
         beginProcess();
         this.url.setText(url);
         answer.clear();
-        answer.setPromptText("Evaluating...");
+        answer.setPromptText(title.equals("Letter") ? "Generating letter..." : "Evaluating...");
         errorDetails.clear();
         errorSection.setVisible(false);
         errorSection.setManaged(false);
-        setSummary("Evaluating");
+        setSummary(title.equals("Letter") ? "Generating" : "Evaluating");
         setContext(url);
     }
 
     void complete(GptEvaluation.Result result) {
+        complete(result.answer());
+    }
+
+    void complete(String text) {
         answer.setPromptText("");
-        answer.setText(result.answer());
+        answer.setText(text);
         answer.positionCaret(0);
         setSummary("");
         finishProcess(State.COMPLETED);
@@ -69,7 +79,7 @@ final class GptEvaluationProgressPane extends BackgroundProcessPane {
         errorDetails.positionCaret(0);
         errorSection.setVisible(true);
         errorSection.setManaged(true);
-        setSummary(error instanceof GptEvaluation.SaveException ? "Saving failed" : "Evaluation failed");
+        setSummary(error instanceof GptEvaluation.SaveException ? "Saving failed" : title + " failed");
         finishProcess(State.FAILED);
     }
 }

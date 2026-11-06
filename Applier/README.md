@@ -140,11 +140,16 @@ text, title and company are loaded from SQLite by ID. Only the writer prompt,
 Codex Proxy; questionnaire facts, profile INI and PDF are excluded. See
 [architecture](ARCHITECTURE.md) and the [CLI skill](../.agents/skills/applier-cover-letter/SKILL.md).
 
-Verification: `python Applier/tests/test_cover_letter.py` after packaging exercises
-a temporary database and a fake Proxy response; it does not invoke a model or browser.
+Java unit tests run through Maven/JUnit as part of the normal module build.
+`python Applier/tests/test_cover_letter.py` separately checks the Python SQLite
+helper and migrations with a temporary database. It does not launch Java.
 
-Successful generations are appended to `cover_letters` in the configured database
-with `job_id` referencing `jobs.id`, full `letter_text`, and UTC `created_at`.
-Earlier letters are retained on repeat generation. Storage completes before the
-API returns or writes the optional file; storage failures are reported as errors.
-The idempotent migration is `Driver/db/migrations/044_cover_letters.sql`.
+The writer first returns the saved letter from `cover_letters` in the
+configured database, without calling Codex or creating another record. If no
+letter exists, it generates and saves one with `job_id` referencing `jobs.id`,
+full `letter_text`, and UTC `created_at`. The optional file contains that same
+saved or newly generated text. Storage completes before a new letter is returned
+or written to the optional file; storage failures are reported as errors.
+There is one letter per vacancy, enforced by the `job_id` primary key. The normal
+database migrations run before lookup. Migration `045_one_cover_letter_per_job.sql`
+reduces old duplicate records to the most recently saved letter.

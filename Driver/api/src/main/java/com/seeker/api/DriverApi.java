@@ -1,6 +1,7 @@
 package com.seeker.api;
 
 import com.seeker.applier.ApplierRunner;
+import com.seeker.applier.ApplierApi;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
 import com.seeker.chatevaluator.GptEvaluation;
@@ -23,13 +24,13 @@ public final class DriverApi {
     private final Path projectRoot;
     private final LinkedInApplication linkedin;
     private final WorkflowOrchestrator orchestrator;
-    private final ApplierRunner applier;
+    private final ApplierApi applier;
 
     public DriverApi(Path projectRoot) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
         this.linkedin = new LinkedInApplication(this.projectRoot);
         this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
-        this.applier = new ApplierRunner(this.projectRoot);
+        this.applier = new ApplierApi(this.projectRoot);
     }
 
     public LoginResult login() throws IOException {
@@ -99,7 +100,12 @@ public final class DriverApi {
 
     public ApplierRunner.Result prepareApplication(String url)
             throws IOException, InterruptedException, UsageLimitExceededException {
-        return applier.run(url);
+        return applier.prepare(url);
+    }
+
+    public String coverLetter(long id)
+            throws IOException, InterruptedException, UsageLimitExceededException {
+        return applier.coverLetter(id);
     }
 
     public String evaluateWithChatGPT(String url) throws Exception {

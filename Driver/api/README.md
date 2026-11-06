@@ -53,6 +53,9 @@ URL is evaluated normally without persistence. The GUI uses
 `GptEvaluation.Result`; the caller guarantees that URL and ID refer to the same
 job. Both overloads use ChatEvaluator's common operation. The CLI accepts only URL.
 
+`coverLetter(long id)` delegates to Applier and returns the generated cover letter
+as text. The ID is the internal `jobs.id` of a stored vacancy.
+
 ## CLI
 
 Build and run from the repository root:

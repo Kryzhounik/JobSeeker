@@ -4,6 +4,8 @@ import com.seeker.collector.linkedin.collection.CollectionProgress;
 import com.seeker.collector.linkedin.collection.CollectionReport;
 import com.seeker.collector.linkedin.support.JsonSupport;
 import com.seeker.tools.api.ProgressSnapshot;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -12,10 +14,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public final class CollectorProgressSmoke {
-    public static void main(String[] args) throws Exception {
+class CollectorProgressTest {
+    @Test
+    void progressContracts() throws Exception {
         ProcessCollectorClient runner = new ProcessCollectorClient(Path.of("."));
-        checkModeSelection();
         Map<String, String> fields = new LinkedHashMap<>();
         fields.put("Z arbitrary field", "7 / 100");
         fields.put("A another field", "Anything");
@@ -28,34 +30,24 @@ public final class CollectorProgressSmoke {
                 || !progress.progress().equals(direct.progress())
                 || !progress.details().equals(direct.details())
                 || !List.copyOf(progress.fields().keySet()).equals(List.copyOf(fields.keySet()))) {
-            throw new AssertionError("Direct and process progress contracts differ");
+            fail("Direct and process progress contracts differ");
         }
         fields.put("Late mutation", "not published");
         if (progress.fields().containsKey("Late mutation") || direct.fields().containsKey("Late mutation")) {
-            throw new AssertionError("Snapshot fields are mutable");
+            fail("Snapshot fields are mutable");
         }
-        try {
-            progress.fields().put("Forbidden", "mutation");
-            throw new AssertionError("Parsed snapshot fields are writable");
-        } catch (UnsupportedOperationException expected) {
-            // Process snapshots have the same immutability as direct callbacks.
-        }
+        assertThrows(UnsupportedOperationException.class, () -> progress.fields().put("Forbidden", "mutation"));
         ProgressSnapshot early = runner.parseProgress("""
                 COLLECTOR_PROGRESS {"runId":null,"stage":"Stage","action":"Preparing","progress":"",
                 "fields":{},"details":""}
                 """);
         if (early.runId() != null || !early.fields().isEmpty()) {
-            throw new AssertionError("Early snapshot without an assigned run ID was changed");
+            fail("Early snapshot without an assigned run ID was changed");
         }
         for (String invalid : new String[]{"COLLECTOR_PROGRESS {}", "invalid prefix",
                 "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"details\":\"\"}",
                 "COLLECTOR_PROGRESS {\"stage\":\"Stage\",\"action\":\"Action\",\"fields\":{},\"details\":\"\"}"}) {
-            try {
-                runner.parseProgress(invalid);
-                throw new AssertionError("Incomplete progress contract was accepted");
-            } catch (IOException expected) {
-                // No synthetic counters or stages should be substituted.
-            }
+            assertThrows(IOException.class, () -> runner.parseProgress(invalid), invalid);
         }
         CollectionReport stopped = runner.parseResult("""
                 {"source":"linkedin","run_id":"test-run","status":"blocked","accepted_count":7,
@@ -66,46 +58,36 @@ public final class CollectorProgressSmoke {
         if (!stopped.status().equals("blocked") || !stopped.runId().equals("test-run")
                 || stopped.acceptedCount() != 7 || !stopped.scope().getFirst().jobId().equals("123")
                 || !stopped.message().endsWith("\nURL: https://www.linkedin.com/jobs/view/123/")) {
-            throw new AssertionError("Stopped collection was not preserved");
+            fail("Stopped collection was not preserved");
         }
         if (!stopped.pages().isEmpty()) {
-            throw new AssertionError("Optional fields were not normalized");
+            fail("Optional fields were not normalized");
         }
         for (String invalid : new String[]{"", "{}", "{\"status\":\"complete\"}"}) {
-            try {
-                runner.parseResult(invalid);
-                throw new AssertionError("Incomplete final result was accepted");
-            } catch (IOException expected) {
-                // A missing final report must leave the last progress snapshot visible.
-            }
+            assertThrows(IOException.class, () -> runner.parseResult(invalid), invalid);
         }
-        System.out.println("Collector progress parsing OK");
     }
 
-    private static void checkModeSelection() throws IOException {
+    @Test
+    void modeSelection() throws IOException {
         Path root = Files.createTempDirectory("collector-mode-");
         Path config = root.resolve("GUI/JavaFX/backend.properties");
-        CollectorClient direct = progress -> { throw new AssertionError("Collection must not run in mode selection"); };
+        CollectorClient direct = progress -> fail("Collection must not run in mode selection");
         try {
             if (CollectorClient.configured(root, direct) != direct) {
-                throw new AssertionError("Default collector mode must be direct");
+                fail("Default collector mode must be direct");
             }
             Files.createDirectories(config.getParent());
             Files.writeString(config, "collector.mode=process\n");
             if (!(CollectorClient.configured(root, direct) instanceof ProcessCollectorClient)) {
-                throw new AssertionError("Process adapter was not selected");
+                fail("Process adapter was not selected");
             }
             Files.writeString(config, "collector.mode=direct\n");
             if (CollectorClient.configured(root, direct) != direct) {
-                throw new AssertionError("Direct adapter was not selected");
+                fail("Direct adapter was not selected");
             }
             Files.writeString(config, "collector.mode=unknown\n");
-            try {
-                CollectorClient.configured(root, direct);
-                throw new AssertionError("Unknown mode silently accepted");
-            } catch (IOException expected) {
-                // Configuration mistakes must not silently select another transport.
-            }
+            assertThrows(IOException.class, () -> CollectorClient.configured(root, direct));
         } finally {
             Files.deleteIfExists(config);
             Files.deleteIfExists(config.getParent());

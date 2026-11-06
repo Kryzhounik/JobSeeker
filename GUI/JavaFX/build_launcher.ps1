@@ -24,6 +24,8 @@ $env:JAVA_HOME = $javaHomePath
 $env:Path = (Join-Path $javaHomePath "bin") + ";" + $env:Path
 & (Join-Path $directory "create_icon.ps1")
 & (Join-Path $directory "prepare_runtime.ps1") -JavaHome $javaHomePath -MavenCommand $maven.Source -Force
+& $maven.Source -f (Join-Path $directory "pom.xml") test
+if ($LASTEXITCODE -ne 0) { throw "GUI unit tests failed with exit code $LASTEXITCODE." }
 & (Join-Path $directory "src/test/powershell/PrepareRuntimeSmoke.ps1") `
     -PrepareScript (Join-Path $directory "prepare_runtime.ps1")
 
@@ -48,17 +50,9 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX data connection check failed with exit code $LASTEXITCODE."
 }
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.ClientDataContractsSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Client data contract check failed with exit code $LASTEXITCODE."
-}
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.GuiFeaturesSmoke
 if ($LASTEXITCODE -ne 0) {
     throw "JavaFX feature check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.CollectorProgressSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Collector progress check failed with exit code $LASTEXITCODE."
 }
 & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.BackgroundProcessPaneSmoke
 if ($LASTEXITCODE -ne 0) {

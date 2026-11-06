@@ -4,10 +4,10 @@ import com.google.gson.JsonObject;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.Request;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
-import com.microsoft.playwright.options.WaitForSelectorState;
 import com.seeker.applier.shared.ManagedBrowser;
 import com.seeker.tools.LinkedInJobAvailability;
 
@@ -18,9 +18,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** Sends a vacancy URL to the configured existing ChatGPT conversation. */
 public final class ChatEvaluatorRunner {
@@ -33,6 +35,7 @@ public final class ChatEvaluatorRunner {
     private static final long SUBMISSION_TIMEOUT_MS = 15_000;
     private static final long RESPONSE_TIMEOUT_MS = 180_000;
     private static final long CONVERSATION_LOAD_TIMEOUT_MS = 90_000;
+    private static final long TAB_PROBE_TIMEOUT_MS = 3_000;
 
     private ChatEvaluatorRunner() { }
 
@@ -124,34 +127,109 @@ public final class ChatEvaluatorRunner {
 
     static Locator prepareConversation(Page page, String chatUrl, boolean navigate) throws IOException {
         long deadline = System.nanoTime() + CONVERSATION_LOAD_TIMEOUT_MS * 1_000_000L;
-        String stage = "opening the conversation";
+        LoadStatus status = new LoadStatus();
+        if (!navigate) status.advance("checking the existing conversation");
+        Consumer<Request> failed = request -> {
+            if (request.isNavigationRequest() && request.frame().equals(page.mainFrame())) {
+                status.failure = "main document load failed: " + request.failure();
+            }
+        };
+        Consumer<Page> crashed = ignored -> status.failure = "the conversation tab crashed";
+        page.onRequestFailed(failed);
+        page.onCrash(crashed);
+        boolean probing = false;
         try {
+            requireConnectedTab(page);
             if (navigate) {
-                page.navigate(chatUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.COMMIT)
+                Response response = page.navigate(chatUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.COMMIT)
                         .setTimeout(CONVERSATION_LOAD_TIMEOUT_MS));
+                if (response == null || response.status() >= 400) {
+                    throw new IOException("ChatGPT main document returned "
+                            + (response == null ? "no response" : "HTTP " + response.status()) + ". No URL was sent.");
+                }
+                status.advance("main document received (HTTP " + response.status() + ")");
             }
-            stage = "waiting for the message composer";
-            if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
-                throw new IOException("ChatGPT requires sign-in in the managed browser profile. "
-                        + "Sign in manually in the open browser once, then rerun the evaluation.");
+            String previousKey = "";
+            int stableObservations = 0;
+            while (System.nanoTime() < deadline) {
+                requireConnectedTab(page);
+                if (status.failure != null) throw new IOException("ChatGPT " + status.failure + ". No URL was sent.");
+                probing = true;
+                Map<?, ?> state = conversationState(page);
+                probing = false;
+                if (status.failure != null) throw new IOException("ChatGPT " + status.failure + ". No URL was sent.");
+                String stage = (String) state.get("stage");
+                status.advance(stage + ", document=" + state.get("document"));
+                if (stage.equals("sign-in required") || stage.equals("Cloudflare verification required")) {
+                    throw new IOException("ChatGPT " + stage + ". Complete it manually in the managed browser. No URL was sent.");
+                }
+                requireConversation(page, chatUrl);
+                String key = (String) state.get("key");
+                stableObservations = stage.equals("ready") && key.equals(previousKey) ? stableObservations + 1 : 0;
+                previousKey = stage.equals("ready") ? key : "";
+                if (stableObservations >= 2) return messageComposer(page);
+                page.waitForTimeout(250);
             }
-            Locator composer = messageComposer(page);
-            composer.waitFor(new Locator.WaitForOptions().setState(WaitForSelectorState.VISIBLE)
-                    .setTimeout(Math.max(1, (deadline - System.nanoTime()) / 1_000_000L)));
-            requireConversation(page, chatUrl);
-            stage = "waiting for the conversation history";
-            awaitReadyHistory(page, chatUrl);
-            return composer;
-        } catch (TimeoutError error) {
-            if (page.locator("#mobile-auth-email, #mobile-auth-phone").count() > 0) {
-                throw new IOException("ChatGPT requires sign-in in the managed browser profile. "
-                        + "Sign in manually in the open browser once, then rerun the evaluation.", error);
-            }
-            throw new IOException("ChatGPT timed out while " + stage + ". Current page: " + page.url()
-                    + ". No URL was sent.", error);
+            throw new IOException("ChatGPT tab responds but is not ready. " + status.describe() + ". No URL was sent.");
         } catch (PlaywrightException error) {
-            throw new IOException("ChatGPT failed while " + stage + ": " + failureDetails(error)
-                    + ". Current page: " + page.url() + ". No URL was sent.", error);
+            String reason = probing && error instanceof TimeoutError
+                    ? "tab did not respond to a DOM check within 3 seconds"
+                    : failureDetails(error);
+            throw new IOException("ChatGPT failed while " + status.describe() + ": " + reason
+                    + ". No URL was sent.", error);
+        } finally {
+            page.offRequestFailed(failed);
+            page.offCrash(crashed);
+        }
+    }
+
+    private static void requireConnectedTab(Page page) throws IOException {
+        if (!page.context().browser().isConnected()) throw new IOException("Browser connection lost. No URL was sent.");
+        if (page.isClosed()) throw new IOException("Conversation tab was closed. No URL was sent.");
+    }
+
+    private static final class LoadStatus {
+        String stage = "opening the conversation";
+        String failure;
+        long changedAt = System.nanoTime();
+
+        void advance(String next) {
+            if (!stage.equals(next)) { stage = next; changedAt = System.nanoTime(); }
+        }
+
+        String describe() {
+            return stage + "; no stage change for " + (System.nanoTime() - changedAt) / 1_000_000_000L + " s";
+        }
+    }
+
+    private static Map<?, ?> conversationState(Page page) {
+        var handle = page.waitForFunction("""
+            selector => {
+              const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
+              const has = selector => [...document.querySelectorAll(selector)].some(visible);
+              const editors = [...document.querySelectorAll(selector)].filter(visible);
+              const editor = editors.length === 1 ? editors[0] : null;
+              const last = [...document.querySelectorAll('[data-turn-key]')].at(-1);
+              const user = last?.querySelector('[data-chatgpt-search-unit-key$=":user"]');
+              const key = last?.getAttribute('data-turn-key')?.trim() || '';
+              let stage;
+              if (has('#mobile-auth-email, #mobile-auth-phone')) stage = 'sign-in required';
+              else if (has('#challenge-running, #challenge-stage, iframe[src*="challenges.cloudflare.com"]'))
+                stage = 'Cloudflare verification required';
+              else if (!editor) stage = 'waiting for a unique message composer (matches=' + editors.length + ')';
+              else if (editor.matches(':disabled') || editor.getAttribute('contenteditable') === 'false'
+                       || editor.closest('[aria-disabled="true" i], [inert]')) stage = 'message composer is disabled';
+              else if (!key || !user?.getAttribute('data-chatgpt-search-message-ids')?.trim()) stage = 'waiting for conversation history';
+              else if (has('button[data-testid="stop-button"], button#stop-button')) stage = 'previous response is still generating';
+              else stage = 'ready';
+              return {stage, key, document: document.readyState};
+            }
+            """, COMPOSER_SELECTOR, new Page.WaitForFunctionOptions()
+                .setPollingInterval(250).setTimeout(TAB_PROBE_TIMEOUT_MS));
+        try {
+            return (Map<?, ?>) handle.jsonValue();
+        } finally {
+            handle.dispose();
         }
     }
 
@@ -289,25 +367,7 @@ public final class ChatEvaluatorRunner {
     }
 
     static void awaitReadyHistory(Page page, String chatUrl) throws IOException {
-        long deadline = System.nanoTime() + 30_000_000_000L;
-        String previousKey = "";
-        int stableObservations = 0;
-        while (System.nanoTime() < deadline) {
-            requireConversation(page, chatUrl);
-            List<Turn> turns = readTurns(page);
-            Turn last = turns.isEmpty() ? null : turns.getLast();
-            if (historyReadyForMessage(page, turns)) {
-                stableObservations = last.key().equals(previousKey) ? stableObservations + 1 : 0;
-                previousKey = last.key();
-                if (stableObservations >= 2) return;
-            } else {
-                previousKey = "";
-                stableObservations = 0;
-            }
-            page.waitForTimeout(250);
-        }
-        throw new IOException("ChatGPT history is not ready or the previous response is still in progress; "
-                + "no URL was sent.");
+        prepareConversation(page, chatUrl, false);
     }
 
     static boolean historyReadyForMessage(Page page, List<Turn> turns) {
