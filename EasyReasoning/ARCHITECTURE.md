@@ -84,9 +84,15 @@ Readiness and errors go to stderr; no JSON command/response protocol is required
 `clean-vacancy "text"` invokes `VacancyCleaner.cleanVacancy(text)`. The
 `vacancy.trimming.enabled` switch belongs to EasyReasoning's configuration and
 defaults to false; the operation returns the input unchanged when disabled.
-Collectors call that operation unconditionally. `EasyReasoningApplication`
+Collectors call that operation unconditionally. `EasyReasoningApi`
 provides a standalone, reusable context for such callers; callers with an
 existing context can obtain `VacancyCleaner` directly.
+
+Follow [Driver's API/CLI architecture](../Driver/ARCHITECTURE.md): the standalone
+`Main` creates and closes `EasyReasoningApi`. The public
+`EasyReasoningCli.run(api, input, output, errors)` handler accepts that ready API
+and returns an exit code; it does not create or close the API or terminate the JVM.
+Other Java callers can reuse the same API across CLI sessions and direct calls.
 
 Use a long-lived Java process: initialize Spring and the selected backend once,
 accept repeated operations through the CLI, and shut down through a separate

@@ -5,6 +5,9 @@ Applier, and ChatEvaluator modules. The facade delegates operations without
 duplicating workflow logic, parsing module arguments, or translating results.
 Each module keeps its independent Java API and CLI.
 
+The shared API, CLI, and facade rules are defined in
+[Driver architecture](../ARCHITECTURE.md).
+
 ## Java
 
 Use `com.seeker.api.DriverApi` from Maven artifact

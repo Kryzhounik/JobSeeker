@@ -62,7 +62,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.seeker.easyreasoning.EasyReasoningCli</mainClass>
+                            <mainClass>com.seeker.easyreasoning.Main</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

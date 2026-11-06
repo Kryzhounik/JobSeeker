@@ -109,7 +109,7 @@ class EasyReasoningCliTest {
         StringWriter output = new StringWriter();
         StringWriter errors = new StringWriter();
         try {
-            assertThrows(RuntimeException.class, () -> EasyReasoningCli.run(root,
+            assertThrows(RuntimeException.class, () -> Main.run(root,
                     new BufferedReader(new StringReader("""
                             generate "Hello"
                             stop
@@ -176,12 +176,39 @@ class EasyReasoningCliTest {
     private CliOutput run(String commands) throws Exception {
         StringWriter output = new StringWriter();
         StringWriter errors = new StringWriter();
-        int exitCode = EasyReasoningCli.run(root, new BufferedReader(new StringReader(commands)),
+        int exitCode = Main.run(root, new BufferedReader(new StringReader(commands)),
                 new PrintWriter(output), new PrintWriter(errors));
         return new CliOutput(output.toString(), errors.toString(), exitCode);
     }
 
     private record CliOutput(String text, String errors, int exitCode) {}
+
+    @Test
+    void handlerReusesCallerOwnedApiAcrossSessionsWithoutUnloadingIt() throws Exception {
+        List<JsonNode> requests = new ArrayList<>();
+        var server = server(requests, false, false);
+        StringWriter output = new StringWriter();
+        StringWriter errors = new StringWriter();
+        try {
+            try (var api = new EasyReasoningApi(root)) {
+                assertEquals(0, EasyReasoningCli.run(api,
+                        new BufferedReader(new StringReader("generate First\nstop\n")),
+                        new PrintWriter(output), new PrintWriter(errors)));
+                assertEquals(1, requests.size(), "stop must not unload the caller's model");
+                assertEquals("  Ответ\n", api.generate("Between sessions"));
+                assertEquals(0, EasyReasoningCli.run(api,
+                        new BufferedReader(new StringReader("generate Second\n")),
+                        new PrintWriter(output), new PrintWriter(errors)));
+                assertEquals(3, requests.size(), "EOF must not unload the caller's model");
+                assertFalse(errors.toString().contains("Stopped."));
+            }
+            assertEquals("  Ответ\n  Ответ\n", output.toString());
+            assertEquals(4, requests.size());
+            assertEquals("0", requests.getLast().path("keep_alive").asString());
+        } finally {
+            server.stop(0);
+        }
+    }
 
     @Test
     void cleanVacancyCommandUsesConfiguredSwitchAndSameGenerationBackend() throws Exception {

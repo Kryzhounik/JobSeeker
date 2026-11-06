@@ -44,6 +44,9 @@ one persistent blind evaluator per run so all vacancies share one scoring scale.
 
 ## Java API and CLI
 
+The shared module API/CLI design and entry-point lifecycle are described in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+
 [`api`](api/README.md) provides `com.seeker.api.DriverApi` and the thin runnable
 `Driver/api/job-seeker-api.jar`. Java calls delegate to module APIs and return
 their existing results. CLI commands delegate to module CLI handlers in the

@@ -10,7 +10,7 @@ collection logging functions through jpy.
 Python service. The underlying Python functions and their CLI entry points stay
 available to agents, tests, and the GUI.
 
-The gateway also owns one `EasyReasoningApplication` for a collection. It passes
+The gateway also owns one `EasyReasoningApi` for a collection. It passes
 that application to the Python bridge, which calls `cleanVacancy(text)` after
 HTML cleanup and before readable-text persistence and content filtering. The
 optional trimming switch is configured only in

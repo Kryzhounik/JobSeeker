@@ -54,6 +54,12 @@ from it, and closes it in `stop()` (with a JVM shutdown hook as a fallback).
 Existing lower-module services and their CLIs do not use that context. The
 EasyReasoning CLI creates its own context containing only gateway components.
 
+The standalone `Main` owns `EasyReasoningApi` and closes it after the CLI session.
+`EasyReasoningCli.run(api, input, output, errors)` is a public reusable handler:
+it accepts a ready API and returns an exit code. Its `stop` command or EOF ends
+the command loop; the caller remains responsible for closing the API. Standalone
+shutdown still unloads the used model before acknowledging `Stopped.`.
+
 ## Client configuration
 
 Edit `EasyReasoning/easy-reasoning.properties` to change the server address or
@@ -76,8 +82,16 @@ No Boot `application.properties` loading is used.
 | `spring.ai.ollama.base-url` | `SPRING_AI_OLLAMA_BASE_URL` | `http://localhost:11434` |
 | `spring.ai.ollama.chat.model` | `SPRING_AI_OLLAMA_CHAT_MODEL` | `qwen2.5:7b` |
 
-The current API is `String generate(String prompt)`: send an arbitrary prompt
-and receive the model's text response. Vacancy cleanup is a later operation.
+The core API is `String generate(String prompt)`: send an arbitrary prompt
+and receive the model's text response. `EasyReasoningApi` also exposes
+`cleanVacancy(text)` and `boolean areDuplicateDescriptions(firstText, secondText)`.
+Description comparison encapsulates prompting, generation and strict parsing:
+`NO SUBSTANTIVE DIFFERENCES` returns `true`, `SUBSTANTIVE DIFFERENCES` returns
+`false`. Only surrounding whitespace is stripped; every other response raises
+an exception, and model failures propagate. Calls have no conversation history.
+The UTF-8 prompt in `EasyReasoning/prompts/compare-vacancy-descriptions.md` is
+read on each comparison, allowing edits without rebuilding. Callers supply
+only the two texts; IDs, database access and duplicate storage belong to callers.
 Obtain `com.seeker.easyreasoning.EasyReasoningService` from the existing context
 and call `generate(prompt)` off the UI thread. It returns the model's text
 unchanged, propagates request errors,
@@ -99,7 +113,7 @@ backend manages local model weights. Reconsider it before cloud deployment.
 ## Optional vacancy cleanup
 
 `VacancyCleaner.cleanVacancy(String text)` identifies one contiguous vacancy
-fragment through the common `generate(prompt)` API. `EasyReasoningApplication`
+fragment through the common `generate(prompt)` API. `EasyReasoningApi`
 owns a standalone Spring context and exposes both `generate` and `cleanVacancy`
 for callers that need an initialized gateway. Reuse it across operations and
 close it afterwards; callers already owning a Spring context can use its beans.
@@ -131,7 +145,7 @@ successful cleanup also saves `.after.txt`, under `Data/easy-reasoning/trimming/
 The files use UTF-8 and preserve source line endings. A failed model request may
 leave only the before file. These are local inspection files, ignored by Git.
 
-The Java collector owns one `EasyReasoningApplication` per collection and passes
+The Java collector owns one `EasyReasoningApi` per collection and passes
 it to `python_bridge.process_html`. Python invokes `cleanVacancy` immediately
 after the existing HTML cleaner, then persists and content-filters the selected
 text through the existing pipeline. The HTML cleaner is unchanged. Closing the

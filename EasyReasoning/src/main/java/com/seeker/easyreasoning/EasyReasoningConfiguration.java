@@ -18,6 +18,12 @@ import java.util.Properties;
 @Import(OllamaConfiguration.class)
 public class EasyReasoningConfiguration {
     @Bean
+    VacancyDescriptionComparator vacancyDescriptionComparator(EasyReasoningService service, Path projectRoot) {
+        return new VacancyDescriptionComparator(service,
+                projectRoot.resolve("EasyReasoning/prompts/compare-vacancy-descriptions.md"));
+    }
+
+    @Bean
     public Properties easyReasoningProperties(Path projectRoot) throws IOException {
         Properties properties = new Properties();
         Path file = projectRoot.resolve("EasyReasoning/easy-reasoning.properties");

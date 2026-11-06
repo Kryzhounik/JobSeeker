@@ -52,7 +52,8 @@ execution contract; the Java orchestrator owns pipeline behavior.
   существующий Java API и возвращать ответ вызывающему. Подключить общий
   UDS-адаптер Tools и тонкий Python-клиент к работающей JVM без повторения
   парсеров команд и бизнес-логики. Архитектурные договорённости и оставшиеся
-  открытые вопросы — в [Tools/ARCHITECTURE.md](Tools/ARCHITECTURE.md).
+  открытые вопросы — в [архитектуре Driver](Driver/ARCHITECTURE.md)
+  и [UDS-транспорта Tools](Tools/ARCHITECTURE.md).
   Реализация отложена; Applier пока сохраняет одноразовый консольный запуск.
 - **HIGH: Проверить работу приложения на более простых reasoning-моделях.**
   Изучить возможность запуска на подписках дешевле $20, в том числе с
