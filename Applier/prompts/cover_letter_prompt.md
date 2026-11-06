@@ -34,7 +34,7 @@ Do not depend on conversation history, general knowledge about this particular c
 ## Content rules
 
 - Personalize to the **named role and company**, but refer to the company's products, team, or mission only if those facts are present in the job description.
-- Do not merely rewrite the resume or paste a stack inventory. Show why past work is relevant to this role.
+- For each main example, explain the candidate’s personal contribution, the engineering problem it addressed, and its relevance to this role. Include outcomes only when supported; concrete responsibilities and scope are sufficient when results are not documented.
 - Prioritize skills and experience the employer emphasizes, while remaining truthful.
 - Do not list missing skills unnecessarily, apologize for them, or fabricate familiarity. When useful, briefly explain how directly relevant adjacent experience transfers (e.g. NATS for messaging architecture), without claiming the candidate has used the requested technology (e.g. Kafka).
 - For roles emphasizing AI-assisted engineering, mention practical coding-agent use and the personal JobSeeker project if relevant. Never portray the personal project as a commercial production platform or portray planned agent features as delivered.
