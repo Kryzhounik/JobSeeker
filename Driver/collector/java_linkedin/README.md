@@ -10,13 +10,13 @@ collection logging functions through jpy.
 Python service. The underlying Python functions and their CLI entry points stay
 available to agents, tests, and the GUI.
 
-The gateway also owns one `EasyReasoningApi` for a collection. It passes
-that application to the Python bridge, which calls `cleanVacancy(text)` after
+`LinkedInCollectionService` owns one shared `EasyReasoningApi` for a collection.
+The gateway passes it to the Python bridge, which calls `cleanVacancy(text)` after
 HTML cleanup and before readable-text persistence and content filtering. The
 optional trimming switch is configured only in
 `EasyReasoning/easy-reasoning.properties` (`vacancy.trimming.enabled=false` by
-default); collector code does not check it. Closing the gateway closes
-EasyReasoning and unloads a used local model. Cleanup errors are reported through
+default); collector code does not check it. The service closes EasyReasoning
+after comparisons and Python finish, unloading a used local model. Cleanup errors are reported through
 the existing collection failure path; original readable text is not substituted.
 
 ## Module boundaries
@@ -168,3 +168,14 @@ python -m unittest Driver.test.test_java_linkedin_bridge
 
 The regular Maven tests do not start a browser, collect real vacancies, or call
 Codex. Running the executable collector or orchestrator is a separate action.
+
+## Semantic duplicate observation
+
+After collector acceptance, saved descriptions with the same company and
+normalized full title are compared through EasyReasoning in one background
+worker. Only samples accepted during this run are considered. The collector
+thread persists positive links in `source_jobs.semantic_duplicate_of` and
+waits for pending comparisons before finishing, including on early stops.
+Each publication keeps its own text, scope entry, analysis and scores.
+Comparison errors are logged, included in the final message, and treated as
+non-matches; the vacancy remains a sample. No automatic retries are made.

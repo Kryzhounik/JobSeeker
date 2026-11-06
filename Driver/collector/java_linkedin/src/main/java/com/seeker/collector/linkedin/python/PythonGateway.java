@@ -27,6 +27,10 @@ public interface PythonGateway extends AutoCloseable {
 
     ProcessResult processHtml(Preview preview, String html, boolean easyApply);
 
+    com.seeker.collector.linkedin.collection.VacancySnapshot semanticSnapshot(String source, String jobId);
+
+    void saveSemanticDuplicate(long duplicateId, long originalId);
+
     void logOutcome(Preview preview, String status, String reason);
 
     @Override

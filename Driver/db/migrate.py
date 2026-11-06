@@ -88,6 +88,8 @@ def migration_already_effective(
     ddl = row[0] if row else ""
     if version == "001_job_statuses_table":
         return "REFERENCES job_statuses(code)" in ddl
+    if version == "046_semantic_duplicates":
+        return column_exists(connection, "source_jobs", "semantic_duplicate_of")
     if version == "003_source_job_registry":
         return (
             "source_job_ref" in ddl

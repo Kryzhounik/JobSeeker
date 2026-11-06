@@ -25,6 +25,15 @@ Wait for the user's response. The user decides whether to review, test, or
 revise that item and when to start the next one. Do not make that decision or
 continue to another item on your own.
 
+## Shared Project Documentation
+
+For project development and code review, read the Markdown documentation files
+directly under `Driver/`. Driver is the top-level application integration
+module, and its documentation may contain decisions affecting any module.
+Follow the decisions applicable to your task. This requirement does not apply
+to runtime agents invoked by the application for vacancy analysis, scoring,
+form filling, or other application operations.
+
 ## Implementation Simplicity
 
 Choose the simplest implementation that satisfies the agreed requirements.

@@ -24,7 +24,8 @@ public final class JpyPythonGateway implements PythonGateway {
     private final EasyReasoningApi reasoning;
     private boolean closed;
 
-    public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime) {
+    public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime, EasyReasoningApi reasoning) {
+        this.reasoning = reasoning;
         JpyRuntime.ensureStarted(
                 runtime.pythonLibrary(),
                 runtime.jpyLibrary(),
@@ -43,12 +44,7 @@ public final class JpyPythonGateway implements PythonGateway {
                 paths.databasePath().toString(),
                 paths.rawDirectory().toString()
         );
-        try {
-            reasoning = new EasyReasoningApi(paths.driverRoot().getParent());
-        } catch (RuntimeException | Error failure) {
-            try { callVoid("close_session"); } finally { bridge.close(); }
-            throw failure;
-        }
+
     }
 
     @Override
@@ -110,6 +106,17 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
+    public com.seeker.collector.linkedin.collection.VacancySnapshot semanticSnapshot(String source, String jobId) {
+        return JsonSupport.GSON.fromJson(callString("semantic_snapshot", source, jobId),
+                com.seeker.collector.linkedin.collection.VacancySnapshot.class);
+    }
+
+    @Override
+    public void saveSemanticDuplicate(long duplicateId, long originalId) {
+        callVoid("save_semantic_duplicate", duplicateId, originalId);
+    }
+
+    @Override
     public void logOutcome(Preview preview, String status, String reason) {
         callVoid(
                 "log_outcome",
@@ -128,7 +135,7 @@ public final class JpyPythonGateway implements PythonGateway {
         try {
             callVoid("close_session");
         } finally {
-            try { bridge.close(); } finally { reasoning.close(); }
+            bridge.close();
         }
     }
 

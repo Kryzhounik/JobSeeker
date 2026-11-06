@@ -67,14 +67,16 @@ class JpyPythonGatewayIntegrationTest {
                 <p>Build backend services in Java.</p></main></body></html>
                 """;
 
-        try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+        try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
+             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
             assertEquals(originalStdout, stdoutId());
             assertTrue(python.priorityCompanyIds().isEmpty());
             assertTrue(python.decidePreview(preview).shouldOpen());
             assertEquals("raw_saved", python.processHtml(preview, html, true).status());
             assertEquals(originalStdout, stdoutId());
         }
-        try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+        try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
+             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
             assertTrue(python.priorityCompanyIds().isEmpty());
         }
         assertEquals(originalStdout, stdoutId());
@@ -100,7 +102,8 @@ class JpyPythonGatewayIntegrationTest {
             Preview trimmedPreview = new Preview("4444444445", "https://www.linkedin.com/jobs/view/4444444445/",
                     preview.title(), preview.company(), preview.location(), preview.workplace(),
                     preview.salary(), preview.label(), preview.start(), preview.index());
-            try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+            try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
+             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
                 python.processHtml(trimmedPreview, html.replace("4444444444", "4444444445"), true);
                 assertEquals(1, modelCalls.get());
                 try (PyModule sqlite = PyModule.importModule("sqlite3");

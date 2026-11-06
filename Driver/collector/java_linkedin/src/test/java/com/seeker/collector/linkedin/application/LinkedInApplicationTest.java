@@ -36,7 +36,8 @@ class LinkedInApplicationTest {
         List<String> limits = new ArrayList<>();
         RuntimeException stop = new RuntimeException("Stop before Python and browser startup");
         Consumer<ProgressSnapshot> progress = update -> {
-            limits.add(update.fields().get("Accepted / limit"));
+            // Explicit URLs are not truncated by the configured search limit.
+            limits.add(update.fields().getOrDefault("Accepted / limit", update.fields().get("Accepted")));
             throw stop;
         };
 
@@ -50,6 +51,6 @@ class LinkedInApplicationTest {
         assertSame(stop, assertThrows(RuntimeException.class, () -> application.collectUrls(
                 List.of("https://www.linkedin.com/jobs/view/2/"), progress)));
 
-        assertEquals(List.of("0 / 10", "0 / 20", "0 / 30", "0 / 40"), limits);
+        assertEquals(List.of("0 / 10", "0 / 20", "0", "0"), limits);
     }
 }

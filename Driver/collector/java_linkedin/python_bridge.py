@@ -258,3 +258,18 @@ def _normalize_strings(value: Any) -> Any:
     if isinstance(value, list):
         return [_normalize_strings(item) for item in value]
     return value
+
+
+def semantic_snapshot(source: str, job_id: str) -> str:
+    from db.semantic_duplicates import load_snapshot
+    session = _require_session()
+    with closing(sqlite3.connect(session.db_path)) as connection:
+        return _json(load_snapshot(connection, session.run_id, source, job_id))
+
+
+def save_semantic_duplicate(duplicate_id: int, original_id: int) -> None:
+    from db.semantic_duplicates import save_link
+    session = _require_session()
+    with closing(sqlite3.connect(session.db_path)) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
+        save_link(connection, session.run_id, duplicate_id, original_id)

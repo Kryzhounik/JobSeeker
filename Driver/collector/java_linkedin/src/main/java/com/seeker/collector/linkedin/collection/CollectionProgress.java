@@ -83,6 +83,7 @@ public record CollectionProgress(String runId, String stage, String action, Stri
             case "opening_job" -> "Loading vacancy";
             case "filtering_content" -> "Saving and filtering content";
             case "processing" -> "Processing vacancies";
+            case "waiting_comparisons" -> "Waiting for description comparisons";
             case "complete" -> "Collection complete";
             case "login_required" -> "LinkedIn login required";
             case "blocked" -> "Collection stopped";
