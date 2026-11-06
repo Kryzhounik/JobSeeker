@@ -142,7 +142,7 @@ public final class ApplierRunner {
                             String vacancyLocation, String python)
             throws IOException, InterruptedException, UsageLimitExceededException {
         Path proxy = projectRoot.resolve("Driver/codex_proxy/metrics_proxy.py");
-        Path instruction = projectRoot.resolve("Applier/fill_form.md");
+        Path instruction = projectRoot.resolve("Applier/prompts/fill_form.md");
         Path schema = projectRoot.resolve("Applier/result.schema.json");
         Path resumePdf = projectRoot.resolve("Data/applier/CV_DokE2026M.pdf");
         Path resumeText = projectRoot.resolve("Data/applier/resume.txt");

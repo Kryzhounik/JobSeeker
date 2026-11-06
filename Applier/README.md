@@ -28,14 +28,20 @@ The shared candidate profile at `Driver/analyzer/config/resume.ini` supplies
 available locations, relocation options, language levels, and technology levels.
 Additional applicant facts, such as phone numbers, work authorization, compensation,
 and notice period, go in `Data/applier/facts.md`; do not duplicate the shared profile
-there. Keep decision rules in `fill_form.md`. Applier reads the vacancy location
+there. Keep decision rules in [prompts/fill_form.md](prompts/fill_form.md). Applier reads the vacancy location
 from the LinkedIn page
 so Codex can apply the location rule. If the extracted location is empty, Codex
 first reads it on the open employer page. Add confirmed facts as testing reveals new fields;
-add choice rules to `fill_form.md`. `Data/` is excluded from Git.
+add choice rules to `prompts/fill_form.md`. `Data/` is excluded from Git.
 
 `REQUIREMENTS.md` defines the expected behavior. [BACKLOG.md](BACKLOG.md) records
 deferred optimization ideas.
+
+The console currently performs one operation per process. The agreed direction
+adds cover-letter generation as a second module operation; its implementation
+is deferred pending a separate design discussion. See [ARCHITECTURE.md](ARCHITECTURE.md).
+Reusable command handling and future access to a running JVM through UDS are
+documented in [Tools/ARCHITECTURE.md](../Tools/ARCHITECTURE.md) and remain deferred.
 
 ## Configuration dependencies
 
