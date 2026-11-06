@@ -37,11 +37,10 @@ add choice rules to `prompts/fill_form.md`. `Data/` is excluded from Git.
 `REQUIREMENTS.md` defines the expected behavior. [BACKLOG.md](BACKLOG.md) records
 deferred optimization ideas.
 
-The console currently performs one operation per process. The agreed direction
-adds cover-letter generation as a second module operation; its implementation
-is deferred pending a separate design discussion. See [ARCHITECTURE.md](ARCHITECTURE.md).
-Reusable command handling and future access to a running JVM through UDS are
-documented in [Tools/ARCHITECTURE.md](../Tools/ARCHITECTURE.md) and remain deferred.
+The console performs one operation per process: application preparation or
+standalone cover-letter generation, using the module's CLI handler. See
+[ARCHITECTURE.md](ARCHITECTURE.md). Access to a running JVM through UDS remains
+deferred and is described in [Tools/ARCHITECTURE.md](../Tools/ARCHITECTURE.md).
 
 ## Configuration dependencies
 
@@ -119,3 +118,33 @@ as a `Path` and the vacancy URL as a `String`. It blocks until preparation
 finishes, then returns `ApplierRunner.Result(status, note, submissionObserved)`;
 execution errors are thrown as exceptions. The GUI runs this call in its
 existing background task. The CLI calls it directly.
+
+## Standalone cover-letter writer
+
+From the project root, with Java 21+:
+
+```powershell
+java -jar Applier/applier.jar cover-letter 3075
+java -jar Applier/applier.jar cover-letter 3075 "Data/applier/letter.txt"
+```
+
+The argument is internal `jobs.id`. Without an output path stdout contains the
+letter; with a path it contains the absolute path to the UTF-8 file. The parent
+directory must exist. Diagnostics use stderr. The existing vacancy-URL invocation
+remains independent of the database.
+
+Java callers use `ApplierApi.coverLetter(long)` or `coverLetter(long, Path)`;
+`coverletter.CoverLetterWriter` is the standalone writer API. Full cleaned vacancy
+text, title and company are loaded from SQLite by ID. Only the writer prompt,
+`Data/applier/resume.txt` and `Data/applier/candidate_context.md` are supplied to
+Codex Proxy; questionnaire facts, profile INI and PDF are excluded. See
+[architecture](ARCHITECTURE.md) and the [CLI skill](../.agents/skills/applier-cover-letter/SKILL.md).
+
+Verification: `python Applier/tests/test_cover_letter.py` after packaging exercises
+a temporary database and a fake Proxy response; it does not invoke a model or browser.
+
+Successful generations are appended to `cover_letters` in the configured database
+with `job_id` referencing `jobs.id`, full `letter_text`, and UTC `created_at`.
+Earlier letters are retained on repeat generation. Storage completes before the
+API returns or writes the optional file; storage failures are reported as errors.
+The idempotent migration is `Driver/db/migrations/044_cover_letters.sql`.

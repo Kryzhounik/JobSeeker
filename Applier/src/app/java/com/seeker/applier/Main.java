@@ -1,9 +1,7 @@
 package com.seeker.applier;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.seeker.codex.UsageLimitExceededException;
 
-import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -31,31 +29,19 @@ public final class Main {
             printHelp();
             return 0;
         }
-        if (args.length != 1) {
-            System.err.println(USAGE);
-            return 2;
-        }
-        try {
-            URI url = URI.create(args[0]);
-            if (!("http".equalsIgnoreCase(url.getScheme())
-                    || "https".equalsIgnoreCase(url.getScheme())) || url.getHost() == null) {
-                throw new IllegalArgumentException("Expected an absolute HTTP(S) vacancy URL.");
-            }
-        } catch (IllegalArgumentException invalidUrl) {
-            System.err.println("Invalid vacancy URL: " + invalidUrl.getMessage());
-            System.err.println(USAGE);
-            return 2;
-        }
-
         try {
             Path projectRoot = Path.of("").toAbsolutePath().normalize();
             if (!Files.isDirectory(projectRoot.resolve("Applier"))
                     || !Files.isDirectory(projectRoot.resolve("Driver"))) {
                 throw new IllegalStateException("Run Applier from the Seeker project root.");
             }
-            ApplierRunner.Result result = new ApplierRunner(projectRoot).run(args[0]);
-            System.out.println(new ObjectMapper().writeValueAsString(result));
+            String result = new ApplierCli(new ApplierApi(projectRoot)).handle(args);
+            System.out.write(result.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            System.out.write('\n');
             return 0;
+        } catch (IllegalArgumentException invalid) {
+            System.err.println(invalid.getMessage());
+            return 2;
         } catch (UsageLimitExceededException limit) {
             System.err.println("Codex usage limit: " + limit.getMessage());
             if (limit.getRetryAt() != null) System.err.println("Retry at: " + limit.getRetryAt());
