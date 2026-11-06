@@ -6,11 +6,8 @@ diagnosing, reviewing, or learning the project unless `collectorMode=agent` is
 the active mode or the user explicitly requests work on that deprecated
 collector. In every other mode, treat the directory as absent.
 
-`GUI/Tkinter/` is deprecated. Do not read, inspect, search, summarize, or use
-that directory unless the user explicitly requests work on that legacy GUI.
-For all other tasks, treat the directory as absent. `GUI/JavaFX/` is the
-current GUI. This restriction does not cover shared files directly under
-`GUI/`, such as `GUI/client_data.py`.
+`GUI/JavaFX/` is the GUI. Shared files such as `GUI/client_data.py` live directly
+under `GUI/`.
 
 The stop-after-each-item rule applies only to a formal staged implementation
 plan: a dedicated implementation-plan document or a plan explicitly agreed

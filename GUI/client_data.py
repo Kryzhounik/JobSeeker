@@ -1,4 +1,4 @@
-"""Database requests shared by the Tkinter and JavaFX clients.
+"""Database requests for the JavaFX client.
 
 Public functions accept a database path and simple values. Structured results
 are JSON strings so JavaFX can consume the same API through jpy without

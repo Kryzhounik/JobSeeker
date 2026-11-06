@@ -2,12 +2,10 @@
 
 ## Project context
 
-`GUI/JavaFX/` is the current GUI. `GUI/Tkinter/` is deprecated and must be
-treated as absent unless the user explicitly requests work on that legacy GUI.
+`GUI/JavaFX/` is the GUI.
 For existing behavior, inspect the JavaFX application and its README.
-Do not consult the legacy GUI as background context or infer current behavior
-from it. Ask the user if the expected behavior remains unclear. Shared files
-directly under `GUI/`, such as `client_data.py`, are not part of this restriction.
+Ask the user if the expected behavior remains unclear. Shared client-data code
+lives directly under `GUI/`, in `client_data.py`.
 
 1. Use a simple MVC approach and keep responsibilities separate.
 
