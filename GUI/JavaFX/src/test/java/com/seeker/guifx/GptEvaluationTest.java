@@ -1,6 +1,8 @@
 package com.seeker.guifx;
 
 import com.seeker.chatevaluator.GptEvaluation;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import javafx.application.Platform;
 import javafx.css.PseudoClass;
@@ -15,14 +17,15 @@ import java.io.IOException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
-public final class GptEvaluationSmoke {
-    public static void main(String[] args) throws Exception {
+class GptEvaluationTest {
+    @Test
+    void answerAndErrorsStayInThePanel() throws Exception {
         String answer = "Полный ответ\n\n" + "Java — подходит.\n".repeat(1000);
         GptEvaluation.Result result = new GptEvaluation.Result(42, answer, "2026-10-22T14:00:00Z");
         GptEvaluation.Result loaded = ClientData.readResponse("""
                 {"job_id":42,"answer":"Полный ответ\\nJava", "evaluated_at":"2026-10-22T14:00:00Z"}
                 """, GptEvaluation.Result.class);
-        check(loaded.jobId() == 42 && loaded.answer().equals("Полный ответ\nJava")
+        assertTrue(loaded.jobId() == 42 && loaded.answer().equals("Полный ответ\nJava")
                         && loaded.evaluatedAt().equals("2026-10-22T14:00:00Z"),
                 "Saved evaluation JSON was not mapped for ID-based reading");
 
@@ -46,20 +49,20 @@ public final class GptEvaluationSmoke {
                 TextArea errorArea = (TextArea) overlay.lookup("#chatEvaluationError");
                 ToggleButton badge = (ToggleButton) ((HBox) docks.getChildren().getFirst()).getChildren().getFirst();
                 state(badge, "running");
-                check(url.getText().equals("https://example.com/42"), "Panel lost original URL");
+                assertTrue(url.getText().equals("https://example.com/42"), "Panel lost original URL");
                 pane.complete(result);
                 state(badge, "completed");
-                check(answerArea.getText().equals(answer), "Full answer is not displayed in the panel");
+                assertTrue(answerArea.getText().equals(answer), "Full answer is not displayed in the panel");
                 pane.begin("https://example.com/43");
                 state(badge, "running");
                 pane.fail(new GptEvaluation.SaveException(answer, storageError));
                 state(badge, "failed");
-                check(answerArea.getText().equals(answer) && errorArea.getText().contains("disk full"),
+                assertTrue(answerArea.getText().equals(answer) && errorArea.getText().contains("disk full"),
                         "Storage failure did not retain the answer and error together");
                 pane.begin("https://example.com/44");
                 pane.fail(evaluationError);
                 state(badge, "failed");
-                check(answerArea.getText().isEmpty() && errorArea.getText().contains("evaluation failed"),
+                assertTrue(answerArea.getText().isEmpty() && errorArea.getText().contains("evaluation failed"),
                         "Evaluation failure did not replace the old result");
                 return null;
             });
@@ -68,15 +71,11 @@ public final class GptEvaluationSmoke {
         } finally {
             Platform.exit();
         }
-        System.out.println("GPT evaluation execution and progress checks OK");
     }
 
     private static void state(ToggleButton badge, String value) {
-        check(badge.getPseudoClassStates().contains(PseudoClass.getPseudoClass(value)),
+        assertTrue(badge.getPseudoClassStates().contains(PseudoClass.getPseudoClass(value)),
                 "Missing state: " + value);
     }
 
-    private static void check(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
-    }
 }

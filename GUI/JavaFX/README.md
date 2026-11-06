@@ -12,6 +12,8 @@ Nullable database IDs and Fit stay nullable, while nullable display strings
 are normalized to empty strings. `ClientDataContractsTest` checks these
 contracts without starting Python, opening windows, or accessing a database.
 It and `CollectorProgressTest` run under JUnit with `mvn test`.
+`GptEvaluationTest` and `SpringContextTest` also run there, checking the answer
+panel and application context lifecycle without external operations.
 Job-list requests use `JobFilters` with six typed fields; the adapter alone
 maps their Java names to Python JSON keys. Company updates have separate
 LinkedIn ID, priority, and blacklist methods, so UI handlers do not choose

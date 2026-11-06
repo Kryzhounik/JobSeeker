@@ -3,24 +3,25 @@ package com.seeker.guifx;
 import com.seeker.api.DriverApi;
 import com.seeker.easyreasoning.EasyReasoningConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 /** Checks the real application lifecycle without opening windows or starting Python. */
-public final class SpringContextSmoke {
-    public static void main(String[] args) throws Exception {
+class SpringContextTest {
+    @Test
+    void applicationInitializesAndClosesContext() throws Exception {
         var application = new SeekerApplication();
         application.init();
         var field = SeekerApplication.class.getDeclaredField("context");
         field.setAccessible(true);
         var context = (ConfigurableApplicationContext) field.get(application);
         try {
-            if (!context.isActive() || context.getBean(DriverApi.class) == null
-                    || context.getBean(EasyReasoningConfiguration.class) == null) {
-                throw new AssertionError("Application context was not initialized");
-            }
+            assertTrue(context.isActive(), "Application context was not initialized");
+            assertNotNull(context.getBean(DriverApi.class));
+            assertNotNull(context.getBean(EasyReasoningConfiguration.class));
         } finally {
             application.stop();
         }
-        if (context.isActive()) throw new AssertionError("Application context was not closed");
-        System.out.println("Application Spring context initialization and shutdown OK");
+        assertFalse(context.isActive(), "Application context was not closed");
     }
 }
