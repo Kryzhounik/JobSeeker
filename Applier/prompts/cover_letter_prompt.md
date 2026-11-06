@@ -25,7 +25,7 @@ Do not depend on conversation history, general knowledge about this particular c
 
 ## Writing process
 
-1. Identify the **two to four most important job requirements** that the candidate actually meets or can substantiate with directly relevant experience.
+1. First identify the role’s two or three central responsibilities and priorities. Then select the strongest supported connections to the candidate’s experience.
 2. Find **one or two specific projects or contributions** from the resume or candidate context that best demonstrate those requirements. Use concrete details where available, but no invented outcomes.
 3. Decide whether AI coding agents, JobSeeker, domain knowledge, or technical leadership genuinely matter for this vacancy. Include only what strengthens the application.
 4. Write the letter around the strongest match, not around an exhaustive list of technologies.
