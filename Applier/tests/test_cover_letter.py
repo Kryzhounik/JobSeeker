@@ -44,7 +44,8 @@ args=sys.argv[1:]
 get=lambda key: args[args.index(key)+1]
 contexts=[args[i+1] for i,x in enumerate(args) if x=='--context']
 assert [Path(p).name for p in contexts]==['resume.txt','candidate_context.md']
-assert '--allow-browser-tools' not in args and '--model' not in args and '--reasoning-effort' not in args
+assert '--allow-browser-tools' not in args and '--model' not in args
+assert get('--reasoning-effort')=='xhigh'
 assert '--json-result' in args and get('--target')=='42'
 assert Path(get('--db')).is_absolute()
 assert Path(get('--db')) == (Path.cwd()/'Data/custom jobs.sqlite')

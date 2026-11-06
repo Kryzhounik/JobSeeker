@@ -34,6 +34,7 @@ public final class CoverLetterWriter {
             String response = CodexClient.call(List.of(python, root.resolve("Driver/codex_proxy/metrics_proxy.py").toString(),
                     "--run-id", "cover-letter-" + Instant.now().toEpochMilli(),
                     "--operation", "cover_letter", "--target", Long.toString(jobId),
+                    "--reasoning-effort", "xhigh",
                     "--db", database.toString(),
                     "--instruction", root.resolve("Applier/prompts/cover_letter_prompt.md").toString(),
                     "--input", input.toString(),
