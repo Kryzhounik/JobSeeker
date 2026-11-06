@@ -811,7 +811,7 @@ public final class MainController {
             dateFilterField.setDisable(false);
             reasonFilterField.setDisable(false);
             statusLabel.setText(task.getValue().size() + " vacancies");
-            JobRecord restore = task.getValue().stream()
+            JobRecord restore = jobsTable.getItems().stream()
                     .filter(row -> row.jobId() == (requestedFocusId < 0
                             ? selectedId : requestedFocusId))
                     .findFirst()
@@ -823,7 +823,8 @@ public final class MainController {
                 clearDetail();
                 statusLabel.setText("Vacancy " + requestedFocusId + " not found in the table");
             } else if (!jobsTable.getItems().isEmpty()) {
-                jobsTable.getSelectionModel().selectFirst();
+                jobsTable.getItems().stream().filter(row -> row.contextForJobId() == null)
+                        .findFirst().ifPresent(row -> jobsTable.getSelectionModel().select(row));
             } else {
                 clearDetail();
             }
@@ -1009,7 +1010,16 @@ public final class MainController {
             }
         });
         bind(titleColumn, JobRecord::title);
-        TitleTextCell.install(titleColumn, this::addTitleToBlacklist);
+        TitleTextCell.install(titleColumn, this::addTitleToBlacklist, row -> row.duplicateParent() != null);
+        jobsTable.setRowFactory(table -> new javafx.scene.control.TableRow<>() {
+            @Override protected void updateItem(JobRecord job, boolean empty) {
+                super.updateItem(job, empty);
+                pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("duplicate-parent"),
+                        !empty && job != null && job.contextForJobId() != null);
+                setTooltip(!empty && job != null && job.contextForJobId() != null
+                        ? new Tooltip("Referenced by the duplicate below; shown regardless of filters") : null);
+            }
+        });
         bind(roleColumn, JobRecord::role);
         bind(seniorityColumn, JobRecord::seniority);
         bind(languageColumn, JobRecord::language);
@@ -1087,9 +1097,11 @@ public final class MainController {
                 javafx.scene.control.SelectionMode.MULTIPLE
         );
         jobsTable.setSortPolicy(table -> {
-            boolean sorted = TableView.DEFAULT_SORT_POLICY.call(table);
+            List<JobRecord> selected = List.copyOf(table.getSelectionModel().getSelectedItems());
+            table.getItems().setAll(JobRows.sorted(table.getItems(), table.getComparator()));
+            for (JobRecord row : selected) table.getSelectionModel().select(row);
             saveJobSort();
-            return sorted;
+            return true;
         });
     }
 
@@ -1145,19 +1157,9 @@ public final class MainController {
                     job.role(), job.seniority(), job.language(), job.salary(),
                     job.addedAt(), job.reasonCode(), job.reason(), job.companyId(),
                     job.applicationId(),
-                    job.sourceUrl(), job.easyApply()
+                    job.sourceUrl(), job.easyApply(), job.duplicateParent(), job.contextForJobId()
             );
-            for (int index = 0; index < jobsTable.getItems().size(); index++) {
-                if (jobsTable.getItems().get(index).jobId() == job.jobId()) {
-                    if (score == 0 && !showZeroCheck.isSelected()) {
-                        refreshJobs();
-                    } else {
-                        jobsTable.getItems().set(index, updated);
-                        jobsTable.sort();
-                    }
-                    break;
-                }
-            }
+            refreshJobs();
             if (selectedJob != null
                     && selectedJob.jobId() == job.jobId()) {
                 selectedJob = updated;

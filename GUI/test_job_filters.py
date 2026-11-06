@@ -17,10 +17,10 @@ class JobFiltersTest(unittest.TestCase):
         self.connection.executescript("""
             CREATE TABLE source_jobs (
                 id INTEGER PRIMARY KEY, source_job_id TEXT,
-                availability TEXT, unavailable_checks INTEGER DEFAULT 0
+                availability TEXT, unavailable_checks INTEGER DEFAULT 0, semantic_duplicate_of INTEGER
             );
             CREATE TABLE source_job_texts (
-                source_job_ref INTEGER, easy_apply INTEGER, company_id INTEGER
+                source_job_ref INTEGER, easy_apply INTEGER, company_id INTEGER, source_url TEXT
             );
             CREATE TABLE jobs (
                 id INTEGER PRIMARY KEY, source_job_ref INTEGER,
@@ -61,6 +61,17 @@ class JobFiltersTest(unittest.TestCase):
 
     def test_no_selected_statuses_returns_no_jobs(self):
         self.assertEqual(set(), self.load_ids([], True))
+
+    def test_duplicate_parent_ignores_child_filters(self):
+        self.connection.execute("UPDATE source_jobs SET semantic_duplicate_of = 2 WHERE id = 1")
+        with patch.object(client_data, "_connection", return_value=nullcontext(self.connection)):
+            rows = json.loads(client_data.load_jobs("unused.sqlite", json.dumps({
+                "statuses": ["New"], "show_unavailable": False, "show_zero": True,
+                "id_query": "1",
+            })))
+        self.assertEqual([1], [row["job_id"] for row in rows])
+        self.assertEqual(2, rows[0]["duplicate_parent"]["job_id"])
+        self.assertEqual("Closed", rows[0]["duplicate_parent"]["status"])
 
 
 if __name__ == "__main__":

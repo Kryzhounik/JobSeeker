@@ -21,5 +21,13 @@ record JobRecord(
         String companyId,
         String applicationId,
         String sourceUrl,
-        boolean easyApply
-) { }
+        boolean easyApply,
+        JobRecord duplicateParent,
+        Integer contextForJobId
+) {
+    JobRecord asParentFor(int childId) {
+        return new JobRecord(jobId, score, fit, interest, status, remoteScope, relocation,
+                location, companyDisplay, title, role, seniority, language, salary, addedAt,
+                reasonCode, reason, companyId, applicationId, sourceUrl, easyApply, null, childId);
+    }
+}

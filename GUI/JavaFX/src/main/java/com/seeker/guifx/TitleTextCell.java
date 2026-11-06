@@ -16,10 +16,16 @@ import java.util.function.Consumer;
 final class TitleTextCell<S> extends TableCell<S, String> {
     private final TextField textField = new TextField();
     private final Consumer<String> addToBlacklist;
+    private final java.util.function.Predicate<S> indented;
     private String contextSelection = "";
 
     private TitleTextCell(Consumer<String> addToBlacklist) {
+        this(addToBlacklist, row -> false);
+    }
+
+    private TitleTextCell(Consumer<String> addToBlacklist, java.util.function.Predicate<S> indented) {
         this.addToBlacklist = addToBlacklist;
+        this.indented = indented;
         textField.setEditable(false);
         textField.setFocusTraversable(true);
         textField.getStyleClass().addAll("copyable-cell", "title-text-cell");
@@ -57,6 +63,11 @@ final class TitleTextCell<S> extends TableCell<S, String> {
         column.setCellFactory(ignored -> new TitleTextCell<>(addToBlacklist));
     }
 
+    static <S> void install(TableColumn<S, String> column, Consumer<String> addToBlacklist,
+                            java.util.function.Predicate<S> indented) {
+        column.setCellFactory(ignored -> new TitleTextCell<>(addToBlacklist, indented));
+    }
+
     static boolean isTitleTarget(Object target) {
         if (!(target instanceof Node node)) return false;
         while (node != null) {
@@ -73,7 +84,16 @@ final class TitleTextCell<S> extends TableCell<S, String> {
             setGraphic(null);
         } else {
             textField.setText(value == null ? "" : value);
-            setGraphic(textField);
+            S row = getTableRow() == null ? null : getTableRow().getItem();
+            boolean duplicate = row != null && indented.test(row);
+            setPadding(new Insets(0, 4, 0, duplicate ? 20 : 4));
+            if (duplicate) {
+                javafx.scene.control.Label marker = new javafx.scene.control.Label("\u21b3");
+                marker.setTooltip(new javafx.scene.control.Tooltip("Duplicate of the vacancy above"));
+                setGraphic(new javafx.scene.layout.HBox(5, marker, textField));
+            } else {
+                setGraphic(textField);
+            }
         }
     }
 }

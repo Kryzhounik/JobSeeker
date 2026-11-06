@@ -147,12 +147,18 @@ final class ClientData {
         JsonNode rows = readJson(call("load_jobs", databasePath.toString(), filterJson));
         List<JobRecord> jobs = new ArrayList<>();
         for (JsonNode row : rows) {
+            jobs.add(readJob(row));
+        }
+        return jobs;
+    }
+
+    private static JobRecord readJob(JsonNode row) {
             String company = text(row, "company");
             int applicationCount = integer(row, "company_application_count");
             String companyDisplay = applicationCount > 0
                     ? company + " (" + applicationCount + ")"
                     : company;
-            jobs.add(new JobRecord(
+            return new JobRecord(
                     row.path("job_id").asInt(),
                     text(row, "score"), text(row, "fit"), text(row, "interest"),
                     text(row, "status"), text(row, "remote_scope"),
@@ -162,10 +168,10 @@ final class ClientData {
                     text(row, "added_at"), text(row, "candidate_fit_reason_code"),
                     text(row, "candidate_fit_reason"), text(row, "company_id"),
                     text(row, "application_id"),
-                    text(row, "source_url"), row.path("easy_apply").asInt() == 1
-            ));
-        }
-        return jobs;
+                    text(row, "source_url"), row.path("easy_apply").asInt() == 1,
+                    row.path("duplicate_parent").isObject() ? readJob(row.get("duplicate_parent")) : null,
+                    null
+            );
     }
 
     synchronized int saveScores(int jobId, int fit, int interest) {

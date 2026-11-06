@@ -195,10 +195,10 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
 
     where_sql = "WHERE " + " AND ".join(where_parts)
     with _connection(db_path, readonly=True) as connection:
-        rows = connection.execute(
-            f"""
+        query = """
             SELECT
                 j.id AS job_id,
+                parent_job.id AS duplicate_parent_id,
                 jl.score,
                 jl.fit,
                 jl.interest,
@@ -228,6 +228,7 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
             FROM job_list jl
             JOIN jobs j ON j.id = jl.job_id
             JOIN source_jobs sj ON sj.id = j.source_job_ref
+            LEFT JOIN jobs parent_job ON parent_job.source_job_ref = sj.semantic_duplicate_of
             LEFT JOIN source_job_texts text
                 ON text.source_job_ref = j.source_job_ref
             LEFT JOIN applications a ON a.job_id = j.id
@@ -243,11 +244,18 @@ def load_jobs(db_path: str | Path, filters_json: str) -> str:
                 WHERE company_text.company_id IS NOT NULL
                 GROUP BY company_text.company_id
             ) company_apps ON company_apps.company_id = text.company_id
-            {where_sql}
-            """,
-            parameters,
-        ).fetchall()
-    return _json(_rows_as_dicts(rows))
+            """
+        rows = _rows_as_dicts(connection.execute(query + " " + where_sql, parameters).fetchall())
+        parent_ids = list({row["duplicate_parent_id"] for row in rows if row["duplicate_parent_id"] is not None})
+        parents = {}
+        if parent_ids:
+            placeholders = ",".join("?" for _ in parent_ids)
+            parents = {row["job_id"]: dict(row) for row in connection.execute(
+                query + f" WHERE j.id IN ({placeholders})", parent_ids
+            ).fetchall()}
+        for row in rows:
+            row["duplicate_parent"] = parents.get(row["duplicate_parent_id"])
+    return _json(rows)
 
 
 def load_job_detail(db_path: str | Path, source_url: str | int) -> str:

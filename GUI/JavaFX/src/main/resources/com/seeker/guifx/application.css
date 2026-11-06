@@ -157,6 +157,11 @@
     -fx-text-fill: white;
 }
 
+.table-row-cell:duplicate-parent {
+    -fx-border-color: #9ba2a6 transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+
 .table-row-cell:selected .filter-link-cell {
     -fx-text-fill: white;
 }

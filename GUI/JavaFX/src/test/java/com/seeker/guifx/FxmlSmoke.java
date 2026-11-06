@@ -67,6 +67,7 @@ public final class FxmlSmoke {
                     throw new AssertionError("Toolbar order or Batch action/style changed");
                 }
                 checkApplyIsolation(loader);
+                checkDuplicateTitles();
             } catch (Throwable error) {
                 failure.set(error);
             } finally {
@@ -117,5 +118,32 @@ public final class FxmlSmoke {
         var field = MainController.class.getDeclaredField(name);
         field.setAccessible(true);
         field.set(controller, value);
+    }
+
+    private static void checkDuplicateTitles() throws Exception {
+        var table = new javafx.scene.control.TableView<JobRecord>();
+        var title = new javafx.scene.control.TableColumn<JobRecord, String>("Title");
+        title.setPrefWidth(350);
+        title.setCellValueFactory(value -> new javafx.beans.property.ReadOnlyStringWrapper(value.getValue().title()));
+        TitleTextCell.install(title, value -> { }, row -> row.duplicateParent() != null);
+        table.getColumns().add(title);
+        var child = ClientData.readResponse("""
+                {"job_id":1,"title":"Duplicate","duplicate_parent":{"job_id":2,"title":"Parent"}}
+                """, JobRecord.class);
+        table.getItems().setAll(JobRows.sorted(java.util.List.of(child), null));
+        var root = new javafx.scene.layout.StackPane(table);
+        new javafx.scene.Scene(root, 400, 240);
+        root.resize(400, 240);
+        root.applyCss();
+        root.layout();
+        var fields = root.lookupAll(".title-text-cell").stream()
+                .map(javafx.scene.control.TextField.class::cast).toList();
+        var parentField = fields.stream().filter(field -> field.getText().equals("Parent")).findFirst().orElseThrow();
+        var childField = fields.stream().filter(field -> field.getText().equals("Duplicate")).findFirst().orElseThrow();
+        if (childField.localToScene(0, 0).getX() <= parentField.localToScene(0, 0).getX()
+                || root.lookupAll(".label").stream().noneMatch(node ->
+                        node instanceof javafx.scene.control.Label label && label.getText().equals("\u21b3"))) {
+            throw new AssertionError("Duplicate title has no visible indentation/marker");
+        }
     }
 }

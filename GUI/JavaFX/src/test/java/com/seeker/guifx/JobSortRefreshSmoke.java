@@ -71,6 +71,7 @@ public final class JobSortRefreshSmoke {
         }
         int previous = Integer.MAX_VALUE;
         for (JobRecord row : jobs.getItems()) {
+            if (row.contextForJobId() != null) continue;
             int score = Integer.parseInt(row.score());
             if (score > previous) {
                 throw new AssertionError("Scores out of order: " + previous + ", " + score);
