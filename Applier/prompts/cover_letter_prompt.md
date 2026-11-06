@@ -48,8 +48,9 @@ Do not depend on conversation history, general knowledge about this particular c
 - Prefer simple, precise constructions over elaborate or overly polished marketing language.
 - No flattery, inflated enthusiasm, generic corporate jargon, or unsupported claims of being a perfect fit.
 - Avoid phrases such as "I am thrilled to apply," "your prestigious company," "cutting-edge synergies," or "I am uniquely qualified."
+- Open with the strongest concrete connection between the candidate’s experience and the role. Avoid an opening that merely announces the application.
 - Target **170–230 words**, but shorter is fine when the evidence is limited.
-- Usually write **3–5 short paragraphs**: introduction, strongest engineering evidence, other relevant advantage, and brief closing.
+- Usually write 3–5 short paragraphs: a concrete opening connection, supporting engineering evidence, and a brief closing. Add a separate paragraph for another relevant advantage only if it strengthens the letter.
 - Do not make up a personal reason for admiring the employer. Genuine interest may be expressed in terms of the work described.
 
 ## Final quality check
