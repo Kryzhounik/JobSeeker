@@ -231,18 +231,18 @@ Human-language requirement extraction is a separate, conservative module:
 ```text
 Driver/collector/filtering/language_requirements.py
 Driver/collector/filtering/language_rules.py
-Driver/collector/filtering/linkedin_language_filter.ini
+Driver/analyzer/config/language_levels.ini
 Driver/collector/filtering/rule_loader.py
 ```
 
-`VacancyFilter.filter_text()` calls this module and compares only confidently
-extracted `language + CEFR level` requirements with
+`VacancyFilter.filter_text()` calls this module and compares extracted CEFR
+requirements or lower bounds of recognized wording with
 `Driver/analyzer/config/resume.ini`. Language names, localized aliases, and all
 regex templates are code-owned rules in `language_rules.py`; they are parser
-logic, not configuration. `linkedin_language_filter.ini` contains only the
-adjustable interpretation table, such as `fluent = C1`, `good = B2`, and
-`required = B1`, plus common textual aliases for CEFR levels. Changing a level
-there recalibrates an already recognized wording class without changing what
+logic, not configuration. `analyzer/config/language_levels.ini` contains the
+shared range table and textual level aliases. The script uses lower bounds;
+the job-facts agent receives the same file and selects within its ranges.
+Changing a range recalibrates a recognized wording class without changing what
 text the parser recognizes. Every new Refilter or collector operation reads
 both files and compiles one extractor for the whole operation. Consequently,
 changes to either file are picked up without restarting the GUI; there is no

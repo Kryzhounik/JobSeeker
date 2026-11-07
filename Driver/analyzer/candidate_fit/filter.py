@@ -30,8 +30,6 @@ LANGUAGE_RANKS = {
     "b2": 4,
     "c1": 5,
     "c2": 6,
-    "native": 6,
-    "fluent": 6,
 }
 NO_VALUES = {"", "no", "none", "unknown", "n/a", "-"}
 UNKNOWN_RELOCATION_VALUES = {"yes", "unknown", "unspecified", "not specified"}

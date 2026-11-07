@@ -212,10 +212,14 @@ IMPLIED_LEVEL_TEMPLATES: dict[str, tuple[str, ...]] = {
         r"\b(?:written\s+and\s+verbal|verbal\s+and\s+written)\s+communication\s+in\s+{language}\b",
     ),
     "good": (
-        r"\b(?:good|very\s+good)\s+(?:(?:spoken|written|verbal|oral|business)(?:\s+and\s+(?:spoken|written|verbal|oral))?\s+)?{language}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
-        r"\b(?:good|very\s+good)\s+command\s+of\s+{language}\b",
+        r"\bgood\s+(?:(?:spoken|written|verbal|oral|business)(?:\s+and\s+(?:spoken|written|verbal|oral))?\s+)?{language}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
+        r"\bgood\s+command\s+of\s+{language}\b",
         r"\bgood\s+(?:(?:written|verbal|spoken|oral)(?:\s+and\s+(?:written|verbal|spoken|oral))?\s+)?communication\s+skills?\s+in\s+{language}\b",
         r"\bgood\s+knowledge\s+of\s+(?:the\s+)?{language}(?:\s+language)?\b",
+    ),
+    "very_good": (
+        r"\bvery\s+good\s+(?:(?:spoken|written|verbal|oral|business)(?:\s+and\s+(?:spoken|written|verbal|oral))?\s+)?{language}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
+        r"\bvery\s+good\s+command\s+of\s+{language}\b",
         r"\bbardzo\s+dobr(?:a|y|e)\s+znajomość\s+(?:języka\s+)?{language}\b",
     ),
     "strong": (
@@ -232,6 +236,9 @@ IMPLIED_LEVEL_TEMPLATES: dict[str, tuple[str, ...]] = {
     ),
     "professional": (
         r"\b(?:professional|working)\s+(?:level|proficiency)\s+(?:of|in)\s+{language}\b",
+    ),
+    "full_professional_proficiency": (
+        r"\bfull\s+professional\s+proficiency\s+in\s+{language}\b",
     ),
     "advanced": (
         r"\badvanced\s+proficiency\s+in\s+{language}",
@@ -258,9 +265,10 @@ IMPLIED_LEVEL_TEMPLATES: dict[str, tuple[str, ...]] = {
         r"\bexcellent\s+(?:verbal\s+and\s+written\s+)?communication\s+skills\s+in\s+{language}\b",
     ),
     "native": (
-        r"\bnative\s+or\s+near-native\s+{language}(?:\s+proficiency)?\b",
+        r"(?<!near-)\bnative\s+{language}(?:\s+proficiency)?\b",
+    ),
+    "near_native": (
         r"\bnear-native\s+{language}(?:\s+proficiency)?\b",
-        r"\bnative\s+{language}(?:\s+proficiency)?\b",
     ),
     "bilingual": (r"\bbilingual\s+{language}(?:\s+proficiency)?\b",),
 }
@@ -271,8 +279,12 @@ IMPLIED_LEVEL_LANGUAGE_LIST_TEMPLATES: dict[str, tuple[str, ...]] = {
         r"\bcommunicative\s+{languages}\b",
     ),
     "good": (
-        r"\b(?:good|very\s+good)\s+command\s+of\s+{languages}\b",
-        r"\b(?:good|very\s+good)\s+{languages}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
+        r"\bgood\s+command\s+of\s+{languages}\b",
+        r"\bgood\s+{languages}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
+    ),
+    "very_good": (
+        r"\bvery\s+good\s+command\s+of\s+{languages}\b",
+        r"\bvery\s+good\s+{languages}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
     ),
     "strong": (
         r"\bstrong\s+command\s+of\s+{languages}\b",
@@ -290,8 +302,8 @@ IMPLIED_LEVEL_LANGUAGE_LIST_TEMPLATES: dict[str, tuple[str, ...]] = {
     "excellent": (
         r"\bexcellent\s+{languages}(?:\s+(?:communication|language))?(?:\s+skills?)?\b",
     ),
-    "native": (
-        r"\bnative\s+or\s+near-native\s+{languages}(?:\s+proficiency)?\b",
+    "near_native": (
+        r"\bnear-native\s+{languages}(?:\s+proficiency)?\b",
     ),
 }
 

@@ -24,6 +24,7 @@ from analyzer.candidate_fit.filter import default_resume_path
 from analyzer.candidate_fit.filter import evaluate_required_languages
 from analyzer.candidate_fit.filter import load_resume
 from collector.filtering.language_requirements import (
+    DEFAULT_LANGUAGE_CONFIG,
     load_language_requirement_extractor,
 )
 from collector.filtering.rule_loader import load_rule_module
@@ -42,7 +43,6 @@ from linkedin_logger import record_preview_filter
 
 DEFAULT_PREVIEW_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
 DEFAULT_CONTENT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
-DEFAULT_LANGUAGE_CONFIG = Path(__file__).with_name("linkedin_language_filter.ini")
 DEFAULT_TECHNOLOGY_RULES = Path(__file__).with_name("technology_rules.py")
 DEFAULT_RESUME_CONFIG = default_resume_path()
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"

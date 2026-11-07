@@ -22,9 +22,68 @@ from db.migrate import migrate_database
 from db.readable_text import save_collected_job
 from db.save import save_records
 from collector.logging.linkedin_run_logger import start_collection_run, finish_collection_run
+from test.test_json_validation import valid_analysis
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    @patch("orchestrator.python_bridge.migrate_database")
+    @patch("orchestrator.python_bridge.load_job_facts_input")
+    @patch("orchestrator.python_bridge.run")
+    def test_exact_cefr_conflict_stops_before_persistence(self, proxy_run, load_input, migrate) -> None:
+        load_input.return_value = {
+            "readable_text": "English: C1",
+            "script_language_facts": [{
+                "name": "English", "level": "C1", "level_rank": 5,
+                "raw_value": "English: C1", "exact": True,
+            }],
+        }
+        for languages in (
+            [{"name": "English", "level": "B2", "level_rank": 4, "raw_value": "English: C1"}],
+            [{"name": "English", "level": "C1", "level_rank": 4, "raw_value": "English: C1"}],
+            [],
+        ):
+            with self.subTest(languages=languages), tempfile.TemporaryDirectory() as directory:
+                analysis = valid_analysis()
+                analysis["languages"] = languages
+                proxy_run.return_value = Result(
+                    ["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, [],
+                )
+                with patch.object(python_bridge, "DATA_ROOT", Path(directory)):
+                    with self.assertRaisesRegex(ValueError, "CEFR conflict for linkedin:123"):
+                        python_bridge.run_job_facts("run-1", "linkedin", "123", "facts", None, "unused.sqlite")
+                self.assertFalse((Path(directory) / "analyzed").exists())
+        migrate.assert_not_called()
+
+    @patch("orchestrator.python_bridge.run")
+    def test_agent_can_raise_inexact_script_level(self, proxy_run) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "jobs.sqlite"
+            migrate_database(database)
+            with closing(sqlite3.connect(database)) as connection:
+                insert_source_job(connection, "linkedin", "123")
+                save_collected_job(
+                    connection, "linkedin", "123", "Fluent English",
+                    source_url="https://www.linkedin.com/jobs/view/123/", title="Java Developer",
+                )
+                connection.commit()
+            analysis = valid_analysis()
+            analysis["languages"] = [{
+                "name": "English", "level": "C1", "level_rank": 5, "raw_value": "Fluent English",
+            }]
+            proxy_run.return_value = Result(
+                ["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, [],
+            )
+            with patch.object(python_bridge, "DATA_ROOT", root):
+                python_bridge.run_job_facts("run-1", "linkedin", "123", "facts", None, str(database))
+                python_bridge.run_candidate_fit("run-1", "linkedin", "123", "fit", None, str(database))
+            self.assertEqual(proxy_run.call_count, 1)
+            self.assertEqual(json.loads(proxy_run.call_args.kwargs["input_text"]), {"readable_text": "Fluent English"})
+            saved = json.loads((root / "analyzed/linkedin/123.json").read_text(encoding="utf-8"))
+            self.assertEqual(saved["languages"], analysis["languages"])
+            scored = json.loads((root / "scored/linkedin/123.json").read_text(encoding="utf-8"))
+            self.assertEqual((scored["candidate_fit_percent"], scored["candidate_fit_reason_code"]), (0, "lang"))
+
     def test_start_analysis_records_effective_parallelism(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
@@ -59,7 +118,8 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 "remote_type": "remote", "remote_scope": "Moldova",
                 "relocation": "NO", "seniority": "senior", "role": "backend",
                 "salary": "", "summary": "Java backend role", "notes": "",
-                "languages": [], "technologies": [],
+                "languages": [{"name": "English", "level": "B2", "level_rank": 4, "raw_value": "English B2"}],
+                "technologies": [],
             }
             fit = {
                 "candidate_fit_percent": 80, "candidate_fit_reason_code": "ok",
@@ -75,9 +135,11 @@ class OrchestratorBridgeTest(unittest.TestCase):
                     "run-1", "linkedin", "123", "facts", None, str(database),
                 ))
                 request = json.loads(proxy_run.call_args.kwargs["input_text"])
-                self.assertEqual(set(request), {"readable_text", "authoritative_language_facts"})
+                self.assertEqual(set(request), {"readable_text"})
                 self.assertEqual(request["readable_text"], body)
-                self.assertEqual(request["authoritative_language_facts"][0]["level"], "B2")
+                self.assertEqual(proxy_run.call_args.kwargs["context_paths"], (
+                    DRIVER_ROOT / "analyzer/config/language_levels.ini",
+                ))
                 self.assertEqual("fit-thread", python_bridge.run_candidate_fit(
                     "run-1", "linkedin", "123", "fit", "fit-thread", str(database),
                 ))

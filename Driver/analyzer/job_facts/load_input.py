@@ -14,15 +14,11 @@ DRIVER_ROOT = Path(__file__).resolve().parents[2]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
+from collector.filtering.language_requirements import DEFAULT_LANGUAGE_CONFIG
 from collector.filtering.language_requirements import extract_language_requirements
 from common.paths import DATA_ROOT
 from db.migrate import migrate_database
 from db.readable_text import load_readable_text
-
-
-LANGUAGE_CONFIG = (
-    DRIVER_ROOT / "collector" / "filtering" / "linkedin_language_filter.ini"
-)
 
 
 def load_input(
@@ -41,11 +37,11 @@ def load_input(
     readable = "".join(lines).lstrip("\r\n")
     language_facts = [
         requirement.as_filter_row()
-        for requirement in extract_language_requirements(readable, LANGUAGE_CONFIG)
+        for requirement in extract_language_requirements(readable, DEFAULT_LANGUAGE_CONFIG)
     ]
     return {
         "readable_text": readable,
-        "authoritative_language_facts": language_facts,
+        "script_language_facts": language_facts,
     }
 
 

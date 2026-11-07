@@ -19,6 +19,7 @@ from analyzer.candidate_fit.filter import filter_json_file
 from analyzer.job_facts.load_input import load_input as load_job_facts_input
 from analyzer.job_interest.calculate import score_json_files
 from analyzer.run_logger import start_analysis_run
+from collector.filtering.language_requirements import DEFAULT_LANGUAGE_CONFIG
 from codex_proxy.metrics_proxy import run
 from common.paths import DATA_ROOT
 from contracts.validate_json import validate_json
@@ -148,10 +149,10 @@ def run_job_facts(
         operation="job_facts",
         target=target,
         instruction_path=DRIVER_ROOT / "analyzer" / "job_facts" / "extract.md",
-        input_text=_json(input_value),
+        input_text=_json({"readable_text": input_value["readable_text"]}),
         input_name=f"{source}-{job_id}.json",
         context_paths=(
-            DRIVER_ROOT / "analyzer" / "job_facts" / "language_levels.md",
+            DEFAULT_LANGUAGE_CONFIG,
         ),
         output_schema=schema,
         db_path=database,
@@ -163,6 +164,24 @@ def run_job_facts(
 
     analysis = json.loads(result.final_message)
     validate_json(analysis, schema)
+    languages = {row["name"].strip().casefold(): row for row in analysis["languages"]}
+    for fact in input_value["script_language_facts"]:
+        if not fact["exact"]:
+            continue
+        observed = languages.get(fact["name"].casefold())
+        if (
+            observed is None
+            or observed["level"].strip().upper() != fact["level"]
+            or observed["level_rank"] != fact["level_rank"]
+        ):
+            actual = (
+                "missing" if observed is None
+                else f"{observed['level']} / rank {observed['level_rank']}"
+            )
+            raise ValueError(
+                f"CEFR conflict for {source}:{job_id} ({fact['name']}): "
+                f"script {fact['level']} / rank {fact['level_rank']}, agent {actual}"
+            )
 
     migrate_database(database)
     output_path = DATA_ROOT / "analyzed" / source / f"{job_id}.json"

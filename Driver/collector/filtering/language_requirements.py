@@ -19,6 +19,7 @@ from collector.filtering.rule_loader import load_rule_module
 
 
 DEFAULT_LANGUAGE_RULES = Path(__file__).with_name("language_rules.py")
+DEFAULT_LANGUAGE_CONFIG = DRIVER_ROOT / "analyzer" / "config" / "language_levels.ini"
 REQUIRED_RULE_NAMES = (
     "LANGUAGE_ALIASES",
     "CEFR_LEVELS",
@@ -40,6 +41,7 @@ class LanguageRequirement:
     level_rank: int
     original: str
     pattern: str
+    exact: bool = False
 
     def as_filter_row(self) -> dict[str, object]:
         return {
@@ -47,6 +49,7 @@ class LanguageRequirement:
             "level": self.level,
             "level_rank": self.level_rank,
             "raw_value": self.original,
+            "exact": self.exact,
         }
 
 
@@ -78,12 +81,17 @@ def configured_level(
     policy_name: str,
     valid_levels: tuple[str, ...],
 ) -> str:
-    level = config.get("implied_levels", policy_name, fallback="").strip().upper()
-    if level not in valid_levels:
+    raw = config.get("ranges", policy_name, fallback="").strip().upper()
+    bounds = [value.strip() for value in raw.split("-")]
+    if (
+        len(bounds) not in (1, 2)
+        or any(value not in valid_levels for value in bounds)
+        or valid_levels.index(bounds[0]) > valid_levels.index(bounds[-1])
+    ):
         raise ValueError(
-            f"Invalid or missing implied level for {policy_name}: {level!r}"
+            f"Invalid or missing language range for {policy_name}: {raw!r}"
         )
-    return level
+    return bounds[0]
 
 
 def configured_level_aliases(
@@ -91,11 +99,10 @@ def configured_level_aliases(
     valid_levels: tuple[str, ...],
 ) -> dict[str, str]:
     aliases = {level.casefold(): level for level in valid_levels}
-    for alias, raw_level in config.items("level_aliases"):
-        level = raw_level.strip().upper()
-        if level not in valid_levels:
-            raise ValueError(f"Invalid CEFR level for {alias}: {raw_level!r}")
-        aliases[alias.strip().casefold()] = level
+    for alias, policy_name in config.items("level_aliases"):
+        aliases[alias.strip().casefold()] = configured_level(
+            config, policy_name.strip(), valid_levels
+        )
     return aliases
 
 
@@ -247,6 +254,7 @@ class LanguageRequirementExtractor:
         rules = load_rule_module(rules_path, REQUIRED_RULE_NAMES)
 
         levels = tuple(rules["CEFR_LEVELS"])
+        self.cefr_levels = levels
         language_aliases = dict(rules["LANGUAGE_ALIASES"])
         self.language_names = alias_index(language_aliases)
         language_terms = list(self.language_names)
@@ -384,13 +392,17 @@ class LanguageRequirementExtractor:
                     )
                     matched_level = match.groupdict().get("level")
                     alternative_level = match.groupdict().get("alternative_level")
-                    levels = [
+                    exact = bool(matched_level) and all(
+                        value.upper().rstrip("+") in self.cefr_levels
+                        for value in (matched_level, alternative_level) if value
+                    )
+                    matched_levels = [
                         self.normalize_level(value)
                         for value in (matched_level, alternative_level)
                         if value
                     ]
-                    if levels:
-                        level = min(levels, key=language_rank)
+                    if matched_levels:
+                        level = min(matched_levels, key=language_rank)
                     else:
                         level = self.normalize_level(pattern.implied_level)
                     self.record_requirement(
@@ -401,8 +413,9 @@ class LanguageRequirementExtractor:
                             level_rank=language_rank(level),
                             original=unit,
                             pattern=pattern.source,
+                            exact=exact,
                         ),
-                        pattern.priority,
+                        pattern.priority + (10 if exact else 0),
                     )
             for pattern in self.list_patterns:
                 match = pattern.regex.search(unit)
@@ -410,6 +423,10 @@ class LanguageRequirementExtractor:
                     continue
                 matched_level = match.groupdict().get("level")
                 alternative_level = match.groupdict().get("alternative_level")
+                exact = bool(matched_level) and all(
+                    value.upper().rstrip("+") in self.cefr_levels
+                    for value in (matched_level, alternative_level) if value
+                )
                 matched_levels = [
                     self.normalize_level(value)
                     for value in (matched_level, alternative_level)
@@ -436,8 +453,9 @@ class LanguageRequirementExtractor:
                             level_rank=language_rank(level),
                             original=unit,
                             pattern=pattern.source,
+                            exact=exact,
                         ),
-                        pattern.priority,
+                        pattern.priority + (10 if exact else 0),
                     )
         return [requirement for requirement, _priority in results.values()]
 
@@ -484,9 +502,8 @@ def extract_language_requirements(
 
 
 if __name__ == "__main__":
-    config_path = Path(__file__).with_name("linkedin_language_filter.ini")
     requirements = extract_language_requirements(
         sys.stdin.buffer.read().decode("utf-8"),
-        config_path,
+        DEFAULT_LANGUAGE_CONFIG,
     )
     print(json.dumps([item.as_filter_row() for item in requirements], ensure_ascii=False))

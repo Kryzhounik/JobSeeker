@@ -45,16 +45,16 @@ class JobFactsInputTest(unittest.TestCase):
                 result = load_input("linkedin", "123", database)
 
             migrate.assert_called_once_with(database)
-            self.assertEqual(result["source"], "linkedin")
-            self.assertEqual(result["job_id"], "123")
+            self.assertEqual(set(result), {"readable_text", "script_language_facts"})
             self.assertIn("Senior Java Developer", result["readable_text"])
             self.assertEqual(
-                result["authoritative_language_facts"],
+                result["script_language_facts"],
                 [{
                     "name": "English",
                     "level": "C1",
                     "level_rank": 5,
                     "raw_value": "English: C1 Advanced",
+                    "exact": True,
                 }],
             )
 

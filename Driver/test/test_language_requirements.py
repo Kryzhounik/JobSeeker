@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import configparser
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -21,33 +22,13 @@ from collector.filtering.linkedin_filter import DEFAULT_LANGUAGE_CONFIG
 from collector.filtering.linkedin_filter import decide_content
 
 
-def write_language_policy(path: Path, *, fluent: str = "C1") -> None:
-    path.write_text(
-        f"""
-[implied_levels]
-communication_skills = B1
-communicative = B1
-good = B2
-strong = B2
-proficient = B2
-professional = B2
-advanced = C1
-fluent = {fluent}
-excellent = C1
-native = C2
-bilingual = C2
-required = B1
-
-[level_aliases]
-Intermediate = B1
-Upper-Intermediate = B2
-Upper Intermediate = B2
-zaawansowany = C1
-zaawansowanym = C1
-Native = C2
-""",
-        encoding="utf-8",
-    )
+def write_language_policy(path: Path, *, fluent: str = "B2-C1") -> None:
+    config = configparser.ConfigParser(interpolation=None)
+    config.optionxform = str
+    config.read(DEFAULT_LANGUAGE_CONFIG, encoding="utf-8")
+    config.set("ranges", "fluent", fluent)
+    with path.open("w", encoding="utf-8") as stream:
+        config.write(stream)
 
 
 def write_resume(path: Path) -> None:
@@ -62,6 +43,51 @@ Russian = C2
 
 
 class LanguageRequirementsTest(unittest.TestCase):
+    def test_recognized_wording_uses_shared_lower_bounds(self) -> None:
+        for text, expected in (
+            ("English communication skills", "B1"),
+            ("Good English", "B1"),
+            ("Very good English", "B2"),
+            ("Strong English", "B2"),
+            ("Proficient in English", "B2"),
+            ("Excellent English", "B2"),
+            ("Fluent English", "B2"),
+            ("Near-native English", "C1"),
+            ("Near-native English level", "C1"),
+            ("Native or near-native English", "C1"),
+            ("Full professional proficiency in English", "C1"),
+            ("English is required", "B1"),
+        ):
+            with self.subTest(text=text):
+                requirements = extract_language_requirements(text, DEFAULT_LANGUAGE_CONFIG)
+                self.assertEqual([(r.name, r.level) for r in requirements], [("English", expected)])
+                self.assertFalse(requirements[0].exact)
+
+    def test_only_literal_cefr_is_marked_exact(self) -> None:
+        for text, expected in (
+            ("English: C1", True),
+            ("English: B2+", True),
+            ("C1 level in English and Polish", True),
+            ("English (B2/C1)", True),
+            ("English Upper-Intermediate", False),
+            ("Native English", False),
+        ):
+            with self.subTest(text=text):
+                requirements = extract_language_requirements(text, DEFAULT_LANGUAGE_CONFIG)
+                self.assertTrue(requirements)
+                self.assertTrue(all(r.exact == expected for r in requirements))
+                self.assertTrue(all(r.as_filter_row()["exact"] == expected for r in requirements))
+
+    def test_literal_cefr_wins_over_textual_level_alias(self) -> None:
+        requirements = extract_language_requirements(
+            "Native English. English: B2", DEFAULT_LANGUAGE_CONFIG,
+        )
+        self.assertEqual([(r.level, r.exact) for r in requirements], [("B2", True)])
+
+    def test_lower_bound_filters_without_making_fluent_a_hard_reject(self) -> None:
+        self.assertEqual(decide_content("Fluent English")["content_decision"], "analyze")
+        self.assertEqual(decide_content("Near-native English")["content_decision"], "skip")
+
     def test_default_config_compiles_each_template_once(self) -> None:
         extractor = load_language_requirement_extractor(DEFAULT_LANGUAGE_CONFIG)
 
@@ -127,16 +153,17 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "C1")
 
-    def test_bare_fluent_language_is_c1(self) -> None:
+    def test_bare_fluent_language_uses_lower_bound(self) -> None:
         requirements = extract_language_requirements(
             "Fluent English.",
             DEFAULT_LANGUAGE_CONFIG,
         )
 
         self.assertEqual(len(requirements), 1)
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
+        self.assertFalse(requirements[0].exact)
 
-    def test_strong_language_is_authoritative_b2(self) -> None:
+    def test_strong_language_uses_lower_bound_b2(self) -> None:
         requirements = extract_language_requirements(
             "Strong verbal and written English communication skills.",
             DEFAULT_LANGUAGE_CONFIG,
@@ -145,14 +172,14 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].level, "B2")
 
-    def test_excellent_language_is_authoritative_c1(self) -> None:
+    def test_excellent_language_uses_lower_bound_b2(self) -> None:
         requirements = extract_language_requirements(
             "Excellent communication skills in English.",
             DEFAULT_LANGUAGE_CONFIG,
         )
 
         self.assertEqual(len(requirements), 1)
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
 
     def test_proficiency_applies_to_language_list(self) -> None:
         requirements = extract_language_requirements(
@@ -220,7 +247,7 @@ class LanguageRequirementsTest(unittest.TestCase):
         )
 
         self.assertEqual(len(requirements), 1)
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
 
     def test_default_config_extracts_reviewed_explicit_level(self) -> None:
         requirements = extract_language_requirements(
@@ -232,7 +259,7 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(requirements[0].name, "English")
         self.assertEqual(requirements[0].level, "C1")
 
-    def test_default_config_extracts_reviewed_implied_c1_phrase(self) -> None:
+    def test_default_config_extracts_implied_lower_bound(self) -> None:
         requirements = extract_language_requirements(
             "Fluent in English",
             DEFAULT_LANGUAGE_CONFIG,
@@ -240,7 +267,7 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].name, "English")
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
 
     def test_default_config_extracts_fluent_language_skills(self) -> None:
         requirements = extract_language_requirements(
@@ -250,7 +277,7 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].name, "English")
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
 
     def test_named_groups_preserve_plus_and_normalize_language_name(self) -> None:
         requirements = extract_language_requirements(
@@ -337,14 +364,14 @@ class LanguageRequirementsTest(unittest.TestCase):
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].level, "B2")
 
-    def test_fluent_business_language_is_c1(self) -> None:
+    def test_fluent_business_language_uses_lower_bound(self) -> None:
         requirements = extract_language_requirements(
             "Fluent business English.",
             DEFAULT_LANGUAGE_CONFIG,
         )
 
         self.assertEqual(len(requirements), 1)
-        self.assertEqual(requirements[0].level, "C1")
+        self.assertEqual(requirements[0].level, "B2")
 
     def test_localized_advanced_level_applies_to_language_list(self) -> None:
         requirements = extract_language_requirements(
@@ -357,7 +384,7 @@ class LanguageRequirementsTest(unittest.TestCase):
             [("English", "C1"), ("Polish", "C1")],
         )
 
-    def test_localized_fluent_language_list_is_c1(self) -> None:
+    def test_localized_fluent_language_list_uses_lower_bound(self) -> None:
         requirements = extract_language_requirements(
             "Biegle posługujesz się językiem polskim oraz angielskim.",
             DEFAULT_LANGUAGE_CONFIG,
@@ -365,7 +392,7 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(
             [(item.name, item.level) for item in requirements],
-            [("Polish", "C1"), ("English", "C1")],
+            [("Polish", "B2"), ("English", "B2")],
         )
 
     def test_ukrainian_name_for_english_is_normalized(self) -> None:
@@ -446,7 +473,7 @@ class LanguageRequirementsTest(unittest.TestCase):
     def test_policy_can_change_an_implied_level_without_changing_regex(self) -> None:
         with TemporaryDirectory() as temp_directory:
             config_path = Path(temp_directory) / "languages.ini"
-            write_language_policy(config_path, fluent="B2")
+            write_language_policy(config_path, fluent="B1-B2")
 
             requirements = extract_language_requirements(
                 "Fluent in English",
@@ -455,8 +482,8 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(len(requirements), 1)
         self.assertEqual(requirements[0].name, "English")
-        self.assertEqual(requirements[0].level, "B2")
-        self.assertEqual(requirements[0].level_rank, 4)
+        self.assertEqual(requirements[0].level, "B1")
+        self.assertEqual(requirements[0].level_rank, 3)
         self.assertEqual(requirements[0].original, "Fluent in English")
         self.assertIn("fluent", requirements[0].pattern)
 
@@ -478,9 +505,9 @@ class LanguageRequirementsTest(unittest.TestCase):
         requirements = extract_language_requirements(text, DEFAULT_LANGUAGE_CONFIG)
         result = decide_content(text)
 
-        self.assertIn(("Arabic", "C1"), [(item.name, item.level) for item in requirements])
+        self.assertIn(("Arabic", "B2"), [(item.name, item.level) for item in requirements])
         self.assertEqual(result["content_decision"], "skip")
-        self.assertEqual(result["content_languages"], ["Arabic C1"])
+        self.assertEqual(result["content_languages"], ["Arabic B2"])
 
     def test_optional_arabic_remains_unblocked(self) -> None:
         requirements = extract_language_requirements(
@@ -506,10 +533,10 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(
             [(item.name, item.level) for item in requirements],
-            [("English", "C1")],
+            [("English", "B2")],
         )
 
-    def test_good_english_is_b2_despite_required_word(self) -> None:
+    def test_good_english_uses_lower_bound_despite_required_word(self) -> None:
         requirements = extract_language_requirements(
             "Good knowledge of the English language is required. "
             "Ability to speak additional languages such as Spanish, preferred.",
@@ -518,7 +545,7 @@ class LanguageRequirementsTest(unittest.TestCase):
 
         self.assertEqual(
             [(item.name, item.level) for item in requirements],
-            [("English", "B2")],
+            [("English", "B1")],
         )
 
     def test_other_common_languages_are_recognized(self) -> None:
@@ -530,7 +557,7 @@ class LanguageRequirementsTest(unittest.TestCase):
                 )
                 self.assertEqual(
                     [(item.name, item.level) for item in requirements],
-                    [(language, "C1")],
+                    [(language, "B2")],
                 )
 
     def test_content_filter_compares_extracted_level_with_resume(self) -> None:
