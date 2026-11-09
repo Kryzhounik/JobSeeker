@@ -54,10 +54,11 @@ Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
 
 ## Runtime behavior
 
-- Only the classic logged-in `/jobs/search/` UI is collected. There is no guest
+- The logged-in `/jobs/search-results/` UI is collected. There is no guest
   prefetch.
 - `AccountRemote` is seeded from the first configured country and collected
   first. Each country then gets a priority-company pass and a general pass.
+  See [the purpose and current limitations of this workaround](#international-remote-search).
 - Collection is intentionally single-threaded.
 - Persistence paths are configured in `runtime.properties`.
 - The managed visible Chrome process uses the persistent profile at
@@ -112,6 +113,28 @@ next vacancy. Results distinguish `open_failed`, `incomplete_raw`, and
 `processing_failed`; counts appear in progress and report `outcomes`, with
 failure reasons in the report message and collection event log. Authentication
 failure still stops collection, as does inability to persist a failure outcome.
+
+## International remote search
+
+`AccountRemote` was intended to collect cross-border remote vacancies, including
+EMEA postings without a restriction to one country. In the classic search, the
+workaround first opened Moldova + Remote (the first configured country), waited
+20 seconds for LinkedIn to remember that geography, then opened Remote without
+explicit location parameters. This exposed international postings that were
+not tied to Moldova.
+
+After the move to AI-powered search, this workaround appears to no longer
+produce the previous coverage. It remains in the collector, but should not be
+treated as a working international-remote search.
+
+EMEA is now a selectable macroregion. EMEA + Remote includes country-specific
+remote jobs across that region; it does not mean that each vacancy allows work
+from anywhere in Europe or from Moldova. It therefore does not replace the
+original purpose of `AccountRemote`.
+
+Identifying country-independent remote opportunities within this broader set
+may still be possible by checking each vacancy's geographic eligibility and
+restrictions. That requires new selection logic, which is not implemented.
 
 ## Requirements
 

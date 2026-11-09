@@ -42,7 +42,7 @@ class SearchPlanTest {
         Map<String, String> accountRemote = query(plan.get(1).baseUrl());
         assertFalse(accountRemote.containsKey("location"));
         assertFalse(accountRemote.containsKey("geoId"));
-        assertEquals("f_SA_id_225001:272001$f_SA_id_227001:277001$f_SA_id_226001:272015,273001,274001",
+        assertEquals("f_SA_id_225001:272001$f_SA_id_227001:276001,277001,278001$f_SA_id_226001:272015,273001,274001",
                 accountRemote.get("f_SAL"));
         assertEquals("r604800", accountRemote.get("f_TPR"));
         assertFalse(accountRemote.containsKey("f_E"));
@@ -55,7 +55,7 @@ class SearchPlanTest {
         assertFalse(priority.containsKey("location"));
         assertEquals("106178099", priority.get("geoId"));
         assertEquals("101,202", priority.get("f_C"));
-        assertEquals("f_SA_id_225001:1621001,272001,296001$f_SA_id_227001:277001$f_SA_id_226001:272015,273001,274001",
+        assertEquals("f_SA_id_225001:1621001,272001,296001$f_SA_id_227001:276001,277001,278001$f_SA_id_226001:272015,273001,274001",
                 priority.get("f_SAL"));
 
         assertFalse(query(plan.get(3).baseUrl()).containsKey("f_C"));
@@ -92,7 +92,7 @@ class SearchPlanTest {
         return new CollectorConfig(
                 "Java",
                 locations,
-                List.of("associate", "mid_senior"),
+                List.of("senior", "entry_level", "manager"),
                 List.of("remote"),
                 List.of("remote", "hybrid", "office"),
                 List.of("full_time", "part_time", "contract"),

@@ -15,8 +15,8 @@ import java.util.stream.Collectors;
 final class SearchPlan {
     static final String SEARCH_URL = "https://www.linkedin.com/jobs/search-results/";
     private static final Map<String, String> EXPERIENCE = Map.of(
-            "associate", "277001",
-            "mid_senior", "277001",
+            "entry_level", "276001",
+            "manager", "278001",
             "senior", "277001"
     );
     private static final Map<String, String> WORKPLACE = Map.of(
