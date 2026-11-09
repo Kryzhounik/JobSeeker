@@ -87,13 +87,13 @@ class JpyOrchestratorBridgeIntegrationTest {
                 from db.job_registry import insert_source_job
                 from db.migrate import migrate_database
                 from db.readable_text import save_collected_job
-                from orchestrator import python_bridge
+                from orchestrator import python_bridge, processing
 
                 barrier = Barrier(3)
                 lock = Lock()
                 active = maximum = 0
                 original_call = metrics_proxy.codex_cli.call
-                original_root = python_bridge.DATA_ROOT
+                original_root = processing.DATA_ROOT
 
                 def fake_call(*, prompt, thread_id=None, **kwargs):
                     global active, maximum
@@ -142,7 +142,7 @@ class JpyOrchestratorBridgeIntegrationTest {
                                                title="parallel-job-" + job_id, company="Example")
                         connection.commit()
                     python_bridge.start_analysis("parallel-run", 3, 2, str(database))
-                    python_bridge.DATA_ROOT = root
+                    processing.DATA_ROOT = root
                     metrics_proxy.codex_cli.call = fake_call
                     return "ready"
 
@@ -159,13 +159,13 @@ class JpyOrchestratorBridgeIntegrationTest {
                         assert connection.execute("SELECT invocation_count,success_count FROM codex_runs WHERE run_id='parallel-run'").fetchone() == (6, 6)
                         assert connection.execute("SELECT parallel_agents,vacancies_per_agent FROM analyzer_runs WHERE run_id='parallel-run'").fetchone() == (3, 2)
                     for job in range(1, 7):
-                        path = python_bridge.DATA_ROOT / "analyzed/linkedin" / (str(job) + ".json")
+                        path = processing.DATA_ROOT / "analyzed/linkedin" / (str(job) + ".json")
                         assert json.loads(path.read_text(encoding="utf-8"))["title"] == "parallel-job-" + str(job)
                     return "verified"
 
                 def restore():
                     metrics_proxy.codex_cli.call = original_call
-                    python_bridge.DATA_ROOT = original_root
+                    processing.DATA_ROOT = original_root
                 """);
         startRuntime();
         try (PyModule fixture = PyModule.importModule("parallel_facts_fixture")) {

@@ -11,6 +11,12 @@ The module calls existing Python operations through JPy. Shared boundary rules
 are described in
 [Driver architecture](../ARCHITECTURE.md#граница-java-и-python-через-jpy).
 
+`python_bridge.py` only converts JPy parameters and results and delegates to
+`processing.py`. The latter is the Python application API: it owns database
+operations, model calls, validation, artifact persistence and session recovery.
+It can be imported as `orchestrator.processing` with `Driver` on the Python
+module path, using `Path`, lists and dictionaries directly, without JPy.
+
 Build the collector and orchestrator together from the project root:
 
 ```powershell

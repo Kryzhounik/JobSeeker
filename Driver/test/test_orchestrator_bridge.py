@@ -16,7 +16,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from codex_proxy.backend import Result
-from orchestrator import python_bridge
+from orchestrator import python_bridge, processing
 from db.job_registry import insert_source_job
 from db.migrate import migrate_database
 from db.readable_text import save_collected_job
@@ -26,9 +26,9 @@ from test.test_json_validation import valid_analysis
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
-    @patch("orchestrator.python_bridge.migrate_database")
-    @patch("orchestrator.python_bridge.load_job_facts_input")
-    @patch("orchestrator.python_bridge.run")
+    @patch("orchestrator.processing.migrate_database")
+    @patch("orchestrator.processing.load_job_facts_input")
+    @patch("orchestrator.processing.run")
     def test_exact_cefr_conflict_stops_before_persistence(self, proxy_run, load_input, migrate) -> None:
         load_input.return_value = {
             "readable_text": "English: C1",
@@ -48,13 +48,13 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 proxy_run.return_value = Result(
                     ["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, [],
                 )
-                with patch.object(python_bridge, "DATA_ROOT", Path(directory)):
+                with patch.object(processing, "DATA_ROOT", Path(directory)):
                     with self.assertRaisesRegex(ValueError, "CEFR conflict for linkedin:123"):
                         python_bridge.run_job_facts("run-1", "linkedin", "123", "facts", None, "unused.sqlite")
                 self.assertFalse((Path(directory) / "analyzed").exists())
         migrate.assert_not_called()
 
-    @patch("orchestrator.python_bridge.run")
+    @patch("orchestrator.processing.run")
     def test_agent_can_raise_inexact_script_level(self, proxy_run) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -74,7 +74,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
             proxy_run.return_value = Result(
                 ["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, [],
             )
-            with patch.object(python_bridge, "DATA_ROOT", root):
+            with patch.object(processing, "DATA_ROOT", root):
                 python_bridge.run_job_facts("run-1", "linkedin", "123", "facts", None, str(database))
                 python_bridge.run_candidate_fit("run-1", "linkedin", "123", "fit", None, str(database))
             self.assertEqual(proxy_run.call_count, 1)
@@ -94,7 +94,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
                     ("parallel-run",),
                 ).fetchone())
 
-    @patch("orchestrator.python_bridge.run")
+    @patch("orchestrator.processing.run")
     def test_analysis_to_save_uses_known_identity_without_model_metadata(self, proxy_run) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -130,7 +130,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 Result(["codex", "exec"], 0, "fit-thread", json.dumps(fit), {}, []),
             ]
 
-            with patch.object(python_bridge, "DATA_ROOT", root):
+            with patch.object(processing, "DATA_ROOT", root):
                 self.assertEqual("facts-thread", python_bridge.run_job_facts(
                     "run-1", "linkedin", "123", "facts", None, str(database),
                 ))
@@ -185,6 +185,10 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 )
                 connection.commit()
             finish_collection_run("batch-1", "blocked", "collection_error", 0, "timeout", database)
+            self.assertEqual(
+                [{"source": "linkedin", "job_id": "1", "title": "Java"}],
+                processing.load_collected_scope("batch-1", database),
+            )
             self.assertEqual("1", json.loads(
                 python_bridge.load_collected_scope("batch-1", str(database))
             )[0]["job_id"])
@@ -244,7 +248,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
                 connection.execute("UPDATE linkedin_collection_runs SET status = 'pending'")
                 self.assertEqual([], connection.execute("PRAGMA foreign_key_check").fetchall())
 
-    @patch("orchestrator.python_bridge.save_records")
+    @patch("orchestrator.processing.save_records")
     def test_saved_count_excludes_skipped_records(self, save) -> None:
         save.return_value = [("save", "new"), ("skip", "already present")]
         self.assertEqual(1, python_bridge.save_scored("linkedin", '["1","2"]', "unused.sqlite"))
@@ -254,7 +258,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             python_bridge.save_scored("linkedin", '["2"]', "unused.sqlite")
 
-    @patch("orchestrator.python_bridge.run")
+    @patch("orchestrator.processing.run")
     def test_agent_filter_uses_existing_cli_proxy(self, proxy_run) -> None:
         proxy_run.return_value = Result(
             ["codex", "exec"],
