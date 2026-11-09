@@ -174,6 +174,7 @@ final class LinkedInCollector {
             List<LinkedInPageClient.CardData> newCards = new ArrayList<>();
             int newForTarget = 0;
             for (LinkedInPageClient.CardData card : materialized.cards()) {
+                if (card.related()) continue;
                 if (targetSeenIds.add(card.jobId())) {
                     newForTarget++;
                 }
@@ -418,11 +419,12 @@ final class LinkedInCollector {
     ) {
         System.err.printf(
                 Locale.ROOT,
-                "%s %s start=%d cards=%d new=%d accepted=%d/%d%n",
+                "%s %s start=%d cards=%d related=%d new=%d accepted=%d/%d%n",
                 target.label(),
                 target.kind().name().toLowerCase(Locale.ROOT),
                 start,
                 materialized.materializedCount(),
+                materialized.cards().stream().filter(LinkedInPageClient.CardData::related).count(),
                 newCards,
                 scope.size(),
                 config.limit()

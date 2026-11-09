@@ -18,6 +18,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
@@ -33,19 +34,16 @@ final class LinkedInPageClient {
     private static final int EXPECTED_PAGE_SIZE = 25;
     private static final List<String> SEARCH_QUERY_KEYS = List.of(
             "keywords",
-            "origin",
-            "refresh",
             "location",
             "geoId",
-            "f_E",
-            "f_WT",
-            "f_JT",
+            "f_SAL",
             "f_TPR",
-            "sortBy",
             "f_C",
             "start"
     );
     private static final String SEARCH_DETAILS_SELECTOR = String.join(", ",
+            "[data-testid='lazy-column']:has([id^='JobDetails_AboutTheJob_'])"
+                    + ":not(:has([data-testid='lazy-column'] [id^='JobDetails_AboutTheJob_']))",
             "[data-testid='job-details']",
             "[data-view-name='job-details']",
             ".jobs-search__job-details--container",
@@ -95,6 +93,7 @@ final class LinkedInPageClient {
             () => {
               const visible = element => !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
               const containers = [...document.querySelectorAll([
+                '[data-testid="pagination-controls-list"]',
                 '.artdeco-pagination',
                 '.jobs-search-pagination',
                 'nav[aria-label*="pagination" i]'
@@ -127,6 +126,7 @@ final class LinkedInPageClient {
             () => {
               const visible = element => !!(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
               const preferred = [...document.querySelectorAll([
+                '[componentkey="searchResultsHeaderComponent"] p',
                 '.jobs-search-results-list__title-heading',
                 '.jobs-search-results-list__subtitle',
                 '.jobs-search-results-list__text'
@@ -163,6 +163,9 @@ final class LinkedInPageClient {
               const ignored = /^(promoted|viewed|easy apply|actively reviewing|be an early applicant)$/i;
               const lines = String(element.innerText || '').split(/\\r?\\n/)
                 .map(clean).filter(value => value && !ignored.test(value));
+              // The new card's first three paragraphs are title, company, and location.
+              const paragraphs = [...element.querySelectorAll('p')].map(p => clean(p.textContent));
+              const lazy = element.matches('[componentkey^="job-card-component-ref-"]');
               let title = first([
                 '[data-view-name="job-card-title"]',
                 'a[href*="/jobs/view/"] strong',
@@ -181,9 +184,20 @@ final class LinkedInPageClient {
                 '[class*="metadata-item"]',
                 '[class*="caption"]'
               ]);
-              if (!title && lines.length) title = lines[0];
-              if (!company && lines.length > 1) company = lines[1];
-              if (!location && lines.length > 2) location = lines[2];
+              if (lazy) {
+                const titleParagraph = element.querySelector('p');
+                title = clean((titleParagraph?.querySelector('[aria-hidden="true"]') || titleParagraph)?.textContent);
+                company = paragraphs[1] || '';
+                location = paragraphs[2] || '';
+              } else {
+                if (!title && lines.length) title = lines[0];
+                if (!company && lines.length > 1) company = lines[1];
+                if (!location && lines.length > 2) location = lines[2];
+              }
+              const panel = element.closest('[componentkey="SearchResultsMainContent"]');
+              const relatedBanner = panel && [...panel.querySelectorAll('p')].find(p =>
+                /We found more results related to your search|We had trouble finding exact matches/i.test(p.textContent));
+              const related = !!relatedBanner && !!(relatedBanner.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING);
               const allText = clean(element.innerText || '');
               const workplaceMatch = allText.match(/\\b(remote|hybrid|on-site)\\b/i);
               const salaryMatch = allText.match(/(?:[$€£]\\s?[\\d,.]+(?:\\s*[-–]\\s*[$€£]?\\s?[\\d,.]+)?[^\\n]*)/);
@@ -193,7 +207,8 @@ final class LinkedInPageClient {
                 company,
                 location,
                 workplace: workplaceMatch ? workplaceMatch[1].toLowerCase() : '',
-                salary: salaryMatch ? clean(salaryMatch[0]) : ''
+                salary: salaryMatch ? clean(salaryMatch[0]) : '',
+                related
               };
             }
             """;
@@ -202,27 +217,32 @@ final class LinkedInPageClient {
               const clean = value => String(value || '').replace(/\\s+/g, ' ').trim();
               const first = selectors => {
                 for (const selector of selectors) {
-                  const node = root.querySelector(selector) || document.querySelector(selector);
+                  const node = root.querySelector(selector);
                   const value = node ? clean(node.innerText || node.textContent) : '';
                   if (value) return value;
                 }
                 return '';
               };
               // The direct-page layout puts company and title in consecutive paragraphs.
-              const header = root.querySelector('[id^="JobDetails_ManageJobBanner_"]')?.nextElementSibling;
-              const paragraphs = [...(header?.querySelectorAll('p') || [])];
+              const header = root.querySelector('[id^="JobDetails_ManageJobBanner_"]')?.nextElementSibling || root;
+              const paragraphs = [...header.querySelectorAll('p')];
               const companyIndex = paragraphs.findIndex(p => p.querySelector('a[href*="/company/"]'));
+              const titleParagraph = paragraphs.find(p => p.querySelector('a[href*="/jobs/view/"]'));
+              const titleIndex = titleParagraph ? paragraphs.indexOf(titleParagraph) : companyIndex + 1;
               return {
                 title: first([
                   '.job-details-jobs-unified-top-card__job-title h1',
                   '.jobs-unified-top-card__job-title',
-                  'h1'
-                ]) || (companyIndex >= 0 ? clean(paragraphs[companyIndex + 1]?.textContent) : ''),
+                  'h1',
+                  'p a[href*="/jobs/view/"]'
+                ]) || (companyIndex >= 0 ? clean(paragraphs[titleIndex]?.textContent) : ''),
                 company: first([
                   '.job-details-jobs-unified-top-card__company-name',
                   '.jobs-unified-top-card__company-name',
+                  'p a[href*="/company/"]',
                   'a[href*="/company/"]'
-                ]) || clean(paragraphs[companyIndex]?.textContent)
+                ]) || clean(paragraphs[companyIndex]?.textContent),
+                location: companyIndex >= 0 ? clean(paragraphs[titleIndex + 1]?.textContent).split('·')[0].trim() : ''
               };
             }
             """;
@@ -238,7 +258,8 @@ final class LinkedInPageClient {
             String company,
             String location,
             String workplace,
-            String salary
+            String salary,
+            boolean related
     ) {
         Preview preview(String label, int start, int index) {
             return new Preview(
@@ -352,13 +373,17 @@ final class LinkedInPageClient {
         while (System.nanoTime() < deadline) {
             LayoutSnapshot current = readLayoutSnapshot();
             if (current == null || current.ids().isEmpty()) {
-                // A missing Next button is normal while the search UI is still
-                // mounting. Only an explicit empty/end message can prove an
-                // empty terminal page before any card IDs have appeared.
+                // A missing Next button is normal while the search UI is mounting.
                 TerminalState emptyState = terminalState();
-                if (emptyState.terminal()
-                        && "explicit_end_text".equals(emptyState.reason())) {
+                ResultCountState count = resultCountState(start);
+                if ((emptyState.terminal() && "explicit_end_text".equals(emptyState.reason()))
+                        || (count.present() && count.expectedCount() == 0)) {
                     ResultCountState emptyCount = stableResultCountState(start, 0);
+                    if (!"explicit_end_text".equals(emptyState.reason())
+                            && (!emptyCount.present() || emptyCount.expectedCount() != 0)) {
+                        page.waitForTimeout(500);
+                        continue;
+                    }
                     return materializedPage(
                             null,
                             Map.of(),
@@ -366,7 +391,7 @@ final class LinkedInPageClient {
                             emptyCount.present() ? emptyCount.total() : null,
                             0,
                             0,
-                            emptyState
+                            terminalState(emptyState, true, "result_count_exhausted")
                     );
                 }
             } else if (current.ids().equals(previous)) {
@@ -593,7 +618,8 @@ final class LinkedInPageClient {
                     text(value.get("company")),
                     text(value.get("location")),
                     text(value.get("workplace")),
-                    text(value.get("salary"))
+                    text(value.get("salary")),
+                    Boolean.TRUE.equals(value.get("related"))
             );
             boolean ready;
             if (layout == Layout.CLASSIC) {
@@ -690,6 +716,10 @@ final class LinkedInPageClient {
     }
 
     private boolean selectionMatches(Page targetPage, Locator pane, String jobId) {
+        if (pane.locator("[id^='JobDetails_AboutTheJob_']").count() > 0) {
+            return pane.locator("[id='JobDetails_AboutTheJob_" + jobId + "']").count() > 0
+                    && pane.locator("a[href*='/jobs/view/" + jobId + "/']").count() > 0;
+        }
         if (targetPage.url().contains("currentJobId=" + jobId)
                 || targetPage.url().contains("/jobs/view/" + jobId)) {
             return true;
@@ -758,7 +788,8 @@ final class LinkedInPageClient {
         boolean explicitEndText = hasExplicitTerminalText();
         PaginationState pagination = paginationState();
         Locator next = page.locator(
-                "button[aria-label='View next page'], button:has-text('View next page')"
+                "button[data-testid^='pagination-controls-next-button-'], "
+                        + "button[aria-label='View next page'], button:has-text('View next page')"
         );
         int nextCount = next.count();
         if (nextCount == 0) {
@@ -776,7 +807,8 @@ final class LinkedInPageClient {
             );
         }
         Locator button = next.last();
-        boolean visible = button.isVisible();
+        boolean hiddenNext = "pagination-controls-next-button-hidden".equals(button.getAttribute("data-testid"));
+        boolean visible = !hiddenNext && button.isVisible();
         boolean disabled = button.isDisabled();
         String ariaDisabled = text(button.getAttribute("aria-disabled"));
         String label = text(button.getAttribute("aria-label"));
@@ -787,6 +819,7 @@ final class LinkedInPageClient {
             label = label.substring(0, 160);
         }
         boolean terminal = explicitEndText
+                || hiddenNext
                 || (pagination.isLastPage()
                 && (disabled || "true".equalsIgnoreCase(ariaDisabled)));
         String reason;
@@ -919,7 +952,20 @@ final class LinkedInPageClient {
         if ("start".equals(key) && (value == null || value.isBlank())) {
             return "0";
         }
+        if (value != null && "f_SAL".equals(key)) {
+            return Arrays.stream(value.split("\\$"))
+                    .map(group -> {
+                        String[] parts = group.split(":", 2);
+                        return parts[0] + (parts.length == 1 ? "" : ":" + sortedValues(parts[1]));
+                    }).sorted().collect(java.util.stream.Collectors.joining("$"));
+        }
+        if (value != null && "f_C".equals(key)) return sortedValues(value);
         return value;
+    }
+
+    private static String sortedValues(String value) {
+        return Arrays.stream(value.split(",")).distinct().sorted()
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     private static Map<String, String> queryParameters(String url) {
@@ -992,8 +1038,10 @@ final class LinkedInPageClient {
 
     private JobDetails readDetails(Locator details, String jobId) {
         Map<String, Object> fields = stringObjectMap(details.evaluate(DETAIL_PREVIEW_SCRIPT));
+        String location = LinkedInJobPage.location(details);
+        if (location.isBlank()) location = text(fields.get("location"));
         return new JobDetails(wrapHtml(jobId, outerHtml(details)), text(fields.get("title")),
-                text(fields.get("company")), LinkedInJobPage.location(details),
+                text(fields.get("company")), location,
                 LinkedInJobPage.isEasyApply(details));
     }
 

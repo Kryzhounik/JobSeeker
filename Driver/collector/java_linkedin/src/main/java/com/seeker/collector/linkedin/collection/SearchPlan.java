@@ -13,29 +13,26 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 final class SearchPlan {
-    static final String SEARCH_URL = "https://www.linkedin.com/jobs/search/";
+    static final String SEARCH_URL = "https://www.linkedin.com/jobs/search-results/";
     private static final Map<String, String> EXPERIENCE = Map.of(
-            "associate", "3",
-            "mid_senior", "4"
+            "associate", "277001",
+            "mid_senior", "277001",
+            "senior", "277001"
     );
     private static final Map<String, String> WORKPLACE = Map.of(
-            "office", "1",
-            "remote", "2",
-            "hybrid", "3"
+            "office", "296001",
+            "remote", "272001",
+            "hybrid", "1621001"
     );
     private static final Map<String, String> JOB_TYPES = Map.of(
-            "full_time", "F",
-            "part_time", "P",
-            "contract", "C"
+            "full_time", "272015",
+            "part_time", "273001",
+            "contract", "274001"
     );
     private static final Map<String, String> DATE_POSTED = Map.of(
             "day", "r86400",
             "week", "r604800",
             "month", "r2592000"
-    );
-    private static final Map<String, String> SORT = Map.of(
-            "newest", "DD",
-            "relevant", "R"
     );
     private static final Set<String> LOCATIONLESS = Set.of(
             "accountremote", "account_remote", "remote", "worldwide",
@@ -67,6 +64,9 @@ final class SearchPlan {
             CollectorConfig config,
             List<String> priorityCompanyIds
     ) {
+        if (!config.sort().isBlank()) {
+            System.err.println("LinkedIn AI search has no sort control; ignoring sort=" + config.sort());
+        }
         List<String> configured = config.locations();
         String anchor = configured.stream()
                 .filter(item -> !isLocationless(item))
@@ -147,23 +147,19 @@ final class SearchPlan {
         Map<String, String> parameters = new LinkedHashMap<>();
         parameters.put("keywords", config.keywords());
         parameters.put("origin", "JOB_SEARCH_PAGE_SEARCH_BUTTON");
-        parameters.put("refresh", "true");
         if (!locationless) {
-            parameters.put("location", location);
             if (!geoId.isBlank()) {
                 parameters.put("geoId", geoId);
+            } else {
+                parameters.put("location", location);
             }
         }
-        putMapped(parameters, "f_E", config.experience(), EXPERIENCE);
-        putMapped(
-                parameters,
-                "f_WT",
-                remoteBroad ? config.remoteBroadWorkplace() : config.workplace(),
-                WORKPLACE
-        );
-        putMapped(parameters, "f_JT", config.jobTypes(), JOB_TYPES);
-        putMapped(parameters, "f_TPR", List.of(config.datePosted()), DATE_POSTED);
-        putMapped(parameters, "sortBy", List.of(config.sort()), SORT);
+        List<String> filters = new ArrayList<>();
+        addFilter(filters, "225001", remoteBroad ? config.remoteBroadWorkplace() : config.workplace(), WORKPLACE);
+        addFilter(filters, "227001", config.experience(), EXPERIENCE);
+        addFilter(filters, "226001", config.jobTypes(), JOB_TYPES);
+        parameters.put("f_SAL", String.join("$", filters));
+        parameters.put("f_TPR", mapped(List.of(config.datePosted()), DATE_POSTED));
         if (!priorityCompanyIds.isEmpty()) {
             parameters.put("f_C", String.join(",", priorityCompanyIds));
         }
@@ -175,19 +171,18 @@ final class SearchPlan {
         return SEARCH_URL + "?" + query;
     }
 
-    private static void putMapped(
-            Map<String, String> target,
-            String key,
-            List<String> rawValues,
-            Map<String, String> mapping
-    ) {
-        String value = rawValues.stream()
+    private static void addFilter(List<String> filters, String id, List<String> values, Map<String, String> mapping) {
+        String value = mapped(values, mapping);
+        if (!value.isBlank()) filters.add("f_SA_id_" + id + ":" + value);
+    }
+
+    private static String mapped(List<String> rawValues, Map<String, String> mapping) {
+        return rawValues.stream()
                 .filter(item -> !item.isBlank())
                 .map(item -> mapping.getOrDefault(normalize(item), item))
+                .distinct()
+                .sorted()
                 .collect(Collectors.joining(","));
-        if (!value.isBlank()) {
-            target.put(key, value);
-        }
     }
 
     private static String normalize(String value) {

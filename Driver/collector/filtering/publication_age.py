@@ -27,7 +27,7 @@ class PublicationDateParser(HTMLParser):
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = dict(attrs)
         component = values.get("componentkey") or values.get("id") or ""
-        if component.startswith("JobDetails_ManageJobBanner_"):
+        if component.startswith("JobDetails_ManageJobBanner_") or values.get("data-testid") == "lazy-column":
             self.in_lazy_header = True
         elif component.startswith(LAZY_HEADER_ENDS):
             self.in_lazy_header = False

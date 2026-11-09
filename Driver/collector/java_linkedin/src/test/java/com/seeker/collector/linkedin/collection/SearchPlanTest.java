@@ -42,17 +42,25 @@ class SearchPlanTest {
         Map<String, String> accountRemote = query(plan.get(1).baseUrl());
         assertFalse(accountRemote.containsKey("location"));
         assertFalse(accountRemote.containsKey("geoId"));
-        assertEquals("2", accountRemote.get("f_WT"));
+        assertEquals("f_SA_id_225001:272001$f_SA_id_227001:277001$f_SA_id_226001:272015,273001,274001",
+                accountRemote.get("f_SAL"));
+        assertEquals("r604800", accountRemote.get("f_TPR"));
+        assertFalse(accountRemote.containsKey("f_E"));
+        assertFalse(accountRemote.containsKey("f_WT"));
+        assertFalse(accountRemote.containsKey("f_JT"));
+        assertFalse(accountRemote.containsKey("refresh"));
+        assertFalse(accountRemote.containsKey("sortBy"));
 
         Map<String, String> priority = query(plan.get(2).baseUrl());
-        assertEquals("Moldova", priority.get("location"));
+        assertFalse(priority.containsKey("location"));
         assertEquals("106178099", priority.get("geoId"));
         assertEquals("101,202", priority.get("f_C"));
-        assertEquals("2,3,1", priority.get("f_WT"));
+        assertEquals("f_SA_id_225001:1621001,272001,296001$f_SA_id_227001:277001$f_SA_id_226001:272015,273001,274001",
+                priority.get("f_SAL"));
 
         assertFalse(query(plan.get(3).baseUrl()).containsKey("f_C"));
         assertTrue(plan.stream().allMatch(
-                target -> target.baseUrl().startsWith("https://www.linkedin.com/jobs/search/")
+                target -> target.baseUrl().startsWith("https://www.linkedin.com/jobs/search-results/")
         ));
         assertTrue(plan.stream().noneMatch(
                 target -> target.baseUrl().contains("jobs-guest")

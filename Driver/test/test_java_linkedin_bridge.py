@@ -94,6 +94,12 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             LAZY_OLD_VACANCY_HTML.replace("3 months ago", "Unknown")
             .replace('<div id="JobDetailsPeopleWhoCanHelpSlot_123"><p>Joined 2 years ago</p></div>', '')))
 
+    def test_publication_age_reads_ai_search_header_without_manage_banner(self) -> None:
+        html = LAZY_OLD_VACANCY_HTML.replace(
+            '<div id="JobDetails_ManageJobBanner_123" componentkey="JobDetails_ManageJobBanner_123"></div>', '')
+        self.assertEqual(90, publication_age_days(html))
+        self.assertIsNone(publication_age_days(html.replace("3 months ago", "Unknown")))
+
     def test_old_vacancy_is_rejected_before_raw_or_database_save(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
