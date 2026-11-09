@@ -98,13 +98,18 @@ unchanged, propagates request errors,
 and rejects empty responses. Automatic Spring AI retries are disabled: a failed
 request is reported after the first attempt. Context initialization makes no inference requests
 and never pulls models, so it works without Ollama installed. Only an explicit
-`generate` call needs a running server and an already installed model.
+`generate` call starts the local server automatically when needed; model weights must already be installed.
 
 For local inference, generated models remain loaded between operations
 (`keep_alive=-1m`). Closing a used Ollama-backed service explicitly unloads the configured
 model with an empty Ollama chat request and `keep_alive=0`, including after a
 failed generation attempt that may have loaded the model. Spring owns the
-service's close lifecycle. An unused context does not contact Ollama on close.
+service's close lifecycle. The local server is started lazily from
+`.tools/ollama/ollama.exe serve`, with readiness checked before inference.
+Closing the API also stops the server process if this module started it;
+an already running external server remains running. An unused context does not
+start or contact Ollama on close. Startup failures include the endpoint and
+server diagnostics are saved to `Data/easy-reasoning/ollama.log`.
 The CLI also closes the service explicitly so unload failures cause a nonzero
 exit rather than a successful stop acknowledgement. This is the local lifecycle
 policy of the current Ollama backend, not a requirement that every future
@@ -221,7 +226,8 @@ This is a native installation without Docker, GUI dependencies, or changes to
 the Windows PATH. See [Ollama's Windows instructions](https://docs.ollama.com/windows).
 The archive and extracted files are ignored by Git.
 
-Start the Ollama backend separately in the background:
+Normal API/CLI calls start the local backend automatically. For initial model
+installation only, start the backend manually:
 
 ```powershell
 Start-Process .\.tools\ollama\ollama.exe -ArgumentList 'serve' -WindowStyle Hidden
@@ -234,8 +240,9 @@ Install the test model once:
 ```
 
 Model weights use Ollama's default user directory (`$HOME/.ollama/models`).
-The Java CLI's `stop` unloads the model; the backend remains available for the
-next session. Check loaded models with:
+The Java CLI's `stop` unloads the model and stops its own server process. The
+collector closes the API after collection and pending comparisons, including on
+failure. Check loaded models with:
 
 ```powershell
 & .\.tools\ollama\ollama.exe ps

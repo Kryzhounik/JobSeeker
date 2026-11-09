@@ -96,8 +96,13 @@ Other Java callers can reuse the same API across CLI sessions and direct calls.
 
 Use a long-lived Java process: initialize Spring and the selected backend once,
 accept repeated operations through the CLI, and shut down through a separate
-stop command. Operation calls reuse the initialized application. For local
-Ollama inference, normal module shutdown must explicitly unload the configured
+stop command. Operation calls reuse the initialized application. On the first local
+inference request, the backend checks server readiness and, if needed, starts
+`.tools/ollama/ollama.exe serve` itself and waits for readiness. An unused API
+does not start Ollama. All process management stays inside `llm`. Closing the API
+stops the server only if this module started it; an external server is reused.
+In the collector the API closes after collection and all pending comparisons,
+including when collection fails. For local Ollama inference, shutdown must unload the configured
 model from Ollama memory rather than leave it waiting for idle eviction. This is
 the local Ollama backend's policy, not a universal model-unload contract.
 Reconsider lifecycle separately for cloud Ollama and the future Codex backend.

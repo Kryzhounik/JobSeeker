@@ -44,6 +44,11 @@ class DescriptionComparisonApplicationTest {
         Files.writeString(root.resolve("EasyReasoning/easy-reasoning.properties"),
                 "spring.ai.ollama.base-url=http://127.0.0.1:" + server.getAddress().getPort()
                         + "\nspring.ai.ollama.chat.model=test-model\n");
+        server.createContext("/api/version", exchange -> {
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
+        });
         server.start();
         try {
             try (var app = new EasyReasoningApi(root)) {
@@ -60,6 +65,13 @@ class DescriptionComparisonApplicationTest {
             }
             assertFalse(requests.get(1).path("messages").get(0).path("content").asString().contains("First\r\ntext"));
             assertEquals("0", requests.getLast().path("keep_alive").asString());
+            var connection = (java.net.HttpURLConnection) java.net.URI.create(
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/api/version").toURL().openConnection();
+            try {
+                assertEquals(200, connection.getResponseCode(), "Closing the API must preserve an external server");
+            } finally {
+                connection.disconnect();
+            }
         } finally { server.stop(0); }
     }
 }

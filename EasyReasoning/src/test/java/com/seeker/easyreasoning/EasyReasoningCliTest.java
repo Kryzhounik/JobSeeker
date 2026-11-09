@@ -149,6 +149,11 @@ class EasyReasoningCliTest {
                 spring.ai.ollama.base-url=http://127.0.0.1:%d
                 spring.ai.ollama.chat.model=test-model
                 """.formatted(server.getAddress().getPort()));
+        server.createContext("/api/version", exchange -> {
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
+        });
         server.start();
         return server;
     }

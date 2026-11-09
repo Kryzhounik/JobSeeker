@@ -13,7 +13,6 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.env.StandardEnvironment;
 import org.springframework.core.env.SystemEnvironmentPropertySource;
-import org.springframework.web.client.ResourceAccessException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.net.InetSocketAddress;
@@ -62,6 +61,11 @@ class OllamaConfigurationTest {
                 output.write(response);
             }
         });
+        server.createContext("/api/version", exchange -> {
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
+        });
         server.start();
         try (var context = context(Map.of())) {
             Files.createDirectories(projectRoot.resolve("EasyReasoning"));
@@ -95,6 +99,11 @@ class OllamaConfigurationTest {
                 output.write(response);
             }
         });
+        server.createContext("/api/version", exchange -> {
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
+        });
         server.start();
         try (var context = context(Map.of())) {
             Files.createDirectories(projectRoot.resolve("EasyReasoning"));
@@ -116,7 +125,7 @@ class OllamaConfigurationTest {
     }
 
     @Test
-    void doesNotRetryConnectionFailure() throws Exception {
+    void reportsUnavailableLocalServerWithoutExecutable() throws Exception {
         int port;
         try (var socket = new ServerSocket()) {
             socket.bind(new InetSocketAddress("127.0.0.1", 0));
@@ -127,7 +136,11 @@ class OllamaConfigurationTest {
             context.refresh();
             EasyReasoningService service = context.getBean(EasyReasoningService.class);
             assertTimeoutPreemptively(Duration.ofSeconds(5),
-                    () -> assertThrows(ResourceAccessException.class, () -> service.generate("Hello")));
+                    () -> {
+                        var error = assertThrows(IllegalStateException.class, () -> service.generate("Hello"));
+                        assertTrue(error.getMessage().contains("local executable not found"));
+                        service.close();
+                    });
         }
     }
 
@@ -144,6 +157,11 @@ class OllamaConfigurationTest {
             try (var output = exchange.getResponseBody()) {
                 output.write(response);
             }
+        });
+        server.createContext("/api/version", exchange -> {
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
         });
         server.start();
         try (var context = context(Map.of(

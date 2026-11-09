@@ -11,17 +11,20 @@ import java.util.List;
 final class OllamaService implements EasyReasoningService {
     private final ChatModel chatModel;
     private final OllamaApi ollamaApi;
+    private final OllamaRuntime runtime;
     private boolean used;
 
-    OllamaService(ChatModel chatModel, OllamaApi ollamaApi) {
+    OllamaService(ChatModel chatModel, OllamaApi ollamaApi, OllamaRuntime runtime) {
         this.chatModel = chatModel;
         this.ollamaApi = ollamaApi;
+        this.runtime = runtime;
     }
 
     /** Returns the model's text unchanged; request failures propagate to the caller. */
     @Override
-    public String generate(String prompt) {
+    public synchronized String generate(String prompt) {
         Assert.hasText(prompt, "prompt must not be blank");
+        runtime.ensureRunning();
         used = true;
         String response = chatModel.call(prompt);
         if (response == null || response.isBlank()) {
@@ -32,11 +35,15 @@ final class OllamaService implements EasyReasoningService {
 
     /** Unloads this session's model; an unused service needs no running Ollama. */
     @Override
-    public void close() {
-        if (used) {
-            used = false;
-            ollamaApi.chat(OllamaApi.ChatRequest.builder(chatModel.getOptions().getModel())
-                    .messages(List.of()).stream(false).keepAlive("0").build());
+    public synchronized void close() {
+        try {
+            if (used) {
+                used = false;
+                ollamaApi.chat(OllamaApi.ChatRequest.builder(chatModel.getOptions().getModel())
+                        .messages(List.of()).stream(false).keepAlive("0").build());
+            }
+        } finally {
+            runtime.close();
         }
     }
 }

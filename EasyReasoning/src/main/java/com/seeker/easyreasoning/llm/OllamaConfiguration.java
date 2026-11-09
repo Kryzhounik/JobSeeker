@@ -16,6 +16,7 @@ import org.springframework.core.retry.RetryTemplate;
 import org.springframework.util.Assert;
 
 import java.util.Properties;
+import java.nio.file.Path;
 
 /** Manual Spring AI wiring; constructing the context does not contact Ollama. */
 @Configuration(proxyBeanMethods = false)
@@ -47,8 +48,9 @@ public class OllamaConfiguration {
     }
 
     @Bean
-    public EasyReasoningService easyReasoningService(ChatModel chatModel, OllamaApi ollamaApi) {
-        return new OllamaService(chatModel, ollamaApi);
+    public EasyReasoningService easyReasoningService(ChatModel chatModel, OllamaApi ollamaApi,
+                                                    OllamaSettings settings, Path projectRoot) {
+        return new OllamaService(chatModel, ollamaApi, new OllamaRuntime(settings.baseUrl(), projectRoot));
     }
 
     record OllamaSettings(String baseUrl, String model) {}
