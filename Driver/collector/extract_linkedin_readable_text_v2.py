@@ -19,11 +19,18 @@ import re
 import sqlite3
 from pathlib import Path
 
-from extract_linkedin_readable_text_v1 import ROOT
-from extract_linkedin_readable_text_v1 import DATA_ROOT
-from extract_linkedin_readable_text_v1 import TextExtractor
-from extract_linkedin_readable_text_v1 import input_paths
-from extract_linkedin_readable_text_v1 import source_url
+if __package__:
+    from .extract_linkedin_readable_text_v1 import ROOT
+    from .extract_linkedin_readable_text_v1 import DATA_ROOT
+    from .extract_linkedin_readable_text_v1 import TextExtractor
+    from .extract_linkedin_readable_text_v1 import input_paths
+    from .extract_linkedin_readable_text_v1 import source_url
+else:
+    from extract_linkedin_readable_text_v1 import ROOT
+    from extract_linkedin_readable_text_v1 import DATA_ROOT
+    from extract_linkedin_readable_text_v1 import TextExtractor
+    from extract_linkedin_readable_text_v1 import input_paths
+    from extract_linkedin_readable_text_v1 import source_url
 from db.job_registry import source_job_id
 from db.migrate import migrate_database
 from db.readable_text import has_readable_text

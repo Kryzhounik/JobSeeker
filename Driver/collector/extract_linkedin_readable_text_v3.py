@@ -37,8 +37,12 @@ import sys
 
 from lxml import html
 
-from extract_linkedin_readable_text_v1 import SKIP_TAGS
-from extract_linkedin_readable_text_v2 import repair_mojibake
+if __package__:
+    from .extract_linkedin_readable_text_v1 import SKIP_TAGS
+    from .extract_linkedin_readable_text_v2 import repair_mojibake
+else:
+    from extract_linkedin_readable_text_v1 import SKIP_TAGS
+    from extract_linkedin_readable_text_v2 import repair_mojibake
 
 
 # These identify LinkedIn UI modules, not arbitrary occurrences of words such

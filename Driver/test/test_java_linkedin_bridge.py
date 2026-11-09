@@ -17,6 +17,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.java_linkedin import python_bridge
+from collector import service as collector_service
 from collector.filtering.publication_age import publication_age_days
 
 
@@ -44,7 +45,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             cleaner = Mock()
             cleaner.cleanVacancy.return_value = cleaned
             vacancy_filter = python_bridge._require_session().vacancy_filter
-            with patch.object(python_bridge, "readable_text", return_value=original), \
+            with patch.object(collector_service, "readable_text", return_value=original), \
                     patch.object(vacancy_filter, "filter_text", wraps=vacancy_filter.filter_text) as content_filter:
                 result = json.loads(python_bridge.process_html(json.dumps(preview),
                     "<h2>About the job</h2><p>Build Java services.</p>", False, cleaner))
@@ -63,7 +64,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                        "title": "Java Developer"}
             cleaner = Mock()
             cleaner.cleanVacancy.side_effect = RuntimeError("Invalid vacancy boundaries")
-            with patch.object(python_bridge, "readable_text", return_value="Original text"), \
+            with patch.object(collector_service, "readable_text", return_value="Original text"), \
                     patch.object(python_bridge._require_session().vacancy_filter, "filter_text") as content_filter:
                 with self.assertRaisesRegex(RuntimeError, "Invalid vacancy boundaries"):
                     python_bridge.process_html(json.dumps(preview),

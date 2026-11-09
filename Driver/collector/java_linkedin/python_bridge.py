@@ -6,11 +6,8 @@ standalone lifecycle. The regular Python CLI entry points remain unchanged.
 
 from __future__ import annotations
 
-from contextlib import closing
-from dataclasses import dataclass
 import json
 from pathlib import Path
-import sqlite3
 import sys
 from typing import Any
 
@@ -21,207 +18,54 @@ for import_root in (DRIVER_ROOT, COLLECTOR_ROOT):
     if str(import_root) not in sys.path:
         sys.path.insert(0, str(import_root))
 
-from collector.extract_linkedin_readable_text_v3 import readable_text
-from collector.filtering.linkedin_filter import VacancyFilter
-from collector.filtering.linkedin_filter import apply_preview_decision_with_filter
-from collector.filtering.linkedin_filter import content_response
-from collector.filtering.linkedin_filter import load_config
-from collector.filtering.publication_age import publication_age_days
-from collector.logging.linkedin_logger import record_collection_event
-from collector.logging.linkedin_run_logger import finish_collection_run
-from collector.logging.linkedin_run_logger import record_collection_page
-from collector.logging.linkedin_run_logger import start_collection_run
-from collector.save_raw_page import save_content
-from db.companies import get_priority_linkedin_ids
-from db.filter_rejections import save_content_filter_rejection
-from db.job_registry import mark_status
-from db.migrate import migrate_database
-from db.readable_text import save_collected_job
+from collector.service import CollectorService
 
 
-@dataclass
-class Session:
-    driver_root: Path
-    db_path: Path
-    raw_dir: Path
-    preview_config: Any
-    vacancy_filter: VacancyFilter
-    run_id: str | None = None
-
-
-_session: Session | None = None
+_session: CollectorService | None = None
 
 
 def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
     global _session
-    root = Path(driver_root).resolve()
-    database = Path(db_path).resolve()
-    raw = Path(raw_dir).resolve()
-    migrate_database(database)
-    preview_config_path = root / "collector/filtering/linkedin_preview_filter.ini"
-    _session = Session(
-        driver_root=root,
-        db_path=database,
-        raw_dir=raw,
-        preview_config=load_config(preview_config_path),
-        vacancy_filter=VacancyFilter(
-            preview_config_path=preview_config_path,
-            db_path=database,
-        ),
-    )
+    _session = CollectorService(Path(driver_root), Path(db_path), Path(raw_dir))
 
 
 def priority_company_ids() -> str:
-    session = _require_session()
-    with closing(sqlite3.connect(session.db_path)) as connection:
-        values = get_priority_linkedin_ids(connection)
-    return _json(values)
+    return _json(_require_session().priority_company_ids())
 
 
 def start_run(run_id: str, config_json: str) -> None:
-    session = _require_session()
-    normalized_run_id = _normalize_unicode(run_id)
-    start_collection_run(
-        normalized_run_id,
-        _object(config_json),
-        session.db_path,
-    )
-    session.run_id = normalized_run_id
+    _require_session().start_run(_normalize_unicode(run_id), _object(config_json))
 
 
 def log_page(run_id: str, page_json: str) -> None:
-    session = _require_session()
-    record_collection_page(
-        _normalize_unicode(run_id),
-        _object(page_json),
-        session.db_path,
-    )
+    _require_session().log_page(_normalize_unicode(run_id), _object(page_json))
 
 
-def finish_run(
-    run_id: str,
-    status: str,
-    stop_reason: str,
-    accepted_count: int,
-    message: str,
-) -> None:
-    session = _require_session()
-    finish_collection_run(
-        _normalize_unicode(run_id),
-        _normalize_unicode(status),
-        _normalize_unicode(stop_reason),
-        int(accepted_count),
-        _normalize_unicode(message),
-        session.db_path,
-    )
+def finish_run(run_id: str, status: str, stop_reason: str, accepted_count: int, message: str) -> None:
+    _require_session().finish_run(_normalize_unicode(run_id), _normalize_unicode(status),
+                                  _normalize_unicode(stop_reason), int(accepted_count), _normalize_unicode(message))
 
 
 def decide_preview(preview_json: str) -> str:
-    session = _require_session()
-    preview = _object(preview_json)
-    result = apply_preview_decision_with_filter(
-        preview,
-        session.preview_config,
-        session.vacancy_filter,
-        session.db_path,
-    )
-    return _json(result)
+    return _json(_require_session().decide_preview(_object(preview_json)))
 
 
 def process_html(preview_json: str, html: str, easy_apply: bool, cleaner=None) -> str:
-    session = _require_session()
-    preview = _object(preview_json)
-    html = _normalize_unicode(html)
-    job_id = str(preview.get("job_id") or "").strip()
-    source_url = str(preview.get("source_url") or "").strip()
-    title = str(preview.get("title") or "").strip()
-    if not job_id or not source_url:
-        raise ValueError("Browser result is missing job_id or source_url")
-    age = publication_age_days(html)
-    max_age = session.preview_config.getint("age", "max_days", fallback=14)
-    if age is not None and age > max_age:
-        reason = f"publication age {age} days exceeds {max_age} days"
-        log_outcome(preview_json, "age_filtered", reason)
-        return _json({"source": "linkedin", "job_id": job_id, "title": title,
-                      "status": "age_filtered", "reason": reason})
-
-    raw_path = save_content(
-        source="linkedin",
-        url=source_url,
-        content=html,
-        out_dir=session.raw_dir,
-        ext="html",
-        force=False,
-        db_path=session.db_path,
-        collection_method="playwright",
-        collection_run_id=session.run_id,
-    )
-    text = readable_text("linkedin", raw_path)
-    if cleaner is not None:
-        text = _normalize_unicode(cleaner.cleanVacancy(text))
-
-    with closing(sqlite3.connect(session.db_path)) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
-        save_collected_job(
-            connection,
-            "linkedin",
-            job_id,
-            text,
-            source_url=source_url,
-            title=title,
-            company=preview.get("company"),
-            location=preview.get("location"),
-            workplace=preview.get("workplace"),
-            salary=preview.get("salary"),
-            easy_apply=easy_apply,
-        )
-        filter_result = session.vacancy_filter.filter_text(title, text)
-        if filter_result.rejected:
-            save_content_filter_rejection(
-                connection,
-                "linkedin",
-                job_id,
-                rule=filter_result.rule,
-                matched_text=filter_result.match,
-                keyword_patterns=filter_result.keyword_patterns,
-            )
-            mark_status(connection, "linkedin", job_id, "CONTENT_REJECTED")
-        connection.commit()
-
-    decision = content_response(filter_result)
-    status = (
-        "raw_saved"
-        if decision["content_decision"] == "analyze"
-        else "content_filtered"
-    )
-    reason = str(decision.get("content_reason", ""))
-    record_collection_event(
-        {**preview, "status": status, "reason": reason},
-        session.db_path,
-    )
-
-    return _json(
-        {
-            "source": "linkedin",
-            "job_id": job_id,
-            "title": title,
-            "status": status,
-            "reason": reason,
-        }
-    )
+    clean_text = None if cleaner is None else lambda text: _normalize_unicode(cleaner.cleanVacancy(text))
+    return _json(_require_session().process_html(
+        _object(preview_json), _normalize_unicode(html), easy_apply, clean_text))
 
 
 def log_outcome(preview_json: str, status: str, reason: str) -> None:
-    session = _require_session()
-    preview = _object(preview_json)
-    record_collection_event(
-        {
-            **preview,
-            "status": _normalize_unicode(status),
-            "reason": _normalize_unicode(reason),
-        },
-        session.db_path,
-    )
+    _require_session().log_outcome(_object(preview_json), _normalize_unicode(status), _normalize_unicode(reason))
+
+
+def semantic_snapshot(source: str, job_id: str) -> str:
+    return _json(_require_session().semantic_snapshot(source, job_id))
+
+
+def save_semantic_duplicate(duplicate_id: int, original_id: int) -> None:
+    _require_session().save_semantic_duplicate(duplicate_id, original_id)
 
 
 def close_session() -> None:
@@ -229,7 +73,7 @@ def close_session() -> None:
     _session = None
 
 
-def _require_session() -> Session:
+def _require_session() -> CollectorService:
     if _session is None:
         raise RuntimeError("init_session must be called before collector operations")
     return _session
@@ -258,18 +102,3 @@ def _normalize_strings(value: Any) -> Any:
     if isinstance(value, list):
         return [_normalize_strings(item) for item in value]
     return value
-
-
-def semantic_snapshot(source: str, job_id: str) -> str:
-    from db.semantic_duplicates import load_snapshot
-    session = _require_session()
-    with closing(sqlite3.connect(session.db_path)) as connection:
-        return _json(load_snapshot(connection, session.run_id, source, job_id))
-
-
-def save_semantic_duplicate(duplicate_id: int, original_id: int) -> None:
-    from db.semantic_duplicates import save_link
-    session = _require_session()
-    with closing(sqlite3.connect(session.db_path)) as connection:
-        connection.execute("PRAGMA foreign_keys = ON")
-        save_link(connection, session.run_id, duplicate_id, original_id)
