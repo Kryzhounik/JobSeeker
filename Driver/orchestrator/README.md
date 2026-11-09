@@ -7,9 +7,9 @@ the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
 in one transaction, runs grouped
 `job_facts`, candidate fit, job interest, and the existing database save.
 
-The Python proxy is reached through the process-wide JPy runtime already used
-by the collector. No separate Python process is started for orchestration; the
-proxy itself launches the configured Codex CLI command.
+The module calls existing Python operations through JPy. Shared boundary rules
+are described in
+[Driver architecture](../ARCHITECTURE.md#граница-java-и-python-через-jpy).
 
 Build the collector and orchestrator together from the project root:
 
@@ -133,8 +133,7 @@ completion alone is not treated as proof that the whole workflow completed;
 historical rows are marked `failed`, not active `running`.
 CLI retains exit code `3` for that expected limit, rather than an application-error
 stack trace. CLI notifications are emitted as
-`WORKFLOW_PROGRESS ` JSON lines on stderr. JPy gateways do not
-change global Python stdout; only the CLI temporarily redirects it to stderr.
+`WORKFLOW_PROGRESS ` JSON lines on stderr.
 
 ### Check email recommendations
 

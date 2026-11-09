@@ -4,18 +4,15 @@ This is the Maven project for the JavaFX version of Seeker Jobs. It targets
 Java 21, uses OpenJFX controls and FXML, and has `jpy` on its classpath for the
 shared Python client-data module at `GUI/client_data.py`.
 
-`ClientData` converts JSON to Java records at the JPy boundary. Auxiliary
-tables, status/availability updates, and Refilter use typed DTOs rather than
-JSON nodes. Refilter selection keeps immutable `RefilterCandidate` values;
-only the adapter serializes the selected list back to Python field names.
-Nullable database IDs and Fit stay nullable, while nullable display strings
-are normalized to empty strings. `ClientDataContractsTest` checks these
+The shared Java/Python boundary and client-data adaptation are described in
+[Driver architecture](../../Driver/ARCHITECTURE.md#граница-java-и-python-через-jpy).
+
+`ClientDataContractsTest` checks the client-data
 contracts without starting Python, opening windows, or accessing a database.
 It and `CollectorProgressTest` run under JUnit with `mvn test`.
 `GptEvaluationTest` and `SpringContextTest` also run there, checking the answer
 panel and application context lifecycle without external operations.
-Job-list requests use `JobFilters` with six typed fields; the adapter alone
-maps their Java names to Python JSON keys. Company updates have separate
+Company updates have separate
 LinkedIn ID, priority, and blacklist methods, so UI handlers do not choose
 Python function names or pass untyped values.
 
@@ -162,7 +159,6 @@ a brighter green than Collect.
 
 - `direct` (default): calls `DriverApi.collectBatch(handler)` in the GUI JVM and
   receives immutable `ProgressSnapshot` values through a Java callback.
-  GUI data access and Collector share the process-wide `JpyRuntime`.
 - `process`: launches the external collector JAR with `collect-batch`. The CLI
   encodes the same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on
   stderr and writes the final `CollectionReport` to stdout.
@@ -260,7 +256,4 @@ that an application was submitted. Finished panels can be dismissed or resized
 like the other background panels. Approved answers can be added to
 `Data/applier/approved_answers.md`.
 
-The client-data API accepts a database path and primitive values, returning
-structured records as JSON. JavaFX calls it through `jpy` and does not open
-SQLite directly. Database and network work for these actions runs off the
-JavaFX Application Thread.
+Database and network work for these actions runs off the JavaFX Application Thread.

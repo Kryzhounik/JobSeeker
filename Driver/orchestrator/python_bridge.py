@@ -164,6 +164,9 @@ def run_job_facts(
 
     analysis = json.loads(result.final_message)
     validate_json(analysis, schema)
+    # Keep agent extraction independent of script facts. Missing or conflicting
+    # explicit CEFR must fail so parser/prompt errors remain visible; do not
+    # silently fill or overwrite the agent's result.
     languages = {row["name"].strip().casefold(): row for row in analysis["languages"]}
     for fact in input_value["script_language_facts"]:
         if not fact["exact"]:

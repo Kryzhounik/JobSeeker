@@ -6,18 +6,12 @@ search pagination, card selection, its own tabs, and the final in-memory run sco
 filtering, raw/readable persistence, priority-company lookup, lifecycle, and
 collection logging functions through jpy.
 
-`python_bridge.py` is a thin adapter imported by jpy. It is not a background
-Python service. The underlying Python functions and their CLI entry points stay
-available to agents, tests, and the GUI.
+The shared Java/Python boundary and runtime ownership are described in
+[Driver architecture](../../ARCHITECTURE.md#граница-java-и-python-через-jpy).
 
-`LinkedInCollectionService` owns one shared `EasyReasoningApi` for a collection.
-The gateway passes it to the Python bridge, which calls `cleanVacancy(text)` after
-HTML cleanup and before readable-text persistence and content filtering. The
-optional trimming switch is configured only in
+Optional vacancy trimming uses EasyReasoning and is configured only in
 `EasyReasoning/easy-reasoning.properties` (`vacancy.trimming.enabled=false` by
-default); collector code does not check it. The service closes EasyReasoning
-after comparisons and Python finish, unloading a used local model. Cleanup errors are reported through
-the existing collection failure path; original readable text is not substituted.
+default).
 
 ## Module boundaries
 
@@ -52,10 +46,7 @@ page/cards, processed, accepted/limit, and each rejection/failure counter.
 The same complete snapshot is sent directly and serialized by the process CLI.
 Snapshots do not write a console protocol themselves.
 
-The CLI alone encodes callbacks as `COLLECTOR_PROGRESS ` JSON lines on stderr
-and temporarily redirects Python stdout to stderr, restoring it afterwards.
-The JPy gateways and `python_bridge.py` leave Python stdout unchanged when
-called as a library. All in-process consumers use the common `JpyRuntime`.
+The CLI encodes callbacks as `COLLECTOR_PROGRESS ` JSON lines on stderr.
 
 `CollectionReport` describes collection only: `accepted_count` is the number
 accepted by Collector and `outcomes` contains only Collector outcomes.

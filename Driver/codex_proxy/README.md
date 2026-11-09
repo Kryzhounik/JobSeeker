@@ -72,13 +72,9 @@ The command writes the final agent response to stdout. It stores only transport
 usage metrics in SQLite.
 
 Java callers use `com.seeker.codex.CodexClient` from `Tools` for both JPy agent
-operations and Python-process calls. The client performs the call and unwraps
-the response in one step. It throws the checked `UsageLimitExceededException`
-when Codex usage is exhausted. `getRetryAt()` returns an `Instant`, or `null`
-when the reset time was not supplied or recognized. Callers decide how to
-handle or retry the operation.
-
-The proxy records metrics before raising its Python `UsageLimitExceededError`.
+operations and Python-process calls. The JPy call boundary and structured
+usage-limit propagation are described in
+[Driver architecture](../ARCHITECTURE.md#граница-java-и-python-через-jpy).
 
 Failed CLI invocations preserve their full stdout/stderr (with credentials
 redacted) under `Data/logs/codex/<timestamp-id>/stdout.log` and `stderr.log`.
@@ -90,8 +86,7 @@ Debug stderr is kept out of ordinary error messages. The proxy does not separate
 dump prompts or the environment, add retries, or change model/session settings.
 See the [official diagnostics documentation](https://learn.chatgpt.com/docs/config-file/environment-variables).
 
-`codex_proxy.bridge` carries that failure across JPy as a structured response;
-`--json-result` provides the same protocol for process callers. Normal CLI
+`--json-result` provides a structured result/error response for process callers. Normal CLI
 output stays unchanged when that flag is absent. Limit recognition and reset
 time parsing are centralized in `errors.py`; Java callers never parse CLI text.
 Time-only reset messages use the CLI process's local timezone and the next
