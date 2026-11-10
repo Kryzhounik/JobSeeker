@@ -146,7 +146,7 @@ The parser accepts a JSON object or one JSON code block, using only the boundary
 fields. Any additional model-generated description is ignored, never used as text.
 
 Each enabled attempt saves a UUID-prefixed `.before.txt` and `.response.txt`;
-successful cleanup also saves `.after.txt`, under `Data/easy-reasoning/trimming/`.
+successful cleanup also saves `.after.txt`, under repository-root `tmp/easy-reasoning/trimming/`.
 The files use UTF-8 and preserve source line endings. A failed model request may
 leave only the before file. These are local inspection files, ignored by Git.
 

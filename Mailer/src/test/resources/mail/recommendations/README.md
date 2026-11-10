@@ -15,4 +15,4 @@ must not appear in results.
 
 These are reduced, sanitized structural fixtures, not complete original MIME
 messages. The originals and inspection helpers remain under Git-ignored
-`Data/mailer/tmp/`. A separate live comparison checks the full original HTML.
+`tmp/mailer/`. A separate live comparison checks the full original HTML.

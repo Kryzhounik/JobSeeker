@@ -44,7 +44,7 @@ public class EasyReasoningConfiguration {
             throw new IllegalArgumentException("vacancy.trimming.enabled must be true or false");
         }
         return new VacancyCleaner(Boolean.parseBoolean(value), service,
-                projectRoot.resolve("Data/easy-reasoning/trimming"),
+                projectRoot.resolve("tmp/easy-reasoning/trimming"),
                 projectRoot.resolve("EasyReasoning/prompts/clean-vacancy.md"));
     }
 }

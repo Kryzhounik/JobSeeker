@@ -114,7 +114,7 @@ reuse or reset the existing checkpoint. Unrelated mail operations do not require
 the recommendation settings.
 
 Manual message samples, diagnostic dumps and verification reports belong under
-`Data/mailer/tmp/`. They are not part of tracked source.
+`tmp/mailer/`. They are not part of tracked source.
 
 Use one persistent UID checkpoint per operation; no SQLite message table or
 list of processed messages is needed. The checkpoint carries the account,
@@ -276,4 +276,4 @@ dependencies. They cover extraction, MIME, repeated calls, failure/checkpoint
 behavior, CLI delegation and isolation from unrelated operations. They do not
 connect to a real mailbox, start a browser or analyzer, run Codex, or change
 production databases. Live checks are separate user-directed actions; manual
-evidence belongs in `Data/mailer/tmp/`, not in this architecture document.
+evidence belongs in `tmp/mailer/`, not in this architecture document.
