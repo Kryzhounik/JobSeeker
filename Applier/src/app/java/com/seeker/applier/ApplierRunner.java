@@ -6,8 +6,8 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.TimeoutError;
-import com.seeker.applier.shared.LinkedInJobPage;
-import com.seeker.applier.shared.ManagedBrowser;
+import com.seeker.browser.LinkedInJobPage;
+import com.seeker.browser.ManagedBrowser;
 import com.seeker.codex.CodexClient;
 import com.seeker.codex.UsageLimitExceededException;
 

@@ -3,7 +3,7 @@ package com.seeker.collector.linkedin.collection;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
-import com.seeker.applier.shared.LinkedInJobPage;
+import com.seeker.browser.LinkedInJobPage;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;

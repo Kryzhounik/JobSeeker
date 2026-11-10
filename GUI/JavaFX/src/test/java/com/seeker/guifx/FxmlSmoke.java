@@ -145,5 +145,28 @@ public final class FxmlSmoke {
                         node instanceof javafx.scene.control.Label label && label.getText().equals("\u21b3"))) {
             throw new AssertionError("Duplicate title has no visible indentation/marker");
         }
+        table.getItems().add(ClientData.readResponse("{\"job_id\":3,\"title\":\"Other\"}", JobRecord.class));
+        table.getSelectionModel().setSelectionMode(javafx.scene.control.SelectionMode.MULTIPLE);
+        table.setSortPolicy(view -> { JobRows.sort(view.getItems(), view.getComparator()); return true; });
+        table.getSortOrder().setAll(title);
+        for (int pass = 0; pass < 8; pass++) {
+            table.getSelectionModel().clearAndSelect(pass % table.getItems().size());
+            JobRecord selected = table.getSelectionModel().getSelectedItem();
+            title.setSortType(pass % 2 == 0 ? javafx.scene.control.TableColumn.SortType.DESCENDING
+                    : javafx.scene.control.TableColumn.SortType.ASCENDING);
+            table.sort();
+            root.layout();
+            var selection = table.getSelectionModel();
+            if (selection.getSelectedItem() != selected || selection.getSelectedIndices().size() != 1
+                    || table.getItems().get(selection.getSelectedIndices().getFirst()) != selected) {
+                throw new AssertionError("Sorting desynchronized selected item and indices");
+            }
+            for (var node : table.lookupAll(".table-row-cell")) {
+                if (node instanceof javafx.scene.control.TableRow<?> row && !row.isEmpty()
+                        && row.isSelected() != selection.isSelected(row.getIndex())) {
+                    throw new AssertionError("Selected row rendering is stale");
+                }
+            }
+        }
     }
 }

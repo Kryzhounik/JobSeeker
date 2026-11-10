@@ -34,7 +34,7 @@ class DriverConfigurationTest {
                 python.executable=unused/python.exe
                 """);
         Path analyzer = Files.createDirectories(projectRoot.resolve("Driver/analyzer/config"));
-        Files.writeString(analyzer.resolve("execution.ini"), "vacancies_per_agent=1\n");
+        Files.writeString(analyzer.resolve("execution.ini"), "parallel_agents=1\nvacancies_per_agent=1\n");
 
         AtomicInteger closed = new AtomicInteger();
         var context = new AnnotationConfigApplicationContext();

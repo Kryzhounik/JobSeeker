@@ -795,7 +795,7 @@ public final class MainController {
         task.setOnSucceeded(event -> {
             if (requestId != refreshRequestId) return;
             List<TableColumn<JobRecord, ?>> sortOrder = List.copyOf(jobsTable.getSortOrder());
-            jobsTable.setItems(FXCollections.observableArrayList(task.getValue()));
+            jobsTable.setItems(FXCollections.observableArrayList(JobRows.sorted(task.getValue(), null)));
             if (!jobSortRestored) {
                 if (jobsTable.getSortOrder().isEmpty()) restoreJobSort();
                 jobSortRestored = true;
@@ -1097,9 +1097,7 @@ public final class MainController {
                 javafx.scene.control.SelectionMode.MULTIPLE
         );
         jobsTable.setSortPolicy(table -> {
-            List<JobRecord> selected = List.copyOf(table.getSelectionModel().getSelectedItems());
-            table.getItems().setAll(JobRows.sorted(table.getItems(), table.getComparator()));
-            for (JobRecord row : selected) table.getSelectionModel().select(row);
+            JobRows.sort(table.getItems(), table.getComparator());
             saveJobSort();
             return true;
         });

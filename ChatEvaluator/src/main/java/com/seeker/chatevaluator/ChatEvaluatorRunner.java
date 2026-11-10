@@ -8,7 +8,7 @@ import com.microsoft.playwright.Request;
 import com.microsoft.playwright.Response;
 import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.WaitUntilState;
-import com.seeker.applier.shared.ManagedBrowser;
+import com.seeker.browser.ManagedBrowser;
 import com.seeker.tools.LinkedInJobAvailability;
 
 import java.io.IOException;

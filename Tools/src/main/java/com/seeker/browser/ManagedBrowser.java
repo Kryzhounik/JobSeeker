@@ -1,4 +1,4 @@
-package com.seeker.applier.shared;
+package com.seeker.browser;
 
 import com.google.gson.JsonObject;
 import com.microsoft.playwright.BrowserContext;

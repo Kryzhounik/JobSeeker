@@ -3,7 +3,7 @@ package com.seeker.collector.linkedin.browser;
 import com.google.gson.JsonObject;
 import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Page;
-import com.seeker.applier.shared.ManagedBrowser;
+import com.seeker.browser.ManagedBrowser;
 
 import java.io.IOException;
 import java.nio.file.Path;
