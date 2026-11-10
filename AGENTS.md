@@ -31,6 +31,13 @@ Follow the decisions applicable to your task. This requirement does not apply
 to runtime agents invoked by the application for vacancy analysis, scoring,
 form filling, or other application operations.
 
+## Data and Temporary Artifacts
+
+`Data/` is reserved for persistent application data and working results.
+Do not put experiments, test data, diagnostic dumps, recovery scripts, or other
+one-off artifacts there. Use repository-root `tmp/` for all such files
+(for example, `tmp/experiments/` and `tmp/backups/`).
+
 ## Implementation Simplicity
 
 Choose the simplest implementation that satisfies the agreed requirements.
