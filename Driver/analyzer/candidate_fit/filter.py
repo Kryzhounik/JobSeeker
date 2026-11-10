@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from analyzer.location import check_location_allowance
+from common.paths import PROFILE_ROOT
 
 
 LANGUAGE_RANKS = {
@@ -109,11 +110,11 @@ def project_root() -> Path:
 
 
 def default_resume_path() -> Path:
-    return project_root() / "analyzer" / "config" / "resume.ini"
+    return PROFILE_ROOT / "resume.ini"
 
 
 def default_filter_path() -> Path:
-    return project_root() / "analyzer" / "candidate_fit" / "config" / "filter.ini"
+    return PROFILE_ROOT / "Driver/analyzer/filter.ini"
 
 
 def load_filter_config(path: Path | None = None) -> configparser.ConfigParser:

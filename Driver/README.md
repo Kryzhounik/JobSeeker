@@ -4,6 +4,10 @@
 scoring, database mapping, and persistence. The Java orchestrator owns the
 execution order; individual modules own their internal rules.
 
+Personal candidate data and module-specific preferences live in
+`Data/Profile/`; see [Personalization](../docs/PROFILE.md). Technical runtime
+configuration remains in the modules.
+
 ## Java Workflow Orchestrator
 
 `orchestrator` is the Java entry point for the workflow. It calls the existing

@@ -175,23 +175,69 @@ class ChatHistoryReadinessTest {
     }
 
     @Test
-    void blockedRendererFailsShortDomProbe() {
+    void temporarilyBlockedRendererRecoversAfterShortProbeTimeout() throws Exception {
         try (var context = browser.newContext()) {
             context.setOffline(true);
             Page page = context.newPage();
             page.setContent(READY_PAGE);
-            var cdp = context.newCDPSession(page);
-            try {
-                page.evaluate("setTimeout(() => { while (true) {} }, 100)");
-                page.waitForTimeout(200);
-                IOException failure = assertThrows(IOException.class,
-                        () -> ChatEvaluatorRunner.prepareConversation(page, page.url(), false));
-                assertTrue(failure.getMessage().contains("did not respond to a DOM check within 3 seconds"));
-                assertTrue(failure.getMessage().contains("No URL was sent"));
-            } finally {
-                cdp.send("Runtime.terminateExecution");
-                cdp.detach();
+            page.evaluate("setTimeout(() => { const until = Date.now() + 4500; while (Date.now() < until) {} }, 100)");
+            page.waitForTimeout(200);
+            assertEquals(1, ChatEvaluatorRunner.prepareConversation(page, page.url(), false).count());
+        }
+    }
+
+    @Test
+    void browserAvailabilityWaitsForDelayedDescriptionAndStillRejectsClosure() throws Exception {
+        for (boolean closed : new boolean[]{false, true}) {
+            try (var context = browser.newContext()) {
+                context.setOffline(true);
+                String text = closed ? "This job is no longer available" : "LinkedIn Requirements " + "Java engineering ".repeat(150);
+                context.route("https://linkedin.test/**", route -> route.fulfill(new Route.FulfillOptions()
+                        .setContentType("text/html").setBody("<main>Loading</main><script>setTimeout(() => document.body.innerHTML="
+                                + new com.google.gson.Gson().toJson("<article class='jobs-description__container'>" + text + "</article>")
+                                + ", 700)</script>")));
+                Page page = context.newPage();
+                if (closed) {
+                    IOException error = assertThrows(IOException.class, () -> ChatEvaluatorRunner.requireAvailableVacancy(
+                            page, "https://linkedin.test/jobs/view/123"));
+                    assertTrue(error.getMessage().contains("closed"));
+                } else {
+                    ChatEvaluatorRunner.requireAvailableVacancy(page, "https://linkedin.test/jobs/view/123");
+                }
             }
+        }
+    }
+
+    @Test
+    void delayedConfirmationDoesNotDispatchTheMessageAgain() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent(READY_PAGE.replace("</form>", "<button type='submit'>Send</button></form>"));
+            page.evaluate("""
+                () => {
+                  window.sends = 0;
+                  document.querySelector('form').onsubmit = event => {
+                    event.preventDefault(); window.sends++;
+                    const url = document.querySelector('[contenteditable]').innerText;
+                    setTimeout(() => {
+                      document.querySelector('[contenteditable]').innerText = '';
+                      const turn = document.createElement('div');
+                      turn.setAttribute('data-turn-key', 'new-turn');
+                      turn.innerHTML = '<div data-chatgpt-search-unit-key="new-turn:user" data-chatgpt-search-message-ids="new-user"></div>';
+                      turn.firstChild.innerText = url; document.body.prepend(turn);
+                      // Preserve the old anchor before the new turn, just like real history.
+                      document.body.append(turn);
+                      setTimeout(() => {
+                        turn.innerHTML += '<div data-chatgpt-search-unit-key="new-turn:assistant" data-chatgpt-search-message-ids="new-answer">Full answer</div>'
+                          + '<div data-talvt-turn-state="complete"></div>';
+                      }, 700);
+                    }, 1800);
+                  };
+                }
+                """);
+            assertEquals("Full answer", ChatEvaluatorRunner.sendAndAwait(page, page.url(), "https://jobs.test/one"));
+            assertEquals(1, ((Number) page.evaluate("window.sends")).intValue());
         }
     }
 

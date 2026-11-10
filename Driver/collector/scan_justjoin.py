@@ -18,6 +18,7 @@ from urllib.request import Request, urlopen
 
 from justjoin_search_urls import API_URL as BROWSER_API_URL
 from justjoin_search_urls import DEFAULT_ITEMS_COUNT
+from justjoin_search_urls import DEFAULT_CONFIG
 from justjoin_search_urls import SITE_URL
 from justjoin_search_urls import build_api_params
 from justjoin_search_urls import build_search_url
@@ -166,7 +167,7 @@ def parse_args() -> argparse.Namespace:
     source.add_argument("--job-url", help="Single vacancy URL for debug download.")
     parser.add_argument(
         "--config",
-        default=str(collector_root() / "config" / "justjoin.properties"),
+        default=str(DEFAULT_CONFIG),
     )
     parser.add_argument("--limit", type=int)
     parser.add_argument("--delay-seconds", type=float)

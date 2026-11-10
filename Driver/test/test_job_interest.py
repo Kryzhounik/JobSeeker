@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sys
+import configparser
 from pathlib import Path
 import unittest
 
@@ -15,9 +16,17 @@ from analyzer.job_interest.calculate import load_config, relocation_score, remot
 class JobInterestTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.config = load_config(
-            DRIVER_ROOT / "analyzer" / "job_interest" / "config" / "interest.ini"
-        )
+        cls.config = configparser.ConfigParser()
+        cls.config.optionxform = str
+        cls.config.read_string("""
+[locations]
+worldwide = 1000
+Moldova = 800
+Serbia = 400
+[relocation]
+base = 100
+Poland = 500
+""")
 
     def test_unknown_remote_scope_gets_half_minimum_location_score(self) -> None:
         self.assertEqual(remote_score(self.config, "remote", "unknown"), 200)

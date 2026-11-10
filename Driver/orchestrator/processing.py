@@ -19,6 +19,7 @@ from analyzer.run_logger import start_analysis_run
 from collector.filtering.language_requirements import DEFAULT_LANGUAGE_CONFIG
 from codex_proxy.metrics_proxy import run
 from common.paths import DATA_ROOT
+from common.paths import PROFILE_ROOT
 from contracts.validate_json import validate_json
 from db.job_registry import mark_status
 from db.migrate import migrate_database
@@ -241,7 +242,7 @@ def run_candidate_fit(
         ),
         input_text=_json(analysis),
         input_name=analyzed_path.name,
-        context_paths=(DRIVER_ROOT / "analyzer" / "config" / "resume.ini",),
+        context_paths=(PROFILE_ROOT / "resume.ini",),
         output_schema=schema,
         db_path=database,
         thread_id=requested_thread_id,
@@ -263,7 +264,7 @@ def run_job_interest(source: str, job_id: str, db_path: Path) -> None:
     score_json_files(
         input_path=scored_path,
         config_path=(
-            DRIVER_ROOT / "analyzer" / "job_interest" / "config" / "interest.ini"
+            PROFILE_ROOT / "Driver/analyzer/interest.ini"
         ),
         db_path=db_path,
     )

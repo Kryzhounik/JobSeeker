@@ -62,7 +62,7 @@ class CoverLetterWriterTest {
             assertEquals(root.resolve("Applier/prompts/cover_letter_prompt.md").toString(), command.get(command.indexOf("--instruction") + 1));
             var contexts = java.util.stream.IntStream.range(0, command.size() - 1)
                     .filter(i -> command.get(i).equals("--context")).mapToObj(i -> command.get(i + 1)).toList();
-            assertEquals(List.of(root.resolve("Data/applier/resume.txt").toString(), root.resolve("Data/applier/candidate_context.md").toString()), contexts);
+            assertEquals(List.of(root.resolve("Data/Profile/resume.txt").toString(), root.resolve("Data/Profile/Applier/candidate_context.md").toString()), contexts);
             assertFalse(command.contains("--allow-browser-tools"));
             assertFalse(command.contains("--model"));
             input.set(Path.of(command.get(command.indexOf("--input") + 1)));

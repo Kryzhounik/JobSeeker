@@ -656,7 +656,7 @@ final class AuxiliaryWindows {
     }
 
     private static Path collectorConfigPath() {
-        return ClientData.findProjectRoot().resolve("Driver/collector/config/linkedin.properties");
+        return ClientData.findProjectRoot().resolve("Data/Profile/Driver/collector/linkedin.properties");
     }
 
     private static String readCollectorLimit() {

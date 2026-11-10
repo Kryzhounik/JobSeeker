@@ -32,7 +32,9 @@ cases without command-line request wrappers.
 `collectBatch(handler)` or `collectUrls(urls, runPrefix, handler)`.
 `LinkedInCollectionService` also receives the handler per call; only the
 single-run `LinkedInCollector` retains it. Collection settings are loaded from
-`linkedin.properties` at the start of each collection call and remain fixed
+`Driver/collector/config/linkedin.properties` (technical parameters) and
+`Data/Profile/Driver/collector/linkedin.properties` (personal search preferences)
+at the start of each collection call and remain fixed
 for that run. Reusing the application picks up file changes on the next call;
 login also reads current browser settings when called.
 Callbacks run synchronously on the

@@ -7,7 +7,7 @@ public final class GuiFeaturesSmoke {
     public static void main(String[] args) throws Exception {
         Path root = Files.createTempDirectory("seeker-gui-smoke-");
         Path blacklistFile = root.resolve(
-                "Driver/collector/filtering/linkedin_preview_blocked_titles.txt");
+                "Data/Profile/Driver/collector/linkedin_preview_blocked_titles.txt");
         Path settingsFile = root.resolve("GUI/JavaFX/gui-settings.json");
         try {
             TitleBlacklist blacklist = new TitleBlacklist(root);

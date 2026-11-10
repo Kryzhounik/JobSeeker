@@ -31,7 +31,7 @@ class CollectorService:
         self.db_path = db_path.resolve()
         self.raw_dir = raw_dir.resolve()
         migrate_database(self.db_path)
-        config_path = self.driver_root / "collector/filtering/linkedin_preview_filter.ini"
+        config_path = self.driver_root.parent / "Data/Profile/Driver/collector/linkedin_preview_filter.ini"
         self.preview_config = load_config(config_path)
         self.vacancy_filter = VacancyFilter(preview_config_path=config_path, db_path=self.db_path)
         self.run_id: str | None = None

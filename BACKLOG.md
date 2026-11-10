@@ -22,7 +22,7 @@ execution contract; the Java orchestrator owns pipeline behavior.
 - Use `job_view` as the main filtered DB Browser view.
 - Use `job_list` as the one-row-per-job overview, including rejected jobs.
 - Use `Driver/collector/scan_justjoin.py` for JustJoinIT search and raw downloads.
-- Use `Driver/collector/config/linkedin.properties` for the first LinkedIn search URL
+- Use `Data/Profile/Driver/collector/linkedin.properties` for the first LinkedIn search URL
   and one-vacancy debug limit.
 - Use `Driver/analyzer/candidate_fit/filter.py` for quick candidate-fit checks.
 - Use `Driver/analyzer/candidate_fit/config/filter.ini` to turn quick checks on and off.
@@ -32,14 +32,14 @@ execution contract; the Java orchestrator owns pipeline behavior.
 - Run `Driver/analyzer/candidate_fit/evaluate.md` before `Driver/db/save.py`;
   it updates the same analyzed JSON with `candidate_fit_percent` and
   `candidate_fit_reason`.
-- Use `Driver/analyzer/job_interest/config/interest.ini` for technology-interest
+- Use `Data/Profile/Driver/analyzer/interest.ini` for technology-interest
   score rules.
 - Run `python Driver/analyzer/job_interest/calculate.py --input <json-or-dir>`
   before `Driver/db/save.py`; the save script requires `job_interest` to
   already exist in JSON.
 - Use `Driver/db/save.py` only to save fully scored JSON into
   SQLite.
-- Use `Driver/analyzer/config/resume.ini` for candidate languages and the
+- Use `Data/Profile/resume.ini` for candidate languages and the
   single scored maps of available remote/relocation locations.
 - The Java orchestrator owns the primary workflow through candidate fit,
   job interest, and final database save. Existing Python modules still own the

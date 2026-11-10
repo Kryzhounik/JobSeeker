@@ -189,7 +189,7 @@ class FilterConfigTest(unittest.TestCase):
 
         vacancy_filter = VacancyFilter(db_path=self.db_path)
         cases = [
-            ("language-log", "Fluent in English"),
+            ("language-log", "English C1 required"),
             ("technology-log", "Proficiency in Python"),
         ]
         with closing(self.connect()) as connection:
@@ -224,7 +224,7 @@ class FilterConfigTest(unittest.TestCase):
         )
         self.assertEqual(rows[1][:3], (
             "hard_language_requirement",
-            "Fluent in English",
+            "English C1 required",
             "English C1",
         ))
         self.assertIn("{language}", rows[1][3])

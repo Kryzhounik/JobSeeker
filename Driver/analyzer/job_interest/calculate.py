@@ -21,6 +21,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from common.paths import DATA_ROOT
+from common.paths import PROFILE_ROOT
 from db.job_registry import mark_status
 from db.migrate import migrate_database
 from analyzer.location import location_contains
@@ -35,7 +36,7 @@ def project_root() -> Path:
 
 
 def default_resume_path() -> Path:
-    return project_root() / "analyzer" / "config" / "resume.ini"
+    return PROFILE_ROOT / "resume.ini"
 
 
 def load_config(path: Path, resume_path: Path | None = None) -> configparser.ConfigParser:
@@ -392,7 +393,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--config",
-        default=str(root / "analyzer" / "job_interest" / "config" / "interest.ini"),
+        default=str(PROFILE_ROOT / "Driver/analyzer/interest.ini"),
     )
     args = parser.parse_args()
 

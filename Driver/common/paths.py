@@ -12,5 +12,6 @@ from pathlib import Path
 DRIVER_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = DRIVER_ROOT.parent if DRIVER_ROOT.name == "Driver" else DRIVER_ROOT
 DATA_ROOT = PROJECT_ROOT / "Data"
+PROFILE_ROOT = DATA_ROOT / "Profile"
 GUI_ROOT = PROJECT_ROOT / "GUI"
 PROJECT_META_ROOT = PROJECT_ROOT

@@ -19,7 +19,7 @@ Input/output contract:
 
 The deterministic caller reads runtime switches from
 `analyzer/candidate_fit/config/filter.ini`. Candidate facts for this semantic
-operation live in `analyzer/config/resume.ini`.
+operation live in `Data/Profile/resume.ini`.
 
 Evaluation isolation:
 - Do not query existing scores from SQLite or inspect an existing scored JSON.
@@ -65,7 +65,7 @@ Semantic candidate-fit agent stage:
   coverage calculated to 0.
 - This is semantic matching, not a fast script filter.
 - Use every vacancy technology together with its requirement importance and the
-  candidate profile from `analyzer/config/resume.ini`.
+  candidate profile from `Data/Profile/resume.ini`.
 - Assess actual requirement coverage from the candidate's full body of
   confirmed experience, including competencies that are a necessary or
   sufficiently reliable consequence of that experience. The absence of a

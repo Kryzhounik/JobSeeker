@@ -30,7 +30,9 @@ class LinkedInApplicationTest {
                 python.home=unused-python
                 python.executable=unused-python.exe
                 """);
-        Path config = collector.resolve("config/linkedin.properties");
+        Files.writeString(collector.resolve("config/linkedin.properties"), "");
+        Path config = root.resolve("Data/Profile/Driver/collector/linkedin.properties");
+        Files.createDirectories(config.getParent());
         Files.writeString(config, "limit=10\n");
         LinkedInApplication application = new LinkedInApplication(root);
         List<String> limits = new ArrayList<>();

@@ -12,7 +12,7 @@ final class TitleBlacklist {
 
     TitleBlacklist(Path projectRoot) {
         path = projectRoot.resolve(
-                "Driver/collector/filtering/linkedin_preview_blocked_titles.txt");
+                "Data/Profile/Driver/collector/linkedin_preview_blocked_titles.txt");
     }
 
     boolean add(String value) throws IOException {

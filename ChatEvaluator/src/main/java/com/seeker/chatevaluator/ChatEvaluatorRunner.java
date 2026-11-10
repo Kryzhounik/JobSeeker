@@ -5,10 +5,9 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.Request;
-import com.microsoft.playwright.Response;
-import com.microsoft.playwright.TimeoutError;
-import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.browser.ManagedBrowser;
+import com.seeker.browser.BrowserInteraction;
+import com.seeker.browser.LinkedInJobPage;
 import com.seeker.tools.LinkedInJobAvailability;
 
 import java.io.IOException;
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
-import java.util.function.Consumer;
 
 /** Sends a vacancy URL to the configured existing ChatGPT conversation. */
 public final class ChatEvaluatorRunner {
@@ -32,10 +30,6 @@ public final class ChatEvaluatorRunner {
     private static final String COMPOSER_SELECTOR = "form #prompt-textarea, "
             + "form [contenteditable='true'][data-testid='prompt-textarea'], "
             + "form [contenteditable='true'][role='textbox']";
-    private static final long SUBMISSION_TIMEOUT_MS = 15_000;
-    private static final long RESPONSE_TIMEOUT_MS = 180_000;
-    private static final long CONVERSATION_LOAD_TIMEOUT_MS = 90_000;
-    private static final long TAB_PROBE_TIMEOUT_MS = 3_000;
 
     private ChatEvaluatorRunner() { }
 
@@ -79,45 +73,9 @@ public final class ChatEvaluatorRunner {
             browser.keepOpen(page);
             enableFocusEmulation(browser, page);
             page.setDefaultTimeout(30_000);
-            Locator composer = prepareConversation(page, chatUrl, openConversation);
-            composer.fill(vacancyUrl);
-            requireConversation(page, chatUrl);
-            List<Turn> before = readTurns(page);
-            if (!historyReadyForMessage(page, before)) {
-                throw new IOException("ChatGPT is not ready for another message; no send action was attempted.");
-            }
-            submitOnce(page, chatUrl, composer);
-            Turn submitted = null;
-            long submissionDeadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
-            while (System.nanoTime() < submissionDeadline) {
-                requireConversation(page, chatUrl);
-                submitted = submittedTurn(before, readTurns(page), vacancyUrl,
-                        composer.innerText().isBlank());
-                if (submitted != null) break;
-                page.waitForTimeout(250);
-            }
-            if (submitted == null) {
-                throw new IOException("ChatGPT did not confirm a new user message within 15 seconds. "
-                        + "No second submission was attempted.");
-            }
+            prepareConversation(page, chatUrl, openConversation);
+            return sendAndAwait(page, chatUrl, vacancyUrl);
 
-            long deadline = System.nanoTime() + RESPONSE_TIMEOUT_MS * 1_000_000L;
-            String previousObservedResponse = "";
-            int stableObservations = 0;
-            while (System.nanoTime() < deadline) {
-                page.waitForTimeout(750);
-                requireConversation(page, chatUrl);
-                String response = completedResponse(submitted, before, readTurns(page));
-                if (!response.isBlank() && response.equals(previousObservedResponse)) {
-                    stableObservations++;
-                } else {
-                    previousObservedResponse = response;
-                    stableObservations = 0;
-                }
-                if (stableObservations >= 2) return response;
-            }
-            throw new TimeoutError("Timed out waiting for the completed ChatGPT answer to submitted turn "
-                    + submitted.key() + ".");
         }
     }
 
@@ -125,85 +83,35 @@ public final class ChatEvaluatorRunner {
         return page.locator(":is(" + COMPOSER_SELECTOR + "):visible");
     }
 
+    private static boolean conversationData(Request request) {
+        String path = URI.create(request.url()).getPath();
+        return path.contains("/backend-api/") && (path.contains("conversation") || path.endsWith("/me"));
+    }
+
     static Locator prepareConversation(Page page, String chatUrl, boolean navigate) throws IOException {
-        long deadline = System.nanoTime() + CONVERSATION_LOAD_TIMEOUT_MS * 1_000_000L;
-        LoadStatus status = new LoadStatus();
-        if (!navigate) status.advance("checking the existing conversation");
-        Consumer<Request> failed = request -> {
-            if (request.isNavigationRequest() && request.frame().equals(page.mainFrame())) {
-                status.failure = "main document load failed: " + request.failure();
-            }
-        };
-        Consumer<Page> crashed = ignored -> status.failure = "the conversation tab crashed";
-        page.onRequestFailed(failed);
-        page.onCrash(crashed);
-        boolean probing = false;
-        try {
-            requireConnectedTab(page);
-            if (navigate) {
-                Response response = page.navigate(chatUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.COMMIT)
-                        .setTimeout(CONVERSATION_LOAD_TIMEOUT_MS));
-                if (response == null || response.status() >= 400) {
-                    throw new IOException("ChatGPT main document returned "
-                            + (response == null ? "no response" : "HTTP " + response.status()) + ". No URL was sent.");
-                }
-                status.advance("main document received (HTTP " + response.status() + ")");
-            }
-            String previousKey = "";
-            int stableObservations = 0;
-            while (System.nanoTime() < deadline) {
-                requireConnectedTab(page);
-                if (status.failure != null) throw new IOException("ChatGPT " + status.failure + ". No URL was sent.");
-                probing = true;
+        try (var interaction = new BrowserInteraction(page, ChatEvaluatorRunner::conversationData)) {
+            if (navigate) interaction.open("opening the conversation", chatUrl);
+            String[] previousKey = {""};
+            int[] stable = {0};
+            return interaction.await("preparing the conversation", BrowserInteraction.LOAD, () -> {
                 Map<?, ?> state = conversationState(page);
-                probing = false;
-                if (status.failure != null) throw new IOException("ChatGPT " + status.failure + ". No URL was sent.");
-                String stage = (String) state.get("stage");
-                status.advance(stage + ", document=" + state.get("document"));
-                if (stage.equals("sign-in required") || stage.equals("Cloudflare verification required")) {
-                    throw new IOException("ChatGPT " + stage + ". Complete it manually in the managed browser. No URL was sent.");
-                }
+                String stage = state.get("stage").toString();
+                if (stage.equals("sign-in required") || stage.equals("Cloudflare verification required"))
+                    throw new IOException(stage + ". Complete it manually in the managed browser");
                 requireConversation(page, chatUrl);
-                String key = (String) state.get("key");
-                stableObservations = stage.equals("ready") && key.equals(previousKey) ? stableObservations + 1 : 0;
-                previousKey = stage.equals("ready") ? key : "";
-                if (stableObservations >= 2) return messageComposer(page);
-                page.waitForTimeout(250);
-            }
-            throw new IOException("ChatGPT tab responds but is not ready. " + status.describe() + ". No URL was sent.");
-        } catch (PlaywrightException error) {
-            String reason = probing && error instanceof TimeoutError
-                    ? "tab did not respond to a DOM check within 3 seconds"
-                    : failureDetails(error);
-            throw new IOException("ChatGPT failed while " + status.describe() + ": " + reason
-                    + ". No URL was sent.", error);
-        } finally {
-            page.offRequestFailed(failed);
-            page.offCrash(crashed);
-        }
-    }
-
-    private static void requireConnectedTab(Page page) throws IOException {
-        if (!page.context().browser().isConnected()) throw new IOException("Browser connection lost. No URL was sent.");
-        if (page.isClosed()) throw new IOException("Conversation tab was closed. No URL was sent.");
-    }
-
-    private static final class LoadStatus {
-        String stage = "opening the conversation";
-        String failure;
-        long changedAt = System.nanoTime();
-
-        void advance(String next) {
-            if (!stage.equals(next)) { stage = next; changedAt = System.nanoTime(); }
-        }
-
-        String describe() {
-            return stage + "; no stage change for " + (System.nanoTime() - changedAt) / 1_000_000_000L + " s";
+                String key = state.get("key").toString();
+                stable[0] = stage.equals("ready") && key.equals(previousKey[0]) ? stable[0] + 1 : 0;
+                previousKey[0] = stage.equals("ready") ? key : "";
+                if (stable[0] >= 2) return BrowserInteraction.Observation.ready(messageComposer(page));
+                return BrowserInteraction.Observation.pending(stage + ":" + key + ":" + state.get("document"), stage);
+            });
+        } catch (IOException failure) {
+            throw new IOException(failure.getMessage() + ". No URL was sent.", failure);
         }
     }
 
     private static Map<?, ?> conversationState(Page page) {
-        var handle = page.waitForFunction("""
+        return (Map<?, ?>) BrowserInteraction.read(page,"""
             selector => {
               const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
               const has = selector => [...document.querySelectorAll(selector)].some(visible);
@@ -222,15 +130,25 @@ public final class ChatEvaluatorRunner {
               else if (!key || !user?.getAttribute('data-chatgpt-search-message-ids')?.trim()) stage = 'waiting for conversation history';
               else if (has('button[data-testid="stop-button"], button#stop-button')) stage = 'previous response is still generating';
               else stage = 'ready';
-              return {stage, key, document: document.readyState};
+              const turns = [...document.querySelectorAll('[data-turn-key]')].map(turn => {
+              const user = turn.querySelector('[data-chatgpt-search-unit-key$=":user"]');
+              const assistant = Array.from(turn.querySelectorAll('[data-chatgpt-search-unit-key$=":assistant"]')).at(-1);
+              const id = message => (message?.getAttribute('data-chatgpt-search-message-ids') || '').trim().split(/\\s+/)[0];
+              const text = message => {
+                if (!message) return '';
+                const body = Array.from(message.children)
+                  .filter(child => !child.hasAttribute('data-conversation-role'))
+                  .map(child => child.innerText).join('\\n');
+                return (body || message.innerText).trim();
+              };
+              return [turn.getAttribute('data-turn-key') || '', id(user), text(user),
+                id(assistant), text(assistant),
+                turn.querySelector('[data-talvt-turn-state]')?.getAttribute('data-talvt-turn-state') === 'complete'];
+            });
+              return {stage, key, turns, document: document.readyState,
+                composerEmpty: !!editor && !(editor.innerText || editor.value || '').trim()};
             }
-            """, COMPOSER_SELECTOR, new Page.WaitForFunctionOptions()
-                .setPollingInterval(250).setTimeout(TAB_PROBE_TIMEOUT_MS));
-        try {
-            return (Map<?, ?>) handle.jsonValue();
-        } finally {
-            handle.dispose();
-        }
+            """, COMPOSER_SELECTOR);
     }
 
     private static void enableFocusEmulation(ManagedBrowser browser, Page page) {
@@ -239,31 +157,57 @@ public final class ChatEvaluatorRunner {
         browser.context().newCDPSession(page).send("Emulation.setFocusEmulationEnabled", focus);
     }
 
-    private static void submitOnce(Page page, String chatUrl, Locator composer) throws IOException {
-        long deadline = System.nanoTime() + SUBMISSION_TIMEOUT_MS * 1_000_000L;
-        Locator sendButton = composer.locator("xpath=ancestor::form[1]")
-                .locator("button[type='submit']:visible");
-        String lastState = "not checked";
-        while (System.nanoTime() < deadline) {
+    private static void requireNoObstacle(Map<?, ?> state) throws IOException {
+        String stage = state.get("stage").toString();
+        if (stage.equals("sign-in required") || stage.equals("Cloudflare verification required"))
+            throw new IOException(stage + ". Complete it manually in the managed browser");
+    }
+
+    static String sendAndAwait(Page page, String chatUrl, String vacancyUrl) throws IOException {
+        try (var interaction = new BrowserInteraction(page, ChatEvaluatorRunner::conversationData)) {
+            interaction.fill("entering the vacancy URL", ":is(" + COMPOSER_SELECTOR + "):visible", vacancyUrl);
+            List<Turn> before = interaction.await("checking history before sending", BrowserInteraction.ACTION, () -> {
+                requireConversation(page, chatUrl);
+                var state = conversationState(page);
+                requireNoObstacle(state);
+                if (!"ready".equals(state.get("stage")))
+                    return BrowserInteraction.Observation.pending(state.get("stage").toString(), state.get("stage").toString());
+                List<Turn> turns = turns(state);
+                return turns.isEmpty() ? BrowserInteraction.Observation.pending("", "waiting for history")
+                        : BrowserInteraction.Observation.ready(turns);
+            });
             requireConversation(page, chatUrl);
-            // Check readiness and click in one task; background tabs need not produce animation frames.
-            lastState = (String) sendButton.evaluateAll("""
-                buttons => {
-                  const visibility = 'visibility=' + document.visibilityState;
-                  if (buttons.length !== 1) return 'matches=' + buttons.length + ', ' + visibility;
-                  const button = buttons[0];
-                  if (!button.isConnected) return 'detached, ' + visibility;
-                  if (button.matches(':disabled')) return 'disabled, ' + visibility;
-                  if (button.closest('[aria-disabled="true" i], [inert]')) return 'aria-disabled/inert, ' + visibility;
-                  button.click();
-                  return 'clicked';
-                }
-                """);
-            if ("clicked".equals(lastState)) return;
-            page.waitForTimeout(250);
+            interaction.clickOnce("sending the vacancy URL",
+                    "form:has(:is(" + COMPOSER_SELECTOR + ")) button[type='submit']");
+            // Confirmation is a separate observation. It never dispatches another action.
+            Turn submitted = interaction.await("confirming the new user message (no second submission)",
+                    BrowserInteraction.RESPONSE, () -> {
+                requireConversation(page, chatUrl);
+                var state = conversationState(page);
+                requireNoObstacle(state);
+                List<Turn> turns = turns(state);
+                boolean empty = Boolean.TRUE.equals(state.get("composerEmpty"));
+                Turn turn = submittedTurn(before, turns, vacancyUrl, empty);
+                return turn == null ? BrowserInteraction.Observation.pending("", "new message ID not confirmed")
+                        : BrowserInteraction.Observation.ready(turn);
+            });
+            String[] previous = {""};
+            long[] stableSince = {0};
+            return interaction.await("waiting for the answer to turn " + submitted.key(), BrowserInteraction.RESPONSE, () -> {
+                requireConversation(page, chatUrl);
+                var state = conversationState(page);
+                requireNoObstacle(state);
+                List<Turn> turns = turns(state);
+                String response = completedResponse(submitted, before, turns);
+                if (!response.equals(previous[0])) stableSince[0] = System.nanoTime();
+                previous[0] = response;
+                if (!response.isBlank() && (System.nanoTime() - stableSince[0]) / 1_000_000 >= 1500)
+                    return BrowserInteraction.Observation.ready(response);
+                String progress = turns.stream().filter(t -> submitted.key().equals(t.key())
+                        && submitted.userId().equals(t.userId())).map(t -> t.assistantId() + ":" + t.response().length() + ":" + t.response().hashCode()).findFirst().orElse("");
+                return BrowserInteraction.Observation.pending(progress, "waiting for a completed, stable answer with the matching IDs");
+            });
         }
-        throw new IOException("The ChatGPT send button in the message composer was not ready "
-                + "within 15 seconds (" + lastState + "); no send action was attempted.");
     }
 
     @FunctionalInterface
@@ -309,54 +253,33 @@ public final class ChatEvaluatorRunner {
     private static void requireAvailableVacancyInBrowser(ManagedBrowser browser, String vacancyUrl)
             throws IOException {
         Page vacancy = browser.newBackgroundPage();
-        String stage = "opening the vacancy page";
         try {
             enableFocusEmulation(browser, vacancy);
-            Response response = vacancy.navigate(vacancyUrl, new Page.NavigateOptions()
-                    .setWaitUntil(WaitUntilState.DOMCONTENTLOADED).setTimeout(30_000));
-            if (response == null) throw new IOException("The browser returned no vacancy response.");
-            if (response.status() == 200) {
-                stage = "waiting for the vacancy description or a closure notice";
-                vacancy.waitForFunction("""
-                    () => {
-                      if (/\\/(login|authwall|checkpoint)(\\/|$)/i.test(location.pathname)) return true;
-                      const text = (document.body?.innerText || '').toLowerCase();
-                      if (text.includes('no longer accepting applications')
-                          || text.includes('this job is no longer available')) return true;
-                      if (document.querySelector("input[name='session_key'], form[action*='login']")) return true;
-                      const visible = node => node.getClientRects().length && getComputedStyle(node).visibility !== 'hidden';
-                      return [...document.querySelectorAll(
-                        '.show-more-less-html__markup, .description__text, article.jobs-description__container, '
-                        + '[data-testid="job-details"], [data-view-name="job-details"], .jobs-details, main'
-                      )].some(node => {
-                        if (!visible(node)) return false;
-                        if ([...node.querySelectorAll('[role="progressbar"], [aria-label="In progress"]')].some(visible)) return false;
-                        const content = (node.innerText || '').trim().toLowerCase();
-                        return content && (node.matches('.show-more-less-html__markup, .description__text, article.jobs-description__container')
-                          || ['about the job', 'role overview', 'requirements', 'key responsibilities']
-                            .some(marker => content.includes(marker)));
-                      });
-                    }
-                    """, null, new Page.WaitForFunctionOptions().setPollingInterval(250).setTimeout(30_000));
-            }
-            stage = "reading the vacancy page";
-            if (vacancy.locator("input[name='session_key'], form[action*='login']").count() > 0) {
-                throw new IOException("LinkedIn requires authentication; the URL was not sent to ChatGPT.");
-            }
-            String outcome = LinkedInJobAvailability.classifyResponse(response.status(), URI.create(vacancy.url()),
-                    response.headers().getOrDefault("content-type", ""), vacancy.content(),
-                    vacancy.locator("body").innerText());
-            if (!"available".equals(outcome)) {
-                throw new IOException("Vacancy is " + outcome + "; the URL was not sent to ChatGPT.");
-            }
-        } catch (TimeoutError error) {
-            throw new IOException("Vacancy browser availability check timed out while " + stage
-                    + ". Current URL: " + vacancy.url() + ". The URL was not sent to ChatGPT.", error);
-        } catch (PlaywrightException | IllegalStateException error) {
-            throw new IOException("Vacancy browser availability check failed: " + failureDetails(error)
-                    + " The URL was not sent to ChatGPT.", error);
+            requireAvailableVacancy(vacancy, vacancyUrl);
         } finally {
             vacancy.close();
+        }
+    }
+
+    static void requireAvailableVacancy(Page vacancy, String vacancyUrl) throws IOException {
+        try (var interaction = new BrowserInteraction(vacancy,
+                request -> request.url().contains("/voyager/api/") && request.url().toLowerCase().contains("job"))) {
+            interaction.open("opening the vacancy page", vacancyUrl);
+            interaction.await("checking vacancy availability", BrowserInteraction.LOAD, () -> {
+                var state = LinkedInJobPage.snapshot(vacancy);
+                if (Boolean.TRUE.equals(state.get("auth"))) throw new IOException("LinkedIn requires authentication");
+                if (Boolean.TRUE.equals(state.get("closed"))) throw new IOException("Vacancy is closed");
+                if (!Boolean.TRUE.equals(state.get("description")))
+                    return BrowserInteraction.Observation.pending(state.get("document").toString(), "waiting for the vacancy description or a closure notice");
+                String html = (String) BrowserInteraction.read(vacancy, "() => document.documentElement.outerHTML", null);
+                String outcome = LinkedInJobAvailability.classifyResponse(200, URI.create(vacancy.url()),
+                        "text/html", html, state.get("text").toString());
+                if (!"available".equals(outcome)) throw new IOException("Vacancy is " + outcome);
+                return BrowserInteraction.Observation.ready(true);
+            });
+        } catch (IOException | IllegalStateException error) {
+            throw new IOException("Vacancy browser availability check failed: " + error.getMessage()
+                    + ". The URL was not sent to ChatGPT.", error);
         }
     }
 
@@ -376,7 +299,7 @@ public final class ChatEvaluatorRunner {
         }
         // A stopped previous response need not be complete. Check whether the UI
         // accepts a new message without weakening completedResponse for our answer.
-        return Boolean.TRUE.equals(page.evaluate("""
+        return Boolean.TRUE.equals(BrowserInteraction.read(page, """
             selector => {
               const visible = node => node.getClientRects().length
                 && getComputedStyle(node).visibility !== 'hidden';
@@ -392,24 +315,8 @@ public final class ChatEvaluatorRunner {
             """, COMPOSER_SELECTOR));
     }
 
-    private static List<Turn> readTurns(Page page) {
-        List<?> values = (List<?>) page.locator("[data-turn-key]").evaluateAll("""
-            turns => turns.map(turn => {
-              const user = turn.querySelector('[data-chatgpt-search-unit-key$=":user"]');
-              const assistant = Array.from(turn.querySelectorAll('[data-chatgpt-search-unit-key$=":assistant"]')).at(-1);
-              const id = message => (message?.getAttribute('data-chatgpt-search-message-ids') || '').trim().split(/\\s+/)[0];
-              const text = message => {
-                if (!message) return '';
-                const body = Array.from(message.children)
-                  .filter(child => !child.hasAttribute('data-conversation-role'))
-                  .map(child => child.innerText).join('\\n');
-                return (body || message.innerText).trim();
-              };
-              return [turn.getAttribute('data-turn-key') || '', id(user), text(user),
-                id(assistant), text(assistant),
-                turn.querySelector('[data-talvt-turn-state]')?.getAttribute('data-talvt-turn-state') === 'complete'];
-            })
-            """);
+    private static List<Turn> turns(Map<?, ?> state) {
+        List<?> values = (List<?>) state.get("turns");
         return values.stream().map(value -> {
             List<?> turn = (List<?>) value;
             return new Turn((String) turn.get(0), (String) turn.get(1), (String) turn.get(2),

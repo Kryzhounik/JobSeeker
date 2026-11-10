@@ -38,11 +38,12 @@ from db.config import load_filter_switches
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 from db.readable_text import load_readable_text
+from common.paths import PROFILE_ROOT
 from linkedin_logger import record_preview_filter
 
 
-DEFAULT_PREVIEW_CONFIG = Path(__file__).with_name("linkedin_preview_filter.ini")
-DEFAULT_CONTENT_CONFIG = Path(__file__).with_name("linkedin_content_filter.ini")
+DEFAULT_PREVIEW_CONFIG = PROFILE_ROOT / "Driver/collector/linkedin_preview_filter.ini"
+DEFAULT_CONTENT_CONFIG = PROFILE_ROOT / "Driver/collector/linkedin_content_filter.ini"
 DEFAULT_TECHNOLOGY_RULES = Path(__file__).with_name("technology_rules.py")
 DEFAULT_RESUME_CONFIG = default_resume_path()
 DEFAULT_DB = ROOT.parent / "Data" / "jobs.sqlite"

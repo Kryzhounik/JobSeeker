@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs
 from urllib.parse import urlencode
@@ -9,6 +10,10 @@ from urllib.parse import urlparse
 
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT.parent))
+from common.paths import PROFILE_ROOT
+
+DEFAULT_CONFIG = PROFILE_ROOT / "Driver/collector/justjoin.properties"
 SITE_URL = "https://justjoin.it"
 API_URL = SITE_URL + "/api/candidate-api"
 DEFAULT_ITEMS_COUNT = 100
@@ -16,7 +21,8 @@ DEFAULT_ITEMS_COUNT = 100
 
 def load_config(path: Path) -> dict[str, str]:
     config: dict[str, str] = {}
-    for raw_line in path.read_text(encoding="utf-8").splitlines():
+    technical = ROOT / "config/justjoin.properties"
+    for raw_line in (technical.read_text(encoding="utf-8") + "\n" + path.read_text(encoding="utf-8")).splitlines():
         line = raw_line.strip()
         if line and not line.startswith("#"):
             key, _, value = line.partition("=")
@@ -108,7 +114,7 @@ def config_from_search_url(search_url: str) -> dict[str, str]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build JustJoinIT search/API URLs.")
     source = parser.add_mutually_exclusive_group()
-    source.add_argument("--config", default=str(ROOT / "config" / "justjoin.properties"))
+    source.add_argument("--config", default=str(DEFAULT_CONFIG))
     source.add_argument("--search-url")
     parser.add_argument("--from", dest="start", type=int, default=0)
     args = parser.parse_args()

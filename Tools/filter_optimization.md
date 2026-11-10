@@ -12,8 +12,8 @@ The filter being optimized here is the collector preview filter:
 
 ```text
 Driver/collector/filtering/linkedin_filter.py
-Driver/collector/filtering/linkedin_preview_filter.ini
-Driver/collector/filtering/linkedin_preview_blocked_titles.txt
+Data/Profile/Driver/collector/linkedin_preview_filter.ini
+Data/Profile/Driver/collector/linkedin_preview_blocked_titles.txt
 ```
 
 The preview stage checks both preview-visible fields before opening a vacancy:
@@ -152,7 +152,7 @@ a valid Java/backend vacancy.
 If the user explicitly approves a proposal, update the collector blocklist in:
 
 ```text
-Driver/collector/filtering/linkedin_preview_blocked_titles.txt
+Data/Profile/Driver/collector/linkedin_preview_blocked_titles.txt
 ```
 
 ## Manual Database Pass
@@ -237,7 +237,7 @@ Driver/collector/filtering/rule_loader.py
 
 `VacancyFilter.filter_text()` calls this module and compares extracted CEFR
 requirements or lower bounds of recognized wording with
-`Driver/analyzer/config/resume.ini`. Language names, localized aliases, and all
+`Data/Profile/resume.ini`. Language names, localized aliases, and all
 regex templates are code-owned rules in `language_rules.py`; they are parser
 logic, not configuration. `analyzer/config/language_levels.ini` contains the
 shared range table and textual level aliases. The script uses lower bounds;

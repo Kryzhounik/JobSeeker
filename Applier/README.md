@@ -22,13 +22,13 @@ The shared `ManagedBrowser` and `LinkedInJobPage` classes live in
 `com.seeker.browser` in Tools. Applier uses them through its Maven dependency
 on Tools; Collector and ChatEvaluator do not depend on Applier for browser code.
 
-The local resume lives at `Data/applier/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
-`Data/applier/resume.txt` is passed to Codex as context; the PDF path is passed
+The local resume lives at `Data/Profile/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
+`Data/Profile/resume.txt` is passed to Codex as context; the PDF path is passed
 for form uploads. Replace both files together when updating the resume.
-The shared candidate profile at `Driver/analyzer/config/resume.ini` supplies
+The shared candidate profile at `Data/Profile/resume.ini` supplies
 available locations, relocation options, language levels, and technology levels.
 Additional applicant facts, such as phone numbers, work authorization, compensation,
-and notice period, go in `Data/applier/facts.md`; do not duplicate the shared profile
+and notice period, go in `Data/Profile/Applier/facts.md`; do not duplicate the shared profile
 there. Keep decision rules in [prompts/fill_form.md](prompts/fill_form.md). Applier reads the vacancy location
 from the LinkedIn page
 so Codex can apply the location rule. If the extracted location is empty, Codex
@@ -47,7 +47,7 @@ deferred and is described in [Tools/ARCHITECTURE.md](../Tools/ARCHITECTURE.md).
 
 Applier reuses these existing files; it has no separate copies of these settings:
 
-- `Driver/analyzer/config/resume.ini`: shared candidate profile. The Codex path
+- `Data/Profile/resume.ini`: shared candidate profile. The Codex path
   passes its complete contents alongside the resume text and facts in the initial
   prompt. A path or link in the facts file alone does not load another file;
   the agent uses browser tools and does not fetch profile files on demand.
@@ -137,7 +137,7 @@ remains independent of the database.
 Java callers use `ApplierApi.coverLetter(long)` or `coverLetter(long, Path)`;
 `coverletter.CoverLetterWriter` is the standalone writer API. Full cleaned vacancy
 text, title and company are loaded from SQLite by ID. Only the writer prompt,
-`Data/applier/resume.txt` and `Data/applier/candidate_context.md` are supplied to
+`Data/Profile/resume.txt` and `Data/Profile/Applier/candidate_context.md` are supplied to
 Codex Proxy; questionnaire facts, profile INI and PDF are excluded. See
 [architecture](ARCHITECTURE.md) and the [CLI skill](../.agents/skills/applier-cover-letter/SKILL.md).
 

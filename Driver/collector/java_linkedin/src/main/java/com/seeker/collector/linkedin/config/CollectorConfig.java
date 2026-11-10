@@ -27,8 +27,17 @@ public record CollectorConfig(
         int detailsTimeoutSeconds
 ) {
     public static CollectorConfig load(Path path) throws IOException {
+        Path profile = path.toAbsolutePath().getParent().getParent().getParent().getParent()
+                .resolve("Data/Profile/Driver/collector/linkedin.properties");
+        return load(path, profile);
+    }
+
+    public static CollectorConfig load(Path path, Path profile) throws IOException {
         Properties properties = new Properties();
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+            properties.load(reader);
+        }
+        try (Reader reader = Files.newBufferedReader(profile, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
         int limit = integer(properties, "limit", 100);

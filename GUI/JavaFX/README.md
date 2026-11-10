@@ -254,6 +254,6 @@ The badge is light green while preparing, green when
 the task returns, and red on an exception; a finished preparation is not a claim
 that an application was submitted. Finished panels can be dismissed or resized
 like the other background panels. Approved answers can be added to
-`Data/applier/approved_answers.md`.
+`Data/Profile/Applier/approved_answers.md`.
 
 Database and network work for these actions runs off the JavaFX Application Thread.

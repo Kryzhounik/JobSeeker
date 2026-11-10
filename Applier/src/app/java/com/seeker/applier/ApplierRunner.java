@@ -2,11 +2,10 @@ package com.seeker.applier;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
-import com.microsoft.playwright.TimeoutError;
 import com.seeker.browser.LinkedInJobPage;
+import com.seeker.browser.BrowserInteraction;
 import com.seeker.browser.ManagedBrowser;
 import com.seeker.codex.CodexClient;
 import com.seeker.codex.UsageLimitExceededException;
@@ -21,7 +20,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.function.Predicate;
 
 /** Opens a vacancy, checks for a matching site script, then delegates the form to Codex. */
 public final class ApplierRunner {
@@ -45,40 +43,34 @@ public final class ApplierRunner {
             browser.context().setDefaultTimeout(timeoutMs);
             browser.context().setDefaultNavigationTimeout(timeoutMs);
             Page jobPage = browser.newPage();
-            jobPage.navigate(jobUrl);
-            String vacancyUrl = jobPage.url();
-            Locator vacancy = jobPage.locator("body");
-            if (LinkedInJobPage.isEasyApply(vacancy)) {
+            java.util.Map<?, ?> vacancy;
+            try {
+                vacancy = openVacancy(jobPage, jobUrl);
+            } catch (BrowserInteraction.WaitTimeout stalled) {
+                browser.keepOpen(jobPage);
+                return new Result("partially_filled", stalled.getMessage()
+                        + ". The vacancy remains open for manual preparation.", false);
+            }
+            if (Boolean.TRUE.equals(vacancy.get("easy"))) {
                 return new Result("skipped", "LinkedIn Easy Apply; no form was opened or Codex started.", false);
             }
-            String vacancyLocation = LinkedInJobPage.location(vacancy);
-            Locator apply = jobPage.locator(
-                    "#jobs-apply-button-id[aria-label*='on company website' i], "
-                            + "a[aria-label*='on company website' i], "
-                            + "button[aria-label*='on company website' i]");
-            if (apply.count() == 0) {
-                browser.keepOpen(jobPage);
-                return new Result("partially_filled", "No external Apply link was found for this vacancy.", false);
-            }
-
-            Page formPage = clickForPopup(jobPage, apply.first());
-            formPage.waitForTimeout(800);
-            if (sameHost(vacancyUrl, formPage.url())) {
-                // LinkedIn sometimes records "Clicked apply" first, then exposes
-                // the actual company-site link on the same job page.
-                Locator companyLink = jobPage.locator("a[aria-label='Apply on company website' i]");
-                if (companyLink.count() > 0) {
-                    formPage = clickForPopup(jobPage, companyLink.first());
-                    formPage.waitForTimeout(800);
-                }
-            }
+            String vacancyLocation = vacancy.get("location").toString();
             browser.keepOpen(jobPage);
+            String vacancyUrl = jobPage.url();
+            Page formPage;
+            try {
+                formPage = openApplication(jobPage);
+            } catch (BrowserInteraction.WaitTimeout stalled) {
+                for (Page page : browser.context().pages()) {
+                    if (!page.isClosed() && applicationTab(page, jobPage)) browser.keepOpen(page);
+                }
+                return new Result("partially_filled", stalled.getMessage()
+                        + ". No second Apply action was attempted; continue manually in the open tab.", false);
+            }
             browser.keepOpen(formPage);
-
             if (sameHost(vacancyUrl, formPage.url())) {
                 return new Result("partially_filled",
-                        "The external Apply destination did not open. The vacancy remains open for manual preparation.",
-                        false);
+                        "The external Apply destination did not open. The vacancy remains open for manual preparation.", false);
             }
 
             int tabIndex = browser.tabIndex(formPage);
@@ -97,42 +89,101 @@ public final class ApplierRunner {
         }
     }
 
-    private static Page clickForPopup(Page jobPage, Locator apply) {
-        List<Page> pagesBeforeClick = List.copyOf(jobPage.context().pages());
-        String href = apply.getAttribute("href");
-        String destination = applyDestination(jobPage.url(), href);
-        Predicate<Page> isApplyPage = page -> jobPage.equals(page.opener())
-                || destination != null && (destination.equals(page.url()) || href.equals(page.url()));
-        int popupTimeoutMs = "_blank".equalsIgnoreCase(apply.getAttribute("target")) ? 30000 : 4000;
-        try {
-            return jobPage.context().waitForPage(
-                    new BrowserContext.WaitForPageOptions().setTimeout(popupTimeoutMs)
-                            .setPredicate(isApplyPage), () -> {
-                        try {
-                            apply.click();
-                        } catch (TimeoutError clickTimeout) {
-                            throw new IllegalStateException("Clicking external Apply timed out.", clickTimeout);
-                        }
-                    });
-        } catch (TimeoutError noPopup) {
-            for (Page page : jobPage.context().pages()) {
-                if (!pagesBeforeClick.contains(page) && isApplyPage.test(page)) {
-                    return page;
-                }
-            }
-            return jobPage;
+    static java.util.Map<?, ?> openVacancy(Page jobPage, String jobUrl) throws IOException {
+        try (var interaction = new BrowserInteraction(jobPage, ApplierRunner::jobData)) {
+            interaction.open("opening the vacancy", jobUrl);
+            return interaction.await("waiting for vacancy details and Apply", BrowserInteraction.LOAD, () -> {
+                var state = LinkedInJobPage.snapshot(jobPage);
+                if (Boolean.TRUE.equals(state.get("auth"))) throw new IOException("LinkedIn requires authentication");
+                if (Boolean.TRUE.equals(state.get("closed"))) throw new IOException("Vacancy is closed");
+                if (Boolean.TRUE.equals(state.get("description"))
+                        && (Boolean.TRUE.equals(state.get("easy")) || Boolean.TRUE.equals(state.get("apply"))))
+                    return BrowserInteraction.Observation.ready(state);
+                return BrowserInteraction.Observation.pending(state.get("document") + ":" + state.get("title")
+                        + ":" + state.get("description"), "vacancy details or Apply not ready");
+            });
         }
     }
 
-    private static String applyDestination(String jobUrl, String href) {
-        if (href == null) return null;
-        URI link = URI.create(jobUrl).resolve(href);
-        if (sameHost(jobUrl, link.toString()) && "/safety/go/".equals(link.getPath())
-                && link.getRawQuery() != null) {
-            for (String parameter : link.getRawQuery().split("&")) {
-                if (parameter.startsWith("url=")) {
-                    return URLDecoder.decode(parameter.substring(4), StandardCharsets.UTF_8);
+    private static boolean jobData(com.microsoft.playwright.Request request) {
+        return request.url().contains("/voyager/api/") && request.url().toLowerCase().contains("job");
+    }
+
+    /** Follows one Apply action, its popup or same-tab redirect, and the optional LinkedIn confirmation link. */
+    static Page openApplication(Page jobPage) throws IOException {
+        String vacancyUrl = jobPage.url();
+        List<Page> before = List.copyOf(jobPage.context().pages());
+        java.util.Set<Page> applicationPages = new java.util.HashSet<>();
+        try (var interaction = new BrowserInteraction(jobPage, ApplierRunner::jobData)) {
+            String initialLink = interaction.await("reading the Apply target", BrowserInteraction.ACTION, () ->
+                    BrowserInteraction.Observation.ready((String) BrowserInteraction.read(jobPage, """
+                        () => document.querySelector("a[aria-label='Apply on company website' i]")?.href || ''
+                        """, null)));
+            String href = interaction.await("reading the external destination", BrowserInteraction.ACTION, () ->
+                    BrowserInteraction.Observation.ready((String) BrowserInteraction.read(jobPage, """
+                        selector => document.querySelector(selector)?.getAttribute('href') || ''
+                        """, LinkedInJobPage.EXTERNAL_APPLY)));
+            java.util.Set<String> destinations = new java.util.HashSet<>(List.of(applyDestination(vacancyUrl, href), href));
+            interaction.clickOnce("clicking external Apply", LinkedInJobPage.EXTERNAL_APPLY);
+            final boolean[] confirmationClicked = {false};
+            final String[] lastUrl = {""};
+            final int[] stable = {0};
+            return interaction.await("waiting for the employer application page", BrowserInteraction.LOAD, () -> {
+                Page candidate = jobPage;
+                for (Page page : jobPage.context().pages()) {
+                    if (!before.contains(page) && !page.isClosed() && (applicationTab(page, jobPage)
+                            || applicationPages.contains(page) || destinations.contains(page.url()))) {
+                        applicationPages.add(page);
+                        candidate = page;
+                    }
                 }
+                interaction.watch(candidate);
+                if (candidate.isClosed()) throw new IOException("Application tab was closed");
+                String url = candidate.url();
+                if (url.equals("about:blank")) return BrowserInteraction.Observation.pending("", "popup is loading");
+                if (sameHost(vacancyUrl, url)) {
+                    String confirmationLink = (String) BrowserInteraction.read(candidate, """
+                        () => [...document.querySelectorAll("a[aria-label='Apply on company website' i]")]
+                          .find(n => n.getClientRects().length)?.href || ''
+                        """, null);
+                    boolean confirmation = !confirmationLink.isBlank() && !confirmationLink.equals(initialLink);
+                    if (confirmation && !confirmationClicked[0]) {
+                        confirmationClicked[0] = true;
+                        destinations.add(confirmationLink);
+                        destinations.add(applyDestination(candidate.url(), confirmationLink));
+                        try (var next = new BrowserInteraction(candidate, ApplierRunner::jobData)) {
+                            next.clickOnce("confirming external Apply", "a[aria-label='Apply on company website' i]");
+                        }
+                    }
+                    return BrowserInteraction.Observation.pending("confirmation:" + confirmation, "waiting for an external destination");
+                }
+                var state = (java.util.Map<?, ?>) BrowserInteraction.read(candidate, """
+                    () => ({document: document.readyState,
+                      ready: !!document.body && !!document.body.innerText.trim()
+                        && !!document.querySelector('form, input, textarea, button, a[href*="apply" i], iframe[title*="application" i]')})
+                    """, null);
+                stable[0] = url.equals(lastUrl[0]) && Boolean.TRUE.equals(state.get("ready")) ? stable[0] + 1 : 0;
+                lastUrl[0] = url;
+                if (stable[0] >= 5)
+                    return BrowserInteraction.Observation.ready(candidate);
+                return BrowserInteraction.Observation.pending(url + ":" + state.get("document") + ":" + state.get("ready"),
+                        "external document is loading or redirecting");
+            });
+        }
+    }
+
+    private static boolean applicationTab(Page page, Page vacancy) {
+        for (Page current = page; current != null; current = current.opener()) {
+            if (current == vacancy) return true;
+        }
+        return false;
+    }
+
+    private static String applyDestination(String jobUrl, String href) {
+        URI link = URI.create(jobUrl).resolve(href);
+        if (sameHost(jobUrl, link.toString()) && "/safety/go/".equals(link.getPath()) && link.getRawQuery() != null) {
+            for (String parameter : link.getRawQuery().split("&")) {
+                if (parameter.startsWith("url=")) return URLDecoder.decode(parameter.substring(4), StandardCharsets.UTF_8);
             }
         }
         return link.toString();
@@ -144,11 +195,11 @@ public final class ApplierRunner {
         Path proxy = projectRoot.resolve("Driver/codex_proxy/metrics_proxy.py");
         Path instruction = projectRoot.resolve("Applier/prompts/fill_form.md");
         Path schema = projectRoot.resolve("Applier/result.schema.json");
-        Path resumePdf = projectRoot.resolve("Data/applier/CV_DokE2026M.pdf");
-        Path resumeText = projectRoot.resolve("Data/applier/resume.txt");
-        Path candidateProfile = projectRoot.resolve("Driver/analyzer/config/resume.ini");
+        Path resumePdf = projectRoot.resolve("Data/Profile/CV_DokE2026M.pdf");
+        Path resumeText = projectRoot.resolve("Data/Profile/resume.txt");
+        Path candidateProfile = projectRoot.resolve("Data/Profile/resume.ini");
         if (!Files.isRegularFile(resumePdf) || !Files.isRegularFile(resumeText)) {
-            throw new IOException("Applier resume is missing from Data/applier.");
+            throw new IOException("Applier resume is missing from Data/Profile.");
         }
         Path input = Files.createTempFile("seeker-applier-input-", ".json");
         try {
@@ -171,7 +222,7 @@ public final class ApplierRunner {
                     "--context", resumeText.toString(),
                     "--context", candidateProfile.toString()
             ));
-            Path facts = projectRoot.resolve("Data/applier/facts.md");
+            Path facts = projectRoot.resolve("Data/Profile/Applier/facts.md");
             if (Files.isRegularFile(facts)) {
                 command.add("--context");
                 command.add(facts.toString());

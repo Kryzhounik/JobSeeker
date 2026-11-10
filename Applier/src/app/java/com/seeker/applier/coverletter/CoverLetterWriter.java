@@ -38,8 +38,8 @@ public final class CoverLetterWriter {
                     "--instruction", root.resolve("Applier/prompts/cover_letter_prompt.md").toString(),
                     "--input", input.toString(),
                     "--output-schema", root.resolve("Applier/cover_letter.schema.json").toString(),
-                    "--context", root.resolve("Data/applier/resume.txt").toString(),
-                    "--context", root.resolve("Data/applier/candidate_context.md").toString()));
+                    "--context", root.resolve("Data/Profile/resume.txt").toString(),
+                    "--context", root.resolve("Data/Profile/Applier/candidate_context.md").toString()));
             var text = json.readTree(response).path("letter");
             if (!text.isTextual() || text.asText().isBlank()) throw new IllegalStateException("Proxy returned no letter");
             saveLetter(python, database, jobId, text.asText());
