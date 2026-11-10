@@ -171,9 +171,11 @@ Location and remote-work rules:
   use `hybrid` only when office presence is required or regularly expected.
   For `remote_type`, explicit attendance requirements in the full text override
   the header label.
-- `remote_scope` means the geography from which a fully remote worker may be
-  located. Set it from explicitly stated candidate eligibility; if remote work
-  is available but its exact geography is not stated, use `unknown`.
+- For fully remote work, use the country or region established by the listed
+  location(s) as `remote_scope`, expanding it when the text establishes broader
+  candidate eligibility. Use `unknown` when no usable geography can be
+  established, or when the text indicates availability from other countries
+  but does not define the additional allowed geography.
 - For hybrid or office vacancies, leave `remote_scope` empty unless the vacancy
   explicitly allows fully remote work.
 - If exact remote geography is explicitly stated as worldwide, global, any
@@ -193,12 +195,15 @@ to equivalent wording; they are not an exhaustive list of phrases to match.
 - Text: "Fully remote. Applicants must reside in Germany." Use
   `remote_type: remote`, `remote_scope: Germany`; the residency requirement
   limits the eligible geography.
-- Text: "Fully remote, flexible schedule." With no candidate geography stated
-  elsewhere, use `remote_type: remote`, `remote_scope: unknown`. Remote work
-  and schedule flexibility alone do not establish geographic eligibility.
+- Listed location: Wrocław, Poland. Text: "Fully remote, flexible schedule."
+  With no indication of eligibility from other countries, use
+  `remote_type: remote`, `remote_scope: Poland`.
 
 Relocation rules:
-- Use NO when relocation is not offered or not mentioned.
+- Relocation means employer-supported relocation of a candidate from another
+  country to start this role. Domestic moves or mobility available only to
+  existing employees do not establish such an offer. Use NO when this
+  relocation is not offered or not mentioned.
 - If relocation is offered, write the destination countries/places, for example
   Poland, Germany, Netherlands, Warsaw.
 - If relocation is explicitly offered but its destinations are not stated or
