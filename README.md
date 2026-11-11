@@ -9,6 +9,8 @@ Top-level layout:
 
 - `GUI`: human viewer for inspecting the SQLite database.
 - [Applier](Applier/README.md): prepares job applications from the GUI or the console.
+- [Profile](Profile/README.md): personalization format, setup instructions and
+  templates; the user's filled-in profile lives in ignored `Data/Profile/`.
 - `Data`: local raw/analyzed files and `jobs.sqlite`; analyzer-ready readable
   text is stored inside SQLite.
 - `Driver`: collector, analyzer, scoring, DB mapper, and Java orchestrator.

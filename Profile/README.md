@@ -1,9 +1,33 @@
-# Personalization
+# Profile
+
+Profile defines JobSeeker's personalization files: shared candidate facts and
+module-specific search, filtering, scoring and application preferences.
+It contains documentation and neutral [templates](Template/), not a user's
+actual profile or technical runtime configuration.
+
+The title block-list template contains an existing starter list rather than an
+empty file. Review it and remove exclusions unsuitable for your job search.
+
+## Setup
+
+Copy the **contents** of `Profile/Template/` into `Data/Profile/`, preserving
+subdirectories. Do not overwrite an existing profile: when upgrading, compare
+templates and add only missing files or entries. Fill in the copied files before
+running collection, analysis or application preparation; sample values are not
+facts about you. The application reads `Data/Profile/`, never `Template/`.
+
+Replace `resume.txt` with your plain UTF-8 resume. For application uploads,
+add your corresponding PDF as `Data/Profile/CV_DokE2026M.pdf`: this is the
+filename currently expected by Applier. No sample PDF is included. Update the
+PDF and text together. Add only confirmed facts to the Applier Markdown files;
+remove the template instructions rather than passing them to an agent.
+
+## Files
 
 Personal candidate data and preferences live in `Data/Profile/`, excluded from
 Git together with the rest of `Data`. Preserve this directory when transferring
 the application to another machine. A fresh checkout requires a local profile;
-it does not contain the owner's personal data.
+it does not contain the owner's personal data; use the templates to create it.
 
 Shared candidate data lives directly in the profile root. Module-specific data
 mirrors the project structure. Consumers read the same files; there are no
