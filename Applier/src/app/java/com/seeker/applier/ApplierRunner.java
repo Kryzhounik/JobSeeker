@@ -195,7 +195,7 @@ public final class ApplierRunner {
         Path proxy = projectRoot.resolve("Driver/codex_proxy/metrics_proxy.py");
         Path instruction = projectRoot.resolve("Applier/prompts/fill_form.md");
         Path schema = projectRoot.resolve("Applier/result.schema.json");
-        Path resumePdf = projectRoot.resolve("Data/Profile/CV_DokE2026M.pdf");
+        Path resumePdf = projectRoot.resolve("Data/Profile/resume.pdf");
         Path resumeText = projectRoot.resolve("Data/Profile/resume.txt");
         Path candidateProfile = projectRoot.resolve("Data/Profile/resume.ini");
         if (!Files.isRegularFile(resumePdf) || !Files.isRegularFile(resumeText)) {

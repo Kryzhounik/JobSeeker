@@ -17,7 +17,7 @@ running collection, analysis or application preparation; sample values are not
 facts about you. The application reads `Data/Profile/`, never `Template/`.
 
 Replace `resume.txt` with your plain UTF-8 resume. For application uploads,
-add your corresponding PDF as `Data/Profile/CV_DokE2026M.pdf`: this is the
+add your corresponding PDF as `Data/Profile/resume.pdf`: this is the
 filename currently expected by Applier. No sample PDF is included. Update the
 PDF and text together. Add only confirmed facts to the Applier Markdown files;
 remove the template instructions rather than passing them to an agent.
@@ -37,7 +37,7 @@ separate Analyzer and Applier copies of the candidate profile.
 | --- | --- |
 | `resume.ini` | Shared language proficiency, available remote locations, relocation destinations and technology experience |
 | `resume.txt` | UTF-8 resume text supplied to agents |
-| `CV_DokE2026M.pdf` | Resume document uploaded to application forms; update together with resume.txt |
+| `resume.pdf` | Resume document uploaded to application forms; update together with resume.txt |
 | `Applier/facts.md` | Confirmed applicant answers: contact details, authorization, compensation, notice period; do not duplicate resume.ini |
 | `Applier/candidate_context.md` | Additional candidate facts and factual boundaries used for cover letters |
 | `Driver/collector/linkedin.properties` | Search keywords, ordered locations, seniority, workplace modes, employment types, publication window and collection limit |

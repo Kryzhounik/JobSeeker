@@ -22,7 +22,7 @@ The shared `ManagedBrowser` and `LinkedInJobPage` classes live in
 `com.seeker.browser` in Tools. Applier uses them through its Maven dependency
 on Tools; Collector and ChatEvaluator do not depend on Applier for browser code.
 
-The local resume lives at `Data/Profile/CV_DokE2026M.pdf`. Its extracted UTF-8 text at
+The local resume lives at `Data/Profile/resume.pdf`. Its extracted UTF-8 text at
 `Data/Profile/resume.txt` is passed to Codex as context; the PDF path is passed
 for form uploads. Replace both files together when updating the resume.
 The shared candidate profile at `Data/Profile/resume.ini` supplies
