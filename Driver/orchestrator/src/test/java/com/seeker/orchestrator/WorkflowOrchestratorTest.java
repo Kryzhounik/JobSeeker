@@ -30,6 +30,42 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkflowOrchestratorTest {
     @Test
+    void deduplicatesOnceAfterCollectionBeforeFilteringForAllCollectionEntrypoints() throws Exception {
+        for (String entry : List.of("batch", "urls", "recommendations")) {
+            var gateway = new FakeProcessingGateway(List.of());
+            var scope = List.of(item("1", "Java"), item("2", "Java"));
+            var workflow = new WorkflowOrchestrator(
+                    progress -> { gateway.calls.add("collect"); return report("complete", scope); },
+                    (urls, prefix, progress) -> { gateway.calls.add("collect"); return report("complete", scope); },
+                    gateway, progress -> List.of("https://example.com/job"), 1, 10,
+                    runId -> gateway.calls.add("dedup:" + runId));
+            WorkflowResult result = switch (entry) {
+                case "batch" -> workflow.processBatch("linkedin");
+                case "urls" -> workflow.processUrls("https://example.com/job");
+                default -> workflow.checkRecommendations();
+            };
+            assertEquals(List.of("collect", "dedup:run-1", "filter:run-1"), gateway.calls.subList(0, 3));
+            assertEquals(scope, gateway.scope);
+            assertEquals(scope, result.processedScope());
+        }
+    }
+
+    @Test
+    void doesNotDeduplicateBlockedEmptyOrResumedCollections() throws Exception {
+        for (String status : List.of("blocked", "complete")) {
+            var gateway = new FakeProcessingGateway(List.of());
+            var workflow = new WorkflowOrchestrator(progress -> report(status, List.of()),
+                    (urls, prefix, progress) -> report(status, List.of()), gateway, progress -> List.of(),
+                    1, 10, id -> { throw new AssertionError("Unexpected deduplication"); });
+            workflow.processBatch("linkedin");
+            gateway.batchStatuses.put("run-1", "failed");
+            gateway.recoveredScope = List.of(item("1", "Java"));
+            workflow.resume("run-1");
+            assertEquals(1, gateway.filterInvocations);
+        }
+    }
+
+    @Test
     void reportsWorkflowStagesCountsAndCurrentJobs() throws Exception {
         List<ProgressSnapshot> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of("2"));
@@ -39,11 +75,12 @@ class WorkflowOrchestratorTest {
 
         WorkflowResult result = workflow.processBatch("linkedin", updates::add);
 
-        assertEquals(List.of("Collection", "Relevance filter", "Job facts", "Candidate fit"),
+        assertEquals(List.of("Collection", "Deduplication", "Relevance filter", "Job facts", "Candidate fit"),
                 updates.stream().map(ProgressSnapshot::stage).distinct().toList());
         assertTrue(updates.stream().allMatch(update -> update.runId().equals("run-1")));
         Map<String, List<String>> stageFields = Map.of(
                 "Collection", new ArrayList<>(updates.getFirst().fields().keySet()),
+                "Deduplication", List.of(),
                 "Relevance filter", List.of("Scope", "Relevance filter", "Relevant", "Rejected by relevance"),
                 "Job facts", List.of("Job facts"),
                 "Candidate fit", List.of("Candidate fit", "Current vacancy"));
@@ -51,6 +88,7 @@ class WorkflowOrchestratorTest {
             assertFalse(update.fields().containsKey("Run ID"));
             assertEquals(update.stage().equals("Collection")
                     ? "Collection " + update.fields().get("Accepted / limit")
+                    : update.stage().equals("Deduplication") ? "Deduplication"
                     : update.stage() + " " + update.fields().get(update.stage()), update.progress());
             if (!update.action().equals("Complete")) {
                 assertEquals(stageFields.get(update.stage()), new ArrayList<>(update.fields().keySet()));

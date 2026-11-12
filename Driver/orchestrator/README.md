@@ -1,7 +1,8 @@
 # Java workflow orchestrator
 
 This module is the Java entry point for the JobSeeker workflow. `process-batch linkedin`
-calls the existing LinkedIn collector, sends its complete ordered scope to the
+calls the existing LinkedIn collector, runs synchronous observational description
+deduplication on the saved batch, then sends its complete ordered scope to the
 existing agent relevance filter through the metered Codex CLI proxy, validates
 the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
 in one transaction, runs grouped
@@ -32,6 +33,12 @@ references them automatically.
 The application performs these operations:
 
 1. Collect LinkedIn vacancies and persist their raw/readable data.
+   After successful collection, call `SemanticDuplicateBatch.processBatch(runId)`
+   once before relevance filtering. This also applies to URL collection and email
+   recommendations. The operation owns its `off`/`qwen` setting (see
+   [collector documentation](../collector/java_linkedin/README.md#semantic-duplicate-observation)).
+   Duplicate links do not exclude vacancies from subsequent processing;
+   model errors are visible and do not stop analysis. Resume is unchanged.
 2. Run the agent filter and atomically mark vacancies `RELEVANT` or `NONRELEVANT`.
 3. Extract `job_facts` in configured groups.
 4. Run the deterministic candidate-fit gate.

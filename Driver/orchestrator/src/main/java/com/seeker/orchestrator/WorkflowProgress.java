@@ -131,7 +131,8 @@ public record WorkflowProgress(String runId, String stage, String action, String
                         "Emails " + emailFields.get("Checked emails"), emailFields, details));
                 return;
             }
-            String progress = stage.equals("Collection") ? collectionProgress : stage + " " + fields.get(stage);
+            String progress = stage.equals("Collection") ? collectionProgress
+                    : stage.equals("Deduplication") ? stage : stage + " " + fields.get(stage);
             if (stage.equals("Collection") && !action.equals("Complete")) {
                 listener.accept(new WorkflowProgress(runId, stage, action, progress, collectionFields, details));
                 return;
@@ -140,6 +141,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
                     ? new String[]{"Collection failures", "Scope", "Relevant", "Rejected by relevance",
                             "Job facts", "Candidate fit", "Already saved", "Saved"}
                     : switch (stage) {
+                        case "Deduplication" -> new String[]{};
                         case "Relevance filter" -> new String[]{"Scope", "Relevance filter",
                                 "Relevant", "Rejected by relevance"};
                         case "Job facts" -> new String[]{"Job facts"};

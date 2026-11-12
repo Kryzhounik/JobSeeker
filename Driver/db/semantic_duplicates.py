@@ -2,6 +2,19 @@
 import sqlite3
 
 
+def load_batch(connection: sqlite3.Connection, run_id: str) -> list[dict]:
+    if connection.execute("SELECT 1 FROM linkedin_collection_runs WHERE run_id = ?", (run_id,)).fetchone() is None:
+        raise ValueError(f"Batch not found: {run_id}")
+    rows = connection.execute("""
+        SELECT s.id, s.source_job_id, t.company_id, t.title, t.readable_text
+        FROM source_jobs s JOIN source_job_texts t ON t.source_job_ref = s.id
+        WHERE s.collection_run_id = ? AND s.source = 'linkedin'
+          AND s.processing_status IN ('CLEANED','RELEVANT','NONRELEVANT','ANALYZED','SCORED','SAVED')
+        ORDER BY s.id
+    """, (run_id,)).fetchall()
+    return [dict(zip(('id', 'jobId', 'companyId', 'title', 'text'), row)) for row in rows]
+
+
 def load_snapshot(connection: sqlite3.Connection, run_id: str, source: str, job_id: str) -> dict:
     row = connection.execute("""
         SELECT s.id, s.source_job_id, t.company_id, t.title, t.readable_text

@@ -64,6 +64,22 @@ def semantic_snapshot(source: str, job_id: str) -> str:
     return _json(_require_session().semantic_snapshot(source, job_id))
 
 
+def load_semantic_batch(run_id: str) -> str:
+    import sqlite3
+    from contextlib import closing
+    from db.semantic_duplicates import load_batch
+    with closing(sqlite3.connect(_require_session().db_path)) as connection:
+        return _json(load_batch(connection, run_id))
+
+
+def save_semantic_batch_link(run_id: str, duplicate_id: int, original_id: int) -> None:
+    import sqlite3
+    from contextlib import closing
+    from db.semantic_duplicates import save_link
+    with closing(sqlite3.connect(_require_session().db_path)) as connection:
+        save_link(connection, run_id, duplicate_id, original_id)
+
+
 def save_semantic_duplicate(duplicate_id: int, original_id: int) -> None:
     _require_session().save_semantic_duplicate(duplicate_id, original_id)
 

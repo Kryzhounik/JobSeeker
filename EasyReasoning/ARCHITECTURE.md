@@ -47,6 +47,49 @@ than moving or duplicating its shared client. `EasyReasoningService` is the
 common text-generation and resource-close contract; the current
 `llm.OllamaService` implementation owns all Ollama requests and model lifecycle.
 
+## Operation Layers and Batch Ownership
+
+The agreed target for the deduplication refactoring distinguishes two operation
+layers inside EasyReasoning. This describes the intended boundary, not a claim
+that the batch API is already implemented.
+
+- **Operations on supplied data** accept texts and return a result. Prompting,
+  model calls and response parsing belong here; database access, record IDs and
+  batch lifecycle do not. Preserve
+  `areDuplicateDescriptions(String firstText, String secondText)` at this layer.
+- **Batch operations** accept a batch identifier and own loading inputs,
+  candidate selection, operation settings, calls to the data-level operation,
+  and persistence of results through the shared database layer. Batch
+  deduplication, illustrated as `dedup.processBatch(batchId)`, belongs here;
+  `batchId` corresponds to the existing string `run_id`.
+
+```text
+Orchestrator -> EasyReasoning batch operation -> data operation -> model backend
+```
+
+Collector owns collection and saving vacancies; it does not submit deduplication
+tasks, manage their queues, or save duplicate links. The orchestrator owns stage
+ordering and calls batch deduplication between collection and analysis. The
+EasyReasoning batch operation loads the saved vacancies, finds duplicates and
+saves their links. Reuse `Driver/db` without introducing a dependency on the
+Collector or Orchestrator modules or their application gateways.
+
+Each operation has its own configured mode. For deduplication the agreed modes
+are `off`, `qwen` (Ollama), and `luna` (Codex through the existing Tools client).
+The batch component interprets this setting once at the start of processing;
+the orchestrator does not need a second switch. `off` skips comparison without
+starting a model. One operation's choice must not switch other operations.
+Backend implementations remain behind the gateway; Codex support still requires
+its separately assigned implementation.
+
+Preserve this separation for future operations where both layers are useful,
+such as extracting language requirements from text and processing a batch of
+vacancies. The batch layer reuses the data operation rather than duplicating
+its logic. Expose both as public APIs only when practically needed. Any later
+queues, scheduling and result streams belong to the batch layer, not to the
+orchestrator or model adapters. This decision does not require asynchronous
+execution or a generic task framework now.
+
 ## Application and Inference
 
 - Use plain Spring Context in the existing Java application, without Spring
@@ -157,7 +200,7 @@ solve hypothetical problems or add model-comparison infrastructure and experimen
 bookkeeping before they are needed. Quality determines later whether the
 optional step is useful for normal processing.
 
-## Existing Integration Points
+## Existing Vacancy-Trimming Integration
 
 - `Driver/collector/extract_linkedin_readable_text_v2.py`: current HTML cleaner.
 - `Driver/collector/java_linkedin/python_bridge.py::process_html`: invokes the
@@ -169,9 +212,10 @@ optional step is useful for normal processing.
 
 The cleaner boundary is currently in Python, not a standalone Java service.
 The flow is scripted HTML cleanup, optional LLM trimming, then normal downstream
-processing with the selected text. Use the smallest necessary adaptation of the
-existing pipeline; do not move filtering or persistence into LLM merely to
-connect it. When trimming is disabled, the existing path remains unchanged.
+processing with the selected text. The text-level cleanup operation does not
+own collector filtering or persistence. This trimming-specific boundary does
+not restrict database access or result persistence by the batch operations
+described above. When trimming is disabled, the existing path remains unchanged.
 Do not replace the current Codex agent operations.
 
 The Java collector passes its collection-scoped EasyReasoning application into

@@ -187,11 +187,21 @@ Codex. Running the executable collector or orchestrator is a separate action.
 
 ## Semantic duplicate observation
 
-After collector acceptance, saved descriptions with the same company and
-normalized full title are compared through EasyReasoning in one background
-worker. Only samples accepted during this run are considered. The collector
-thread persists positive links in `source_jobs.semantic_duplicate_of` and
-waits for pending comparisons before finishing, including on early stops.
+Collection does not run or wait for description comparisons.
+After successful collection, the orchestrator calls
+`SemanticDuplicateBatch.processBatch(runId)` synchronously, before relevance
+filtering and analysis. This operation temporarily lives in the collector module.
+It loads accepted descriptions from that batch in saved record order (`source_jobs.id`),
+groups by company and normalized full title, and compares sequentially through
+the existing EasyReasoning text API. Positive links are saved in
+`source_jobs.semantic_duplicate_of`; duplicate records do not become new samples.
 Each publication keeps its own text, scope entry, analysis and scores.
-Comparison errors are logged, included in the final message, and treated as
-non-matches; the vacancy remains a sample. No automatic retries are made.
+Model errors, including invalid answers, are printed to stderr and create no
+link; processing continues. No automatic retries are made.
+
+The operation reads `dedup.mode` from `EasyReasoning/easy-reasoning.properties`
+at the start of each batch:
+`qwen` enables comparisons (default), `off` skips the operation before initializing
+the model or database bridge. Model parameters remain in EasyReasoning's existing
+configuration. There is no separate orchestrator switch. Resume does not run this
+operation, and standalone collection commands only collect.

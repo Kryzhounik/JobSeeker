@@ -90,8 +90,10 @@ Description comparison encapsulates prompting, generation and strict parsing:
 `false`. Only surrounding whitespace is stripped; every other response raises
 an exception, and model failures propagate. Calls have no conversation history.
 The UTF-8 prompt in `EasyReasoning/prompts/compare-vacancy-descriptions.md` is
-read on each comparison, allowing edits without rebuilding. Callers supply
-only the two texts; IDs, database access and duplicate storage belong to callers.
+read on each comparison, allowing edits without rebuilding. This text-level
+method accepts only two texts and has no database access. The agreed boundary
+for batch operations is described in
+[Architecture](ARCHITECTURE.md#operation-layers-and-batch-ownership).
 Obtain `com.seeker.easyreasoning.EasyReasoningService` from the existing context
 and call `generate(prompt)` off the UI thread. It returns the model's text
 unchanged, propagates request errors,

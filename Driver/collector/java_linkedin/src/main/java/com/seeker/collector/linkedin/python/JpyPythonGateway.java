@@ -17,6 +17,14 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 public final class JpyPythonGateway implements PythonGateway {
+    public List<com.seeker.collector.linkedin.collection.VacancySnapshot> loadSemanticBatch(String runId) {
+        return JsonSupport.GSON.fromJson(callString("load_semantic_batch", runId),
+                new TypeToken<List<com.seeker.collector.linkedin.collection.VacancySnapshot>>() { }.getType());
+    }
+
+    public void saveSemanticBatchLink(String runId, long duplicateId, long originalId) {
+        callVoid("save_semantic_batch_link", runId, duplicateId, originalId);
+    }
     private static final Type STRING_LIST = new TypeToken<List<String>>() {
     }.getType();
 

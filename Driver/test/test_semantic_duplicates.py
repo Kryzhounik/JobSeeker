@@ -4,7 +4,7 @@ import sqlite3
 import tempfile
 import unittest
 from Driver.db.migrate import migrate_database
-from Driver.db.semantic_duplicates import load_snapshot, save_link
+from Driver.db.semantic_duplicates import load_batch, load_snapshot, save_link
 
 
 class SemanticDuplicatesTest(unittest.TestCase):
@@ -21,6 +21,11 @@ class SemanticDuplicatesTest(unittest.TestCase):
                     c.execute("INSERT INTO source_jobs(id,source,source_job_id,processing_status,collection_run_id) VALUES (?,'linkedin',?,?,?)", (ident,str(ident),status,run))
                     c.execute("INSERT INTO source_job_texts(source_job_ref,title,readable_text) VALUES (?,'Java Engineer',?)", (ident,'Saved text '+str(ident)))
                 c.commit()
+                c.execute("UPDATE linkedin_collection_runs SET status='complete' WHERE run_id='current'")
+                self.assertEqual([3, 20], [row['id'] for row in load_batch(c, 'current')])
+                self.assertEqual('Saved text 3', load_batch(c, 'current')[0]['text'])
+                with self.assertRaises(ValueError):
+                    load_batch(c, 'missing')
                 self.assertEqual('Saved text 20',load_snapshot(c,'current','linkedin','20')['text'])
                 for ident in ('30','40','50'):
                     with self.assertRaises(ValueError): load_snapshot(c,'current','linkedin',ident)

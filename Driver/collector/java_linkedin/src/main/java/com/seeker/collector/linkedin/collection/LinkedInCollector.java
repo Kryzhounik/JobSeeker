@@ -25,8 +25,6 @@ final class LinkedInCollector {
     private final List<PageReport> pages = new ArrayList<>();
     private final List<String> failures = new ArrayList<>();
     private final OutcomeCounter outcomes = new OutcomeCounter();
-    private SemanticDuplicateObserver semanticObserver;
-    private final List<String> semanticErrors = new ArrayList<>();
     private final Set<String> seenIds = new LinkedHashSet<>();
     private String currentLocation = "";
     private String currentSearch = "";
@@ -51,31 +49,6 @@ final class LinkedInCollector {
         this.config = config;
         this.runId = runId;
         this.progressListener = progressListener;
-    }
-
-    void observeWith(SemanticDuplicateObserver observer) { this.semanticObserver = observer; }
-
-    void awaitComparisons() {
-        if (semanticObserver == null) return;
-        if (semanticObserver.hasPending()) {
-            progress("waiting_comparisons", "Waiting for semantic description comparisons");
-        }
-        collectComparisons(true);
-    }
-
-    private void collectComparisons(boolean wait) {
-        if (semanticObserver == null) return;
-        semanticObserver.drain(wait, result -> {
-            for (String error : result.errors()) {
-                System.err.println(error);
-                semanticErrors.add(error);
-            }
-            if (result.original() != null) {
-                python.saveSemanticDuplicate(result.vacancy().id(), result.original().id());
-                System.err.printf("Semantic duplicate: %s -> %s%n",
-                        result.vacancy().jobId(), result.original().jobId());
-            }
-        });
     }
 
     CollectionReport runBatch() {
@@ -325,13 +298,9 @@ final class LinkedInCollector {
     }
 
     private void recordResult(ProcessResult result) {
-        collectComparisons(false);
         outcomes.add(result.status());
         if (result.accepted()) {
             scope.add(new ScopeItem(result.source(), result.jobId(), result.title()));
-            if (semanticObserver != null) {
-                semanticObserver.submit(python.semanticSnapshot(result.source(), result.jobId()));
-            }
         }
         progress("processing", result.jobId() + " " + result.title()
                 + (result.reason().isBlank() ? "" : "\n" + result.reason()));
@@ -445,12 +414,8 @@ final class LinkedInCollector {
     }
 
     private CollectionReport finish(String status, String stopReason, String message) {
-        awaitComparisons();
         if (message.isBlank()) {
             message = String.join("\n", failures);
-        }
-        if (!semanticErrors.isEmpty()) {
-            message = (message.isBlank() ? "" : message + "\n") + String.join("\n", semanticErrors);
         }
         CollectionReport report = report(status, message);
         progress(status, message.isBlank() ? stopReason : message);

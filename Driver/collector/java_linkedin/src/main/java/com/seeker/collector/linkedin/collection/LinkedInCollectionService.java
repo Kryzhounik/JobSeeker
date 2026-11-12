@@ -41,8 +41,7 @@ public final class LinkedInCollectionService {
         );
         progress.accept(CollectionProgress.starting(runId, "starting", config.limit()));
         try (EasyReasoningApi reasoning = new EasyReasoningApi(paths.driverRoot().getParent());
-             PythonGateway python = new JpyPythonGateway(paths, pythonRuntime, reasoning);
-             SemanticDuplicateObserver observer = new SemanticDuplicateObserver(reasoning::areDuplicateDescriptions)) {
+             PythonGateway python = new JpyPythonGateway(paths, pythonRuntime, reasoning)) {
             python.startRun(runId, config);
             progress.accept(CollectionProgress.starting(runId, "starting_browser", config.limit()));
             try (PersistentLinkedInSession session = new PersistentLinkedInSession(
@@ -53,12 +52,7 @@ public final class LinkedInCollectionService {
                 progress.accept(CollectionProgress.starting(runId, "checking_session", config.limit()));
                 browser.preflight();
                 LinkedInCollector collector = new LinkedInCollector(browser, python, config, runId, progress);
-                collector.observeWith(observer);
-                try {
-                    return collector.runBatch();
-                } finally {
-                    collector.awaitComparisons();
-                }
+                return collector.runBatch();
             } catch (IOException | RuntimeException error) {
                 python.finishRun(
                         runId,
@@ -95,8 +89,7 @@ public final class LinkedInCollectionService {
         );
         progress.accept(CollectionProgress.startingUrls(runId, "starting", urls.size()));
         try (EasyReasoningApi reasoning = new EasyReasoningApi(paths.driverRoot().getParent());
-             PythonGateway python = new JpyPythonGateway(paths, pythonRuntime, reasoning);
-             SemanticDuplicateObserver observer = new SemanticDuplicateObserver(reasoning::areDuplicateDescriptions)) {
+             PythonGateway python = new JpyPythonGateway(paths, pythonRuntime, reasoning)) {
             python.startRun(runId, config);
             progress.accept(CollectionProgress.startingUrls(runId, "starting_browser", urls.size()));
             // TODO: Check the existing duplicate rule before opening the browser
@@ -109,12 +102,7 @@ public final class LinkedInCollectionService {
                 progress.accept(CollectionProgress.startingUrls(runId, "checking_session", urls.size()));
                 browser.preflight();
                 LinkedInCollector collector = new LinkedInCollector(browser, python, config, runId, progress);
-                collector.observeWith(observer);
-                try {
-                    return collector.runFromUrls(urls);
-                } finally {
-                    collector.awaitComparisons();
-                }
+                return collector.runFromUrls(urls);
             } catch (IOException | RuntimeException error) {
                 python.finishRun(
                         runId,

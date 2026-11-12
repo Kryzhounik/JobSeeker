@@ -29,6 +29,7 @@ public final class WorkflowOrchestrator {
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
     private final RecommendationSource recommendations;
+    private final Consumer<String> deduplicate;
     private final int parallelAgents;
     private final int vacanciesPerAgent;
 
@@ -38,7 +39,7 @@ public final class WorkflowOrchestrator {
                 new JpyProcessingGateway(projectRoot),
                 new Mailer(projectRoot)::getRecommendationUrls,
                 executionSetting(projectRoot, "parallel_agents"),
-                executionSetting(projectRoot, "vacancies_per_agent")
+                executionSetting(projectRoot, "vacancies_per_agent"), projectRoot
         );
     }
 
@@ -47,10 +48,12 @@ public final class WorkflowOrchestrator {
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
             int parallelAgents,
-            int vacanciesPerAgent
+            int vacanciesPerAgent, Path projectRoot
     ) {
         this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
-                recommendations, parallelAgents, vacanciesPerAgent);
+                recommendations, parallelAgents, vacanciesPerAgent,
+                new com.seeker.collector.linkedin.collection.SemanticDuplicateBatch(
+                        projectRoot)::processBatch);
     }
 
     WorkflowOrchestrator(
@@ -85,6 +88,14 @@ public final class WorkflowOrchestrator {
             int parallelAgents,
             int vacanciesPerAgent
     ) {
+        this(linkedinCollection, linkedinUrls, processingGateway, recommendations,
+                parallelAgents, vacanciesPerAgent, ignored -> { });
+    }
+
+    WorkflowOrchestrator(LinkedInCollection linkedinCollection, LinkedInUrls linkedinUrls,
+                         ProcessingGateway processingGateway, RecommendationSource recommendations,
+                         int parallelAgents, int vacanciesPerAgent, Consumer<String> deduplicate) {
+        this.deduplicate = Objects.requireNonNull(deduplicate);
         this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
@@ -185,6 +196,8 @@ public final class WorkflowOrchestrator {
             return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
                     collected, List.of(), 0, collected.message());
         }
+        run.preparing("Deduplication", "Comparing saved vacancy descriptions");
+        deduplicate.accept(collected.runId());
         return processScope(collected.source(), collected.runId(), collected.scope(), collected, run);
     }
 
