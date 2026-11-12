@@ -151,7 +151,10 @@ final class SearchPlan {
             if (!geoId.isBlank()) {
                 parameters.put("geoId", geoId);
             } else {
-                parameters.put("location", location);
+                // Unverified: /jobs/search-results/ may ignore `location`; observed
+                // results indicate this fallback may not filter by the requested place.
+                // Keep disabled until verified against returned vacancies.
+                // parameters.put("location", location);
             }
         }
         List<String> filters = new ArrayList<>();
