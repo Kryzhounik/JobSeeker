@@ -51,7 +51,9 @@ separate Analyzer and Applier copies of the candidate profile.
 | `Driver/analyzer/filter.ini` | Language, programming-language, remote and relocation eligibility policies |
 | `Driver/analyzer/interest.ini` | Technology-interest bonus ceiling, default bonus and keyword weights |
 
-INI and properties files describe their entries in comments. In `resume.ini`,
+INI and properties files describe their entries in comments. The LinkedIn
+[template](Template/Driver/collector/linkedin.properties) documents its
+location format and `geoId` instructions. In `resume.ini`,
 each language maps to CEFR A1-C2. Location values are interest scores; presence
 means the location is available. `relocation.base` is added to a destination's
 score. Technology experience ranges from 0 (none) to 5 (core expertise).
