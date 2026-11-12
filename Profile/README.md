@@ -7,6 +7,9 @@ actual profile or technical runtime configuration.
 
 The title block-list template contains an existing starter list rather than an
 empty file. Review it and remove exclusions unsuitable for your job search.
+The contextual technology filter also has a populated starter list. Remove
+technologies (and their aliases) for which your experience meets hard job
+requirements; willingness to learn alone does not meet those requirements.
 
 ## Setup
 
