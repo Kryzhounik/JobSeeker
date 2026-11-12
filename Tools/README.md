@@ -5,6 +5,11 @@
 
 ## Общий Java-код
 
+`com.seeker.python.JpyRuntime` и `PythonRuntime` предоставляют общую
+инициализацию одного интерпретатора JPy и чтение технических путей Python.
+Их используют Collector, EasyReasoning, Orchestrator и JavaFX. Закрытие
+адаптера отдельного модуля не останавливает общий интерпретатор.
+
 Исходники расположены в `Tools/src/main/java`; общая браузерная инфраструктура
 находится в пакете `com.seeker.browser`.
 

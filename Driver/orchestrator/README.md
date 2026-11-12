@@ -33,10 +33,10 @@ references them automatically.
 The application performs these operations:
 
 1. Collect LinkedIn vacancies and persist their raw/readable data.
-   After successful collection, call `SemanticDuplicateBatch.processBatch(runId)`
+   After successful collection, call `easyReasoning.deduplicateBatch(runId)`
    once before relevance filtering. This also applies to URL collection and email
    recommendations. The operation owns its `off`/`qwen` setting (see
-   [collector documentation](../collector/java_linkedin/README.md#semantic-duplicate-observation)).
+   [EasyReasoning documentation](../../EasyReasoning/README.md)).
    Duplicate links do not exclude vacancies from subsequent processing;
    model errors are visible and do not stop analysis. Resume is unchanged.
 2. Run the agent filter and atomically mark vacancies `RELEVANT` or `NONRELEVANT`.

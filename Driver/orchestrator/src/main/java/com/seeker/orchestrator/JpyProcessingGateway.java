@@ -6,7 +6,7 @@ import com.seeker.codex.CodexClient;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.ScopeItem;
 import com.seeker.collector.linkedin.config.ProjectPaths;
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
 import org.jpy.PyModule;
 import org.jpy.PyObject;

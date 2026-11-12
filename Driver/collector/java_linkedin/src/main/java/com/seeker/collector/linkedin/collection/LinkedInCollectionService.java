@@ -7,7 +7,7 @@ import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.python.JpyPythonGateway;
 import com.seeker.collector.linkedin.python.PythonGateway;
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 
 import java.io.IOException;
 import com.seeker.easyreasoning.EasyReasoningApi;

@@ -1,6 +1,6 @@
 package com.seeker.orchestrator;
 
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 import com.seeker.codex.CodexClient;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.python.JpyRuntime;

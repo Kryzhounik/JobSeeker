@@ -137,14 +137,3 @@ class CollectorService:
 
     def log_outcome(self, preview: dict, status: str, reason: str) -> None:
         record_collection_event({**preview, 'status': status, 'reason': reason}, self.db_path)
-
-    def semantic_snapshot(self, source: str, job_id: str) -> dict:
-        from db.semantic_duplicates import load_snapshot
-        with closing(sqlite3.connect(self.db_path)) as connection:
-            return load_snapshot(connection, self.run_id, source, job_id)
-
-    def save_semantic_duplicate(self, duplicate_id: int, original_id: int) -> None:
-        from db.semantic_duplicates import save_link
-        with closing(sqlite3.connect(self.db_path)) as connection:
-            connection.execute('PRAGMA foreign_keys = ON')
-            save_link(connection, self.run_id, duplicate_id, original_id)

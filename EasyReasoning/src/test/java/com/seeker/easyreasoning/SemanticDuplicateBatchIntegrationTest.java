@@ -1,6 +1,6 @@
-package com.seeker.collector.linkedin.collection;
+package com.seeker.easyreasoning;
 
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
 import com.sun.net.httpserver.HttpServer;
 import org.jpy.PyModule;
@@ -22,7 +22,7 @@ class SemanticDuplicateBatchIntegrationTest {
         Path project = Path.of(System.getProperty("seeker.project.root"));
         var runtime = PythonRuntime.load(project.resolve("Driver/collector/java_linkedin/runtime.properties"));
         JpyRuntime.ensureStarted(runtime.pythonLibrary(),runtime.jpyLibrary(),runtime.jdlLibrary(),
-                runtime.pythonHome(),runtime.pythonExecutable(),project.resolve("Driver"));
+                runtime.pythonHome(),runtime.pythonExecutable(),project,project.resolve("Driver"));
         Path database = root.resolve("jobs.sqlite");
         try (var pathlib = PyModule.importModule("pathlib");
              var dbPath = pathlib.callMethod("Path", database.toString());
@@ -42,8 +42,6 @@ class SemanticDuplicateBatchIntegrationTest {
                     """)) { }
             finally { try (var ignored = connection.callMethod("close")) { } }
         }
-        write("Driver/collector/config/linkedin.properties", "");
-        write("Data/Profile/Driver/collector/linkedin.properties", "");
         String runtimeConfig = Files.readString(project.resolve("Driver/collector/java_linkedin/runtime.properties"));
         write("Driver/collector/java_linkedin/runtime.properties", runtimeConfig
                 + "\ndatabase.path=" + database.toString().replace('\\','/')
@@ -51,6 +49,7 @@ class SemanticDuplicateBatchIntegrationTest {
         write("EasyReasoning/prompts/compare-vacancy-descriptions.md",
                 Files.readString(project.resolve("EasyReasoning/prompts/compare-vacancy-descriptions.md")));
         List<String> requests = new ArrayList<>();
+        var unloads = new java.util.concurrent.atomic.AtomicInteger();
         var model = HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);
         model.createContext("/api/version", exchange -> {
             byte[] response = "{}".getBytes(StandardCharsets.UTF_8);
@@ -60,7 +59,7 @@ class SemanticDuplicateBatchIntegrationTest {
         model.createContext("/api/chat", exchange -> {
             String request = new String(exchange.getRequestBody().readAllBytes(),StandardCharsets.UTF_8);
             String answer;
-            if (request.contains("\"keep_alive\":\"0\"")) answer = "";
+            if (request.contains("\"keep_alive\":\"0\"")) { unloads.incrementAndGet(); answer = ""; }
             else {
                 requests.add(request);
                 answer = request.contains("Invalid answer") ? "Unexpected"
@@ -75,9 +74,15 @@ class SemanticDuplicateBatchIntegrationTest {
         model.start();
         write("EasyReasoning/easy-reasoning.properties", "spring.ai.ollama.base-url=http://127.0.0.1:"
                 + model.getAddress().getPort() + "\n");
-        try { new SemanticDuplicateBatch(root).processBatch("batch"); }
+        try (var api = new EasyReasoningApi(root)) {
+            api.deduplicateBatch("batch");
+            assertEquals(1, unloads.get(), "The model must be unloaded before processBatch returns");
+            api.deduplicateBatch("batch");
+            assertEquals(2, unloads.get(), "The same API must remain reusable after batch cleanup");
+        }
         finally { model.stop(0); }
-        assertEquals(4, requests.size());
+        assertEquals(8, requests.size());
+        assertEquals(2, unloads.get(), "Closing the API must not unload the model again");
         try (var sqlite = PyModule.importModule("sqlite3");
              var connection = sqlite.callMethod("connect",database.toString())) {
             try (var cursor = connection.callMethod("execute",

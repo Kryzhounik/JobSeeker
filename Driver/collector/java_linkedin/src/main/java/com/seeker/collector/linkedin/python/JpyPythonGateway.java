@@ -9,6 +9,7 @@ import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.support.JsonSupport;
 import com.seeker.python.JpyRuntime;
+import com.seeker.python.PythonRuntime;
 import com.seeker.easyreasoning.EasyReasoningApi;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
@@ -17,14 +18,6 @@ import java.lang.reflect.Type;
 import java.util.List;
 
 public final class JpyPythonGateway implements PythonGateway {
-    public List<com.seeker.collector.linkedin.collection.VacancySnapshot> loadSemanticBatch(String runId) {
-        return JsonSupport.GSON.fromJson(callString("load_semantic_batch", runId),
-                new TypeToken<List<com.seeker.collector.linkedin.collection.VacancySnapshot>>() { }.getType());
-    }
-
-    public void saveSemanticBatchLink(String runId, long duplicateId, long originalId) {
-        callVoid("save_semantic_batch_link", runId, duplicateId, originalId);
-    }
     private static final Type STRING_LIST = new TypeToken<List<String>>() {
     }.getType();
 
@@ -111,17 +104,6 @@ public final class JpyPythonGateway implements PythonGateway {
                 ),
                 ProcessResult.class
         );
-    }
-
-    @Override
-    public com.seeker.collector.linkedin.collection.VacancySnapshot semanticSnapshot(String source, String jobId) {
-        return JsonSupport.GSON.fromJson(callString("semantic_snapshot", source, jobId),
-                com.seeker.collector.linkedin.collection.VacancySnapshot.class);
-    }
-
-    @Override
-    public void saveSemanticDuplicate(long duplicateId, long originalId) {
-        callVoid("save_semantic_duplicate", duplicateId, originalId);
     }
 
     @Override

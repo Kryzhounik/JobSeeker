@@ -187,21 +187,14 @@ Codex. Running the executable collector or orchestrator is a separate action.
 
 ## Semantic duplicate observation
 
-Collection does not run or wait for description comparisons.
-After successful collection, the orchestrator calls
-`SemanticDuplicateBatch.processBatch(runId)` synchronously, before relevance
-filtering and analysis. This operation temporarily lives in the collector module.
-It loads accepted descriptions from that batch in saved record order (`source_jobs.id`),
-groups by company and normalized full title, and compares sequentially through
-the existing EasyReasoning text API. Positive links are saved in
-`source_jobs.semantic_duplicate_of`; duplicate records do not become new samples.
-Each publication keeps its own text, scope entry, analysis and scores.
-Model errors, including invalid answers, are printed to stderr and create no
-link; processing continues. No automatic retries are made.
+Collection does not run or wait for description comparisons. After successful
+collection, the orchestrator calls EasyReasoning's
+`easyReasoning.deduplicateBatch(runId)` before filtering and analysis.
+[EasyReasoning](../../../EasyReasoning/README.md) owns candidate selection,
+operation settings, comparisons and duplicate-link persistence. Collector only
+collects and saves vacancies. Each publication retains its scope entry and
+analysis. Resume and standalone collection commands are unchanged.
 
-The operation reads `dedup.mode` from `EasyReasoning/easy-reasoning.properties`
-at the start of each batch:
-`qwen` enables comparisons (default), `off` skips the operation before initializing
-the model or database bridge. Model parameters remain in EasyReasoning's existing
-configuration. There is no separate orchestrator switch. Resume does not run this
-operation, and standalone collection commands only collect.
+Common JPy initialization and Python runtime loading are provided by Tools.
+The existing machine-local `runtime.properties` retains its location here and
+also supplies technical Python/JPy paths and `database.path` to EasyReasoning.

@@ -1,4 +1,4 @@
-package com.seeker.collector.linkedin.python;
+package com.seeker.python;
 
 import java.io.IOException;
 import java.io.Reader;

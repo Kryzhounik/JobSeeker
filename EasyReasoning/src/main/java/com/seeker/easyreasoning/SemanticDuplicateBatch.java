@@ -1,9 +1,5 @@
-package com.seeker.collector.linkedin.collection;
+package com.seeker.easyreasoning;
 
-import com.seeker.collector.linkedin.config.ProjectPaths;
-import com.seeker.collector.linkedin.python.JpyPythonGateway;
-import com.seeker.collector.linkedin.python.PythonRuntime;
-import com.seeker.easyreasoning.EasyReasoningApi;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -12,13 +8,19 @@ import java.util.function.BiPredicate;
 import java.util.function.BiConsumer;
 
 /** Synchronous observational deduplication of a saved collection batch. */
-public final class SemanticDuplicateBatch {
+final class SemanticDuplicateBatch {
     private final Path root;
+    private final BiPredicate<String, String> compare;
+    private final Runnable release;
     private record Key(long companyId, String title) { }
 
-    public SemanticDuplicateBatch(Path root) { this.root = root; }
+    SemanticDuplicateBatch(Path root, BiPredicate<String, String> compare, Runnable release) {
+        this.root = root;
+        this.compare = compare;
+        this.release = release;
+    }
 
-    public void processBatch(String batchId) {
+    void processBatch(String batchId) {
         try {
             Properties config = new Properties();
             Path file = root.resolve("EasyReasoning/easy-reasoning.properties");
@@ -28,14 +30,11 @@ public final class SemanticDuplicateBatch {
             String mode = config.getProperty("dedup.mode", "qwen").strip();
             if (mode.equals("off")) return;
             if (!mode.equals("qwen")) throw new IllegalArgumentException("Unsupported dedup.mode: " + mode);
-            ProjectPaths paths = ProjectPaths.fromProjectRoot(root);
-            PythonRuntime runtime = PythonRuntime.load(paths.collectorRoot().resolve("java_linkedin/runtime.properties"));
-            var reasoning = new EasyReasoningApi(root);
-            try (var python = new JpyPythonGateway(paths, runtime, reasoning)) {
-                process(python.loadSemanticBatch(batchId), reasoning::areDuplicateDescriptions,
-                        (duplicate, original) -> python.saveSemanticBatchLink(batchId, duplicate, original));
+            try (var database = new DeduplicationDatabase(root)) {
+                process(database.loadBatch(batchId), compare,
+                        (duplicate, original) -> database.saveLink(batchId, duplicate, original));
             } finally {
-                try { reasoning.close(); }
+                try { release.run(); }
                 catch (RuntimeException error) {
                     System.err.println("Semantic comparison model cleanup failed: " + error);
                 }

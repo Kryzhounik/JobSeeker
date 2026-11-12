@@ -38,7 +38,7 @@ final class OllamaRuntime implements AutoCloseable {
             ProcessBuilder builder = new ProcessBuilder(executable.toString(), "serve");
             builder.environment().put("OLLAMA_HOST", endpoint.getAuthority());
             process = builder.redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log.toFile())).start();
-            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(60);
             while (process.isAlive() && System.nanoTime() < deadline) {
                 if (isReady()) {
                     ready = true;

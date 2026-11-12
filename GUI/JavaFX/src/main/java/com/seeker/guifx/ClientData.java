@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.Nulls;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
 import com.seeker.chatevaluator.GptEvaluation;
 import org.jpy.PyModule;

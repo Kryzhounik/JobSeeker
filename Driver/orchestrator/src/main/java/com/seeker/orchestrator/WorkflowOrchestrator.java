@@ -52,8 +52,11 @@ public final class WorkflowOrchestrator {
     ) {
         this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
                 recommendations, parallelAgents, vacanciesPerAgent,
-                new com.seeker.collector.linkedin.collection.SemanticDuplicateBatch(
-                        projectRoot)::processBatch);
+                batchId -> {
+                    try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot)) {
+                        reasoning.deduplicateBatch(batchId);
+                    }
+                });
     }
 
     WorkflowOrchestrator(

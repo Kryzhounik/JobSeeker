@@ -1,9 +1,8 @@
 # EasyReasoning
 
-**Current status:** the module is currently unused. Available models did not
-provide a substantial, consistent improvement in vacancy trimming without losing
-useful content; script-based cleanup achieved better quality. Its gateway purpose
-remains; revisit it for other tasks or a more powerful model.
+**Current status:** batch description deduplication is used between collection and
+analysis. Optional vacancy trimming remains disabled: available models did not
+improve it consistently without losing useful content.
 
 Java gateway to models for inexpensive text and reasoning tasks. Its core API is
 `String generate(String prompt)`. The intended configuration selects the backend
@@ -94,6 +93,13 @@ read on each comparison, allowing edits without rebuilding. This text-level
 method accepts only two texts and has no database access. The agreed boundary
 for batch operations is described in
 [Architecture](ARCHITECTURE.md#operation-layers-and-batch-ownership).
+Batch callers use `easyReasoning.deduplicateBatch(batchId)` to find and mark
+similar descriptions within a saved batch. All vacancies remain available for
+analysis; model errors are reported without stopping batch processing.
+The operation is enabled with `dedup.mode=qwen` or disabled with `off` in
+`EasyReasoning/easy-reasoning.properties`. Its responsibilities and internal
+structure are described in [Architecture](ARCHITECTURE.md#operation-layers-and-batch-ownership).
+
 Obtain `com.seeker.easyreasoning.EasyReasoningService` from the existing context
 and call `generate(prompt)` off the UI thread. It returns the model's text
 unchanged, propagates request errors,

@@ -10,6 +10,7 @@ public final class EasyReasoningApi implements AutoCloseable {
     private final EasyReasoningService service;
     private final VacancyCleaner cleaner;
     private final VacancyDescriptionComparator descriptionComparator;
+    private final SemanticDuplicateBatch dedup;
 
     public EasyReasoningApi(Path projectRoot) {
         context = new AnnotationConfigApplicationContext();
@@ -20,6 +21,7 @@ public final class EasyReasoningApi implements AutoCloseable {
             service = context.getBean(EasyReasoningService.class);
             cleaner = context.getBean(VacancyCleaner.class);
             descriptionComparator = context.getBean(VacancyDescriptionComparator.class);
+            dedup = new SemanticDuplicateBatch(projectRoot, this::areDuplicateDescriptions, service::close);
         } catch (RuntimeException | Error failure) {
             context.close();
             throw failure;
@@ -29,6 +31,8 @@ public final class EasyReasoningApi implements AutoCloseable {
     public String generate(String prompt) {
         return service.generate(prompt);
     }
+
+    public void deduplicateBatch(String batchId) { dedup.processBatch(batchId); }
 
     public String cleanVacancy(String text) {
         return cleaner.cleanVacancy(text);

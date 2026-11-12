@@ -49,9 +49,9 @@ common text-generation and resource-close contract; the current
 
 ## Operation Layers and Batch Ownership
 
-The agreed target for the deduplication refactoring distinguishes two operation
-layers inside EasyReasoning. This describes the intended boundary, not a claim
-that the batch API is already implemented.
+The implemented deduplication API distinguishes two operation layers inside
+EasyReasoning. `EasyReasoningApi.deduplicateBatch(batchId)` is the synchronous
+batch entry point.
 
 - **Operations on supplied data** accept texts and return a result. Prompting,
   model calls and response parsing belong here; database access, record IDs and
@@ -60,7 +60,7 @@ that the batch API is already implemented.
 - **Batch operations** accept a batch identifier and own loading inputs,
   candidate selection, operation settings, calls to the data-level operation,
   and persistence of results through the shared database layer. Batch
-  deduplication, illustrated as `dedup.processBatch(batchId)`, belongs here;
+  deduplication, illustrated as `easyReasoning.deduplicateBatch(batchId)`, belongs here;
   `batchId` corresponds to the existing string `run_id`.
 
 ```text
@@ -89,6 +89,22 @@ its logic. Expose both as public APIs only when practically needed. Any later
 queues, scheduling and result streams belong to the batch layer, not to the
 orchestrator or model adapters. This decision does not require asynchronous
 execution or a generic task framework now.
+
+## Sequential Execution and Throughput
+
+Batch deduplication currently blocks its caller: collection finishes first,
+then vacancies and model comparisons are processed sequentially, and analysis
+starts only after the whole deduplication call returns. Model startup and the
+sum of comparison times therefore add to batch latency; a slow comparison also
+delays later vacancies that need no comparison.
+
+Possible improvements are recorded in the backlog: a
+[result stream consumed by analysis](BACKLOG.md#analysis-stream), then separate
+[Scanner and Worker](BACKLOG.md#scanner-worker), and optionally
+[overlap with collection](BACKLOG.md#collection-overlap). These are optional
+changes driven by observed delays, not implemented concurrency guarantees.
+The separate [Codex/Luna backend task](BACKLOG.md#codex-luna) adds execution
+choice; it does not by itself remove sequential processing or guarantee speed.
 
 ## Application and Inference
 
@@ -144,8 +160,14 @@ inference request, the backend checks server readiness and, if needed, starts
 `.tools/ollama/ollama.exe serve` itself and waits for readiness. An unused API
 does not start Ollama. All process management stays inside `llm`. Closing the API
 stops the server only if this module started it; an external server is reused.
-In the collector the API closes after collection and all pending comparisons,
-including when collection fails. For local Ollama inference, shutdown must unload the configured
+The optional trimming API in the collector closes after collection, including
+when collection fails. Batch deduplication has its own API scope: it reuses the
+backend for comparisons and releases model resources after the batch, in `finally`.
+The orchestrator owns and closes that API; the collector has no deduplication
+worker or database adapter. The stateless EasyReasoning JPy adapter calls
+`Driver/db/semantic_duplicates.py` directly. Shared JPy initialization and runtime
+loading live in Tools; the existing machine-local runtime properties file keeps
+its historical path under `Driver/collector/java_linkedin`. For local Ollama inference, shutdown must unload the configured
 model from Ollama memory rather than leave it waiting for idle eviction. This is
 the local Ollama backend's policy, not a universal model-unload contract.
 Reconsider lifecycle separately for cloud Ollama and the future Codex backend.

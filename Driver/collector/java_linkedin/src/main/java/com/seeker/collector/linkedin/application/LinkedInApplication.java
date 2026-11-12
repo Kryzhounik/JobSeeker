@@ -8,7 +8,7 @@ import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.config.ProjectPaths;
 import com.seeker.collector.linkedin.login.LinkedInLoginService;
 import com.seeker.collector.linkedin.login.LoginResult;
-import com.seeker.collector.linkedin.python.PythonRuntime;
+import com.seeker.python.PythonRuntime;
 
 import java.io.IOException;
 import java.nio.file.Path;
