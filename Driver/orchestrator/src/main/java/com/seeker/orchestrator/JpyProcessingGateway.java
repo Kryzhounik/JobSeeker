@@ -25,7 +25,7 @@ final class JpyProcessingGateway implements ProcessingGateway {
     JpyProcessingGateway(Path projectRoot) throws IOException {
         this.paths = ProjectPaths.fromProjectRoot(projectRoot);
         this.runtime = PythonRuntime.load(
-                paths.collectorRoot().resolve("java_linkedin/runtime.properties")
+                paths.driverRoot().getParent().resolve("Tools/runtime.properties")
         );
     }
 

@@ -18,7 +18,7 @@ public final class CoverLetterWriter {
     public String generate(long jobId) throws IOException, InterruptedException, UsageLimitExceededException {
         if (jobId <= 0) throw new IllegalArgumentException("Expected a positive jobs.id");
         Properties runtime = new Properties();
-        try (var reader = Files.newBufferedReader(root.resolve("Driver/collector/java_linkedin/runtime.properties"))) {
+        try (var reader = Files.newBufferedReader(root.resolve("Tools/runtime.properties"))) {
             runtime.load(reader);
         }
         String python = runtime.getProperty("python.executable", "python");

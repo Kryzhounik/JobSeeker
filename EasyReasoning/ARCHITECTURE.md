@@ -166,8 +166,8 @@ backend for comparisons and releases model resources after the batch, in `finall
 The orchestrator owns and closes that API; the collector has no deduplication
 worker or database adapter. The stateless EasyReasoning JPy adapter calls
 `Driver/db/semantic_duplicates.py` directly. Shared JPy initialization and runtime
-loading live in Tools; the existing machine-local runtime properties file keeps
-its historical path under `Driver/collector/java_linkedin`. For local Ollama inference, shutdown must unload the configured
+loading live in Tools; shared Python/JPy settings and `database.path` live in
+`Tools/runtime.properties`. EasyReasoning does not read Collector configuration. For local Ollama inference, shutdown must unload the configured
 model from Ollama memory rather than leave it waiting for idle eviction. This is
 the local Ollama backend's policy, not a universal model-unload contract.
 Reconsider lifecycle separately for cloud Ollama and the future Codex backend.

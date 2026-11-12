@@ -20,7 +20,7 @@ class CoverLetterWriterTest {
 
     @BeforeEach
     void setup() throws Exception {
-        Path runtime = root.resolve("Driver/collector/java_linkedin/runtime.properties");
+        Path runtime = root.resolve("Tools/runtime.properties");
         Files.createDirectories(runtime.getParent());
         Files.writeString(runtime, "python.executable=fixture-python\ndatabase.path=Data/custom jobs.sqlite\n");
         database = root.resolve("Data/custom jobs.sqlite");

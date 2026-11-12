@@ -8,7 +8,7 @@
 Пакет coverletter содержит CoverLetterWriter. Он получает полные readable_text,
 title и имя компании через read-only SQLite-запрос cover_letter_job.py:
 jobs.source_job_ref → source_job_texts; source_job_texts.company_id → companies.
-Python и путь базы берутся из существующего runtime.properties коллектора.
+Python и путь базы берутся из общего `Tools/runtime.properties`.
 Вызывающий передаёт только внутренний jobs.id, а не текст вакансии.
 
 Писатель передаёт готовый промпт и только resume.txt и candidate_context.md в

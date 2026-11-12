@@ -21,9 +21,12 @@ class LinkedInApplicationTest {
         Files.createDirectories(collector.resolve("config"));
         Files.createDirectories(collector.resolve("java_linkedin"));
         Files.writeString(collector.resolve("java_linkedin/runtime.properties"), """
-                database.path=Data/jobs.sqlite
                 raw.directory=Data/raw
                 profile.directory=Data/profile
+                """);
+        Files.createDirectories(root.resolve("Tools"));
+        Files.writeString(root.resolve("Tools/runtime.properties"), """
+                database.path=Data/jobs.sqlite
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

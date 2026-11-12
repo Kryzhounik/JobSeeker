@@ -33,11 +33,15 @@ public record ProjectPaths(
         )) {
             properties.load(reader);
         }
+        Properties sharedRuntime = new Properties();
+        try (Reader reader = Files.newBufferedReader(projectRoot.resolve("Tools/runtime.properties"), StandardCharsets.UTF_8)) {
+            sharedRuntime.load(reader);
+        }
         return new ProjectPaths(
                 driverRoot,
                 collectorRoot,
                 configPath,
-                path(projectRoot, properties, "database.path"),
+                path(projectRoot, sharedRuntime, "database.path"),
                 path(projectRoot, properties, "raw.directory"),
                 path(projectRoot, properties, "profile.directory")
         );

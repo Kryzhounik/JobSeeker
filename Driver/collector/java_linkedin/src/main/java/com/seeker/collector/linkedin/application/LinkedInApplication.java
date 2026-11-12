@@ -30,7 +30,7 @@ public final class LinkedInApplication {
     public LinkedInApplication(Path projectRoot) throws IOException {
         this.paths = ProjectPaths.fromProjectRoot(projectRoot);
         PythonRuntime pythonRuntime = PythonRuntime.load(
-                paths.collectorRoot().resolve("java_linkedin/runtime.properties")
+                paths.driverRoot().getParent().resolve("Tools/runtime.properties")
         );
         this.collectionService = new LinkedInCollectionService(
                 paths,

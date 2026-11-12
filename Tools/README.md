@@ -60,3 +60,14 @@ JavaFX используют обычную Maven-зависимость, не к
   filters.
 - `filter_database.py`: pass every saved job and its readable text through the
   complete vacancy filter without changing the database.
+
+## Общая техническая конфигурация
+
+`Tools/runtime.properties` содержит настройки `python.home`, `python.executable`,
+`python.library`, `jpy.library`, `jdl.library` и `database.path` для Java-модулей.
+Для настройки скопировать `runtime.properties.example` в `runtime.properties`;
+локальный файл исключён из Git. Относительный путь базы разрешается от корня
+проекта; пути Python/JPy сохраняют правила загрузки `PythonRuntime`.
+Параметры Java-запуска коллектора, HTML и браузерного профиля остаются в
+`Driver/collector/java_linkedin/runtime.properties`. Общий runtime не требует
+наличия конфигурации Collector.

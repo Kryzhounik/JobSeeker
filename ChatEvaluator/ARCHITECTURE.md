@@ -127,6 +127,7 @@ DOM-чтения не блокируют механизм ожидания. Ав
 | --- | --- | --- |
 | `Data/chat_evaluator/config.properties` | `chat.url` | Рабочий диалог ChatGPT |
 | `Data/chat_evaluator/config.properties` | `chat.test.url` | Диалог для живых проверок; сам по себе не переключает `chat.url` |
+| `Tools/runtime.properties` | `python.executable`, `database.path` | Общий Python и база сохранённых оценок |
 | `Driver/collector/java_linkedin/runtime.properties` | `profile.directory` | Каталог профиля браузера |
 | `Driver/collector/config/linkedin.properties` | `browserChannel` | Канал браузера, по умолчанию `chrome` |
 

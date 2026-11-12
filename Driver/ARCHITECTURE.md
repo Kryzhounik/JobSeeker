@@ -106,3 +106,8 @@ Java gateway и Python bridge — тонкие межъязыковые адап
 JPy использует один встроенный интерпретатор Python на JVM. Его общая
 инициализация выполняется через `JpyRuntime.ensureStarted(...)`;
 закрытие отдельного gateway не останавливает общий интерпретатор.
+
+Общие технические пути Python/JPy и `database.path` находятся в локальном
+`Tools/runtime.properties` (пример — `Tools/runtime.properties.example`).
+Параметры коллектора `java.executable`, `raw.directory` и `profile.directory`
+остаются в `Driver/collector/java_linkedin/runtime.properties`.

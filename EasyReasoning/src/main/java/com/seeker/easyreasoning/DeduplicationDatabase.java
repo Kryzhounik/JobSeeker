@@ -18,7 +18,7 @@ final class DeduplicationDatabase implements AutoCloseable {
     private final String database;
 
     DeduplicationDatabase(Path root) throws IOException {
-        Path config = root.resolve("Driver/collector/java_linkedin/runtime.properties");
+        Path config = root.resolve("Tools/runtime.properties");
         var runtime = PythonRuntime.load(config);
         Properties properties = new Properties();
         try (var reader = Files.newBufferedReader(config, StandardCharsets.UTF_8)) { properties.load(reader); }

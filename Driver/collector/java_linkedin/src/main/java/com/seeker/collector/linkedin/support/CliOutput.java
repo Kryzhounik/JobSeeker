@@ -22,7 +22,7 @@ public final class CliOutput implements AutoCloseable {
 
     public static CliOutput redirectPython(Path projectRoot) throws IOException {
         ProjectPaths paths = ProjectPaths.fromProjectRoot(projectRoot);
-        PythonRuntime runtime = PythonRuntime.load(paths.collectorRoot().resolve("java_linkedin/runtime.properties"));
+        PythonRuntime runtime = PythonRuntime.load(paths.driverRoot().getParent().resolve("Tools/runtime.properties"));
         JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
                 runtime.pythonHome(), runtime.pythonExecutable(), projectRoot,
                 paths.driverRoot(), paths.collectorRoot());

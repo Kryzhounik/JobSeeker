@@ -20,7 +20,7 @@ class SemanticDuplicateBatchIntegrationTest {
 
     @Test void processesSavedBatchThroughModelAndPersistsOnlyConfirmedLinks() throws Exception {
         Path project = Path.of(System.getProperty("seeker.project.root"));
-        var runtime = PythonRuntime.load(project.resolve("Driver/collector/java_linkedin/runtime.properties"));
+        var runtime = PythonRuntime.load(project.resolve("Tools/runtime.properties"));
         JpyRuntime.ensureStarted(runtime.pythonLibrary(),runtime.jpyLibrary(),runtime.jdlLibrary(),
                 runtime.pythonHome(),runtime.pythonExecutable(),project,project.resolve("Driver"));
         Path database = root.resolve("jobs.sqlite");
@@ -42,10 +42,10 @@ class SemanticDuplicateBatchIntegrationTest {
                     """)) { }
             finally { try (var ignored = connection.callMethod("close")) { } }
         }
-        String runtimeConfig = Files.readString(project.resolve("Driver/collector/java_linkedin/runtime.properties"));
-        write("Driver/collector/java_linkedin/runtime.properties", runtimeConfig
+        String runtimeConfig = Files.readString(project.resolve("Tools/runtime.properties"));
+        write("Tools/runtime.properties", runtimeConfig
                 + "\ndatabase.path=" + database.toString().replace('\\','/')
-                + "\nraw.directory=raw\nprofile.directory=browser\n");
+                + "\n");
         write("EasyReasoning/prompts/compare-vacancy-descriptions.md",
                 Files.readString(project.resolve("EasyReasoning/prompts/compare-vacancy-descriptions.md")));
         List<String> requests = new ArrayList<>();

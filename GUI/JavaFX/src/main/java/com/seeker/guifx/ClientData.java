@@ -34,7 +34,11 @@ final class ClientData {
 
     ClientData() throws Exception {
         projectRoot = findProjectRoot();
-        databasePath = projectRoot.resolve("Data").resolve("jobs.sqlite");
+        var runtime = new java.util.Properties();
+        try (var reader = Files.newBufferedReader(projectRoot.resolve("Tools/runtime.properties"), java.nio.charset.StandardCharsets.UTF_8)) {
+            runtime.load(reader);
+        }
+        databasePath = projectRoot.resolve(runtime.getProperty("database.path", "Data/jobs.sqlite")).normalize();
         if (!Files.isRegularFile(databasePath)) {
             throw new IllegalStateException("Database not found: " + databasePath);
         }
@@ -51,7 +55,7 @@ final class ClientData {
 
     private void initializePythonRuntime() throws Exception {
         PythonRuntime runtime = PythonRuntime.load(
-                projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties"));
+                projectRoot.resolve("Tools/runtime.properties"));
         JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
                 runtime.pythonHome(), runtime.pythonExecutable(), projectRoot,
                 projectRoot.resolve("Driver"), projectRoot.resolve("Driver/collector"));

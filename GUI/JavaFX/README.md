@@ -85,7 +85,8 @@ dependencies on Driver API, Collector result types, and Tools, and imports their
 versions from the installed Driver POM. The GUI's preparation script installs
 changed backend dependencies automatically before rebuilding the GUI. Maven
 downloads the JavaFX platform modules on the first build.
-The Python/JNI library paths come from
+The Python/JNI library paths and database path come from `Tools/runtime.properties`.
+Collector-specific Java, browser-profile and raw-output paths remain in
 `Driver/collector/java_linkedin/runtime.properties`.
 
 `SeekerApplication.init()` creates a plain Spring Context on the launcher

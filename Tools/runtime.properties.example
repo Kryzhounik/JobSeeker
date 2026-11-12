@@ -1,0 +1,7 @@
+# Shared Python/JPy runtime and database paths. Copy the example to runtime.properties.
+python.home=C:/path/to/python
+python.executable=C:/path/to/python/python.exe
+python.library=C:/path/to/python/python3.dll
+jpy.library=C:/path/to/python/Lib/site-packages/jpy.pyd
+jdl.library=C:/path/to/python/Lib/site-packages/jdl.pyd
+database.path=Data/jobs.sqlite

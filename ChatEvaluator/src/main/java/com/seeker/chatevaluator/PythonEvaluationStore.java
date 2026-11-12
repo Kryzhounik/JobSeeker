@@ -53,13 +53,13 @@ final class PythonEvaluationStore implements GptEvaluation.Store {
     private JsonElement call(JsonObject request) throws Exception {
         Properties runtime = new Properties();
         try (var reader = Files.newBufferedReader(root.resolve(
-                "Driver/collector/java_linkedin/runtime.properties"), StandardCharsets.UTF_8)) {
+                "Tools/runtime.properties"), StandardCharsets.UTF_8)) {
             runtime.load(reader);
         }
         ProcessBuilder builder = new ProcessBuilder(
                 runtime.getProperty("python.executable", "python").strip(),
                 root.resolve("Driver/db/gpt_evaluations.py").toString(),
-                root.resolve("Data/jobs.sqlite").toString())
+                root.resolve(runtime.getProperty("database.path", "Data/jobs.sqlite")).normalize().toString())
                 .directory(root.toFile()).redirectError(ProcessBuilder.Redirect.INHERIT);
         builder.environment().put("PYTHONIOENCODING", "utf-8");
         Process process = builder.start();

@@ -35,7 +35,8 @@ public final class ApplierRunner {
         Properties collector = load(projectRoot.resolve("Driver/collector/config/linkedin.properties"));
         Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
         String channel = collector.getProperty("browserChannel", "chrome").strip();
-        String python = runtime.getProperty("python.executable", "python").strip();
+        Properties sharedRuntime = load(projectRoot.resolve("Tools/runtime.properties"));
+        String python = sharedRuntime.getProperty("python.executable", "python").strip();
 
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             double timeoutMs = Double.parseDouble(
