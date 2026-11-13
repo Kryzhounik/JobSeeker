@@ -17,7 +17,7 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.java_linkedin import python_bridge
-from collector import service as collector_service
+from collector import linkedin_preparation as collector_service
 from collector.filtering.publication_age import publication_age_days
 
 

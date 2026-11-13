@@ -1,0 +1,115 @@
+{
+  "id": "375fad40-0611-4661-843a-f3a8c83ec576",
+  "slug": "epam-systems-senior-java-software-engineer-krakow-java-cb6a1021",
+  "title": "Senior Java Software Engineer",
+  "companyName": "EPAM Systems",
+  "body": "<p>We are looking for a <strong>Senior Java Software Engineer</strong> to join our team and contribute to the design and development of robust, high-performing software solutions. The ideal candidate will bring strong technical expertise and a solid understanding of software engineering principles to deliver secure and scalable systems.</p><p><strong>Responsibilities</strong></p><ul><li>Design and develop end-to-end software solutions</li><li>Produce secure, stable and high-performing code</li><li>Apply solid software engineering principles throughout the development lifecycle</li><li>Work with multithreading concepts to build efficient applications</li><li>Contribute to microservices-based architecture design and implementation</li><li>Collaborate with cross-functional teams to deliver quality solutions</li></ul><p><strong>Requirements</strong></p><ul><li>5+ years of experience as a Java Developer</li><li>Expertise in multithreading and microservices-based architecture</li><li>Background in the finance sector is a plus</li><li>Solid understanding of software engineering principles</li><li>Proficiency in English at a B2+ level</li></ul><p><strong>Nice to have</strong></p><ul><li>Understanding of cloud technologies</li></ul><p><strong>We offer</strong></p><ul><li>We gather like-minded people:</li><li><ul><li>Top tech minds driving innovation in AI, cloud and digital platform modernization</li><li>Supportive team and agile, startup-like culture</li><li>Hybrid by design mode and opportunity to work remotely within Poland</li><li>Chance to work abroad for up to 60 days annually</li><li>Business-driven relocation opportunities</li></ul></li><li>We provide growth opportunities:</li><li><ul><li>Career development programs</li><li>Thought leadership, mentoring, soft skills and well-being programs</li><li>Certification (Anthropic, Gemini, GCP, Azure, AWS)</li><li>English classes</li></ul></li><li>We cover it all:</li><li><ul><li>Stable pay</li><li>Participation in the Employee Stock Purchase Plan with a 15% discount</li><li>Benefits package (health insurance, multisport, shopping vouchers)</li><li>Referral bonuses up to $2,000</li><li>Offices featuring entertainment and relaxation zones, table tennis and football, free snacks, coffee and more</li><li>Corporate, social and well-being events</li></ul></li><li>Please, note:</li><li><ul><li>Benefits listed above are available to employees only</li><li>We are open for working with Contractors. Terms of B2B cooperation agreements are agreed individually</li><li>We will reach out to selected candidates exclusively</li></ul></li></ul><p>EPAM is global leader in AI transformation engineering and integrated consulting, serving Forbes Global 2000 companies and ambitious startups. With over thirty years of expertise in custom software, product and platform engineering, we empower our clients to become AI-Native enterprises, driving measurable value from innovation and digital investments.</p>",
+  "city": "Krakow",
+  "countryCode": "PL",
+  "locations": [
+    {
+      "city": "Krakow",
+      "street": "BRAIN PARK, Fabryczna 1A, 31-553 Krakow, 3rd, 4th & 5th floor",
+      "latitude": 50.06143,
+      "longitude": 19.93658,
+      "slug": "epam-systems-senior-java-software-engineer-krakow-java-cb6a1021"
+    }
+  ],
+  "workplaceType": "hybrid",
+  "experienceLevel": "senior",
+  "workingTime": "full_time",
+  "employmentTypes": [
+    {
+      "from": null,
+      "fromPerUnit": null,
+      "to": null,
+      "toPerUnit": null,
+      "currency": "USD",
+      "currencySource": "conversion",
+      "type": "any",
+      "unit": "month",
+      "gross": false
+    },
+    {
+      "from": null,
+      "fromPerUnit": null,
+      "to": null,
+      "toPerUnit": null,
+      "currency": "EUR",
+      "currencySource": "conversion",
+      "type": "any",
+      "unit": "month",
+      "gross": false
+    },
+    {
+      "from": null,
+      "fromPerUnit": null,
+      "to": null,
+      "toPerUnit": null,
+      "currency": "CHF",
+      "currencySource": "conversion",
+      "type": "any",
+      "unit": "month",
+      "gross": false
+    },
+    {
+      "from": null,
+      "fromPerUnit": null,
+      "to": null,
+      "toPerUnit": null,
+      "currency": "GBP",
+      "currencySource": "conversion",
+      "type": "any",
+      "unit": "month",
+      "gross": false
+    },
+    {
+      "from": null,
+      "fromPerUnit": null,
+      "to": null,
+      "toPerUnit": null,
+      "currency": "PLN",
+      "currencySource": "original",
+      "type": "any",
+      "unit": "month",
+      "gross": false
+    }
+  ],
+  "publishedAt": "2026-11-13T18:15:08.7631703Z",
+  "expiredAt": "2026-12-31T22:59:59.999Z",
+  "languages": [
+    {
+      "code": "en",
+      "level": "B2"
+    }
+  ],
+  "requiredSkills": [
+    {
+      "skillId": "c7fe4cf1-6da4-4a99-abb1-6bec33ec5dc1",
+      "name": "Java",
+      "level": 5,
+      "group": null
+    },
+    {
+      "skillId": "f0fa62c1-f3bc-4030-9862-4c8788eb8fc6",
+      "name": "Multithreading",
+      "level": 5,
+      "group": null
+    },
+    {
+      "skillId": "3d72a25b-053e-4f79-b2f2-9ae4f6a14256",
+      "name": "Microservices",
+      "level": 5,
+      "group": null
+    },
+    {
+      "skillId": "f301b3fd-0e2b-4042-83f8-e7fffc484cf2",
+      "name": "Software Engineering",
+      "level": 4,
+      "group": null
+    }
+  ],
+  "niceToHaveSkills": [],
+  "applyUrl": "https://careers.epam.com/en/vacancy/bltm9i9r1r3kbdi0gu3_en?city=Krakow&country=Poland&utm_source=justjoin.it&utm_medium=job-slots&utm_campaign=ta&utm_content=poland",
+  "url": "https://justjoin.it/job-offer/epam-systems-senior-java-software-engineer-krakow-java-cb6a1021"
+}

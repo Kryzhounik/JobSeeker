@@ -19,6 +19,7 @@ for import_root in (DRIVER_ROOT, COLLECTOR_ROOT):
         sys.path.insert(0, str(import_root))
 
 from collector.service import CollectorService
+from collector.linkedin_preparation import LinkedInPreparation
 
 
 _session: CollectorService | None = None
@@ -30,7 +31,7 @@ def init_session(driver_root: str, db_path: str, raw_dir: str) -> None:
 
 
 def priority_company_ids() -> str:
-    return _json(_require_session().priority_company_ids())
+    return _json(LinkedInPreparation(_require_session()).priority_company_ids())
 
 
 def start_run(run_id: str, config_json: str) -> None:
@@ -38,7 +39,7 @@ def start_run(run_id: str, config_json: str) -> None:
 
 
 def log_page(run_id: str, page_json: str) -> None:
-    _require_session().log_page(_normalize_unicode(run_id), _object(page_json))
+    LinkedInPreparation(_require_session()).log_page(_normalize_unicode(run_id), _object(page_json))
 
 
 def finish_run(run_id: str, status: str, stop_reason: str, accepted_count: int, message: str) -> None:
@@ -52,8 +53,21 @@ def decide_preview(preview_json: str) -> str:
 
 def process_html(preview_json: str, html: str, easy_apply: bool, cleaner=None) -> str:
     clean_text = None if cleaner is None else lambda text: _normalize_unicode(cleaner.cleanVacancy(text))
-    return _json(_require_session().process_html(
+    return _json(LinkedInPreparation(_require_session()).process_html(
         _object(preview_json), _normalize_unicode(html), easy_apply, clean_text))
+
+
+def prepare_linkedin_html(preview_json: str, html: str, easy_apply: bool) -> str:
+    return _json(LinkedInPreparation(_require_session()).prepare_html(
+        _object(preview_json), _normalize_unicode(html), easy_apply))
+
+
+def process_vacancy(vacancy_json: str) -> str:
+    return _json(_require_session().process_vacancy(_object(vacancy_json)))
+
+
+def save_raw(preview_json: str, content: str, extension: str, method: str) -> str:
+    return str(_require_session().save_raw(_object(preview_json), _normalize_unicode(content), extension, method))
 
 
 def log_outcome(preview_json: str, status: str, reason: str) -> None:

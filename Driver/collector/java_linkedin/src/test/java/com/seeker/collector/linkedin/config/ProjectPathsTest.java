@@ -1,4 +1,5 @@
 package com.seeker.collector.linkedin.config;
+import com.seeker.collector.common.ProjectPaths;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

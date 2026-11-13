@@ -4,7 +4,7 @@ import com.google.gson.Gson;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.google.gson.GsonBuilder;
 import com.seeker.codex.UsageLimitExceededException;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.collector.linkedin.support.ProcessLog;
 

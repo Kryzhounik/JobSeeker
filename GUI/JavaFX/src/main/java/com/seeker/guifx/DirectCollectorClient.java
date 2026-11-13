@@ -2,7 +2,7 @@ package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.common.CollectionReport;
 
 import java.util.Objects;
 import java.util.function.Consumer;

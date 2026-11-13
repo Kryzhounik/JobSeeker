@@ -1,5 +1,7 @@
 package com.seeker.collector.linkedin.collection;
 
+import com.seeker.collector.common.Preview;
+
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.PlaywrightException;
@@ -9,7 +11,7 @@ import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
 import com.seeker.collector.linkedin.config.CollectorConfig;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.common.JsonSupport;
 
 import java.net.URI;
 import java.net.URLDecoder;

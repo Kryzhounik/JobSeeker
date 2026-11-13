@@ -1,10 +1,10 @@
 package com.seeker.orchestrator;
 
-import com.seeker.collector.linkedin.application.LinkedInApplication;
+import com.seeker.collector.core.CollectorApi;
 import com.seeker.codex.UsageLimitExceededException;
-import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.common.CollectionReport;
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.mailer.Mailer;
 
 import java.io.IOException;
@@ -35,7 +35,7 @@ public final class WorkflowOrchestrator {
 
     public WorkflowOrchestrator(Path projectRoot) throws IOException {
         this(
-                new LinkedInApplication(projectRoot),
+                new CollectorApi(projectRoot),
                 new JpyProcessingGateway(projectRoot),
                 new Mailer(projectRoot)::getRecommendationUrls,
                 executionSetting(projectRoot, "parallel_agents"),
@@ -44,7 +44,7 @@ public final class WorkflowOrchestrator {
     }
 
     private WorkflowOrchestrator(
-            LinkedInApplication linkedin,
+            CollectorApi linkedin,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
             int parallelAgents,

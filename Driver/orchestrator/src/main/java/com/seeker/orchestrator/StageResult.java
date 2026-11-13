@@ -1,7 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.annotations.SerializedName;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.ScopeItem;
 
 import java.util.List;
 

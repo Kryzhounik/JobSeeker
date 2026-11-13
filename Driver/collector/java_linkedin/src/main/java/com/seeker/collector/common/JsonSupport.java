@@ -1,4 +1,4 @@
-package com.seeker.collector.linkedin.support;
+package com.seeker.collector.common;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

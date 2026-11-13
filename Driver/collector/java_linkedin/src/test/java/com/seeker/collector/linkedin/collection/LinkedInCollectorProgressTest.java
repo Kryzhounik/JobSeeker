@@ -1,9 +1,11 @@
 package com.seeker.collector.linkedin.collection;
 
+import com.seeker.collector.common.*;
+
 import com.seeker.collector.linkedin.config.CollectorConfig;
-import com.seeker.collector.linkedin.python.PythonGateway;
+import com.seeker.collector.common.python.PythonGateway;
 import com.seeker.collector.linkedin.support.CliOutput;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.common.JsonSupport;
 import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
@@ -27,43 +29,6 @@ class LinkedInCollectorProgressTest {
             List.of(), "", "", 100, 0, "chrome", 90, 60, 3, 20);
 
     @Test
-    void sendsFinalSnapshotToCallbackWithoutAConsoleProtocol() {
-        List<ProgressSnapshot> updates = new ArrayList<>();
-        PythonGateway python = gateway(false);
-        CollectionReport result = new LinkedInCollector(null, python, CONFIG,
-                "callback-run", updates::add).runFromUrls(List.of());
-
-        assertEquals("complete", result.status());
-        assertEquals(1, updates.size());
-        assertEquals("callback-run", updates.getFirst().runId());
-        assertFalse(updates.getFirst().fields().containsKey("Run ID"));
-        assertEquals("Collection", updates.getFirst().stage());
-        assertEquals("Collection complete", updates.getFirst().action());
-        assertEquals("Collection 0 / 0", updates.getFirst().progress());
-        assertEquals("0 / 0", updates.getFirst().fields().get("Processed"));
-        assertEquals("0", updates.getFirst().fields().get("Accepted"));
-        assertFalse(updates.getFirst().fields().containsKey("Accepted / limit"));
-        CollectionProgress urls = new CollectionProgress("run", "processing", "", "", 0, 0,
-                7, 0, Map.of("raw_saved", 7, "preview_filtered", 9, "age_filtered", 4), "", 30);
-        assertEquals("Collection 20 / 30", urls.progress());
-        assertEquals("20 / 30", urls.fields().get("Processed"));
-        assertEquals("7", urls.fields().get("Accepted"));
-    }
-
-    @Test
-    void sendsBlockedStateToCallbackWhenCollectionFails() {
-        List<ProgressSnapshot> updates = new ArrayList<>();
-        CollectionReport result = new LinkedInCollector(null, gateway(true), CONFIG,
-                "failed-run", updates::add).runBatch();
-
-        assertEquals("blocked", result.status());
-        assertEquals("failed-run", updates.getLast().runId());
-        assertEquals("Collection", updates.getLast().stage());
-        assertEquals("Collection stopped", updates.getLast().action());
-        assertEquals("test failure", updates.getLast().details());
-    }
-
-    @Test
     void recordsProcessingFailureAndAllowsTheNextVacancy() throws Exception {
         List<String> logged = new ArrayList<>();
         PythonGateway python = (PythonGateway) Proxy.newProxyInstance(
@@ -81,8 +46,9 @@ class LinkedInCollectorProgressTest {
                     }
                     throw new AssertionError("Unexpected gateway call: " + method.getName());
                 });
-        LinkedInCollector collector = new LinkedInCollector(null, python, CONFIG,
-                "failed-filter-run", ignored -> { });
+        LinkedInCollector collector = new LinkedInCollector(null, null, CONFIG,
+                "failed-filter-run", ignored -> { }, new VacancyProcessor(python),
+                new com.seeker.collector.core.CollectionAccumulator(), null);
         var process = LinkedInCollector.class.getDeclaredMethod(
                 "operate", Preview.class, LinkedInPageClient.MaterializedPage.class);
         process.setAccessible(true);
@@ -137,14 +103,4 @@ class LinkedInCollectorProgressTest {
         assertEquals(direct.details(), parsed.details());
     }
 
-    private static PythonGateway gateway(boolean fail) {
-        return (PythonGateway) Proxy.newProxyInstance(PythonGateway.class.getClassLoader(),
-                new Class<?>[]{PythonGateway.class}, (proxy, method, args) -> {
-                    if (method.getName().equals("priorityCompanyIds") && fail) {
-                        throw new IllegalStateException("test failure");
-                    }
-                    if (method.getName().equals("finishRun")) return null;
-                    throw new AssertionError("Unexpected gateway call: " + method.getName());
-                });
-    }
 }

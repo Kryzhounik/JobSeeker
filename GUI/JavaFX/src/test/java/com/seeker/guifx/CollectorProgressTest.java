@@ -1,8 +1,8 @@
 package com.seeker.guifx;
 
 import com.seeker.collector.linkedin.collection.CollectionProgress;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.JsonSupport;
 import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

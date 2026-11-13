@@ -1,7 +1,7 @@
 package com.seeker.guifx;
 
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.common.CollectionReport;
 
 import java.io.IOException;
 import java.io.Reader;

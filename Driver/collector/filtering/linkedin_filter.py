@@ -715,7 +715,7 @@ def is_duplicate_preview(preview: dict[str, Any], db_path: Path = DEFAULT_DB) ->
         return connection.execute(
             "SELECT 1 FROM source_jobs WHERE source = ? AND source_job_id = ? "
             "AND availability <> 'deleted' AND processing_status <> 'RAW'",
-            ("linkedin", job_id),
+            (preview.get("source", "linkedin"), job_id),
         ).fetchone() is not None
 
 
@@ -790,7 +790,7 @@ def decide_preview_with_filter(
             "preview_rule": "duplicate_source_job_id",
             "preview_blocked_terms": [],
         }
-    if is_duplicate_company_title(preview, db_path):
+    if preview.get("source", "linkedin") == "linkedin" and is_duplicate_company_title(preview, db_path):
         return {
             "preview_decision": "skip",
             "preview_reason": "duplicate company and title with ID collected within 7 days",

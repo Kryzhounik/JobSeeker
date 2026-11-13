@@ -1,4 +1,4 @@
-package com.seeker.collector.linkedin.config;
+package com.seeker.collector.common;
 
 import java.io.IOException;
 import java.io.Reader;

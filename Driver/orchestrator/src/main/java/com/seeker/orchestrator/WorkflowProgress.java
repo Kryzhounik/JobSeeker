@@ -1,8 +1,8 @@
 package com.seeker.orchestrator;
 
 import com.seeker.collector.linkedin.collection.CollectionProgress;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.tools.api.ProgressSnapshot;
 
 import java.util.Collections;

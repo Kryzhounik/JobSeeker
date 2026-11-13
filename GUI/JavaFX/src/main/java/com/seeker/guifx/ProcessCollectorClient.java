@@ -5,8 +5,8 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.JsonSupport;
 
 import java.io.BufferedReader;
 import java.io.IOException;

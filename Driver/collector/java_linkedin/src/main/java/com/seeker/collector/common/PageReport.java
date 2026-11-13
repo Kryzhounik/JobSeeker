@@ -1,4 +1,4 @@
-package com.seeker.collector.linkedin.collection;
+package com.seeker.collector.common;
 
 import com.google.gson.annotations.SerializedName;
 
@@ -27,7 +27,7 @@ public record PageReport(
         @SerializedName("next_label") String nextLabel,
         @SerializedName("stop_reason") String stopReason
 ) {
-    PageReport withStopReason(String value) {
+    public PageReport withStopReason(String value) {
         return new PageReport(
                 sequence,
                 label,

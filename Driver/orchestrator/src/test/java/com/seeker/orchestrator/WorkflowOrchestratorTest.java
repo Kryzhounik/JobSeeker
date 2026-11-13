@@ -2,11 +2,11 @@ package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonNull;
-import com.seeker.collector.linkedin.collection.CollectionReport;
+import com.seeker.collector.common.CollectionReport;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.linkedin.collection.CollectionProgress;
-import com.seeker.collector.linkedin.collection.PageReport;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.PageReport;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 

@@ -1,4 +1,4 @@
-package com.seeker.collector.linkedin.collection;
+package com.seeker.collector.common;
 
 import com.google.gson.annotations.SerializedName;
 

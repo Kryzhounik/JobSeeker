@@ -1,7 +1,9 @@
 package com.seeker.collector.linkedin.python;
+import com.seeker.collector.common.python.PythonGateway;
+import com.seeker.collector.common.python.JpyPythonGateway;
 
-import com.seeker.collector.linkedin.collection.Preview;
-import com.seeker.collector.linkedin.config.ProjectPaths;
+import com.seeker.collector.common.Preview;
+import com.seeker.collector.common.ProjectPaths;
 import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.python.JpyRuntime;
 import com.seeker.python.PythonRuntime;
@@ -25,6 +27,41 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class JpyPythonGatewayIntegrationTest {
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void sharedGatewayProcessesPreparedJustJoinDataWithoutLinkedInOrCleanerCalls() throws Exception {
+        Path root = Path.of(required("seeker.project.root"));
+        var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
+                root.resolve("Driver/collector/config/linkedin.properties"), temporaryDirectory.resolve("jobs.sqlite"),
+                temporaryDirectory.resolve("raw"), temporaryDirectory.resolve("unused-profile"));
+        var runtime = new PythonRuntime(Path.of(required("seeker.python.library")), Path.of(required("seeker.jpy.library")),
+                Path.of(required("seeker.jdl.library")), Path.of(required("seeker.python.home")), Path.of(required("seeker.python.executable")));
+        com.google.gson.JsonObject offer;
+        try (var input = new java.io.InputStreamReader(getClass().getResourceAsStream("/justjoin/offer.json"), StandardCharsets.UTF_8)) {
+            offer = com.seeker.collector.common.JsonSupport.GSON.fromJson(input, com.google.gson.JsonObject.class);
+        }
+        offer.remove("body");
+        java.util.Map<String, Object> fields = com.seeker.collector.common.JsonSupport.GSON.fromJson(offer,
+                new com.google.gson.reflect.TypeToken<java.util.Map<String, Object>>(){}.getType());
+        var preview = new Preview("justjoin", offer.get("slug").getAsString(), offer.get("url").getAsString(),
+                offer.get("title").getAsString(), offer.get("companyName").getAsString(),
+                offer.get("city").getAsString(), offer.get("workplaceType").getAsString(), "", "fixture", 0, 1);
+        try (PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+            var processor = new com.seeker.collector.common.VacancyProcessor(python);
+            assertTrue(processor.decidePreview(preview).shouldOpen());
+            processor.saveRaw(preview, offer.toString(), "json", "script");
+            var result = processor.process(new com.seeker.collector.common.PreparedVacancy(preview,
+                    "Build backend services in Java.", null, fields));
+            assertTrue(result.accepted());
+            assertEquals("justjoin", result.source());
+            var languages = (java.util.List<?>)result.fields().get("languages");
+            assertEquals("B2", ((java.util.Map<?, ?>)languages.getFirst()).get("level"));
+            var skill = (java.util.Map<?, ?>)((java.util.List<?>)result.fields().get("requiredSkills")).getFirst();
+            assertEquals("Java", skill.get("name"));
+            assertEquals(5, ((Number)skill.get("level")).intValue());
+            assertEquals("duplicate_source_job_id", processor.decidePreview(preview).rule());
+        }
+    }
 
     @Test
     void callsExistingPythonPipelineAndReusesItsRuntimeInsideJvm() throws Exception {
@@ -69,20 +106,26 @@ class JpyPythonGatewayIntegrationTest {
                 """;
 
         try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
-             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
+             PythonGateway python = new JpyPythonGateway(paths, runtime)) {
             assertEquals(originalStdout, stdoutId());
-            assertTrue(python.priorityCompanyIds().isEmpty());
+            assertTrue(priorityCompanyIds().isEmpty());
             assertTrue(python.decidePreview(preview).shouldOpen());
-            assertEquals("raw_saved", python.processHtml(preview, html, true).status());
+            assertEquals("raw_saved", processHtml(python, reasoning, preview, html, true).status());
             assertEquals(originalStdout, stdoutId());
         }
         try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
-             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
-            assertTrue(python.priorityCompanyIds().isEmpty());
+             PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+            assertTrue(priorityCompanyIds().isEmpty());
         }
         assertEquals(originalStdout, stdoutId());
         AtomicInteger modelCalls = new AtomicInteger();
         var model = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        model.createContext("/api/version", exchange -> {
+            byte[] bytes = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, bytes.length);
+            try (var output = exchange.getResponseBody()) { output.write(bytes); }
+        });
         model.createContext("/api/chat", exchange -> {
             String request = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             modelCalls.incrementAndGet();
@@ -104,8 +147,8 @@ class JpyPythonGatewayIntegrationTest {
                     preview.title(), preview.company(), preview.location(), preview.workplace(),
                     preview.salary(), preview.label(), preview.start(), preview.index());
             try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot);
-             PythonGateway python = new JpyPythonGateway(paths, runtime, reasoning)) {
-                python.processHtml(trimmedPreview, html.replace("4444444444", "4444444445"), true);
+             PythonGateway python = new JpyPythonGateway(paths, runtime)) {
+                processHtml(python, reasoning, trimmedPreview, html.replace("4444444444", "4444444445"), true);
                 assertEquals(1, modelCalls.get());
                 try (PyModule sqlite = PyModule.importModule("sqlite3");
                      PyModule texts = PyModule.importModule("db.readable_text");
@@ -135,6 +178,21 @@ class JpyPythonGatewayIntegrationTest {
         assertTrue(Files.isRegularFile(
                 rawDirectory.resolve("pages/4444444444.html")
         ));
+    }
+
+    private static java.util.List<String> priorityCompanyIds() {
+        try (var gateway = new com.seeker.collector.linkedin.python.LinkedInGateway()) {
+            return gateway.priorityCompanyIds();
+        }
+    }
+
+    private static com.seeker.collector.common.ProcessResult processHtml(
+            PythonGateway python, com.seeker.easyreasoning.EasyReasoningApi reasoning,
+            Preview preview, String html, boolean easyApply) {
+        try (var gateway = new com.seeker.collector.linkedin.python.LinkedInGateway()) {
+            return new com.seeker.collector.linkedin.collection.LinkedInVacancyPreparer(gateway, reasoning)
+                    .process(preview, html, easyApply, new com.seeker.collector.common.VacancyProcessor(python));
+        }
     }
 
     private static String stdoutId() {

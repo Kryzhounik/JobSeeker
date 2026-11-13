@@ -1,13 +1,13 @@
-# Java LinkedIn collector
+# Collector (Java)
 
-This module replaces agent-driven LinkedIn clicking with one local Java
-process. Java connects to the shared logged-in browser through CDP and owns
-search pagination, card selection, its own tabs, and the final in-memory run scope. It calls the existing Python
-filtering, raw/readable persistence, priority-company lookup, lifecycle, and
-collection logging functions through jpy.
+Collector exposes a common Java API for vacancy collection. The active LinkedIn
+source owns browser retrieval and description preparation; shared processing
+owns filtering, registration and persistence. The JustJoinIT data contract is
+validated against actual HTTP responses; its source implementation is a separate
+next stage.
 
-The shared Java/Python boundary and runtime ownership are described in
-[Driver architecture](../../ARCHITECTURE.md#граница-java-и-python-через-jpy).
+See [Collector architecture](ARCHITECTURE.md) for responsibility boundaries and
+the [Driver architecture](../../ARCHITECTURE.md) for API, CLI and JPy contracts.
 
 Optional vacancy trimming uses EasyReasoning and is configured only in
 `EasyReasoning/easy-reasoning.properties` (`vacancy.trimming.enabled=false` by
@@ -15,28 +15,17 @@ default).
 
 ## Module boundaries
 
-The Java code is split by responsibility:
+- `core` — `CollectorApi`, source execution, run lifecycle and final reports.
+- `common` — source contract, prepared vacancies, shared models and processing.
+- `linkedin` — browser sessions, search, pagination, HTML preparation and cleaner.
+- `justjoin` — reserved for the HTTP source; its implementation follows review.
 
-- `Main` chooses between the two supported commands: `login` and `collect-batch`;
-- `login` owns the one-time browser authentication bootstrap;
-- `collection` owns search planning, pagination, cards, limits, and run reports;
-- `browser` connects to the shared browser and closes only collector-owned tabs;
-- `python` owns the Java-to-Python gateway;
-- `config` resolves project paths and collector settings.
+`CollectorApi` accepts an optional per-operation progress callback. Settings are
+loaded at the start of each call from `Driver/collector/config/linkedin.properties`
+and `Data/Profile/Driver/collector/linkedin.properties`. Reusing the API picks up
+file changes on the next call. `LinkedInApplication` remains a compatibility
+adapter to the same API.
 
-`LinkedInLoginService` and `LinkedInCollectionService` contain the two use
-cases without command-line request wrappers.
-
-`new LinkedInApplication(projectRoot)` keeps no progress handler. Pass a
-`Consumer<ProgressSnapshot>` (`com.seeker.tools.api`) to the collection call, for example
-`collectBatch(handler)` or `collectUrls(urls, runPrefix, handler)`.
-`LinkedInCollectionService` also receives the handler per call; only the
-single-run `LinkedInCollector` retains it. Collection settings are loaded from
-`Driver/collector/config/linkedin.properties` (technical parameters) and
-`Data/Profile/Driver/collector/linkedin.properties` (personal search preferences)
-at the start of each collection call and remain fixed
-for that run. Reusing the application picks up file changes on the next call;
-login also reads current browser settings when called.
 Callbacks run synchronously on the
 calling worker thread, before browser startup and during collection, including
 the final state. A UI caller marshals snapshots to its UI thread. Calls without
@@ -91,10 +80,10 @@ The normal `process-batch linkedin` workflow now enters through the Java workflo
 orchestrator. The direct collector commands below remain available for collector
 development, login, and testing.
 
-`LinkedInApplication.collectBatch()` performs configured collection and returns a
+`CollectorApi.collectBatch()` performs configured collection and returns a
 `CollectionReport`.
 
-`LinkedInApplication.collectUrl(url)` collects one vacancy through the same
+`CollectorApi.collectUrl(url)` collects one vacancy through the same
 preview and content filters as batch collection. The common vacancy operation
 opens the URL once; batch collection applies the preview filters before loading
 details from the search card. Both return `CollectionReport` with
@@ -103,7 +92,7 @@ the reason in `message`. Existing source IDs are skipped without reanalysis.
 The overload `collectUrl(runId, url)` uses the supplied collection run ID.
 The full URL workflow is exposed by the orchestrator's `process-urls` command.
 
-`LinkedInApplication.collectUrls(urls)` accepts an explicit list in one browser
+`CollectorApi.collectUrls(urls)` accepts an explicit list in one browser
 session and collection run. It returns one report with the combined scope and
 outcomes; collector skip reasons in `message` include their source IDs when
 multiple URLs were supplied. `collectUrl(url)` delegates to this operation for one

@@ -1,32 +1,22 @@
-package com.seeker.collector.linkedin.python;
+package com.seeker.collector.common.python;
 
-import com.google.gson.reflect.TypeToken;
-import com.seeker.collector.linkedin.collection.PageReport;
-import com.seeker.collector.linkedin.collection.Preview;
-import com.seeker.collector.linkedin.collection.PreviewDecision;
-import com.seeker.collector.linkedin.collection.ProcessResult;
-import com.seeker.collector.linkedin.config.CollectorConfig;
-import com.seeker.collector.linkedin.config.ProjectPaths;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.common.Preview;
+import com.seeker.collector.common.PreviewDecision;
+import com.seeker.collector.common.ProcessResult;
+import com.seeker.collector.common.ProjectPaths;
+import com.seeker.collector.common.JsonSupport;
 import com.seeker.python.JpyRuntime;
 import com.seeker.python.PythonRuntime;
-import com.seeker.easyreasoning.EasyReasoningApi;
+import com.seeker.collector.common.PreparedVacancy;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 
-import java.lang.reflect.Type;
-import java.util.List;
 
 public final class JpyPythonGateway implements PythonGateway {
-    private static final Type STRING_LIST = new TypeToken<List<String>>() {
-    }.getType();
-
     private final PyModule bridge;
-    private final EasyReasoningApi reasoning;
     private boolean closed;
 
-    public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime, EasyReasoningApi reasoning) {
-        this.reasoning = reasoning;
+    public JpyPythonGateway(ProjectPaths paths, PythonRuntime runtime) {
         JpyRuntime.ensureStarted(
                 runtime.pythonLibrary(),
                 runtime.jpyLibrary(),
@@ -49,13 +39,8 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
-    public void startRun(String runId, CollectorConfig config) {
+    public void startRun(String runId, Object config) {
         callVoid("start_run", runId, JsonSupport.GSON.toJson(config));
-    }
-
-    @Override
-    public void logPage(String runId, PageReport page) {
-        callVoid("log_page", runId, JsonSupport.GSON.toJson(page));
     }
 
     @Override
@@ -77,14 +62,6 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
-    public List<String> priorityCompanyIds() {
-        return JsonSupport.GSON.fromJson(
-                callString("priority_company_ids"),
-                STRING_LIST
-        );
-    }
-
-    @Override
     public PreviewDecision decidePreview(Preview preview) {
         return JsonSupport.GSON.fromJson(
                 callString("decide_preview", JsonSupport.GSON.toJson(preview)),
@@ -93,17 +70,19 @@ public final class JpyPythonGateway implements PythonGateway {
     }
 
     @Override
-    public ProcessResult processHtml(Preview preview, String html, boolean easyApply) {
+    public ProcessResult processVacancy(PreparedVacancy vacancy) {
         return JsonSupport.GSON.fromJson(
                 callString(
-                        "process_html",
-                        JsonSupport.GSON.toJson(preview),
-                        html,
-                        easyApply,
-                        reasoning
+                        "process_vacancy",
+                        JsonSupport.GSON.toJson(vacancy)
                 ),
                 ProcessResult.class
         );
+    }
+
+    @Override
+    public String saveRaw(Preview preview, String content, String extension, String method) {
+        return callString("save_raw", JsonSupport.GSON.toJson(preview), content, extension, method);
     }
 
     @Override

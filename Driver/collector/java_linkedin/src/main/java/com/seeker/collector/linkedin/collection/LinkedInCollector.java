@@ -1,9 +1,11 @@
 package com.seeker.collector.linkedin.collection;
 
+import com.seeker.collector.common.*;
+
 import com.microsoft.playwright.PlaywrightException;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.config.CollectorConfig;
-import com.seeker.collector.linkedin.python.PythonGateway;
+import com.seeker.collector.linkedin.python.LinkedInGateway;
 import com.seeker.tools.api.ProgressSnapshot;
 
 import java.util.ArrayList;
@@ -17,14 +19,14 @@ final class LinkedInCollector {
     private static final int PAGE_STEP = 25;
 
     private final LinkedInPageClient browser;
-    private final PythonGateway python;
+    private final LinkedInGateway python;
+    private final VacancyProcessor processor;
+    private final CollectionSink sink;
+    private final LinkedInVacancyPreparer preparer;
     private final CollectorConfig config;
     private final String runId;
     private final Consumer<ProgressSnapshot> progressListener;
-    private final List<ScopeItem> scope = new ArrayList<>();
     private final List<PageReport> pages = new ArrayList<>();
-    private final List<String> failures = new ArrayList<>();
-    private final OutcomeCounter outcomes = new OutcomeCounter();
     private final Set<String> seenIds = new LinkedHashSet<>();
     private String currentLocation = "";
     private String currentSearch = "";
@@ -33,32 +35,27 @@ final class LinkedInCollector {
     private String currentUrl = "";
     private Integer urlCount;
 
-    LinkedInCollector(
-            LinkedInPageClient browser,
-            PythonGateway python,
-            CollectorConfig config,
-            String runId
-    ) {
-        this(browser, python, config, runId, ignored -> { });
-    }
-
-    LinkedInCollector(LinkedInPageClient browser, PythonGateway python, CollectorConfig config,
-                      String runId, Consumer<ProgressSnapshot> progressListener) {
+    LinkedInCollector(LinkedInPageClient browser, LinkedInGateway python, CollectorConfig config,
+                      String runId, Consumer<ProgressSnapshot> progressListener,
+                      VacancyProcessor processor, CollectionSink sink, LinkedInVacancyPreparer preparer) {
         this.browser = browser;
         this.python = python;
         this.config = config;
         this.runId = runId;
         this.progressListener = progressListener;
+        this.processor = processor;
+        this.sink = sink;
+        this.preparer = preparer;
     }
 
-    CollectionReport runBatch() {
+    SourceResult runBatch() {
         try {
             List<SearchPlan.Target> plan = SearchPlan.build(
                     config,
                     python.priorityCompanyIds()
             );
             for (SearchPlan.Target target : plan) {
-                if (scope.size() >= config.limit()) {
+                if (sink.acceptedCount() >= config.limit()) {
                     break;
                 }
                 if (!target.collectsJobs()) {
@@ -72,7 +69,7 @@ final class LinkedInCollector {
                 }
                 collectTarget(target);
             }
-            String stopReason = scope.size() >= config.limit()
+            String stopReason = sink.acceptedCount() >= config.limit()
                     ? "limit_reached"
                     : "plan_exhausted";
             return finish("complete", stopReason, "");
@@ -83,11 +80,11 @@ final class LinkedInCollector {
         }
     }
 
-    CollectionReport runFromUrl(String url) {
+    SourceResult runFromUrl(String url) {
         return runFromUrls(List.of(url));
     }
 
-    CollectionReport runFromUrls(List<String> urls) {
+    SourceResult runFromUrls(List<String> urls) {
         urlCount = urls.size();
         List<String> rejections = new ArrayList<>();
         for (String url : urls) {
@@ -133,7 +130,7 @@ final class LinkedInCollector {
         int noNewPages = 0;
         int start = 0;
 
-        while (scope.size() < config.limit()) {
+        while (sink.acceptedCount() < config.limit()) {
             currentPage = start / PAGE_STEP + 1;
             currentCards = 0;
             currentUrl = target.pageUrl(start);
@@ -185,23 +182,23 @@ final class LinkedInCollector {
                     continue;
                 }
                 Preview preview = card.preview(target.label(), start, index);
-                if (scope.size() >= config.limit()) {
+                if (sink.acceptedCount() >= config.limit()) {
                     recordResult(logOutcome(
                             preview, "not_processed_due_to_limit", "global limit reached"
                     ));
                     break;
                 }
                 recordResult(operate(preview, materialized));
-                if (scope.size() >= config.limit()) {
+                if (sink.acceptedCount() >= config.limit()) {
                     break;
                 }
             }
 
-            if (scope.size() >= config.limit()) {
+            if (sink.acceptedCount() >= config.limit()) {
                 updatePageStopReason(pageIndex, "limit_reached");
             }
 
-            if (scope.size() >= config.limit()
+            if (sink.acceptedCount() >= config.limit()
                     || materialized.terminal()
                     || noNewPages >= 2) {
                 return;
@@ -243,7 +240,7 @@ final class LinkedInCollector {
             }
             processing = true;
             progress("filtering_preview", preview.jobId() + " " + preview.title());
-            PreviewDecision decision = python.decidePreview(preview);
+            PreviewDecision decision = processor.decidePreview(preview);
             if (!decision.shouldOpen()) {
                 return result(preview, "preview_filtered", decision.reason());
             }
@@ -272,12 +269,12 @@ final class LinkedInCollector {
 
     private ProcessResult processHtml(Preview preview, LinkedInPageClient.JobDetails details) {
         progress("filtering_content", preview.jobId() + " " + preview.title());
-        return python.processHtml(preview, details.html(), details.easyApply());
+        return preparer.process(preview, details.html(), details.easyApply(), processor);
     }
 
     private ProcessResult logOutcome(Preview preview, String status, String reason) {
         try {
-            python.logOutcome(preview, status, reason);
+            processor.logOutcome(preview, status, reason);
         } catch (RuntimeException error) {
             throw new CollectionBlockedException(
                     "Could not persist LinkedIn outcome " + status
@@ -286,7 +283,6 @@ final class LinkedInCollector {
             );
         }
         if (!"not_processed_due_to_limit".equals(status)) {
-            failures.add(preview.jobId() + ": " + reason);
             System.err.printf("LinkedIn vacancy failed: job_id=%s status=%s reason=%s%n",
                     preview.jobId(), status, reason);
         }
@@ -298,19 +294,22 @@ final class LinkedInCollector {
     }
 
     private void recordResult(ProcessResult result) {
-        outcomes.add(result.status());
-        if (result.accepted()) {
-            scope.add(new ScopeItem(result.source(), result.jobId(), result.title()));
-        }
+        sink.record(result);
         progress("processing", result.jobId() + " " + result.title()
                 + (result.reason().isBlank() ? "" : "\n" + result.reason()));
     }
 
     private void progress(String stage, String message) {
-        progressListener.accept(new CollectionProgress(runId, stage, currentLocation, currentSearch,
-                currentPage, currentCards, scope.size(), urlCount == null ? config.limit() : 0,
-                outcomes.snapshot(), message, urlCount));
+        progressListener.accept(snapshot(stage, message));
     }
+
+    CollectionProgress snapshot(String stage, String message) {
+        return new CollectionProgress(runId, stage, currentLocation, currentSearch,
+                currentPage, currentCards, sink.acceptedCount(), urlCount == null ? config.limit() : 0,
+                sink.outcomes(), message, urlCount);
+    }
+
+    List<PageReport> pages() { return List.copyOf(pages); }
 
     private int recordPage(
             SearchPlan.Target target,
@@ -395,45 +394,13 @@ final class LinkedInCollector {
                 materialized.materializedCount(),
                 materialized.cards().stream().filter(LinkedInPageClient.CardData::related).count(),
                 newCards,
-                scope.size(),
+                sink.acceptedCount(),
                 config.limit()
         );
     }
 
-    private CollectionReport report(String status, String message) {
-        return new CollectionReport(
-                "linkedin",
-                runId,
-                status,
-                scope.size(),
-                List.copyOf(scope),
-                outcomes.snapshot(),
-                List.copyOf(pages),
-                message
-        );
-    }
-
-    private CollectionReport finish(String status, String stopReason, String message) {
-        if (message.isBlank()) {
-            message = String.join("\n", failures);
-        }
-        CollectionReport report = report(status, message);
-        progress(status, message.isBlank() ? stopReason : message);
-        python.finishRun(
-                runId,
-                status,
-                stopReason,
-                report.acceptedCount(),
-                message
-        );
-        System.err.printf(
-                "LinkedIn collection finished: run_id=%s status=%s accepted=%d stop_reason=%s%n",
-                runId,
-                status,
-                report.acceptedCount(),
-                stopReason
-        );
-        return report;
+    private SourceResult finish(String status, String stopReason, String message) {
+        return new SourceResult(status, stopReason, message);
     }
 
     private String failureMessage(Throwable error) {

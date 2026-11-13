@@ -5,10 +5,10 @@ import com.seeker.applier.ApplierApi;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.chatevaluator.ChatEvaluatorRunner;
 import com.seeker.chatevaluator.GptEvaluation;
-import com.seeker.collector.linkedin.application.LinkedInApplication;
+import com.seeker.collector.core.CollectorApi;
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.collector.linkedin.login.LoginResult;
 import com.seeker.orchestrator.StageResult;
 import com.seeker.orchestrator.WorkflowOrchestrator;
@@ -22,13 +22,13 @@ import java.util.function.Consumer;
 /** Java entry point delegating to the existing module APIs. */
 public final class DriverApi {
     private final Path projectRoot;
-    private final LinkedInApplication linkedin;
+    private final CollectorApi linkedin;
     private final WorkflowOrchestrator orchestrator;
     private final ApplierApi applier;
 
     public DriverApi(Path projectRoot) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
-        this.linkedin = new LinkedInApplication(this.projectRoot);
+        this.linkedin = new CollectorApi(this.projectRoot);
         this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
         this.applier = new ApplierApi(this.projectRoot);
     }

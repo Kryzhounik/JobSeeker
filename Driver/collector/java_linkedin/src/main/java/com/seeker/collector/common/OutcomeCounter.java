@@ -1,16 +1,16 @@
-package com.seeker.collector.linkedin.collection;
+package com.seeker.collector.common;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-final class OutcomeCounter {
+public final class OutcomeCounter {
     private final Map<String, Integer> values = new LinkedHashMap<>();
 
-    void add(String status) {
+    public void add(String status) {
         values.merge(status, 1, Integer::sum);
     }
 
-    Map<String, Integer> snapshot() {
+    public Map<String, Integer> snapshot() {
         return new LinkedHashMap<>(values);
     }
 }

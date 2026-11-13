@@ -1,7 +1,7 @@
 package com.seeker.collector.linkedin;
 
-import com.seeker.collector.linkedin.application.LinkedInApplication;
-import com.seeker.collector.linkedin.support.JsonSupport;
+import com.seeker.collector.core.CollectorApi;
+import com.seeker.collector.common.JsonSupport;
 import com.seeker.collector.linkedin.support.ProcessLog;
 import com.seeker.collector.linkedin.support.CliOutput;
 
@@ -39,7 +39,7 @@ public final class Main {
     }
 
     private static void run(String[] args) throws IOException {
-        LinkedInApplication application = new LinkedInApplication(Path.of("."));
+        CollectorApi application = new CollectorApi(Path.of("."));
         Object result;
         if (args.length == 1 && "login".equals(args[0])) {
             result = application.login();

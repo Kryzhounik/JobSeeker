@@ -1,8 +1,8 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.annotations.SerializedName;
-import com.seeker.collector.linkedin.collection.CollectionReport;
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.ScopeItem;
 
 import java.util.List;
 import java.util.Map;

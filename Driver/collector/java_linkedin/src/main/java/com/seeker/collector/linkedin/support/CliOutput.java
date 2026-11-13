@@ -1,7 +1,8 @@
 package com.seeker.collector.linkedin.support;
+import com.seeker.collector.common.JsonSupport;
 
 import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.collector.linkedin.config.ProjectPaths;
+import com.seeker.collector.common.ProjectPaths;
 import com.seeker.python.PythonRuntime;
 import com.seeker.python.JpyRuntime;
 import org.jpy.PyModule;

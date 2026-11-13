@@ -1,6 +1,6 @@
 package com.seeker.orchestrator;
 
-import com.seeker.collector.linkedin.collection.ScopeItem;
+import com.seeker.collector.common.ScopeItem;
 import com.seeker.codex.UsageLimitExceededException;
 
 import java.util.List;
