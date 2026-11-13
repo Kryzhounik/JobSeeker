@@ -45,6 +45,12 @@ Do not add internal mechanisms for hypothetical problems or future needs.
 Every added mechanism must address a concrete requirement or an observed
 problem that the simpler solution cannot handle.
 
+Implement the normal successful workflow first. Do not preemptively add
+recovery, fallback, or partial-failure continuation mechanisms unless explicitly
+required or justified by an observed failure. Report failures through existing
+error handling and fix concrete problems when they occur; do not silently
+suppress errors to keep the workflow running.
+
 ## Coding Task Handoff
 
 Use this format for small, scoped coding tasks. For larger module-level
