@@ -2,9 +2,10 @@
 
 Collector exposes a common Java API for vacancy collection. The active LinkedIn
 source owns browser retrieval and description preparation; shared processing
-owns filtering, registration and persistence. The JustJoinIT data contract is
-validated against actual HTTP responses; its source implementation is a separate
-next stage.
+owns filtering, registration and persistence. JustJoinIT implements the same
+contract using HTTP, retaining native structured requirements and preparing its
+HTML description without the LinkedIn cleaner. Existing API/CLI commands and
+Orchestrator still start only LinkedIn; source selection is a subsequent task.
 
 See [Collector architecture](ARCHITECTURE.md) for responsibility boundaries and
 the [Driver architecture](../../ARCHITECTURE.md) for API, CLI and JPy contracts.
@@ -18,7 +19,7 @@ default).
 - `core` — `CollectorApi`, source execution, run lifecycle and final reports.
 - `common` — source contract, prepared vacancies, shared models and processing.
 - `linkedin` — browser sessions, search, pagination, HTML preparation and cleaner.
-- `justjoin` — reserved for the HTTP source; its implementation follows review.
+- `justjoin` — HTTP search, full offers, structured fields and description preparation.
 
 `CollectorApi` accepts an optional per-operation progress callback. Settings are
 loaded at the start of each call from `Driver/collector/config/linkedin.properties`

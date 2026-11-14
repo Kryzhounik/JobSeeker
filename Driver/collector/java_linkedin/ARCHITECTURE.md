@@ -56,8 +56,36 @@ objects. They are optional and omitted from JSON when absent, preserving the
 existing LinkedIn JSON even for serializers configured with `serializeNulls`.
 Only this field's omission policy is customized; DTOs and nested values still use
 automatic serialization. No new DB
-columns or downstream interpretation are introduced. JustJoinIT HTTP acquisition,
-body preparation and connection to this processor belong to the next stage.
+columns or downstream interpretation are introduced.
+
+## JustJoinIT HTTP source
+
+`justjoin.JustJoinSource` implements the same retrieval contract independently of
+the browser source. `JustJoinConfig` loads the existing technical and personal
+JustJoin settings; the listing requests preserve the Python HTTP fetcher's API
+parameters (category, publication age, languages, experience, sorting, offset and
+page size). The existing `location` setting forms the website referer, not an API
+location filter, just as in that fetcher. Requests are sequential and respect
+`delaySeconds`; `limit=0` means unlimited accepted offers.
+
+The source checks each listing preview through the shared processor before
+loading the full offer. Repeated slugs in listing pages are visited once. Direct
+URLs load the full offer to obtain preview metadata, then use the same processing.
+Identity is `(justjoin, publication slug)`, consistent with existing registration;
+the native API ID remains in structured fields.
+
+Full API JSON is saved through shared raw registration. Jsoup converts its HTML
+`body` into readable text, preserving paragraph/list boundaries and entities.
+All other full-offer fields pass unchanged into `PreparedVacancy.fields` and the
+common processing result. Neither LinkedIn preparation, its age parser, nor
+EasyReasoning is involved. HTTP/parsing/processing errors propagate to the caller;
+no retries or partial-failure continuation were added.
+
+The implementation is exercised independently with local HTTP fixtures and an
+explicitly enabled JPy integration test using a temporary database. Existing
+CollectorApi/CLI entry points still select LinkedIn. Source selection and the
+combined workflow remain outside this stage; the historical Python raw-download
+script remains a standalone utility, not a second shared-processing pipeline.
 
 Orchestrator still starts only LinkedIn and owns subsequent workflow stages.
 Semantic deduplication remains in EasyReasoning, invoked by Orchestrator, outside

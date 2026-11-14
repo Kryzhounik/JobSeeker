@@ -1,2 +1,2 @@
-/** JustJoinIT HTTP retrieval belongs here. Source implementation follows after the architecture review. */
+/** JustJoinIT HTTP retrieval, native structured fields and HTML-body preparation. */
 package com.seeker.collector.justjoin;

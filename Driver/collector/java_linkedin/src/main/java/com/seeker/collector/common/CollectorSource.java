@@ -4,7 +4,7 @@ import com.seeker.tools.api.ProgressSnapshot;
 import java.io.IOException;
 import java.util.List;
 
-/** Retrieval boundary. Implementations receive shared processing operations at construction. */
+/** Retrieval boundary. Implementations receive shared processing operations for each collection. */
 public interface CollectorSource {
     String source();
     SourceResult collectBatch(VacancyProcessor processor, CollectionSink sink) throws IOException;
