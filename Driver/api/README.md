@@ -14,7 +14,9 @@ Use `com.seeker.api.DriverApi` from Maven artifact
 `com.seeker:job-seeker-api:1.0-SNAPSHOT`. Its constructor accepts only the project
 root. The facade can be reused: progress handlers belong to individual calls,
 for example `api.collectBatch(collectionHandler)` or
-`api.processBatch("linkedin", workflowHandler)`. URL processing with progress
+`api.processBatch(workflowHandler)`. Batch operations read source selection from
+`Driver/collector/config/collector.properties`; `processBatch("linkedin", handler)`
+or `processBatch("justjoin", handler)` explicitly selects one source. URL processing with progress
 uses `api.processUrls(urlsList, workflowHandler)`.
 All progress overloads accept `Consumer<ProgressSnapshot>` from
 `com.seeker.tools.api` (Tools). Collection and workflow snapshots expose
@@ -69,7 +71,7 @@ java -jar Driver/api/job-seeker-api.jar <command> [args...]
 ```
 
 The thin JAR uses the existing repository-root `libs/` through its manifest.
-Commands are `login`, `collect-batch`, `process-batch <source>`,
+Commands are `login`, `collect-batch`, `process-batch [linkedin|justjoin]`,
 `process-urls <url...>`, `check-recommendations`, `resume <run-id>`,
 `job-facts|finish-analysis <run-id> <source> <comma-separated-job-ids>`,
 `apply <url>`, and `chat-eval <url>`.

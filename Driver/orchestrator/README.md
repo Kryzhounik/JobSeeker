@@ -1,10 +1,10 @@
 # Java workflow orchestrator
 
-This module is the Java entry point for the JobSeeker workflow. `process-batch linkedin`
-calls the existing LinkedIn collector, runs synchronous observational description
+This module is the Java entry point for the JobSeeker workflow. `process-batch`
+calls Collector with the configured sources, runs synchronous observational description
 deduplication on the saved batch, then sends its complete ordered scope to the
 existing agent relevance filter through the metered Codex CLI proxy, validates
-the returned IDs, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
+the returned publication identities, marks accepted jobs `RELEVANT` and rejected jobs `NONRELEVANT`
 in one transaction, runs grouped
 `job_facts`, candidate fit, job interest, and the existing database save.
 
@@ -32,7 +32,7 @@ references them automatically.
 
 The application performs these operations:
 
-1. Collect LinkedIn vacancies and persist their raw/readable data.
+1. Collect configured sources and persist their raw/readable data.
    After successful collection, call `easyReasoning.deduplicateBatch(runId)`
    once before relevance filtering. This also applies to URL collection and email
    recommendations. The operation owns its `off`/`qwen` setting (see
@@ -61,16 +61,20 @@ Run commands from the project root.
 
 ### Complete workflow
 
-Runs all operations listed above. Currently `linkedin` is the only supported
-source. Each saved source job records the ID of the collection run that first
+Runs all operations listed above. Without an argument, `process-batch` uses
+`sources` from `Driver/collector/config/collector.properties`. An explicit
+`linkedin` or `justjoin` argument selects only that source for the invocation.
+Both sources run sequentially in one batch with separate configured limits.
+Each saved source job records the ID of the collection run that first
 created it.
 
 ```powershell
-java -jar Driver/orchestrator/workflow-orchestrator.jar process-batch linkedin
+java -jar Driver/orchestrator/workflow-orchestrator.jar process-batch
 ```
 
-Java callers use `WorkflowOrchestrator.processBatch("linkedin")` and receive a
-`WorkflowResult`.
+Java callers use `WorkflowOrchestrator.processBatch()` and receive a
+`WorkflowResult`. Existing `processBatch("linkedin")` explicitly selects LinkedIn;
+`processBatch("justjoin")` explicitly selects JustJoinIT.
 
 ### Process LinkedIn vacancies by URL
 
@@ -129,7 +133,10 @@ count. An idle repeat of a completed run therefore reports zero new saves.
 Codex exhaustion leaves the last progress snapshot unchanged and propagates the original
 `UsageLimitExceededException` with its `retryAt`. There is no automatic retry.
 
-Batch state is persisted in the existing `linkedin_collection_runs` row.
+Batch state is persisted in the existing `collection_runs` row.
+Migration 047 renames `linkedin_collection_runs` without recreating batch rows;
+vacancy links and `linkedin_collection_pages` diagnostics keep their foreign keys.
+GUI's Runs query uses `db.collection_runs` rather than embedding batch SQL.
 `status` is `running`, `pending`, `failed`, or `complete`;
 `stage` records Collection, Relevance filter, Job facts, Candidate fit, or Saving.
 The collector's own result/timestamp are kept in `collection_status` and
@@ -147,6 +154,24 @@ historical rows are marked `failed`, not active `running`.
 CLI retains exit code `3` for that expected limit, rather than an application-error
 stack trace. CLI notifications are emitted as
 `WORKFLOW_PROGRESS ` JSON lines on stderr.
+
+## Source identity
+
+Processing identifies every publication by `(source, job_id)`, including status
+lookups, relevance decisions and accepted/rejected result matching. The agent
+returns `nonrelevant_jobs` as ordered `{source, job_id}` objects. The title-only
+decision rules are unchanged. Fact extraction, fit, interest and saving use each
+scope item's source; the shared candidate-fit session still spans the whole run.
+Resume loads saved work for every source and does not collect again. Its summary
+`source` is the sole source, `mixed` for multiple sources, or empty for an empty
+scope. Scope entries always retain the actual source. Partial-stage results also
+derive their summary from nonempty scope; existing method signatures remain.
+
+Normal batch collection uses the configured source selection. Direct URLs and
+email recommendations retain their LinkedIn-only collection path. `source_results`
+inside the collection summary retains source-specific counts and limits.
+Semantic comparison remains in EasyReasoning and uses saved registry IDs for
+links, so identical external IDs in different sources remain separate records.
 
 ### Check email recommendations
 
@@ -228,7 +253,7 @@ java -jar Driver/collector/java_linkedin/linkedin-collector.jar collect-batch
 
 `login` opens the configured browser profile for LinkedIn authentication.
 Collector `collect-batch` performs collection only. Normal production execution
-should use the orchestrator's `process-batch linkedin` command.
+should use the orchestrator's `process-batch` command.
 
 There are currently no separate Java console commands for the title filter,
 candidate fit, job interest, or database save. They are exposed only as parts

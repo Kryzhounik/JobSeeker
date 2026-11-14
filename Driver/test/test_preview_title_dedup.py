@@ -25,7 +25,7 @@ class PreviewTitleDedupTest(unittest.TestCase):
         self.addCleanup(self.connection.close)
         self.connection.executescript("""
             INSERT INTO companies (id, name) VALUES (1, 'AgileEngine');
-            INSERT INTO linkedin_collection_runs (run_id) VALUES ('current-run');
+            INSERT INTO collection_runs (run_id) VALUES ('current-run');
             INSERT INTO source_jobs (
                 id, source, source_job_id, processing_status, collection_run_id
             ) VALUES (1, 'linkedin', '100', 'CLEANED', 'current-run');
@@ -73,11 +73,11 @@ class PreviewTitleDedupTest(unittest.TestCase):
 
     def test_old_and_deleted_records_do_not_block_collection(self) -> None:
         self.connection.execute(
-            "UPDATE linkedin_collection_runs SET started_at = datetime('now', '-8 days')"
+            "UPDATE collection_runs SET started_at = datetime('now', '-8 days')"
         )
         self.connection.commit()
         self.assertEqual(self.preview()["preview_decision"], "open")
-        self.connection.execute("UPDATE linkedin_collection_runs SET started_at = CURRENT_TIMESTAMP")
+        self.connection.execute("UPDATE collection_runs SET started_at = CURRENT_TIMESTAMP")
         self.connection.execute("UPDATE source_jobs SET availability = 'deleted'")
         self.connection.commit()
         self.assertEqual(self.preview()["preview_decision"], "open")

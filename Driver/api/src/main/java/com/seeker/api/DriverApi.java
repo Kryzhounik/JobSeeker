@@ -22,27 +22,35 @@ import java.util.function.Consumer;
 /** Java entry point delegating to the existing module APIs. */
 public final class DriverApi {
     private final Path projectRoot;
-    private final CollectorApi linkedin;
+    private final CollectorApi collector;
     private final WorkflowOrchestrator orchestrator;
     private final ApplierApi applier;
 
     public DriverApi(Path projectRoot) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
-        this.linkedin = new CollectorApi(this.projectRoot);
+        this.collector = new CollectorApi(this.projectRoot);
         this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
         this.applier = new ApplierApi(this.projectRoot);
     }
 
     public LoginResult login() throws IOException {
-        return linkedin.login();
+        return collector.login();
     }
 
     public CollectionReport collectBatch() throws IOException {
-        return linkedin.collectBatch();
+        return collector.collectBatch();
     }
 
     public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
-        return linkedin.collectBatch(progress);
+        return collector.collectBatch(progress);
+    }
+
+    public WorkflowResult processBatch() throws IOException, UsageLimitExceededException {
+        return orchestrator.processBatch();
+    }
+
+    public WorkflowResult processBatch(Consumer<ProgressSnapshot> progress) throws IOException, UsageLimitExceededException {
+        return orchestrator.processBatch(progress);
     }
 
     public WorkflowResult processBatch(String source) throws IOException, UsageLimitExceededException {

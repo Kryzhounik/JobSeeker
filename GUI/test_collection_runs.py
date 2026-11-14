@@ -14,7 +14,7 @@ class CollectionRunsTest(unittest.TestCase):
         with sqlite3.connect(":memory:") as connection:
             connection.row_factory = sqlite3.Row
             connection.execute("""
-                CREATE TABLE linkedin_collection_runs (
+                CREATE TABLE collection_runs (
                     run_id TEXT PRIMARY KEY, started_at TEXT, finished_at TEXT,
                     status TEXT, stage TEXT, collection_status TEXT,
                     collection_finished_at TEXT, accepted_count INTEGER,
@@ -22,7 +22,7 @@ class CollectionRunsTest(unittest.TestCase):
                 )
             """)
             connection.executemany(
-                "INSERT INTO linkedin_collection_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     ("old", "2026-10-19 10:00:00", "2026-10-19 11:00:00", "complete",
                      "Candidate fit", "complete", "2026-10-19 10:30:00", 100, "limit_reached", ""),
@@ -41,7 +41,7 @@ class CollectionRunsTest(unittest.TestCase):
             self.assertEqual(50, rows[0]["accepted_count"])
             self.assertIn("\nURL:", rows[0]["message"])
             self.assertEqual(before, connection.total_changes)
-            connection.execute("DELETE FROM linkedin_collection_runs")
+            connection.execute("DELETE FROM collection_runs")
             with patch.object(client_data, "_connection", return_value=nullcontext(connection)):
                 self.assertEqual([], json.loads(client_data.load_collection_runs("unused.sqlite")))
 

@@ -11,11 +11,11 @@ interface ProcessingGateway {
 
     List<ScopeItem> loadCollectedScope(String runId);
 
-    Map<String, String> loadStatuses(String source, List<ScopeItem> scope);
+    Map<JobKey, String> loadStatuses(List<ScopeItem> scope);
 
     AgentFilterResult runRelevanceFilter(String runId, List<ScopeItem> scope) throws UsageLimitExceededException;
 
-    void markRelevance(String source, List<ScopeItem> scope, List<String> nonrelevantIds);
+    void markRelevance(List<ScopeItem> scope, List<JobKey> nonrelevantJobs);
 
     void initializeAnalysisRun(String runId, int parallelAgents, int vacanciesPerAgent);
 
@@ -37,5 +37,5 @@ interface ProcessingGateway {
 
     void calculateJobInterest(String source, String jobId);
 
-    int saveScored(String source, List<String> jobIds);
+    int saveScored(List<ScopeItem> scope);
 }

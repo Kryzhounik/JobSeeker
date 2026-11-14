@@ -96,6 +96,11 @@ facade to the controller for Batch, direct Collect, Apply, and GPT Eval.
 Data connection initialization still runs in the background. Progress handlers are scoped
 to each call. Collector settings are read by the backend at operation start,
 so changing the Config limit affects the next call on the existing facade.
+Collect and Batch both use `sources` from `Driver/collector/config/collector.properties`.
+The Config window still edits LinkedIn preferences; JustJoinIT preferences remain
+in `Data/Profile/Driver/collector/justjoin.properties`. Each source has its own
+accepted-vacancy limit. Mixed collection displays total accepted and each source's
+limit while retaining the active source's diagnostic fields.
 
 The main window loads vacancies through the shared data API, displays details,
 skills and full text, and supports filters, sorting, copyable text and editable
@@ -103,7 +108,7 @@ Fit/Interest. Runs, Companies, Applications, Collected and Config open as separa
 windows. Status actions apply to the selected vacancies; Applied creates the
 application records and links to them.
 
-Runs displays `linkedin_collection_runs`, newest first: Run ID, overall status,
+Runs displays `collection_runs`, newest first: Run ID, overall status,
 stage, start/finish times, accepted count, and stop reason. Selecting a row shows
 collection status, collection finish time, and the full message below the table.
 The divider between the table and Details can be dragged vertically; the status

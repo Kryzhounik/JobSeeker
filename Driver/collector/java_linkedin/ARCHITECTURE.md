@@ -11,8 +11,12 @@ run IDs and existing result/progress fields retain their meaning.
 `core.CollectionService` selects and starts the source, owns the shared processing
 session and completes the run. `CollectionAccumulator` owns accepted scope,
 outcome counters and failure messages; core forms `CollectionReport` from this
-state and source diagnostics. Source discovery/configuration and mixed-source
-execution are not part of this stage: the existing entry points start LinkedIn.
+state and source diagnostics. Batch source selection lives in
+`config/collector.properties`; sources run sequentially in the listed order.
+One shared processing session and one `collection_runs` row cover all sources.
+Each source receives its own accumulator, so its accepted limit is independent
+of earlier sources. A stopped source or exception prevents later sources from
+starting; no new recovery or partial-failure continuation is provided.
 
 `common.CollectorSource` is the retrieval boundary. Sources receive a
 `VacancyProcessor` and a `CollectionSink`. They can check a preview before fetching
@@ -31,8 +35,9 @@ Shared filtering, registration and persistence continue through the native
 Python `CollectorService`. It accepts `PreparedVacancy` data, not browser HTML or
 a cleaner callback. `LinkedInPreparation` owns the existing Python HTML/age work
 and uses shared raw registration. Java gateways and Python bridge functions only
-adapt values and delegate. Existing Python module/file names and batch tables
-are retained; no storage migration is included here.
+adapt values and delegate. Existing Python module/file names are retained.
+Runs use the shared `collection_runs` table (renamed by migration 047);
+`linkedin_collection_pages` remains LinkedIn-specific diagnostics.
 
 ## Prepared data and structured fields
 
@@ -83,10 +88,18 @@ no retries or partial-failure continuation were added.
 
 The implementation is exercised independently with local HTTP fixtures and an
 explicitly enabled JPy integration test using a temporary database. Existing
-CollectorApi/CLI entry points still select LinkedIn. Source selection and the
-combined workflow remain outside this stage; the historical Python raw-download
-script remains a standalone utility, not a second shared-processing pipeline.
+CollectorApi/CLI batch entry points select configured sources. Explicit URL
+operations retain the LinkedIn path. The historical Python raw-download script
+remains a standalone utility, not a second shared-processing pipeline.
 
-Orchestrator still starts only LinkedIn and owns subsequent workflow stages.
+Core merges scopes, outcomes and LinkedIn page diagnostics into one report.
+`source_results` retains each attempted source's limit and collection result;
+the top-level source is its sole source name or `mixed`. Mixed-source progress
+retains the active source's fields and adds total accepted and per-source limits.
+Single-source progress retains its existing display fields. Settings reload at
+each invocation; a disabled source's preferences are not loaded. Default LinkedIn
+run IDs keep their previous suffix; other batches use the selected source names.
+
+Orchestrator starts configured batch collection and owns subsequent workflow stages.
 Semantic deduplication remains in EasyReasoning, invoked by Orchestrator, outside
 Collector. Collector does not analyze, score or deduplicate descriptions.

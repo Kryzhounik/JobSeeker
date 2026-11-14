@@ -4,8 +4,12 @@ Collector exposes a common Java API for vacancy collection. The active LinkedIn
 source owns browser retrieval and description preparation; shared processing
 owns filtering, registration and persistence. JustJoinIT implements the same
 contract using HTTP, retaining native structured requirements and preparing its
-HTML description without the LinkedIn cleaner. Existing API/CLI commands and
-Orchestrator still start only LinkedIn; source selection is a subsequent task.
+HTML description without the LinkedIn cleaner. Batch collection runs the sources
+selected in `Driver/collector/config/collector.properties`, sequentially in their
+configured order. `sources=linkedin`, `sources=justjoin`, or
+`sources=linkedin,justjoin` select one or both. The default remains LinkedIn.
+Each source uses its own existing search settings and accepted-vacancy limit.
+Explicit LinkedIn URLs and email recommendations are independent of this setting.
 
 See [Collector architecture](ARCHITECTURE.md) for responsibility boundaries and
 the [Driver architecture](../../ARCHITECTURE.md) for API, CLI and JPy contracts.
@@ -21,11 +25,12 @@ default).
 - `linkedin` — browser sessions, search, pagination, HTML preparation and cleaner.
 - `justjoin` — HTTP search, full offers, structured fields and description preparation.
 
-`CollectorApi` accepts an optional per-operation progress callback. Settings are
-loaded at the start of each call from `Driver/collector/config/linkedin.properties`
-and `Data/Profile/Driver/collector/linkedin.properties`. Reusing the API picks up
-file changes on the next call. `LinkedInApplication` remains a compatibility
-adapter to the same API.
+`CollectorApi` accepts an optional per-operation progress callback. Source selection
+and enabled sites' settings reload at the start of each call. Site settings live
+in `Driver/collector/config/<site>.properties` and
+`Data/Profile/Driver/collector/<site>.properties`. Reusing the API picks up file
+changes on the next call. `LinkedInApplication` remains a LinkedIn-only
+compatibility adapter to the same API.
 
 Callbacks run synchronously on the
 calling worker thread, before browser startup and during collection, including
@@ -81,8 +86,12 @@ The normal `process-batch linkedin` workflow now enters through the Java workflo
 orchestrator. The direct collector commands below remain available for collector
 development, login, and testing.
 
-`CollectorApi.collectBatch()` performs configured collection and returns a
-`CollectionReport`.
+`CollectorApi.collectBatch()` performs configured collection and returns one
+`CollectionReport` with a shared run ID and ordered scope. `source` is the source
+name or `mixed`; `source_results` records each attempted source's limit, counts,
+status and stop reason. `pages` still contains LinkedIn diagnostics only.
+`collectBatch(source, progress)` explicitly selects one source for that invocation.
+`LinkedInApplication` retains its LinkedIn-only compatibility behavior.
 
 `CollectorApi.collectUrl(url)` collects one vacancy through the same
 preview and content filters as batch collection. The common vacancy operation

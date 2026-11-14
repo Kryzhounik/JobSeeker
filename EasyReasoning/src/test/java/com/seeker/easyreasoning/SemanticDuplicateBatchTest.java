@@ -9,18 +9,18 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class SemanticDuplicateBatchTest {
     private VacancySnapshot vacancy(long id, String text) {
-        return new VacancySnapshot(id, "job-" + id, 1L, " Java   Engineer ", text);
+        return new VacancySnapshot(id, "linkedin", "job-" + id, 1L, " Java   Engineer ", text);
     }
 
     @Test void comparesSequentiallyInSuppliedOrderWithoutChains() {
         List<String> calls = new ArrayList<>(), links = new ArrayList<>();
         List<VacancySnapshot> input = List.of(vacancy(20,"A"),
-                new VacancySnapshot(3,"job-3",1L,"java engineer","A"),
+                new VacancySnapshot(3, "linkedin", "job-3",1L,"java engineer","A"),
                 vacancy(4,"C"), vacancy(5,"C"),
-                new VacancySnapshot(6,"job-6",2L,"java engineer","A"),
-                new VacancySnapshot(7,"job-7",1L,"Java Engineer II","A"),
-                new VacancySnapshot(8,"job-8",null,"java engineer","A"),
-                new VacancySnapshot(9,"job-9",1L," ","A"));
+                new VacancySnapshot(6, "linkedin", "job-6",2L,"java engineer","A"),
+                new VacancySnapshot(7, "linkedin", "job-7",1L,"Java Engineer II","A"),
+                new VacancySnapshot(8, "linkedin", "job-8",null,"java engineer","A"),
+                new VacancySnapshot(9, "linkedin", "job-9",1L," ","A"));
         Thread caller = Thread.currentThread();
         SemanticDuplicateBatch.process(input, (a,b) -> {
             assertSame(caller, Thread.currentThread());
@@ -44,7 +44,7 @@ class SemanticDuplicateBatchTest {
                     }, (duplicate,original) -> links.add(duplicate + ":" + original));
         } finally { System.setErr(previous); }
         assertEquals(List.of("3:2"), links);
-        assertTrue(output.toString().contains("job-1 vs job-2"));
+        assertTrue(output.toString().contains("linkedin:job-1 vs linkedin:job-2"));
         assertTrue(output.toString().contains("invalid model answer"));
     }
 

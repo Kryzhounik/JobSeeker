@@ -24,7 +24,7 @@ def start_collection_run(
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute(
             """
-            INSERT INTO linkedin_collection_runs (
+            INSERT INTO collection_runs (
                 run_id,
                 collection_status,
                 config_json
@@ -154,7 +154,7 @@ def finish_collection_run(
         connection.execute("PRAGMA foreign_keys = ON")
         cursor = connection.execute(
             """
-            UPDATE linkedin_collection_runs
+            UPDATE collection_runs
             SET
                 collection_finished_at = CURRENT_TIMESTAMP,
                 collection_status = ?,

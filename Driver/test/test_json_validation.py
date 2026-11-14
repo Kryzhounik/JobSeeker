@@ -127,12 +127,12 @@ class JsonValidationTest(unittest.TestCase):
 
     def test_validates_agent_filter_result(self) -> None:
         validate_json(
-            {"nonrelevant_job_ids": ["123", "456"]},
+            {"nonrelevant_jobs": [{"source": "linkedin", "job_id": "123"}, {"source": "justjoin", "job_id": "123"}]},
             AGENT_FILTER_SCHEMA,
         )
         with self.assertRaises(SchemaValidationError):
             validate_json(
-                {"nonrelevant_job_ids": [""]},
+                {"nonrelevant_jobs": [{"source": "linkedin", "job_id": ""}]},
                 AGENT_FILTER_SCHEMA,
             )
 

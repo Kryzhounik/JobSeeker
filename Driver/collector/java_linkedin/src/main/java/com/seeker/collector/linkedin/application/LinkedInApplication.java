@@ -14,8 +14,8 @@ public final class LinkedInApplication {
     private final CollectorApi api;
     public LinkedInApplication(Path root) throws IOException { api = new CollectorApi(root); }
     public LoginResult login() throws IOException { return api.login(); }
-    public CollectionReport collectBatch() throws IOException { return api.collectBatch(); }
-    public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException { return api.collectBatch(progress); }
+    public CollectionReport collectBatch() throws IOException { return api.collectBatch("linkedin", ignored -> {}); }
+    public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException { return api.collectBatch("linkedin", progress); }
     public CollectionReport collectUrl(String runId, String url) throws IOException { return api.collectUrl(runId, url); }
     public CollectionReport collectUrl(String runId, String url, Consumer<ProgressSnapshot> progress) throws IOException { return api.collectUrl(runId, url, progress); }
     public CollectionReport collectUrl(String url) throws IOException { return api.collectUrl(url); }

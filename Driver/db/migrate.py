@@ -88,6 +88,8 @@ def migration_already_effective(
     ddl = row[0] if row else ""
     if version == "001_job_statuses_table":
         return "REFERENCES job_statuses(code)" in ddl
+    if version in ("026_linkedin_collection_diagnostics", "047_collection_runs") and table_exists(connection, "collection_runs"):
+        return True
     if version == "046_semantic_duplicates":
         return column_exists(connection, "source_jobs", "semantic_duplicate_of")
     if version == "003_source_job_registry":
@@ -126,6 +128,13 @@ def migration_already_effective(
         return column_exists(connection, "companies", "linkedin_id")
     if version == "019_company_priority":
         return column_exists(connection, "companies", "priority")
+    if version == "021_collection_method_playwright":
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'source_jobs'"
+        ).fetchone()
+        # The current schema already permits Playwright. Rebuilding it with the
+        # historical DDL would discard newer columns and restore old batch FKs.
+        return bool(row and "'playwright'" in row[0])
     if version == "022_source_job_collected_metadata":
         return column_exists(
             connection,
@@ -165,10 +174,11 @@ def migration_already_effective(
             )
         )
     if version == "042_batch_state":
-        return column_exists(connection, "linkedin_collection_runs", "collection_status")
+        return column_exists(connection, "collection_runs" if table_exists(connection, "collection_runs") else "linkedin_collection_runs", "collection_status")
     if version == "043_pending_batch_status":
         row = connection.execute(
-            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'linkedin_collection_runs'"
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?",
+            ("collection_runs" if table_exists(connection, "collection_runs") else "linkedin_collection_runs",),
         ).fetchone()
         return bool(row and "'pending'" in row[0])
     return False

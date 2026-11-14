@@ -35,7 +35,6 @@ class JpyOrchestratorBridgeIntegrationTest {
         try (PyModule bridge = PyModule.importModule("orchestrator.python_bridge");
              PyObject ignored = bridge.callMethod(
                      "load_statuses",
-                     "linkedin",
                      "[]",
                      database.toString()
              )) {
@@ -188,6 +187,62 @@ class JpyOrchestratorBridgeIntegrationTest {
                     }
                 }
                 assertEquals("verified", CodexClient.call(fixture, "verify"));
+            } finally {
+                try (PyObject ignored = fixture.callMethod("restore")) { }
+            }
+        }
+    }
+
+    @Test void gatewayKeepsSourceAcrossNativeStatusesAndAgentDecisions() throws Exception {
+        Path project = Path.of(required("seeker.project.root"));
+        Path database = temporaryDirectory.resolve("jobs.sqlite");
+        Path config = temporaryDirectory.resolve("Driver/collector/config/linkedin.properties");
+        Files.createDirectories(config.getParent());
+        Files.writeString(config, "");
+        Files.createDirectories(temporaryDirectory.resolve("Tools"));
+        Files.writeString(temporaryDirectory.resolve("Tools/runtime.properties"),
+                Files.readString(project.resolve("Tools/runtime.properties"))
+                        + "\ndatabase.path=" + database.toString().replace('\\', '/') + "\n");
+        Files.createDirectories(temporaryDirectory.resolve("Driver/collector/java_linkedin"));
+        Files.writeString(temporaryDirectory.resolve("Driver/collector/java_linkedin/runtime.properties"),
+                "raw.directory=raw\nprofile.directory=unused-profile\n");
+        Files.writeString(temporaryDirectory.resolve("source_identity_fixture.py"), """
+                from pathlib import Path
+                import sqlite3
+                from db.migrate import migrate_database
+                from db.job_registry import insert_source_job
+                from db.readable_text import save_collected_job
+                from orchestrator import processing
+                from codex_proxy.backend import Result
+                original = processing.run
+                def setup(database):
+                    migrate_database(Path(database))
+                    with sqlite3.connect(database) as connection:
+                        connection.execute("INSERT INTO collection_runs(run_id,status) VALUES ('batch','failed')")
+                        for source in ('linkedin','justjoin'):
+                            insert_source_job(connection,source,'123','CLEANED',collection_run_id='batch')
+                            save_collected_job(connection,source,'123','Java backend',title='Java',
+                                               source_url='https://example.com/'+source+'/123')
+                    connection.close()
+                    processing.run = lambda **kwargs: Result([],0,'filter',
+                        '{"nonrelevant_jobs":[{"source":"justjoin","job_id":"123"}]}',{},[])
+                def restore():
+                    processing.run = original
+                """);
+        startRuntime();
+        try (PyModule fixture = PyModule.importModule("source_identity_fixture")) {
+            try (PyObject ignored = fixture.callMethod("setup", database.toString())) { }
+            try {
+                var gateway = new JpyProcessingGateway(temporaryDirectory);
+                var scope = gateway.loadCollectedScope("batch");
+                assertEquals(2, scope.size());
+                var linkedin = new JobKey("linkedin", "123");
+                var justjoin = new JobKey("justjoin", "123");
+                assertEquals(java.util.Map.of(linkedin, "CLEANED", justjoin, "CLEANED"), gateway.loadStatuses(scope));
+                var decisions = gateway.runRelevanceFilter("batch", scope);
+                assertEquals(List.of(justjoin), decisions.nonrelevantJobs());
+                gateway.markRelevance(scope, decisions.nonrelevantJobs());
+                assertEquals(java.util.Map.of(linkedin, "RELEVANT", justjoin, "NONRELEVANT"), gateway.loadStatuses(scope));
             } finally {
                 try (PyObject ignored = fixture.callMethod("restore")) { }
             }

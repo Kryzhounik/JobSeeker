@@ -56,8 +56,8 @@ final class SemanticDuplicateBatch {
                 boolean duplicate;
                 try { duplicate = compare.test(sample.text(), vacancy.text()); }
                 catch (RuntimeException error) {
-                    System.err.println("Semantic comparison failed: " + sample.jobId() + " vs "
-                            + vacancy.jobId() + ": " + error);
+                    System.err.println("Semantic comparison failed: " + sample.source() + ":" + sample.jobId() + " vs "
+                            + vacancy.source() + ":" + vacancy.jobId() + ": " + error);
                     continue;
                 }
                 if (duplicate) { original = sample; break; }
@@ -65,7 +65,8 @@ final class SemanticDuplicateBatch {
             if (original == null) group.add(vacancy);
             else {
                 save.accept(vacancy.id(), original.id());
-                System.err.println("Semantic duplicate: " + vacancy.jobId() + " -> " + original.jobId());
+                System.err.println("Semantic duplicate: " + vacancy.source() + ":" + vacancy.jobId()
+                        + " -> " + original.source() + ":" + original.jobId());
             }
         }
     }

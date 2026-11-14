@@ -4,13 +4,18 @@
   "title": "Agent relevance filter result",
   "type": "object",
   "additionalProperties": false,
-  "required": ["nonrelevant_job_ids"],
+  "required": ["nonrelevant_jobs"],
   "properties": {
-    "nonrelevant_job_ids": {
+    "nonrelevant_jobs": {
       "type": "array",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "job_id"],
+        "properties": {
+          "source": {"type": "string", "minLength": 1},
+          "job_id": {"type": "string", "minLength": 1}
+        }
       }
     }
   }

@@ -104,7 +104,7 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     collection_method TEXT NOT NULL DEFAULT 'unknown' CHECK (
         collection_method IN ('unknown', 'script', 'browser', 'playwright')
     ),
-    collection_run_id TEXT REFERENCES linkedin_collection_runs(run_id),
+    collection_run_id TEXT REFERENCES collection_runs(run_id),
     availability TEXT NOT NULL DEFAULT 'available' REFERENCES availability_statuses(code),
     unavailable_checks INTEGER NOT NULL DEFAULT 0 CHECK (unavailable_checks >= 0),
     semantic_duplicate_of INTEGER REFERENCES source_jobs(id) ON DELETE SET NULL,
@@ -273,7 +273,7 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_events (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS linkedin_collection_runs (
+CREATE TABLE IF NOT EXISTS collection_runs (
     run_id TEXT PRIMARY KEY,
     started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TEXT,
@@ -289,7 +289,7 @@ CREATE TABLE IF NOT EXISTS linkedin_collection_runs (
 
 CREATE TABLE IF NOT EXISTS linkedin_collection_pages (
     run_id TEXT NOT NULL
-        REFERENCES linkedin_collection_runs(run_id) ON DELETE CASCADE,
+        REFERENCES collection_runs(run_id) ON DELETE CASCADE,
     sequence_no INTEGER NOT NULL,
     label TEXT NOT NULL DEFAULT '',
     search TEXT NOT NULL DEFAULT '',

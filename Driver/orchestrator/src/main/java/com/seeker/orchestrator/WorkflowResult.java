@@ -3,6 +3,7 @@ package com.seeker.orchestrator;
 import com.google.gson.annotations.SerializedName;
 import com.seeker.collector.common.CollectionReport;
 import com.seeker.collector.common.ScopeItem;
+import com.seeker.collector.common.SourceCollectionResult;
 
 import java.util.List;
 import java.util.Map;
@@ -52,17 +53,19 @@ public record WorkflowResult(
             @SerializedName("accepted_count") int acceptedCount,
             List<ScopeItem> scope,
             Map<String, Integer> outcomes,
-            String message
+            String message,
+            @SerializedName("source_results") List<SourceCollectionResult> sourceResults
     ) {
         public CollectionSummary {
             scope = List.copyOf(scope);
             outcomes = Map.copyOf(outcomes);
+            sourceResults = sourceResults == null ? List.of() : List.copyOf(sourceResults);
         }
 
         private static CollectionSummary from(CollectionReport report) {
             return report == null ? null : new CollectionSummary(
                     report.source(), report.runId(), report.status(), report.acceptedCount(),
-                    report.scope(), report.outcomes(), report.message()
+                    report.scope(), report.outcomes(), report.message(), report.sourceResults()
             );
         }
     }

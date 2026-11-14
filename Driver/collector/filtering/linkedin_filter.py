@@ -733,7 +733,7 @@ def is_duplicate_company_title(preview: dict[str, Any], db_path: Path = DEFAULT_
             FROM source_job_texts AS text
             JOIN source_jobs AS source ON source.id = text.source_job_ref
             JOIN companies AS company ON company.id = text.company_id
-            JOIN linkedin_collection_runs AS run ON run.run_id = source.collection_run_id
+            JOIN collection_runs AS run ON run.run_id = source.collection_run_id
             WHERE source.source = 'linkedin'
                 AND source.availability <> 'deleted'
                 AND source.processing_status <> 'RAW'

@@ -34,7 +34,7 @@ def run_agent_filter(run_id: str, scope: list[dict[str, Any]], db_path: Path) ->
     result = run(
         run_id=run_id,
         operation="agent_filter",
-        target="linkedin:batch",
+        target="batch",
         instruction_path=DRIVER_ROOT / "analyzer" / "agent_filter.md",
         input_text=_json(scope),
         input_name="collected_scope.json",
@@ -58,7 +58,7 @@ def load_collected_scope(run_id: str, db_path: Path) -> list[dict[str, str]]:
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         run_row = connection.execute(
-            "SELECT status FROM linkedin_collection_runs WHERE run_id = ?",
+            "SELECT status FROM collection_runs WHERE run_id = ?",
             (run_id,),
         ).fetchone()
         if run_row is None:
@@ -69,11 +69,10 @@ def load_collected_scope(run_id: str, db_path: Path) -> list[dict[str, str]]:
             raise ValueError(f"Batch is already complete: {run_id}")
         rows = connection.execute(
             """
-            SELECT job.source_job_id, text.title
+            SELECT job.source, job.source_job_id, text.title
             FROM source_jobs job
             JOIN source_job_texts text ON text.source_job_ref = job.id
             WHERE job.collection_run_id = ?
-              AND job.source = 'linkedin'
               AND job.processing_status IN (
                   'CLEANED', 'RELEVANT', 'NONRELEVANT', 'ANALYZED', 'SCORED', 'SAVED'
               )
@@ -82,8 +81,8 @@ def load_collected_scope(run_id: str, db_path: Path) -> list[dict[str, str]]:
             (run_id,),
         ).fetchall()
     return [
-        {"source": "linkedin", "job_id": job_id, "title": title}
-        for job_id, title in rows
+        {"source": source, "job_id": job_id, "title": title}
+        for source, job_id, title in rows
     ]
 
 
@@ -100,7 +99,7 @@ def update_batch(run_id: str, status: str, stage: str, message: str, db_path: Pa
             status = "pending"
         connection.execute(
             """
-            UPDATE linkedin_collection_runs
+            UPDATE collection_runs
             SET status = ?, stage = CASE WHEN ? = '' THEN stage ELSE ? END,
                 finished_at = CASE WHEN ? IN ('running', 'pending') THEN NULL ELSE CURRENT_TIMESTAMP END,
                 message = ?
@@ -111,19 +110,31 @@ def update_batch(run_id: str, status: str, stage: str, message: str, db_path: Pa
         connection.commit()
 
 
-def load_statuses(source: str, job_ids: list[str], db_path: Path) -> dict[str, str]:
+def _keys(scope: list[dict]) -> list[tuple[str, str]]:
+    keys = [(item["source"], item["job_id"]) for item in scope]
+    if any(not isinstance(value, str) or not value for key in keys for value in key):
+        raise ValueError("Scope must contain non-empty source and job_id")
+    if len(set(keys)) != len(keys):
+        raise ValueError("Scope contains duplicate source-job IDs")
+    return keys
+
+
+def load_statuses(scope: list[dict], db_path: Path) -> list[dict]:
+    keys = _keys(scope)
     database = db_path
     migrate_database(database)
+    if not keys:
+        return []
     with closing(sqlite3.connect(database)) as connection:
-        placeholders = ",".join("?" for _ in job_ids)
+        placeholders = ",".join("(?,?)" for _ in keys)
         rows = connection.execute(
-            f"SELECT source_job_id, processing_status FROM source_jobs "
-            f"WHERE source = ? AND source_job_id IN ({placeholders})",
-            (source, *job_ids),
+            f"SELECT source, source_job_id, processing_status FROM source_jobs "
+            f"WHERE (source, source_job_id) IN ({placeholders})",
+            tuple(value for key in keys for value in key),
         ).fetchall()
-    if len(rows) != len(job_ids):
+    if len(rows) != len(keys):
         raise ValueError("Scope contains missing or duplicate source-job IDs")
-    return dict(rows)
+    return [{"source": source, "job_id": job_id, "status": status} for source, job_id, status in rows]
 
 
 def run_job_facts(
@@ -270,7 +281,14 @@ def run_job_interest(source: str, job_id: str, db_path: Path) -> None:
     )
 
 
-def save_scored(source: str, job_ids: list[str], db_path: Path) -> int:
+def save_scored(scope: list[dict], db_path: Path) -> int:
+    groups: dict[str, list[str]] = {}
+    for source, job_id in _keys(scope):
+        groups.setdefault(source, []).append(job_id)
+    return sum(_save_source_scored(source, ids, db_path) for source, ids in groups.items())
+
+
+def _save_source_scored(source: str, job_ids: list[str], db_path: Path) -> int:
     if not isinstance(job_ids, list) or not job_ids:
         raise ValueError("job_ids must be a non-empty JSON array")
     results = save_records(
@@ -288,25 +306,22 @@ def save_scored(source: str, job_ids: list[str], db_path: Path) -> int:
 
 
 def mark_relevance(
-    db_path: Path, source: str, job_ids: list[str], nonrelevant_ids: list[str]
+    db_path: Path, scope: list[dict], nonrelevant_jobs: list[dict]
 ) -> None:
     """Persist both accepted and rejected filter decisions atomically."""
-    rejected = set(nonrelevant_ids)
-    if not isinstance(job_ids, list) or not all(
-        isinstance(job_id, str) and job_id for job_id in job_ids
-    ):
-        raise ValueError("job_ids must be a JSON array of non-empty strings")
-    if not job_ids:
-        return
-    if len(set(job_ids)) != len(job_ids) or not rejected.issubset(job_ids):
+    keys = _keys(scope)
+    rejected = set(_keys(nonrelevant_jobs))
+    if not rejected.issubset(keys):
         raise ValueError("Invalid relevance decisions for scope")
+    if not keys:
+        return
 
     database = db_path
     migrate_database(database)
     with closing(sqlite3.connect(database)) as connection:
         connection.execute("PRAGMA foreign_keys = ON")
-        for job_id in job_ids:
-            status = "NONRELEVANT" if job_id in rejected else "RELEVANT"
+        for source, job_id in keys:
+            status = "NONRELEVANT" if (source, job_id) in rejected else "RELEVANT"
             updated = connection.execute(
                 """
                 UPDATE source_jobs SET processing_status = ?

@@ -10,8 +10,8 @@ configuration remains in the modules.
 
 ## Java Workflow Orchestrator
 
-`orchestrator` is the Java entry point for the workflow. It calls the existing
-LinkedIn collector, sends the complete collected scope to the agent relevance
+`orchestrator` is the Java entry point for the workflow. It calls Collector
+for the configured LinkedIn/JustJoinIT sources, sends the complete collected scope to the agent relevance
 filter through the metered Codex CLI proxy, persists validated decisions as
 `RELEVANT` or `NONRELEVANT`, then owns `job_facts`, candidate fit, job interest, and final
 database save for the remaining ordered scope. Build the server modules with:

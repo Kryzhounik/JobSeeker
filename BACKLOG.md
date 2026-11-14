@@ -296,7 +296,14 @@ execution contract; the Java orchestrator owns pipeline behavior.
   для аккаунта. Не планировать интеграцию через Playwright сейчас. Вернуться
   к идее, если появится подходящий разрешённый канал, в том числе при переходе
   на другого провайдера.
-- Add more sources after the JustJoinIT flow is comfortable.
+- **ИССЛЕДОВАТЬ: Дополнительные источники вакансий после того, как JustJoinIT станет стабильным.** Рассматривать по приоритету, не как обязательство подключить все источники:
+  1. Remote Rocketship — изучить как возможный дополнительный источник.
+  2. Remotive — проверить подключение публичного API и измерить пересечение
+     вакансий с LinkedIn.
+  3. Working Nomads — аналогично проверить API и долю уникальных вакансий
+     относительно LinkedIn.
+  4. Прямой сбор с Greenhouse, Lever, Ashby и Workday — отдельное направление,
+     независимое от LinkedIn; сначала оценить доступные способы и объём работ.
 - Add optional scheduled execution of the complete Java batch only after
   manual runs are stable, so collection and analysis can start automatically
   at configured times without opening the GUI.

@@ -25,7 +25,7 @@ import java.util.function.Consumer;
 
 /** Top-level Java workflow entry point. */
 public final class WorkflowOrchestrator {
-    private final LinkedInCollection linkedinCollection;
+    private final BatchCollection batchCollection;
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
     private final RecommendationSource recommendations;
@@ -44,13 +44,13 @@ public final class WorkflowOrchestrator {
     }
 
     private WorkflowOrchestrator(
-            CollectorApi linkedin,
+            CollectorApi collector,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
             int parallelAgents,
             int vacanciesPerAgent, Path projectRoot
     ) {
-        this(linkedin::collectBatch, linkedin::collectUrls, processingGateway,
+        this(collector::collectBatch, collector::collectUrls, processingGateway,
                 recommendations, parallelAgents, vacanciesPerAgent,
                 batchId -> {
                     try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot)) {
@@ -60,46 +60,46 @@ public final class WorkflowOrchestrator {
     }
 
     WorkflowOrchestrator(
-            LinkedInCollection linkedinCollection,
+            BatchCollection batchCollection,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, (urls, prefix, progress) -> linkedinCollection.collect(progress), processingGateway);
+        this(batchCollection, (urls, prefix, progress) -> batchCollection.collect("linkedin", progress), processingGateway);
     }
 
     WorkflowOrchestrator(
-            LinkedInCollection linkedinCollection,
+            BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, ignored -> List.of());
+        this(batchCollection, linkedinUrls, processingGateway, ignored -> List.of());
     }
 
     WorkflowOrchestrator(
-            LinkedInCollection linkedinCollection,
+            BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, recommendations, 1, Integer.MAX_VALUE);
+        this(batchCollection, linkedinUrls, processingGateway, recommendations, 1, Integer.MAX_VALUE);
     }
 
     WorkflowOrchestrator(
-            LinkedInCollection linkedinCollection,
+            BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
             int parallelAgents,
             int vacanciesPerAgent
     ) {
-        this(linkedinCollection, linkedinUrls, processingGateway, recommendations,
+        this(batchCollection, linkedinUrls, processingGateway, recommendations,
                 parallelAgents, vacanciesPerAgent, ignored -> { });
     }
 
-    WorkflowOrchestrator(LinkedInCollection linkedinCollection, LinkedInUrls linkedinUrls,
+    WorkflowOrchestrator(BatchCollection batchCollection, LinkedInUrls linkedinUrls,
                          ProcessingGateway processingGateway, RecommendationSource recommendations,
                          int parallelAgents, int vacanciesPerAgent, Consumer<String> deduplicate) {
         this.deduplicate = Objects.requireNonNull(deduplicate);
-        this.linkedinCollection = Objects.requireNonNull(linkedinCollection);
+        this.batchCollection = Objects.requireNonNull(batchCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
         this.processingGateway = Objects.requireNonNull(processingGateway);
         this.recommendations = Objects.requireNonNull(recommendations);
@@ -110,18 +110,26 @@ public final class WorkflowOrchestrator {
         this.vacanciesPerAgent = vacanciesPerAgent;
     }
 
+    public WorkflowResult processBatch() throws IOException, UsageLimitExceededException {
+        return processBatch((String)null);
+    }
+
+    public WorkflowResult processBatch(Consumer<ProgressSnapshot> progress) throws IOException, UsageLimitExceededException {
+        return processBatch(null, progress);
+    }
+
     public WorkflowResult processBatch(String source) throws IOException, UsageLimitExceededException {
         return processBatch(source, ignored -> { });
     }
 
     public WorkflowResult processBatch(String source, Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
-        if (!"linkedin".equals(source)) {
+        if (source != null && !List.of("linkedin", "justjoin").contains(source)) {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
         try {
-            return processCollected(linkedinCollection.collect(run::collection), run);
+            return processCollected(batchCollection.collect(source, run::collection), run);
         } catch (IOException | UsageLimitExceededException | RuntimeException error) {
             failBatch(run.runId(), error);
             throw error;
@@ -181,7 +189,7 @@ public final class WorkflowOrchestrator {
     public WorkflowResult resume(String runId, Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
         List<ScopeItem> scope = processingGateway.loadCollectedScope(runId);
         try {
-            return processScope("linkedin", runId, scope, null, new WorkflowProgress.Run(progress));
+            return processScope(scopeSource(scope), runId, scope, null, new WorkflowProgress.Run(progress));
         } catch (UsageLimitExceededException | RuntimeException error) {
             failBatch(runId, error);
             throw error;
@@ -208,10 +216,11 @@ public final class WorkflowOrchestrator {
                                         CollectionReport collected, WorkflowProgress.Run run)
             throws UsageLimitExceededException {
         run.identify(runId);
+        run.scope(scope);
         run.count("Scope", scope.size());
         run.preparing(collected == null ? "Relevance filter" : "Collection", "Loading processing scope");
         processingGateway.updateBatch(runId, "running", "", "");
-        Map<String, String> statuses = new HashMap<>(processingGateway.loadStatuses(source, scope));
+        Map<JobKey, String> statuses = new HashMap<>(processingGateway.loadStatuses(scope));
         run.count("Already saved", atStatus(scope, statuses, "SAVED").size());
         run.count("Rejected by relevance", atStatus(scope, statuses, "NONRELEVANT").size());
         Set<String> acceptedStatuses = Set.of("RELEVANT", "ANALYZED", "SCORED", "SAVED");
@@ -220,19 +229,19 @@ public final class WorkflowOrchestrator {
             batchStage(runId, "Relevance filter");
             run.work("Relevance filter", "Filtering vacancies", 0, unfiltered.size(), null);
             AgentFilterResult result = processingGateway.runRelevanceFilter(runId, unfiltered);
-            List<String> nonrelevantIds = validateResult(unfiltered, result.nonrelevantJobIds());
-            processingGateway.markRelevance(source, unfiltered, nonrelevantIds);
-            Set<String> rejected = Set.copyOf(nonrelevantIds);
+            List<JobKey> nonrelevantIds = validateResult(unfiltered, result.nonrelevantJobs());
+            processingGateway.markRelevance(unfiltered, nonrelevantIds);
+            Set<JobKey> rejected = Set.copyOf(nonrelevantIds);
             for (ScopeItem item : unfiltered) {
-                statuses.put(item.jobId(), rejected.contains(item.jobId()) ? "NONRELEVANT" : "RELEVANT");
+                statuses.put(JobKey.of(item), rejected.contains(JobKey.of(item)) ? "NONRELEVANT" : "RELEVANT");
             }
             run.count("Rejected by relevance", atStatus(scope, statuses, "NONRELEVANT").size());
             run.count("Relevant", (int) scope.stream()
-                    .filter(item -> acceptedStatuses.contains(statuses.get(item.jobId()))).count());
+                    .filter(item -> acceptedStatuses.contains(statuses.get(JobKey.of(item)))).count());
             run.work("Relevance filter", "Filtering complete", unfiltered.size(), unfiltered.size(), null);
         }
         List<ScopeItem> remaining = scope.stream()
-                .filter(item -> acceptedStatuses.contains(statuses.get(item.jobId()))).toList();
+                .filter(item -> acceptedStatuses.contains(statuses.get(JobKey.of(item)))).toList();
         List<ScopeItem> facts = atStatus(remaining, statuses, "RELEVANT");
         run.count("Relevant", remaining.size());
         run.total("Job facts", facts.size());
@@ -243,12 +252,12 @@ public final class WorkflowOrchestrator {
             processingGateway.initializeAnalysisRun(runId, parallelAgents, vacanciesPerAgent);
         }
         runJobFacts(runId, source, facts, run);
-        for (ScopeItem item : facts) statuses.put(item.jobId(), "ANALYZED");
+        for (ScopeItem item : facts) statuses.put(JobKey.of(item), "ANALYZED");
         runFinishAnalysis(runId, source, atStatus(remaining, statuses, "ANALYZED"), run);
         List<ScopeItem> scored = atStatus(remaining, statuses, "SCORED");
         if (!scored.isEmpty()) {
             batchStage(runId, "Saving");
-            run.saved(processingGateway.saveScored(source, scored.stream().map(ScopeItem::jobId).toList()));
+            run.saved(processingGateway.saveScored(scored));
         }
         processingGateway.updateBatch(runId, "complete", "", collected == null ? "" : collected.message());
         run.complete(collected == null ? "" : collected.message());
@@ -263,7 +272,9 @@ public final class WorkflowOrchestrator {
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
                                 Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
+        if (!scope.isEmpty()) source = scopeSource(scope);
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
+        run.scope(scope);
         run.identify(runId);
         run.count("Scope", scope.size());
         run.total("Job facts", scope.size());
@@ -288,7 +299,9 @@ public final class WorkflowOrchestrator {
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
                                       Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
+        if (!scope.isEmpty()) source = scopeSource(scope);
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
+        run.scope(scope);
         run.identify(runId);
         run.count("Scope", scope.size());
         run.total("Candidate fit", scope.size());
@@ -350,12 +363,12 @@ public final class WorkflowOrchestrator {
                              List<ScopeItem> scope, FactsGroup group) {
         results.submit(() -> {
             ScopeItem item = scope.get(group.next());
-            System.err.println("Job facts start: job_id=" + item.jobId());
+            System.err.println("Job facts start: job=" + JobKey.of(item));
             long started = System.nanoTime();
-            String threadId = processingGateway.extractJobFacts(runId, source, item.jobId(),
+            String threadId = processingGateway.extractJobFacts(runId, item.source(), item.jobId(),
                     group.target(), group.threadId());
-            System.err.printf("Job facts complete: job_id=%s duration_ms=%d%n",
-                    item.jobId(), (System.nanoTime() - started) / 1_000_000);
+            System.err.printf("Job facts complete: job=%s duration_ms=%d%n",
+                    JobKey.of(item), (System.nanoTime() - started) / 1_000_000);
             return new FactsGroup(group.next() + 1, group.end(), group.target(), threadId);
         });
     }
@@ -369,12 +382,12 @@ public final class WorkflowOrchestrator {
         int completed = 0;
         for (ScopeItem item : scope) {
             run.work("Candidate fit", "Evaluating fit", completed, scope.size(), item);
-            threadId = processingGateway.evaluateCandidateFit(runId, source, item.jobId(), target, threadId);
+            threadId = processingGateway.evaluateCandidateFit(runId, item.source(), item.jobId(), target, threadId);
             run.work("Candidate fit", "Fit evaluated", ++completed, scope.size(), item);
-            processingGateway.calculateJobInterest(source, item.jobId());
+            processingGateway.calculateJobInterest(item.source(), item.jobId());
         }
         batchStage(runId, "Saving");
-        run.saved(processingGateway.saveScored(source, scope.stream().map(ScopeItem::jobId).toList()));
+        run.saved(processingGateway.saveScored(scope));
     }
 
     private void batchStage(String runId, String stage) {
@@ -392,10 +405,10 @@ public final class WorkflowOrchestrator {
     }
 
     private static List<ScopeItem> atStatus(
-            List<ScopeItem> scope, Map<String, String> statuses, String status
+            List<ScopeItem> scope, Map<JobKey, String> statuses, String status
     ) {
         return scope.stream()
-                .filter(item -> status.equals(statuses.get(item.jobId())))
+                .filter(item -> status.equals(statuses.get(JobKey.of(item))))
                 .toList();
     }
 
@@ -418,19 +431,24 @@ public final class WorkflowOrchestrator {
         );
     }
 
-    private static List<String> validateResult(
+    private static String scopeSource(List<ScopeItem> scope) {
+        List<String> sources = scope.stream().map(ScopeItem::source).distinct().toList();
+        return sources.size() == 1 ? sources.getFirst() : sources.isEmpty() ? "" : "mixed";
+    }
+
+    private static List<JobKey> validateResult(
             List<ScopeItem> scope,
-            List<String> nonrelevantIds
+            List<JobKey> nonrelevantIds
     ) {
         if (nonrelevantIds == null) {
             throw new IllegalArgumentException(
-                    "Agent filter response is missing nonrelevant_job_ids"
+                    "Agent filter response is missing nonrelevant_jobs"
             );
         }
 
-        Map<String, Integer> scopeOrder = new HashMap<>();
+        Map<JobKey, Integer> scopeOrder = new HashMap<>();
         for (int index = 0; index < scope.size(); index++) {
-            String jobId = scope.get(index).jobId();
+            JobKey jobId = JobKey.of(scope.get(index));
             if (scopeOrder.put(jobId, index) != null) {
                 throw new IllegalArgumentException(
                         "Collected scope contains duplicate job ID: " + jobId
@@ -438,11 +456,12 @@ public final class WorkflowOrchestrator {
             }
         }
 
-        List<String> validated = new ArrayList<>(nonrelevantIds.size());
-        Set<String> seen = new HashSet<>();
+        List<JobKey> validated = new ArrayList<>(nonrelevantIds.size());
+        Set<JobKey> seen = new HashSet<>();
         int previousIndex = -1;
-        for (String jobId : nonrelevantIds) {
-            if (jobId == null || jobId.isBlank()) {
+        for (JobKey jobId : nonrelevantIds) {
+            if (jobId == null || jobId.source() == null || jobId.source().isBlank()
+                    || jobId.jobId() == null || jobId.jobId().isBlank()) {
                 throw new IllegalArgumentException(
                         "Agent filter returned an empty job ID"
                 );
@@ -470,8 +489,8 @@ public final class WorkflowOrchestrator {
     }
 
     @FunctionalInterface
-    interface LinkedInCollection {
-        CollectionReport collect(Consumer<ProgressSnapshot> progress) throws IOException;
+    interface BatchCollection {
+        CollectionReport collect(String source, Consumer<ProgressSnapshot> progress) throws IOException;
     }
 
     @FunctionalInterface

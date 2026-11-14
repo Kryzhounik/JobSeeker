@@ -45,9 +45,11 @@ public final class CollectorApi {
     }
 
     public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
-        return collectionService.collectBatch(
-                RUN_ID_TIME.format(Instant.now()) + "-batch-linkedin", progress
-        );
+        return collectBatch(null, progress);
+    }
+
+    public CollectionReport collectBatch(String source, Consumer<ProgressSnapshot> progress) throws IOException {
+        return collectionService.collectBatch(RUN_ID_TIME.format(Instant.now()) + "-batch", source, progress);
     }
 
     public CollectionReport collectUrl(String runId, String url) throws IOException {

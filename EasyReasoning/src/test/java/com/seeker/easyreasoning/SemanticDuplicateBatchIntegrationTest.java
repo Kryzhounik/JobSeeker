@@ -31,10 +31,10 @@ class SemanticDuplicateBatchIntegrationTest {
         try (var sqlite = PyModule.importModule("sqlite3");
              var connection = sqlite.callMethod("connect",database.toString())) {
             try (var ignored = connection.callMethod("executescript", """
-                    INSERT INTO linkedin_collection_runs(run_id,status,collection_status) VALUES ('batch','complete','complete');
+                    INSERT INTO collection_runs(run_id,status,collection_status) VALUES ('batch','complete','complete');
                     INSERT INTO companies(id,name) VALUES (1,'Example');
                     INSERT INTO source_jobs(id,source,source_job_id,processing_status,collection_run_id)
-                    VALUES (1,'linkedin','one','CLEANED','batch'), (2,'linkedin','two','CLEANED','batch'),
+                    VALUES (1,'linkedin','one','CLEANED','batch'), (2,'justjoin','one','CLEANED','batch'),
                            (3,'linkedin','three','CLEANED','batch'), (4,'linkedin','four','CLEANED','batch');
                     INSERT INTO source_job_texts(source_job_ref,title,company_id,readable_text)
                     VALUES (1,'Java Engineer',1,'Original'),(2,' Java  engineer ',1,'Duplicate'),

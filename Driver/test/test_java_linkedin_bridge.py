@@ -275,7 +275,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 logged_run = connection.execute(
                     """
                     SELECT collection_status, stop_reason, accepted_count, collection_finished_at IS NOT NULL
-                    FROM linkedin_collection_runs
+                    FROM collection_runs
                     WHERE run_id = ?
                     """,
                     (run_id,),

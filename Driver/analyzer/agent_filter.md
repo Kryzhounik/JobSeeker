@@ -10,7 +10,7 @@ present in the title.
 
 Decision rule
 
-Add a job ID to `nonrelevant_job_ids` only when the title itself makes the
+Add a `{source, job_id}` object to `nonrelevant_jobs` only when the title itself makes the
 vacancy clearly unsuitable for a Java software developer. This is a
 high-precision rejection filter: false negatives are acceptable here, false
 positives are not. Keep the vacancy whenever the title is ambiguous, generic,
@@ -71,5 +71,6 @@ Output
 
 Return only one JSON object matching
 `contracts/agent_filter_result.schema.json`. Preserve input order among rejected
-IDs. Return each rejected ID at most once. Never return an ID absent from the
-input. Do not include explanations or any fields outside the schema.
+publications. Identify each publication by both `source` and `job_id`; the same
+job ID can occur in different sources. Return each rejected pair at most once.
+Never return a pair absent from the input. Do not include explanations or any fields outside the schema.

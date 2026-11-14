@@ -518,7 +518,7 @@ public final class MainController {
             @Override protected WorkflowResult call() throws Exception {
                 Consumer<ProgressSnapshot> progress = update -> Platform.runLater(() -> progressPane.update(update));
                 if (recommendations) return driverApi.checkRecommendations(progress);
-                return resumeRunId == null ? driverApi.processBatch("linkedin", progress)
+                return resumeRunId == null ? driverApi.processBatch(progress)
                         : driverApi.resume(resumeRunId, progress);
             }
         };

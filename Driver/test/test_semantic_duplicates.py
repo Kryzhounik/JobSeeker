@@ -16,12 +16,12 @@ class SemanticDuplicatesTest(unittest.TestCase):
             with closing(sqlite3.connect(path)) as c:
                 c.execute('PRAGMA foreign_keys=ON')
                 for run in ('current', 'past'):
-                    c.execute("INSERT INTO linkedin_collection_runs(run_id,config_json) VALUES (?, '{}')", (run,))
+                    c.execute("INSERT INTO collection_runs(run_id,config_json) VALUES (?, '{}')", (run,))
                 for ident, run, status in [(20,'current','CLEANED'),(3,'current','CLEANED'),(30,'past','CLEANED'),(40,'current','RAW'),(50,'current','CONTENT_REJECTED')]:
                     c.execute("INSERT INTO source_jobs(id,source,source_job_id,processing_status,collection_run_id) VALUES (?,'linkedin',?,?,?)", (ident,str(ident),status,run))
                     c.execute("INSERT INTO source_job_texts(source_job_ref,title,readable_text) VALUES (?,'Java Engineer',?)", (ident,'Saved text '+str(ident)))
                 c.commit()
-                c.execute("UPDATE linkedin_collection_runs SET status='complete' WHERE run_id='current'")
+                c.execute("UPDATE collection_runs SET status='complete' WHERE run_id='current'")
                 self.assertEqual([3, 20], [row['id'] for row in load_batch(c, 'current')])
                 self.assertEqual('Saved text 3', load_batch(c, 'current')[0]['text'])
                 with self.assertRaises(ValueError):

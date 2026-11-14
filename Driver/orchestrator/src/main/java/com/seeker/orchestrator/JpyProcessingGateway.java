@@ -1,7 +1,6 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.seeker.codex.CodexClient;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.common.ScopeItem;
@@ -61,16 +60,17 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
-    public Map<String, String> loadStatuses(String source, List<ScopeItem> scope) {
+    public Map<JobKey, String> loadStatuses(List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
                      "load_statuses",
-                     source,
-                     GSON.toJson(scope.stream().map(ScopeItem::jobId).toList()),
+                     GSON.toJson(scope),
                      paths.databasePath().toString()
              )) {
-            return GSON.fromJson(response.getStringValue(),
-                    new TypeToken<Map<String, String>>() {}.getType());
+            StatusRow[] rows = GSON.fromJson(response.getStringValue(), StatusRow[].class);
+            Map<JobKey, String> statuses = new java.util.HashMap<>();
+            for (StatusRow row : rows) statuses.put(new JobKey(row.source(), row.jobId()), row.status());
+            return statuses;
         }
     }
 
@@ -97,14 +97,13 @@ final class JpyProcessingGateway implements ProcessingGateway {
 
     @Override
     public void markRelevance(
-            String source, List<ScopeItem> scope, List<String> nonrelevantIds
+            List<ScopeItem> scope, List<JobKey> nonrelevantIds
     ) {
         try (PyModule bridge = bridge();
              PyObject ignored = bridge.callMethod(
                      "mark_relevance",
                      paths.databasePath().toString(),
-                     source,
-                     GSON.toJson(scope.stream().map(ScopeItem::jobId).toList()),
+                     GSON.toJson(scope),
                      GSON.toJson(nonrelevantIds)
              )) {
             // The bridge updates all statuses in one SQLite transaction.
@@ -197,17 +196,20 @@ final class JpyProcessingGateway implements ProcessingGateway {
     }
 
     @Override
-    public int saveScored(String source, List<String> jobIds) {
+    public int saveScored(List<ScopeItem> scope) {
         try (PyModule bridge = bridge();
              PyObject response = bridge.callMethod(
                      "save_scored",
-                     source,
-                     GSON.toJson(jobIds),
+                     GSON.toJson(scope),
                      paths.databasePath().toString()
              )) {
             return response.getIntValue();
         }
     }
+
+    private record StatusRow(String source,
+                             @com.google.gson.annotations.SerializedName("job_id") String jobId,
+                             String status) { }
 
     private PyModule bridge() {
         JpyRuntime.ensureStarted(

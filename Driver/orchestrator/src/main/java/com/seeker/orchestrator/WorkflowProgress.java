@@ -29,6 +29,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
         private String action = "Starting";
         private String details = "";
         private boolean collected;
+        private boolean multipleSources;
         private int savedCount;
         private Map<String, String> emailFields;
 
@@ -71,13 +72,23 @@ public record WorkflowProgress(String runId, String stage, String action, String
                     + report.outcomes().getOrDefault("incomplete_raw", 0)
                     + report.outcomes().getOrDefault("processing_failed", 0));
             if (!collected) {
-                collection(new CollectionProgress(report.runId(), report.status(), "", "", 0, 0,
-                        report.acceptedCount(), 0, report.outcomes(), report.message()));
+                if ("linkedin".equals(report.source())) {
+                    collection(new CollectionProgress(report.runId(), report.status(), "", "", 0, 0,
+                            report.acceptedCount(), 0, report.outcomes(), report.message()));
+                } else {
+                    collection(new com.seeker.tools.api.ImmutableProgressSnapshot(report.runId(), "Collection",
+                            report.status(), "Collection " + report.acceptedCount(),
+                            Map.of("Source", report.source(), "Accepted", Integer.toString(report.acceptedCount())), report.message()));
+                }
             }
         }
 
         void identify(String value) {
             runId = value;
+        }
+
+        void scope(java.util.List<ScopeItem> scope) {
+            multipleSources = scope.stream().map(ScopeItem::source).distinct().limit(2).count() > 1;
         }
 
         String runId() {
@@ -104,7 +115,7 @@ public record WorkflowProgress(String runId, String stage, String action, String
             this.stage = stage;
             this.action = action;
             fields.put(stage, completed + " / " + total);
-            fields.put("Current vacancy", job == null ? "" : job.jobId());
+            fields.put("Current vacancy", job == null ? "" : multipleSources ? JobKey.of(job).toString() : job.jobId());
             details = job == null ? "" : job.title();
             emit();
         }

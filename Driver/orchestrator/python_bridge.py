@@ -25,8 +25,8 @@ def update_batch(run_id: str, status: str, stage: str, message: str, db_path: st
     processing.update_batch(run_id, status, stage, message, Path(db_path))
 
 
-def load_statuses(source: str, job_ids_json: str, db_path: str) -> str:
-    return _json(processing.load_statuses(source, json.loads(job_ids_json), Path(db_path)))
+def load_statuses(scope_json: str, db_path: str) -> str:
+    return _json(processing.load_statuses(json.loads(scope_json), Path(db_path)))
 
 
 def run_job_facts(
@@ -51,15 +51,15 @@ def run_job_interest(source: str, job_id: str, db_path: str) -> None:
     processing.run_job_interest(source, job_id, Path(db_path))
 
 
-def save_scored(source: str, job_ids_json: str, db_path: str) -> int:
-    return processing.save_scored(source, json.loads(job_ids_json), Path(db_path))
+def save_scored(scope_json: str, db_path: str) -> int:
+    return processing.save_scored(json.loads(scope_json), Path(db_path))
 
 
 def mark_relevance(
-    db_path: str, source: str, job_ids_json: str, nonrelevant_ids_json: str,
+    db_path: str, scope_json: str, nonrelevant_jobs_json: str,
 ) -> None:
     processing.mark_relevance(
-        Path(db_path), source, json.loads(job_ids_json), json.loads(nonrelevant_ids_json),
+        Path(db_path), json.loads(scope_json), json.loads(nonrelevant_jobs_json),
     )
 
 

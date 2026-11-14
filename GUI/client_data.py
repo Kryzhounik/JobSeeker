@@ -37,6 +37,7 @@ from db.job_mapper import apply_refilter_transitions  # noqa: E402
 from db.job_registry import record_availability_check  # noqa: E402
 from db.gpt_evaluations import load_evaluation, save_evaluation  # noqa: E402
 from db.migrate import migrate_database  # noqa: E402
+from db.collection_runs import list_runs  # noqa: E402
 
 
 DEFAULT_STATUS_VALUES = ("New", "Checked", "Postponed", "Applied", "Closed")
@@ -380,16 +381,7 @@ def load_job_detail(db_path: str | Path, source_url: str | int) -> str:
 
 def load_collection_runs(db_path: str | Path) -> str:
     with _connection(db_path, readonly=True) as connection:
-        rows = connection.execute(
-            """
-            SELECT run_id, started_at, finished_at, status, stage,
-                   collection_status, collection_finished_at, accepted_count,
-                   stop_reason, message
-            FROM linkedin_collection_runs
-            ORDER BY started_at DESC, run_id DESC
-            """
-        ).fetchall()
-        return _json(_rows_as_dicts(rows))
+        return _json(list_runs(connection))
 
 
 def load_collected_jobs(db_path: str | Path) -> str:

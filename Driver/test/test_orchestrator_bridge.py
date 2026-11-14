@@ -144,8 +144,8 @@ class OrchestratorBridgeTest(unittest.TestCase):
                     "run-1", "linkedin", "123", "fit", "fit-thread", str(database),
                 ))
                 python_bridge.run_job_interest("linkedin", "123", str(database))
-                self.assertEqual(1, python_bridge.save_scored("linkedin", '["123"]', str(database)))
-                self.assertEqual(0, python_bridge.save_scored("linkedin", '["123"]', str(database)))
+                self.assertEqual(1, python_bridge.save_scored('[{"source":"linkedin","job_id":"123"}]', str(database)))
+                self.assertEqual(0, python_bridge.save_scored('[{"source":"linkedin","job_id":"123"}]', str(database)))
 
             for stage in ("analyzed", "scored"):
                 artifact = json.loads((root / stage / "linkedin" / "123.json").read_text(encoding="utf-8"))
@@ -170,7 +170,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
     def _batch(database: Path) -> dict:
         with closing(sqlite3.connect(database)) as connection:
             connection.row_factory = sqlite3.Row
-            return dict(connection.execute("SELECT * FROM linkedin_collection_runs WHERE run_id = 'batch-1'").fetchone())
+            return dict(connection.execute("SELECT * FROM collection_runs WHERE run_id = 'batch-1'").fetchone())
 
     def test_batch_resumes_after_collection_or_processing_failure(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -232,31 +232,32 @@ class OrchestratorBridgeTest(unittest.TestCase):
             finish_collection_run("old-batch", "complete", "limit_reached", 1, "", database)
             with closing(sqlite3.connect(database)) as connection:
                 insert_source_job(connection, "linkedin", "1", "CLEANED", collection_run_id="old-batch")
+                connection.execute("ALTER TABLE collection_runs RENAME TO linkedin_collection_runs")
                 connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN status")
                 connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN stage")
                 connection.execute("ALTER TABLE linkedin_collection_runs DROP COLUMN finished_at")
                 connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_status TO status")
                 connection.execute("ALTER TABLE linkedin_collection_runs RENAME COLUMN collection_finished_at TO finished_at")
-                connection.execute("DELETE FROM schema_migrations WHERE version IN ('042_batch_state', '043_pending_batch_status')")
+                connection.execute("DELETE FROM schema_migrations WHERE version IN ('042_batch_state', '043_pending_batch_status', '047_collection_runs')")
                 connection.commit()
             migrate_database(database)
             with closing(sqlite3.connect(database)) as connection:
                 self.assertEqual(("failed", "complete", 1, "old-batch"), connection.execute(
                     "SELECT run.status, run.collection_status, run.collection_finished_at IS NOT NULL, job.collection_run_id "
-                    "FROM linkedin_collection_runs run JOIN source_jobs job ON job.collection_run_id = run.run_id"
+                    "FROM collection_runs run JOIN source_jobs job ON job.collection_run_id = run.run_id"
                 ).fetchone())
-                connection.execute("UPDATE linkedin_collection_runs SET status = 'pending'")
+                connection.execute("UPDATE collection_runs SET status = 'pending'")
                 self.assertEqual([], connection.execute("PRAGMA foreign_key_check").fetchall())
 
     @patch("orchestrator.processing.save_records")
     def test_saved_count_excludes_skipped_records(self, save) -> None:
         save.return_value = [("save", "new"), ("skip", "already present")]
-        self.assertEqual(1, python_bridge.save_scored("linkedin", '["1","2"]', "unused.sqlite"))
+        self.assertEqual(1, python_bridge.save_scored('[{"source":"linkedin","job_id":"1"},{"source":"linkedin","job_id":"2"}]', "unused.sqlite"))
         save.return_value = [("skip", "already present")]
-        self.assertEqual(0, python_bridge.save_scored("linkedin", '["2"]', "unused.sqlite"))
+        self.assertEqual(0, python_bridge.save_scored('[{"source":"linkedin","job_id":"2"}]', "unused.sqlite"))
         save.return_value = [("error", "failed")]
         with self.assertRaises(RuntimeError):
-            python_bridge.save_scored("linkedin", '["2"]', "unused.sqlite")
+            python_bridge.save_scored('[{"source":"linkedin","job_id":"2"}]', "unused.sqlite")
 
     @patch("orchestrator.processing.run")
     def test_agent_filter_uses_existing_cli_proxy(self, proxy_run) -> None:
@@ -264,7 +265,7 @@ class OrchestratorBridgeTest(unittest.TestCase):
             ["codex", "exec"],
             0,
             "thread-1",
-            '{"nonrelevant_job_ids":["2"]}',
+            '{"nonrelevant_jobs":[{"source":"linkedin","job_id":"2"}]}',
             {},
             [],
         )
@@ -275,11 +276,11 @@ class OrchestratorBridgeTest(unittest.TestCase):
             "jobs.sqlite",
         )
 
-        self.assertEqual(response, '{"nonrelevant_job_ids":["2"]}')
+        self.assertEqual(response, '{"nonrelevant_jobs":[{"source":"linkedin","job_id":"2"}]}')
         request = proxy_run.call_args.kwargs
         self.assertEqual(request["run_id"], "run-1")
         self.assertEqual(request["operation"], "agent_filter")
-        self.assertEqual(request["target"], "linkedin:batch")
+        self.assertEqual(request["target"], "batch")
         self.assertEqual(request["context_paths"], ())
         self.assertEqual(
             request["instruction_path"],
@@ -301,9 +302,8 @@ class OrchestratorBridgeTest(unittest.TestCase):
 
             python_bridge.mark_relevance(
                 str(database),
-                "linkedin",
-                '["1","2"]',
-                '["1","2"]',
+                '[{"source":"linkedin","job_id":"1"},{"source":"linkedin","job_id":"2"}]',
+                '[{"source":"linkedin","job_id":"1"},{"source":"linkedin","job_id":"2"}]',
             )
 
             with closing(sqlite3.connect(database)) as connection:
