@@ -43,6 +43,13 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
             mainTech = Objects.requireNonNull(mainTech).trim();
             location = Objects.requireNonNull(location).trim();
             publishedDays = Objects.requireNonNull(publishedDays).trim();
+            if (!publishedDays.isEmpty()) {
+                try {
+                    if (Integer.parseInt(publishedDays) < 0) throw new NumberFormatException();
+                } catch (NumberFormatException error) {
+                    throw new IllegalArgumentException("JustJoin published days must be a non-negative integer or empty");
+                }
+            }
             languages = List.copyOf(languages);
             experienceLevels = List.copyOf(experienceLevels);
             orderBy = Objects.requireNonNull(orderBy).trim();

@@ -72,6 +72,57 @@ class CollectionSettingsTest {
         assertThrows(IllegalArgumentException.class, () -> new CollectionSettings(List.of("unknown"), linkedin(1), justjoin(0)));
     }
 
+    @Test void disabledBrokenSourceDoesNotBlockEditing() throws Exception {
+        Files.writeString(selection, "sources=linkedin\nraw.directory=raw\n");
+        Files.writeString(justjoinFile, "mainTech=java\npublishedDays=oops\n");
+        assertNull(CollectionSettingsLoader.loadForEditing(root).justjoin());
+        Files.delete(justjoinFile);
+        assertNotNull(CollectionSettingsLoader.loadForEditing(root).linkedin());
+        Files.writeString(selection, "sources=justjoin\n");
+        assertThrows(java.io.IOException.class, () -> CollectionSettingsLoader.loadForEditing(root));
+    }
+
+    @Test void publicationDaysAreValidatedInModel() {
+        for (String days : List.of("oops", "-1", "2147483648"))
+            assertThrows(IllegalArgumentException.class, () -> new CollectionSettings.JustJoin(
+                    "java", "all-locations", days, List.of(), List.of(), "DESC", "published", 0));
+        for (String days : List.of("", "0", "14"))
+            assertNotNull(new CollectionSettings.JustJoin("java", "all-locations", days,
+                    List.of(), List.of(), "DESC", "published", 0));
+    }
+
+    @Test void editorSavePreservesOtherEntriesAndDisabledSourcePreferences() throws Exception {
+        Files.writeString(linkedinFile, "keywords=Java\nlimit=4\ncustom=Сохранить\n");
+        var saved = CollectionSettingsLoader.loadForEditing(root);
+        assertNotNull(saved.linkedin());
+        assertNotNull(saved.justjoin());
+        String disabledBefore = Files.readString(justjoinFile);
+        CollectionSettingsLoader.save(root,
+                new CollectionSettings(List.of("linkedin"), linkedin(19), justjoin(9)));
+        assertEquals(disabledBefore, Files.readString(justjoinFile));
+        assertEquals("raw", PropertySettings.load(selection).getProperty("raw.directory"));
+        assertEquals("Сохранить", PropertySettings.load(linkedinFile).getProperty("custom"));
+        var reopened = CollectionSettingsLoader.loadForEditing(root);
+        assertEquals(List.of("linkedin"), reopened.sources());
+        assertEquals(19, reopened.linkedin().limit());
+        assertEquals(2, reopened.justjoin().limit());
+        assertEquals(7, CollectorConfig.load(root.resolve("Driver/collector/config/linkedin.properties")).delaySeconds());
+        // Editing an in-memory run snapshot does not write any files.
+        assertNotEquals(saved.linkedin(), reopened.linkedin());
+        assertEquals(4, saved.linkedin().limit());
+    }
+
+    @Test void editorReloadsBothSitesAndKeepsSourceOrder() throws Exception {
+        CollectionSettingsLoader.save(root, new CollectionSettings(List.of("justjoin", "linkedin"), linkedin(8), justjoin(0)));
+        var loaded = CollectionSettingsLoader.loadForEditing(root);
+        assertEquals(List.of("justjoin", "linkedin"), loaded.sources());
+        assertEquals(linkedin(8), loaded.linkedin());
+        assertEquals(justjoin(0), loaded.justjoin());
+        Files.writeString(justjoinFile, "mainTech=python\nlimit=6\n");
+        assertEquals("python", CollectionSettingsLoader.loadForEditing(root).justjoin().mainTech());
+        assertEquals(6, CollectionSettingsLoader.loadForEditing(root).justjoin().limit());
+    }
+
     @Test void explicitRunsStayIndependentAndNextDefaultRunReadsChangedPreferences() throws Exception {
         var api = new CollectorApi(root);
         var first = new CollectionSettings(List.of("linkedin", "justjoin"), linkedin(5), justjoin(0));

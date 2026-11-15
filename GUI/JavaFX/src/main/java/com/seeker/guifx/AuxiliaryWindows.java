@@ -1,5 +1,10 @@
 package com.seeker.guifx;
 
+import com.seeker.collector.common.CollectionSettings;
+import com.seeker.collector.core.CollectionSettingsLoader;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
+
 import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleStringProperty;
@@ -32,9 +37,6 @@ import java.awt.Desktop;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.charset.StandardCharsets;
 import java.util.function.Consumer;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -510,13 +512,19 @@ final class AuxiliaryWindows {
     }
 
     void showConfig() {
-        submit(() -> new ConfigData(data.loadConfigRows(), readCollectorLimit()),
+        submit(() -> new ConfigData(data.loadConfigRows(), CollectionSettingsLoader.loadForEditing(ClientData.findProjectRoot())),
                 this::buildConfig, error -> showError("Config load failed", error));
     }
 
     private void buildConfig(ConfigData config) {
+        Stage stage = stage("Config", 800, 700);
+        stage.setScene(new Scene(configContent(config.rows, config.settings), 800, 700));
+        stage.show();
+    }
+
+    TabPane configContent(List<ConfigEntryDto> rows, CollectionSettings settings) {
             VBox content = new VBox(8);
-            for (ConfigEntryDto row : config.rows) {
+            for (ConfigEntryDto row : rows) {
                 int key = row.key();
                 CheckBox check = new CheckBox(row.configName());
                 check.setSelected("1".equals(row.value()));
@@ -534,42 +542,33 @@ final class AuxiliaryWindows {
                 });
                 content.getChildren().add(check);
             }
-            TextField limit = new TextField(config.limit);
-            limit.setPromptText("Positive integer");
-            limit.setMaxWidth(100);
-            Label limitStatus = new Label();
-            Runnable saveLimit = () -> {
-                String value = limit.getText().strip();
+            var editor = new CollectionSettingsPane(settings);
+            var save = new Button("Save collection settings");
+            var status = new Label();
+            status.setWrapText(true);
+            save.setOnAction(event -> {
                 try {
-                    int parsed = Integer.parseInt(value);
-                    if (parsed <= 0) throw new NumberFormatException();
-                    String normalized = Integer.toString(parsed);
+                    CollectionSettings edited = editor.settings();
+                    editor.setDisable(true);
+                    save.setDisable(true);
                     submit(() -> {
-                        writeCollectorLimit(normalized);
-                        return normalized;
-                    }, saved -> {
-                        limit.setText(saved);
-                        limitStatus.setText("Saved");
-                        limit.setDisable(false);
+                        CollectionSettingsLoader.save(ClientData.findProjectRoot(), edited);
+                        return null;
+                    }, ignored -> {
+                        status.setText("Saved"); editor.setDisable(false); save.setDisable(false);
                     }, error -> {
-                        limit.setText(config.limit);
-                        limitStatus.setText(error.getMessage());
-                        limit.setDisable(false);
+                        status.setText(error.getMessage()); editor.setDisable(false); save.setDisable(false);
                     });
-                    limit.setDisable(true);
-                } catch (RuntimeException error) {
-                    limit.setText(config.limit);
-                    limitStatus.setText("Enter a positive integer");
-                }
-            };
-            limit.setOnAction(event -> saveLimit.run());
-            limit.focusedProperty().addListener((obs, old, focused) -> {
-                if (!focused) saveLimit.run();
+                } catch (IllegalArgumentException error) { status.setText(error.getMessage()); }
             });
-            content.getChildren().addAll(new Label("LinkedIn collection limit"), limit, limitStatus);
-            Stage stage = stage("Config", 420, 400);
-            stage.setScene(new Scene(new javafx.scene.control.ScrollPane(content), 420, 400));
-            stage.show();
+            var scroll = new javafx.scene.control.ScrollPane(editor);
+            scroll.setFitToWidth(true);
+            var collection = new BorderPane(scroll);
+            collection.setBottom(new HBox(8, save, status));
+            var tabs = new TabPane(new Tab("Filters", new javafx.scene.control.ScrollPane(content)),
+                    new Tab("Collection", collection));
+            tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+            return tabs;
     }
 
     private <T> TableColumn<T, String> stringColumn(String title, String property) {
@@ -655,35 +654,6 @@ final class AuxiliaryWindows {
         }
     }
 
-    private static Path collectorConfigPath() {
-        return ClientData.findProjectRoot().resolve("Data/Profile/Driver/collector/linkedin.properties");
-    }
-
-    private static String readCollectorLimit() {
-        try {
-            for (String line : Files.readAllLines(collectorConfigPath(), StandardCharsets.UTF_8)) {
-                String trimmed = line.strip();
-                if (trimmed.startsWith("limit=")) return trimmed.substring("limit=".length()).strip();
-            }
-        } catch (Exception ignored) { }
-        return "50";
-    }
-
-    private static void writeCollectorLimit(String value) throws Exception {
-        Path path = collectorConfigPath();
-        List<String> lines = Files.readAllLines(path, StandardCharsets.UTF_8);
-        boolean found = false;
-        for (int index = 0; index < lines.size(); index++) {
-            if (lines.get(index).strip().startsWith("limit=")) {
-                lines.set(index, "limit=" + value);
-                found = true;
-                break;
-            }
-        }
-        if (!found) lines.add("limit=" + value);
-        Files.write(path, lines, StandardCharsets.UTF_8);
-    }
-
     private static String displayDate(String value) {
         try { return java.time.LocalDate.parse(value.substring(0, 10)).format(
                 java.time.format.DateTimeFormatter.ofPattern("dd.MM.yyyy")); }
@@ -759,5 +729,5 @@ final class AuxiliaryWindows {
     }
 
     private record ApplicationsData(List<String> statuses, List<ApplicationRow> rows) { }
-    private record ConfigData(List<ConfigEntryDto> rows, String limit) { }
+    private record ConfigData(List<ConfigEntryDto> rows, CollectionSettings settings) { }
 }

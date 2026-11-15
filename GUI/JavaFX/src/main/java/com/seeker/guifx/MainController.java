@@ -1,5 +1,8 @@
 package com.seeker.guifx;
 
+import com.seeker.collector.common.CollectionSettings;
+import com.seeker.collector.core.CollectionSettingsLoader;
+
 import com.seeker.api.DriverApi;
 import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.GptEvaluation;
@@ -149,7 +152,7 @@ public final class MainController {
 
     private ClientData clientData;
     private DriverApi driverApi;
-    private CollectorClient directCollector;
+    private DirectCollectorClient directCollector;
     private AuxiliaryWindows auxiliaryWindows;
     private SettingsStore settingsStore;
     private TitleBlacklist titleBlacklist;
@@ -449,6 +452,33 @@ public final class MainController {
     }
 
     private void startCollect() {
+        confirmCollection("Collect", this::collect);
+    }
+
+    private void confirmCollection(String operation, Consumer<CollectionSettings> confirmed) {
+        if (collectionRunning || clientData == null) return;
+        collectionRunning = true;
+        updateCollectionButtons();
+        Task<CollectionSettings> task = new Task<>() {
+            @Override protected CollectionSettings call() throws Exception {
+                return CollectionSettingsLoader.loadForEditing(ClientData.findProjectRoot());
+            }
+        };
+        task.setOnSucceeded(event -> {
+            collectionRunning = false;
+            updateCollectionButtons();
+            new CollectionSettingsDialog(stage, operation, task.getValue()).showAndWait().ifPresent(confirmed);
+        });
+        task.setOnFailed(event -> {
+            collectionRunning = false;
+            updateCollectionButtons();
+            var alert = new Alert(Alert.AlertType.ERROR, task.getException().getMessage());
+            alert.initOwner(stage); alert.setTitle("Collection settings load failed"); alert.show();
+        });
+        collectionExecutor.execute(task);
+    }
+
+    private void collect(CollectionSettings settings) {
         if (collectionRunning) return;
         collectionRunning = true;
         updateCollectionButtons();
@@ -459,8 +489,7 @@ public final class MainController {
         progressPane.begin();
         Task<CollectionReport> task = new Task<>() {
             @Override protected CollectionReport call() throws Exception {
-                CollectorClient collector = CollectorClient.configured(ClientData.findProjectRoot(), directCollector);
-                return collector.collect(progress -> Platform.runLater(() -> progressPane.update(progress)));
+                return directCollector.collect(settings, progress -> Platform.runLater(() -> progressPane.update(progress)));
             }
         };
         task.setOnSucceeded(event -> {
@@ -494,9 +523,10 @@ public final class MainController {
     }
 
     private void startBatch() {
-        if (collectionRunning || clientData == null) return;
-        if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
-        runWorkflow(batchProgress, null);
+        confirmCollection("Batch", settings -> {
+            if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
+            runWorkflow(batchProgress, null, false, settings);
+        });
     }
 
     private void startResume(CollectionRunDto run) {
@@ -510,6 +540,11 @@ public final class MainController {
     }
 
     private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId, boolean recommendations) {
+        runWorkflow(progressPane, resumeRunId, recommendations, null);
+    }
+
+    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId, boolean recommendations,
+                             CollectionSettings settings) {
         collectionRunning = true;
         updateCollectionButtons();
         if (resumeRunId == null) progressPane.begin();
@@ -518,7 +553,7 @@ public final class MainController {
             @Override protected WorkflowResult call() throws Exception {
                 Consumer<ProgressSnapshot> progress = update -> Platform.runLater(() -> progressPane.update(update));
                 if (recommendations) return driverApi.checkRecommendations(progress);
-                return resumeRunId == null ? driverApi.processBatch(progress)
+                return resumeRunId == null ? driverApi.processBatch(settings, progress)
                         : driverApi.resume(resumeRunId, progress);
             }
         };

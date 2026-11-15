@@ -71,3 +71,36 @@ lives directly under `GUI/`, in `client_data.py`.
     Set `WAITING` when the process reports waiting,
     stalled work, or a need for user input; a silent interval alone is not a
     stalled-process signal. Keep execution and data access outside these views.
+
+## Focused Form Verification
+
+For small form changes, start with a focused check of the affected component,
+not a full application launch. `CollectionSettingsPaneTest` is an existing
+example: on the JavaFX thread, construct the form with fixture data and check
+validation, button actions, and Confirm/Cancel results without starting real
+collection or other external operations.
+
+When visual inspection is needed, render the component in a separate Scene
+without showing a Stage. Set realistic dimensions, apply CSS, and lay out the
+component before taking a snapshot. For a DialogPane, detach it from its original
+Scene before using the preview Scene. Check that the content has usable bounds;
+an image of a collapsed test layout is not evidence of a defect in the real
+window. Store snapshots under repository-root `tmp/`.
+
+Run only the focused test while iterating, for example:
+
+```powershell
+mvn -f GUI/JavaFX/pom.xml '-Dtest=CollectionSettingsPaneTest' test
+```
+
+Package the GUI once after the changes and focused checks are complete. Rebuild
+backend dependencies only when they changed. Do not repeat full packaging just
+to refresh a test snapshot. Repeat broader checks only for a concrete remaining
+concern. Off-screen rendering is useful for these forms, not a universal
+replacement for checking real window behavior. If native window behavior must
+be checked, do not steal the user's focus.
+
+If a quick UI check does not work, stop the attempt rather than spending
+extended time troubleshooting the verification setup. In the final report,
+state plainly what you could not verify. Do not claim that an unsuccessful
+check passed.

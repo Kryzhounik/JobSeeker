@@ -94,11 +94,12 @@ thread and obtains one `DriverApi` from `DriverConfiguration`. It passes the
 facade to the controller for Batch, direct Collect, Apply, and GPT Eval.
 `stop()` closes the context; a JVM shutdown hook also covers JVM termination.
 Data connection initialization still runs in the background. Progress handlers are scoped
-to each call. Collector settings are read by the backend at operation start,
-so changing the Config limit affects the next call on the existing facade.
-Collect and Batch both use `sources` from `Driver/collector/config/collector.properties`.
-The Config window still edits LinkedIn preferences; JustJoinIT preferences remain
-in `Data/Profile/Driver/collector/justjoin.properties`. Each source has its own
+to each call. Config has Filters (existing SQLite toggles) and Collection tabs.
+Collection edits source selection and both sites' search preferences. Save updates
+the existing properties files. Collect and Batch open the same editor with freshly
+loaded saved values; Confirm uses edits only for that run, and Cancel starts nothing.
+Source selection remains in `Driver/collector/config/collector.properties`, and site
+preferences remain in `Data/Profile/Driver/collector/`. Each source has its own
 accepted-vacancy limit. Mixed collection displays total accepted and each source's
 limit while retaining the active source's diagnostic fields.
 
@@ -132,7 +133,7 @@ Notepad. Reason code cells show descriptions on hover, and the column header
 shows the full code reference. Window sizes, table sorts and the Collected
 stage filter are saved in `gui-settings.json`.
 
-Collect launches the configured Java LinkedIn collector in the background.
+Collect runs the selected sources through the direct Java API in the background.
 A collapsible panel inside the main window shows Run ID, Stage, Action, the
 backend's ordered fields, and Details. Its top-right toolbar toggle shows the
 backend's `progress` summary (stage and counters), not the current action, and
@@ -145,7 +146,7 @@ Collection runs independently of other GUI actions; Collect and Batch are
 disabled while either is running. The run ID is sent before browser startup so an interrupted run
 can still be identified. Collection does not start the analysis workflow.
 
-Batch runs the complete `DriverApi.processBatch("linkedin")` workflow in a
+Batch runs the complete `DriverApi.processBatch(settings, handler)` workflow in a
 background task: collection, agent relevance filtering, job facts, candidate
 fit, job interest, and saving. Its operation-scoped handler receives
 `ProgressSnapshot`; Orchestrator handles Collector events internally. Collect
@@ -161,19 +162,10 @@ a brighter green than Collect.
 
 ### Collector connection
 
-`backend.properties` selects `collector.mode`:
-
-- `direct` (default): calls `DriverApi.collectBatch(handler)` in the GUI JVM and
-  receives immutable `ProgressSnapshot` values through a Java callback.
-- `process`: launches the external collector JAR with `collect-batch`. The CLI
-  encodes the same progress snapshots as `COLLECTOR_PROGRESS ` JSON lines on
-  stderr and writes the final `CollectionReport` to stdout.
-
-Both adapters implement `CollectorClient`; the controller and progress panel
-do not depend on the transport. The configuration is read at each Collect
-start. An unknown mode is reported as an error rather than falling back.
-The direct adapter delegates to the shared Java API; process mode remains a
-diagnostic option, not the default path. No server protocol is introduced.
+Collect calls `DriverApi.collectBatch(settings, handler)` in the GUI JVM using
+the confirmed settings. Batch uses the same session facade. These actions do
+not read `collector.mode` or launch the CLI. The legacy process adapter remains
+separate; standalone CLI collection continues loading its defaults from files.
 Python stdout redirection belongs only to CLI entry points, not to the direct
 library calls.
 

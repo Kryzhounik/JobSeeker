@@ -3,6 +3,7 @@ package com.seeker.guifx;
 import com.seeker.api.DriverApi;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.CollectionSettings;
 
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -17,5 +18,9 @@ final class DirectCollectorClient implements CollectorClient {
     @Override
     public CollectionReport collect(Consumer<ProgressSnapshot> progress) throws Exception {
         return driverApi.collectBatch(progress);
+    }
+
+    CollectionReport collect(CollectionSettings settings, Consumer<ProgressSnapshot> progress) throws Exception {
+        return driverApi.collectBatch(settings, progress);
     }
 }

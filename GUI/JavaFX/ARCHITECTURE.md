@@ -5,13 +5,16 @@
 One `DriverApi` belongs to a GUI session. It is constructed on the connection
 worker, then reused for Batch, direct Collect, Apply, and GPT Eval. Each call
 receives its own progress handler; the facade does not retain UI callbacks.
-The direct Collector adapter reuses that same facade. Transport selection is
-still read from `backend.properties` at each Collect start.
+The direct Collector adapter reuses that same facade. Collect and Batch always
+use typed direct calls with the settings confirmed for that run.
 
-Collector settings, including the limit edited in Config, are loaded by the
-backend at operation start. Saving a limit applies to the next operation;
-neither recreating the facade nor restarting the GUI is necessary. An active
-operation keeps its existing configuration. Python/JNI installation paths
+`CollectionSettingsPane` is shared by Config and the modal run confirmation.
+`CollectionSettingsLoader` owns fresh property loading and saving outside the
+FX thread; the view only edits typed settings and uses their validation.
+Save updates the files, preserving unrelated properties and disabled sources.
+Confirm passes an in-memory snapshot to the existing execution worker; Cancel
+starts no operation. Resume and Recommendations do not use this confirmation.
+An active operation keeps its existing configuration. Python/JNI installation paths
 remain startup configuration and require a restart if changed.
 
 ## Progress Rendering
