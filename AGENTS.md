@@ -31,6 +31,20 @@ Follow the decisions applicable to your task. This requirement does not apply
 to runtime agents invoked by the application for vacancy analysis, scoring,
 form filling, or other application operations.
 
+## Incremental Architecture Compliance
+
+Existing code is not an architectural reference: it may predate current
+architectural decisions and conventions. Do not copy an obsolete pattern merely
+because it exists in the repository.
+
+Adopting a new architectural decision does not require immediate migration of
+existing code. When an existing component is modified or refactored, the affected
+part must comply with the current architectural decisions and conventions.
+Do not initiate unrelated refactoring solely to enforce a new convention, and
+do not require unrelated parts of the same module to be migrated.
+
+This applies to all architectural decisions, not only naming.
+
 ## Data and Temporary Artifacts
 
 `Data/` is reserved for persistent application data and working results.
