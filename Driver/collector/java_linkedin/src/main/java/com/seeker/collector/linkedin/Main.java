@@ -38,6 +38,8 @@ public final class Main {
         return exitCode;
     }
 
+    // TODO: Agree a transport for explicit CollectionSettings (JSON, config path or flags)
+    // before adding CLI overrides. Current CLI continues loading file defaults.
     private static void run(String[] args) throws IOException {
         CollectorApi application = new CollectorApi(Path.of("."));
         Object result;

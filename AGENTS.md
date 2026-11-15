@@ -52,6 +52,9 @@ Do not put experiments, test data, diagnostic dumps, recovery scripts, or other
 one-off artifacts there. Use repository-root `tmp/` for all such files
 (for example, `tmp/experiments/` and `tmp/backups/`).
 
+If you create one-off scripts while working, delete them when no longer needed.
+Do not include them in Git commits.
+
 ## Implementation Simplicity
 
 Choose the simplest implementation that satisfies the agreed requirements.

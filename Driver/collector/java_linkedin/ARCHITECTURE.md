@@ -26,6 +26,30 @@ The old `raw.directory` in `java_linkedin/runtime.properties` is no longer read.
 Like other technical paths, the RAW root is resolved when the API is created;
 source selection and search settings reload for each collection call.
 
+## Per-run search settings
+
+`common.CollectionSettings` is the immutable user-preference snapshot for Collect
+and Batch. It contains ordered source IDs and distinct LinkedIn/JustJoin search
+records. LinkedIn has one keyword/query; JustJoin has one technology category.
+Every supplied list is copied. Selected sources require their search record;
+unselected sources need no preferences. The same constructors validate file
+defaults and explicit values, including LinkedIn's positive limit and JustJoin's
+zero-as-unlimited limit.
+
+Calls with an explicit snapshot pass that same value through DriverApi and
+Orchestrator to Collector. They load technical configuration normally and use
+the supplied search records directly. They neither read personal search files
+to fill fields nor change configuration files. Default calls load a fresh
+snapshot inside Collector; legacy source selection loads only those sources.
+
+`CollectorConfig` and `JustJoinConfig` compose the shared search records with
+their technical settings. Browser timeouts/retries, delay, HTTP page size and
+paths are excluded from the public search snapshot. Effective configs, including
+the actual search records, are persisted in run metadata; the result and workflow
+collection summary expose the used `settings` alongside per-source limits.
+Explicit URL operations retain their existing path. CLI settings overrides are
+deferred until a transport format is agreed; no new CLI option is introduced.
+
 `common.CollectorSource` is the retrieval boundary. Sources receive a
 `VacancyProcessor` and a `CollectionSink`. They can check a preview before fetching
 details, register raw content, submit a prepared vacancy and report its outcome.

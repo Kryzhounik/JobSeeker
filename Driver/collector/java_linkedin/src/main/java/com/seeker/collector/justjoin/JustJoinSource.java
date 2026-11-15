@@ -113,7 +113,7 @@ public final class JustJoinSource implements CollectorSource {
         return value == null || value.isJsonNull() ? "" : value.getAsString();
     }
 
-    private boolean atLimit() { return config.limit() > 0 && sink.acceptedCount() >= config.limit(); }
+    private boolean atLimit() { return config.search().limit() > 0 && sink.acceptedCount() >= config.search().limit(); }
     private SourceResult complete(String reason) { return new SourceResult("complete", reason, ""); }
 
     @Override public ProgressSnapshot startingSnapshot(String action, Integer urlCount) { return snapshot(action, ""); }
@@ -123,9 +123,9 @@ public final class JustJoinSource implements CollectorSource {
         fields.put("Source", source());
         fields.put("Offset", Integer.toString(offset));
         fields.put("Accepted", Integer.toString(sink == null ? 0 : sink.acceptedCount()));
-        fields.put("Limit", Integer.toString(config.limit()));
+        fields.put("Limit", Integer.toString(config.search().limit()));
         fields.put("Processed", Integer.toString(sink == null ? 0 : sink.outcomes().values().stream().mapToInt(Integer::intValue).sum()));
         return new ImmutableProgressSnapshot(runId, "Collection", status,
-                "Collection " + fields.get("Accepted") + (config.limit() > 0 ? " / " + config.limit() : ""), fields, message);
+                "Collection " + fields.get("Accepted") + (config.search().limit() > 0 ? " / " + config.search().limit() : ""), fields, message);
     }
 }

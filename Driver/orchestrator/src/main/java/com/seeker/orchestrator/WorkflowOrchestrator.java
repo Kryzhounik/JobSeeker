@@ -3,6 +3,7 @@ package com.seeker.orchestrator;
 import com.seeker.collector.core.CollectorApi;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.CollectionSettings;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.common.ScopeItem;
 import com.seeker.mailer.Mailer;
@@ -50,7 +51,8 @@ public final class WorkflowOrchestrator {
             int parallelAgents,
             int vacanciesPerAgent, Path projectRoot
     ) {
-        this(collector::collectBatch, collector::collectUrls, processingGateway,
+        this((source, settings, progress) -> settings == null ? collector.collectBatch(source, progress)
+                        : collector.collectBatch(settings, progress), collector::collectUrls, processingGateway,
                 recommendations, parallelAgents, vacanciesPerAgent,
                 batchId -> {
                     try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot)) {
@@ -63,7 +65,7 @@ public final class WorkflowOrchestrator {
             BatchCollection batchCollection,
             ProcessingGateway processingGateway
     ) {
-        this(batchCollection, (urls, prefix, progress) -> batchCollection.collect("linkedin", progress), processingGateway);
+        this(batchCollection, (urls, prefix, progress) -> batchCollection.collect("linkedin", null, progress), processingGateway);
     }
 
     WorkflowOrchestrator(
@@ -115,7 +117,7 @@ public final class WorkflowOrchestrator {
     }
 
     public WorkflowResult processBatch(Consumer<ProgressSnapshot> progress) throws IOException, UsageLimitExceededException {
-        return processBatch(null, progress);
+        return processBatch((String)null, progress);
     }
 
     public WorkflowResult processBatch(String source) throws IOException, UsageLimitExceededException {
@@ -124,12 +126,26 @@ public final class WorkflowOrchestrator {
 
     public WorkflowResult processBatch(String source, Consumer<ProgressSnapshot> progress)
             throws IOException, UsageLimitExceededException {
+        return processBatch(source, null, progress);
+    }
+
+    public WorkflowResult processBatch(CollectionSettings settings) throws IOException, UsageLimitExceededException {
+        return processBatch(settings, ignored -> {});
+    }
+
+    public WorkflowResult processBatch(CollectionSettings settings, Consumer<ProgressSnapshot> progress)
+            throws IOException, UsageLimitExceededException {
+        return processBatch(null, Objects.requireNonNull(settings), progress);
+    }
+
+    private WorkflowResult processBatch(String source, CollectionSettings settings, Consumer<ProgressSnapshot> progress)
+            throws IOException, UsageLimitExceededException {
         if (source != null && !List.of("linkedin", "justjoin").contains(source)) {
             throw new IllegalArgumentException("Unsupported process source: " + source);
         }
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
         try {
-            return processCollected(batchCollection.collect(source, run::collection), run);
+            return processCollected(batchCollection.collect(source, settings, run::collection), run);
         } catch (IOException | UsageLimitExceededException | RuntimeException error) {
             failBatch(run.runId(), error);
             throw error;
@@ -490,7 +506,7 @@ public final class WorkflowOrchestrator {
 
     @FunctionalInterface
     interface BatchCollection {
-        CollectionReport collect(String source, Consumer<ProgressSnapshot> progress) throws IOException;
+        CollectionReport collect(String source, CollectionSettings settings, Consumer<ProgressSnapshot> progress) throws IOException;
     }
 
     @FunctionalInterface

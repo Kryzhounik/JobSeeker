@@ -14,7 +14,8 @@ public record CollectionReport(
         Map<String, Integer> outcomes,
         List<PageReport> pages,
         String message,
-        @SerializedName("source_results") List<SourceCollectionResult> sourceResults
+        @SerializedName("source_results") List<SourceCollectionResult> sourceResults,
+        CollectionSettings settings
 ) {
     public CollectionReport {
         scope = scope == null ? List.of() : List.copyOf(scope);
@@ -26,6 +27,12 @@ public record CollectionReport(
 
     public CollectionReport(String source, String runId, String status, int acceptedCount,
                             List<ScopeItem> scope, Map<String, Integer> outcomes, List<PageReport> pages, String message) {
-        this(source, runId, status, acceptedCount, scope, outcomes, pages, message, List.of());
+        this(source, runId, status, acceptedCount, scope, outcomes, pages, message, List.of(), null);
+    }
+
+    public CollectionReport(String source, String runId, String status, int acceptedCount,
+                            List<ScopeItem> scope, Map<String, Integer> outcomes, List<PageReport> pages,
+                            String message, List<SourceCollectionResult> sourceResults) {
+        this(source, runId, status, acceptedCount, scope, outcomes, pages, message, sourceResults, null);
     }
 }

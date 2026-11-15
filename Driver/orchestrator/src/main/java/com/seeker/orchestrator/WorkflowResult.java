@@ -4,6 +4,7 @@ import com.google.gson.annotations.SerializedName;
 import com.seeker.collector.common.CollectionReport;
 import com.seeker.collector.common.ScopeItem;
 import com.seeker.collector.common.SourceCollectionResult;
+import com.seeker.collector.common.CollectionSettings;
 
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,8 @@ public record WorkflowResult(
             List<ScopeItem> scope,
             Map<String, Integer> outcomes,
             String message,
-            @SerializedName("source_results") List<SourceCollectionResult> sourceResults
+            @SerializedName("source_results") List<SourceCollectionResult> sourceResults,
+            CollectionSettings settings
     ) {
         public CollectionSummary {
             scope = List.copyOf(scope);
@@ -65,7 +67,7 @@ public record WorkflowResult(
         private static CollectionSummary from(CollectionReport report) {
             return report == null ? null : new CollectionSummary(
                     report.source(), report.runId(), report.status(), report.acceptedCount(),
-                    report.scope(), report.outcomes(), report.message(), report.sourceResults()
+                    report.scope(), report.outcomes(), report.message(), report.sourceResults(), report.settings()
             );
         }
     }

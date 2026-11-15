@@ -1,93 +1,56 @@
 package com.seeker.collector.linkedin.config;
 
+import com.seeker.collector.common.CollectionSettings;
+import com.seeker.collector.common.PropertySettings;
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
+import static com.seeker.collector.common.PropertySettings.csv;
 
-public record CollectorConfig(
-        String keywords,
-        List<String> locations,
-        List<String> experience,
-        List<String> remoteBroadWorkplace,
-        List<String> workplace,
-        List<String> jobTypes,
-        String datePosted,
-        String sort,
-        int limit,
-        double delaySeconds,
-        String browserChannel,
-        int browserLaunchTimeoutSeconds,
-        int pageTimeoutSeconds,
-        int navigationRetries,
-        int detailsTimeoutSeconds
-) {
-    public static CollectorConfig load(Path path) throws IOException {
-        Path profile = path.toAbsolutePath().getParent().getParent().getParent().getParent()
-                .resolve("Data/Profile/Driver/collector/linkedin.properties");
-        return load(path, profile);
+/** Effective search snapshot plus independently loaded LinkedIn technical settings. */
+public record CollectorConfig(CollectionSettings.LinkedIn search, double delaySeconds, String browserChannel,
+                              int browserLaunchTimeoutSeconds, int pageTimeoutSeconds, int navigationRetries,
+                              int detailsTimeoutSeconds) {
+    public CollectorConfig {
+        Objects.requireNonNull(search);
+        if (browserLaunchTimeoutSeconds <= 0 || pageTimeoutSeconds <= 0)
+            throw new IllegalArgumentException("LinkedIn timeouts must be positive");
+        if (navigationRetries < 0) throw new IllegalArgumentException("LinkedIn navigation retries cannot be negative");
     }
+
+    public static CollectorConfig load(Path path) throws IOException { return load(path, profile(path)); }
 
     public static CollectorConfig load(Path path, Path profile) throws IOException {
-        Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        try (Reader reader = Files.newBufferedReader(profile, StandardCharsets.UTF_8)) {
-            properties.load(reader);
-        }
-        int limit = integer(properties, "limit", 100);
-        if (limit <= 0) {
-            throw new IllegalArgumentException("LinkedIn collector limit must be positive");
-        }
-        int browserLaunchTimeoutSeconds = integer(
-                properties,
-                "browserLaunchTimeoutSeconds",
-                90
-        );
-        int pageTimeoutSeconds = integer(properties, "pageTimeoutSeconds", 60);
-        int navigationRetries = integer(properties, "navigationRetries", 3);
-        if (browserLaunchTimeoutSeconds <= 0 || pageTimeoutSeconds <= 0) {
-            throw new IllegalArgumentException("LinkedIn timeouts must be positive");
-        }
-        if (navigationRetries < 0) {
-            throw new IllegalArgumentException("LinkedIn navigation retries cannot be negative");
-        }
-        return new CollectorConfig(
-                properties.getProperty("keywords", "").trim(),
-                csv(properties.getProperty("locations", "")),
-                csv(properties.getProperty("experience", "")),
-                csv(properties.getProperty("remoteBroadWorkplace", "remote")),
-                csv(properties.getProperty("workplace", "")),
-                csv(properties.getProperty("jobTypes", "")),
-                properties.getProperty("datePosted", "").trim(),
-                properties.getProperty("sort", "").trim(),
-                limit,
-                decimal(properties, "delaySeconds", 15.0),
-                properties.getProperty("browserChannel", "chrome").trim(),
-                browserLaunchTimeoutSeconds,
-                pageTimeoutSeconds,
-                navigationRetries,
-                integer(properties, "detailsTimeoutSeconds", 20)
-        );
+        return load(path, loadSearch(path, profile));
     }
 
-    private static List<String> csv(String value) {
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(item -> !item.isEmpty())
-                .toList();
+    public static CollectionSettings.LinkedIn loadSearch(Path path) throws IOException {
+        return loadSearch(path, profile(path));
+    }
+
+    private static CollectionSettings.LinkedIn loadSearch(Path path, Path profile) throws IOException {
+        Properties p = PropertySettings.load(path, profile);
+        return new CollectionSettings.LinkedIn(p.getProperty("keywords", ""), csv(p.getProperty("locations", "")),
+                csv(p.getProperty("experience", "")), csv(p.getProperty("remoteBroadWorkplace", "remote")),
+                csv(p.getProperty("workplace", "")), csv(p.getProperty("jobTypes", "")),
+                p.getProperty("datePosted", ""), p.getProperty("sort", ""), integer(p, "limit", 100));
+    }
+
+    /** Explicit search values never load personal preferences. */
+    public static CollectorConfig load(Path path, CollectionSettings.LinkedIn search) throws IOException {
+        Properties p = PropertySettings.load(path);
+        return new CollectorConfig(search, Double.parseDouble(p.getProperty("delaySeconds", "15").trim()),
+                p.getProperty("browserChannel", "chrome").trim(), integer(p, "browserLaunchTimeoutSeconds", 90),
+                integer(p, "pageTimeoutSeconds", 60), integer(p, "navigationRetries", 3), integer(p, "detailsTimeoutSeconds", 20));
+    }
+
+    private static Path profile(Path path) {
+        return path.toAbsolutePath().getParent().getParent().getParent().getParent()
+                .resolve("Data/Profile/Driver/collector/linkedin.properties");
     }
 
     private static int integer(Properties properties, String key, int fallback) {
         return Integer.parseInt(properties.getProperty(key, String.valueOf(fallback)).trim());
-    }
-
-    private static double decimal(Properties properties, String key, double fallback) {
-        return Double.parseDouble(properties.getProperty(key, String.valueOf(fallback)).trim());
     }
 }

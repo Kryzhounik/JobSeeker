@@ -55,7 +55,7 @@ final class LinkedInCollector {
                     python.priorityCompanyIds()
             );
             for (SearchPlan.Target target : plan) {
-                if (sink.acceptedCount() >= config.limit()) {
+                if (sink.acceptedCount() >= config.search().limit()) {
                     break;
                 }
                 if (!target.collectsJobs()) {
@@ -69,7 +69,7 @@ final class LinkedInCollector {
                 }
                 collectTarget(target);
             }
-            String stopReason = sink.acceptedCount() >= config.limit()
+            String stopReason = sink.acceptedCount() >= config.search().limit()
                     ? "limit_reached"
                     : "plan_exhausted";
             return finish("complete", stopReason, "");
@@ -130,7 +130,7 @@ final class LinkedInCollector {
         int noNewPages = 0;
         int start = 0;
 
-        while (sink.acceptedCount() < config.limit()) {
+        while (sink.acceptedCount() < config.search().limit()) {
             currentPage = start / PAGE_STEP + 1;
             currentCards = 0;
             currentUrl = target.pageUrl(start);
@@ -182,23 +182,23 @@ final class LinkedInCollector {
                     continue;
                 }
                 Preview preview = card.preview(target.label(), start, index);
-                if (sink.acceptedCount() >= config.limit()) {
+                if (sink.acceptedCount() >= config.search().limit()) {
                     recordResult(logOutcome(
                             preview, "not_processed_due_to_limit", "global limit reached"
                     ));
                     break;
                 }
                 recordResult(operate(preview, materialized));
-                if (sink.acceptedCount() >= config.limit()) {
+                if (sink.acceptedCount() >= config.search().limit()) {
                     break;
                 }
             }
 
-            if (sink.acceptedCount() >= config.limit()) {
+            if (sink.acceptedCount() >= config.search().limit()) {
                 updatePageStopReason(pageIndex, "limit_reached");
             }
 
-            if (sink.acceptedCount() >= config.limit()
+            if (sink.acceptedCount() >= config.search().limit()
                     || materialized.terminal()
                     || noNewPages >= 2) {
                 return;
@@ -305,7 +305,7 @@ final class LinkedInCollector {
 
     CollectionProgress snapshot(String stage, String message) {
         return new CollectionProgress(runId, stage, currentLocation, currentSearch,
-                currentPage, currentCards, sink.acceptedCount(), urlCount == null ? config.limit() : 0,
+                currentPage, currentCards, sink.acceptedCount(), urlCount == null ? config.search().limit() : 0,
                 sink.outcomes(), message, urlCount);
     }
 
@@ -395,7 +395,7 @@ final class LinkedInCollector {
                 materialized.cards().stream().filter(LinkedInPageClient.CardData::related).count(),
                 newCards,
                 sink.acceptedCount(),
-                config.limit()
+                config.search().limit()
         );
     }
 

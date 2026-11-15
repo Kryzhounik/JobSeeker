@@ -32,6 +32,11 @@ in `Driver/collector/config/<site>.properties` and
 changes on the next call. `LinkedInApplication` remains a LinkedIn-only
 compatibility adapter to the same API.
 
+`collectBatch(CollectionSettings)` and its progress overload accept a complete,
+immutable search snapshot for that invocation. Default overloads continue to
+load current file preferences. Search settings and technical configuration are
+separated; see [per-run settings](ARCHITECTURE.md#per-run-search-settings).
+
 Callbacks run synchronously on the
 calling worker thread, before browser startup and during collection, including
 the final state. A UI caller marshals snapshots to its UI thread. Calls without

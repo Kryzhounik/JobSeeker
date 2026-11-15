@@ -32,8 +32,8 @@ class JustJoinSourceTest {
         }
         requests = new ArrayList<>(); processed = new ArrayList<>(); saved = new ArrayList<>();
         listingPages = new HashMap<>();
-        config = new JustJoinConfig("java", "all-locations", "14", List.of("en", "uk"),
-                List.of("mid", "senior"), "DESC", "published", 1, 1, 0);
+        config = new JustJoinConfig(new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en", "uk"),
+                List.of("mid", "senior"), "DESC", "published", 1), 1, 0);
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext("/offers", exchange -> {
             requests.add(exchange.getRequestURI().toString());
@@ -121,8 +121,8 @@ class JustJoinSourceTest {
     }
 
     @Test void unlimitedCollectionVisitsDistinctPublicationsAcrossPages() throws Exception {
-        config = new JustJoinConfig("java", "all-locations", "14", List.of("en"), List.of("senior"),
-                "DESC", "published", 1, 0, 0);
+        config = new JustJoinConfig(new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en"), List.of("senior"),
+                "DESC", "published", 0), 1, 0);
         var second = listing();
         second.addProperty("slug", "second-publication");
         listingPages.put(1, second);

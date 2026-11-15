@@ -75,6 +75,11 @@ java -jar Driver/orchestrator/workflow-orchestrator.jar process-batch
 Java callers use `WorkflowOrchestrator.processBatch()` and receive a
 `WorkflowResult`. Existing `processBatch("linkedin")` explicitly selects LinkedIn;
 `processBatch("justjoin")` explicitly selects JustJoinIT.
+`processBatch(CollectionSettings)` and its progress overload pass a complete
+immutable search snapshot to Collector for that invocation. Default loading
+remains inside Collector. The collection summary's `settings` contains the used
+snapshot; source-specific limits retain their existing meanings. Explicit URL
+operations and CLI arguments are unchanged.
 
 ### Process LinkedIn vacancies by URL
 

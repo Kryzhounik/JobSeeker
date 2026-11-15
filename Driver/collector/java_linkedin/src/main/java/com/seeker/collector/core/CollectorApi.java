@@ -2,6 +2,7 @@ package com.seeker.collector.core;
 
 import com.seeker.collector.linkedin.collection.LinkedInSource;
 import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.CollectionSettings;
 import com.seeker.tools.api.ProgressSnapshot;
 
 import com.seeker.collector.common.ProjectPaths;
@@ -45,11 +46,19 @@ public final class CollectorApi {
     }
 
     public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
-        return collectBatch(null, progress);
+        return collectBatch((String)null, progress);
     }
 
     public CollectionReport collectBatch(String source, Consumer<ProgressSnapshot> progress) throws IOException {
         return collectionService.collectBatch(RUN_ID_TIME.format(Instant.now()) + "-batch", source, progress);
+    }
+
+    public CollectionReport collectBatch(CollectionSettings settings) throws IOException {
+        return collectBatch(settings, ignored -> {});
+    }
+
+    public CollectionReport collectBatch(CollectionSettings settings, Consumer<ProgressSnapshot> progress) throws IOException {
+        return collectionService.collectBatch(RUN_ID_TIME.format(Instant.now()) + "-batch", settings, progress);
     }
 
     public CollectionReport collectUrl(String runId, String url) throws IOException {

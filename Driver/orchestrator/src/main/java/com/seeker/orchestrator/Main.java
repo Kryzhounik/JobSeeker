@@ -56,6 +56,8 @@ public final class Main {
         }
     }
 
+    // TODO: Agree a transport for explicit CollectionSettings (JSON, config path or flags)
+    // before adding CLI overrides. Current CLI continues loading file defaults.
     private static void runWorkflow(String[] args) throws IOException, UsageLimitExceededException {
         WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(Path.of("."));
         Consumer<ProgressSnapshot> progress = update ->

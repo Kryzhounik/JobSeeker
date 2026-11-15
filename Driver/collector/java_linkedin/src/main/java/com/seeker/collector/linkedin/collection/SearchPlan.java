@@ -64,10 +64,10 @@ final class SearchPlan {
             CollectorConfig config,
             List<String> priorityCompanyIds
     ) {
-        if (!config.sort().isBlank()) {
-            System.err.println("LinkedIn AI search has no sort control; ignoring sort=" + config.sort());
+        if (!config.search().sort().isBlank()) {
+            System.err.println("LinkedIn AI search has no sort control; ignoring sort=" + config.search().sort());
         }
-        List<String> configured = config.locations();
+        List<String> configured = config.search().locations();
         String anchor = configured.stream()
                 .filter(item -> !isLocationless(item))
                 .findFirst()
@@ -145,7 +145,7 @@ final class SearchPlan {
         boolean locationless = isLocationless(rawLocation);
 
         Map<String, String> parameters = new LinkedHashMap<>();
-        parameters.put("keywords", config.keywords());
+        parameters.put("keywords", config.search().keywords());
         parameters.put("origin", "JOB_SEARCH_PAGE_SEARCH_BUTTON");
         if (!locationless) {
             if (!geoId.isBlank()) {
@@ -158,11 +158,11 @@ final class SearchPlan {
             }
         }
         List<String> filters = new ArrayList<>();
-        addFilter(filters, "225001", remoteBroad ? config.remoteBroadWorkplace() : config.workplace(), WORKPLACE);
-        addFilter(filters, "227001", config.experience(), EXPERIENCE);
-        addFilter(filters, "226001", config.jobTypes(), JOB_TYPES);
+        addFilter(filters, "225001", remoteBroad ? config.search().remoteBroadWorkplace() : config.search().workplace(), WORKPLACE);
+        addFilter(filters, "227001", config.search().experience(), EXPERIENCE);
+        addFilter(filters, "226001", config.search().jobTypes(), JOB_TYPES);
         parameters.put("f_SAL", String.join("$", filters));
-        parameters.put("f_TPR", mapped(List.of(config.datePosted()), DATE_POSTED));
+        parameters.put("f_TPR", mapped(List.of(config.search().datePosted()), DATE_POSTED));
         if (!priorityCompanyIds.isEmpty()) {
             parameters.put("f_C", String.join(",", priorityCompanyIds));
         }

@@ -18,6 +18,12 @@ for example `api.collectBatch(collectionHandler)` or
 `Driver/collector/config/collector.properties`; `processBatch("linkedin", handler)`
 or `processBatch("justjoin", handler)` explicitly selects one source. URL processing with progress
 uses `api.processUrls(urlsList, workflowHandler)`.
+`collectBatch(settings)` and `processBatch(settings)`, with optional progress,
+accept `com.seeker.collector.common.CollectionSettings`. The snapshot contains
+complete search preferences for selected sources and is passed directly to
+Collector. Calls without it load fresh file defaults. Explicit settings affect
+one invocation and leave files unchanged; technical configuration remains
+file-loaded. Source selection overloads and CLI remain available as before.
 All progress overloads accept `Consumer<ProgressSnapshot>` from
 `com.seeker.tools.api` (Tools). Collection and workflow snapshots expose
 `runId`, `stage`, `action`, display-ready compact `progress`, an immutable ordered

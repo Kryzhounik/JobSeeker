@@ -23,23 +23,27 @@ public final class CollectionService {
     }
 
     public CollectionReport collectBatch(String runId, Consumer<ProgressSnapshot> progress) throws IOException {
-        return collectBatch(runId, null, progress);
+        return collectBatch(runId, (String)null, progress);
     }
 
     public CollectionReport collectBatch(String runId, String selectedSource, Consumer<ProgressSnapshot> progress) throws IOException {
-        List<String> names = selectedSource == null ? CollectorSettings.loadSources(paths.collectorRoot())
-                : CollectorSettings.sources(selectedSource);
+        return collectBatch(runId, CollectionSettingsLoader.load(paths, selectedSource), progress);
+    }
+
+    public CollectionReport collectBatch(String runId, CollectionSettings settings, Consumer<ProgressSnapshot> progress) throws IOException {
+        Objects.requireNonNull(settings);
+        List<String> names = settings.sources();
         runId += "-" + String.join("-", names);
         var configs = new LinkedHashMap<String, Object>();
         var limits = new LinkedHashMap<String, Integer>();
         var sinks = new LinkedHashMap<String, CollectionAccumulator>();
         for (String name : names) {
             if (name.equals("linkedin")) {
-                var config = CollectorConfig.load(paths.configPath());
-                configs.put(name, config); limits.put(name, config.limit());
+                var config = CollectorConfig.load(paths.configPath(), settings.linkedin());
+                configs.put(name, config); limits.put(name, config.search().limit());
             } else {
-                var config = JustJoinConfig.load(paths.driverRoot().getParent());
-                configs.put(name, config); limits.put(name, config.limit());
+                var config = JustJoinConfig.load(paths.driverRoot().getParent(), settings.justjoin());
+                configs.put(name, config); limits.put(name, config.search().limit());
             }
             sinks.put(name, new CollectionAccumulator());
         }
@@ -56,7 +60,7 @@ public final class CollectionService {
         batchProgress.emit(first.source(), first.startingSnapshot("starting", null));
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, Map.of("sources", names, "settings", configs));
-            return runBatch(sources, new VacancyProcessor(python), python, runId, batchProgress);
+            return runBatch(sources, new VacancyProcessor(python), python, runId, batchProgress, settings);
         }
     }
 
@@ -64,6 +68,11 @@ public final class CollectionService {
 
     static CollectionReport runBatch(List<SourceRun> sources, VacancyProcessor processor, PythonGateway python,
                                      String runId, BatchProgress progress) throws IOException {
+        return runBatch(sources, processor, python, runId, progress, null);
+    }
+
+    static CollectionReport runBatch(List<SourceRun> sources, VacancyProcessor processor, PythonGateway python,
+                                     String runId, BatchProgress progress, CollectionSettings settings) throws IOException {
         var scope = new ArrayList<ScopeItem>();
         var outcomes = new LinkedHashMap<String, Integer>();
         var pages = new ArrayList<PageReport>();
@@ -87,7 +96,7 @@ public final class CollectionService {
                 if (!"complete".equals(result.status())) break;
             }
             var report = new CollectionReport(sourceName, runId, result.status(), scope.size(), scope, outcomes,
-                    pages, String.join("\n", messages), results);
+                    pages, String.join("\n", messages), results, settings);
             python.finishRun(runId, result.status(), sources.size() > 1 && "complete".equals(result.status())
                     ? "sources_complete" : result.stopReason(), report.acceptedCount(), report.message());
             return report;

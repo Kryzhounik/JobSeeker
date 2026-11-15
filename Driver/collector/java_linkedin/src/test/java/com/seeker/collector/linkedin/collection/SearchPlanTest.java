@@ -89,7 +89,7 @@ class SearchPlanTest {
     }
 
     private CollectorConfig config(List<String> locations) {
-        return new CollectorConfig(
+        return new CollectorConfig(new com.seeker.collector.common.CollectionSettings.LinkedIn(
                 "Java",
                 locations,
                 List.of("senior", "entry_level", "manager"),
@@ -98,7 +98,7 @@ class SearchPlanTest {
                 List.of("full_time", "part_time", "contract"),
                 "week",
                 "newest",
-                100,
+                100),
                 0,
                 "chrome",
                 90,

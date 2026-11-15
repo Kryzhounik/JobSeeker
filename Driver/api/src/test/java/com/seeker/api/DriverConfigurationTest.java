@@ -56,6 +56,15 @@ class DriverConfigurationTest {
             assertNotNull(context.getBean(EasyReasoningConfiguration.class));
             assertNotNull(context.getBean(EasyReasoningService.class));
             assertEquals(1, context.getBeansOfType(DriverApi.class).size());
+            var explicit = new com.seeker.collector.common.CollectionSettings(java.util.List.of("linkedin"),
+                    new com.seeker.collector.common.CollectionSettings.LinkedIn("Java", java.util.List.of("Poland"),
+                            java.util.List.of(), java.util.List.of("remote"), java.util.List.of("remote"),
+                            java.util.List.of(), "week", "", 23), null);
+            var stop = new RuntimeException("Stop before Python or browser startup");
+            assertSame(stop, assertThrows(RuntimeException.class, () -> api.collectBatch(explicit, update -> {
+                assertEquals("0 / 23", update.fields().get("Accepted / limit"));
+                throw stop;
+            })));
             // Construction works with nonexistent Python/native paths: no runtime was started.
             assertNotNull(new DriverApi(projectRoot));
         }

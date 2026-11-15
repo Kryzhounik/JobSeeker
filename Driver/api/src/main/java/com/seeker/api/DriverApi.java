@@ -8,6 +8,7 @@ import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.core.CollectorApi;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.collector.common.CollectionReport;
+import com.seeker.collector.common.CollectionSettings;
 import com.seeker.collector.common.ScopeItem;
 import com.seeker.collector.linkedin.login.LoginResult;
 import com.seeker.orchestrator.StageResult;
@@ -43,6 +44,23 @@ public final class DriverApi {
 
     public CollectionReport collectBatch(Consumer<ProgressSnapshot> progress) throws IOException {
         return collector.collectBatch(progress);
+    }
+
+    public CollectionReport collectBatch(CollectionSettings settings) throws IOException {
+        return collector.collectBatch(settings);
+    }
+
+    public CollectionReport collectBatch(CollectionSettings settings, Consumer<ProgressSnapshot> progress) throws IOException {
+        return collector.collectBatch(settings, progress);
+    }
+
+    public WorkflowResult processBatch(CollectionSettings settings) throws IOException, UsageLimitExceededException {
+        return orchestrator.processBatch(settings);
+    }
+
+    public WorkflowResult processBatch(CollectionSettings settings, Consumer<ProgressSnapshot> progress)
+            throws IOException, UsageLimitExceededException {
+        return orchestrator.processBatch(settings, progress);
     }
 
     public WorkflowResult processBatch() throws IOException, UsageLimitExceededException {

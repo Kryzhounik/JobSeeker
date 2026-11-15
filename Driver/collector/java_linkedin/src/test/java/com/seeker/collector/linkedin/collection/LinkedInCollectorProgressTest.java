@@ -24,9 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class LinkedInCollectorProgressTest {
-    private static final CollectorConfig CONFIG = new CollectorConfig(
+    private static final CollectorConfig CONFIG = new CollectorConfig(new com.seeker.collector.common.CollectionSettings.LinkedIn(
             "Java", List.of("Poland"), List.of(), List.of("remote"), List.of(),
-            List.of(), "", "", 100, 0, "chrome", 90, 60, 3, 20);
+            List.of(), "", "", 100), 0, "chrome", 90, 60, 3, 20);
 
     @Test
     void recordsProcessingFailureAndAllowsTheNextVacancy() throws Exception {

@@ -62,7 +62,7 @@ public final class LinkedInSource implements CollectorSource {
     }
 
     @Override public ProgressSnapshot startingSnapshot(String action, Integer urlCount) {
-        return urlCount == null ? CollectionProgress.starting(runId, action, config.limit())
+        return urlCount == null ? CollectionProgress.starting(runId, action, config.search().limit())
                 : CollectionProgress.startingUrls(runId, action, urlCount);
     }
 

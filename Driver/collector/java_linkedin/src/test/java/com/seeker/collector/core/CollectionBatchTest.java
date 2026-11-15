@@ -18,11 +18,11 @@ class CollectionBatchTest {
         Files.createDirectories(root.resolve("config"));
         Path config = root.resolve("config/collector.properties");
         Files.writeString(config, "sources=linkedin,justjoin\n");
-        assertEquals(List.of("linkedin", "justjoin"), CollectorSettings.loadSources(root));
+        assertEquals(List.of("linkedin", "justjoin"), CollectionSettingsLoader.loadSources(root));
         Files.writeString(config, "sources=justjoin\n");
-        assertEquals(List.of("justjoin"), CollectorSettings.loadSources(root));
+        assertEquals(List.of("justjoin"), CollectionSettingsLoader.loadSources(root));
         for (String invalid : List.of("", "other", "linkedin,linkedin"))
-            assertThrows(IllegalArgumentException.class, () -> CollectorSettings.sources(invalid));
+            assertThrows(IllegalArgumentException.class, () -> CollectionSettingsLoader.sources(invalid));
     }
 
     @Test void sequentialSourcesHaveIndependentLimitsAndOneCombinedResult() throws Exception {
@@ -149,10 +149,17 @@ class CollectionBatchTest {
             var entry = source.entry();
             limits.put(name, 1); sinks.put(name, entry.sink()); entries.add(entry);
         }
+        var snapshot = new CollectionSettings(List.of("linkedin", "justjoin"),
+                new CollectionSettings.LinkedIn("Java snapshot", List.of("Poland"), List.of(), List.of("remote"),
+                        List.of("remote"), List.of(), "week", "", 1),
+                new CollectionSettings.JustJoin("kotlin", "all-locations", "7", List.of("en"), List.of("senior"), "DESC", "published", 1));
+        var effectiveConfigs = Map.of("linkedin", com.seeker.collector.linkedin.config.CollectorConfig.load(paths.configPath(), snapshot.linkedin()),
+                "justjoin", com.seeker.collector.justjoin.JustJoinConfig.load(root, snapshot.justjoin()));
         try (var python = new com.seeker.collector.common.python.JpyPythonGateway(paths, runtime)) {
-            python.startRun("run", Map.of("sources", List.of("linkedin", "justjoin")));
+            python.startRun("run", Map.of("sources", snapshot.sources(), "settings", effectiveConfigs));
             var report = CollectionService.runBatch(entries, new VacancyProcessor(python), python, "run",
-                    new BatchProgress(ignored -> {}, limits, sinks));
+                    new BatchProgress(ignored -> {}, limits, sinks), snapshot);
+            assertSame(snapshot, report.settings());
             assertEquals(2, report.acceptedCount());
             assertEquals(2, report.sourceResults().size());
             assertTrue(Files.isRegularFile(paths.rawDirectory().resolve("linkedin/pages/1.html")));
@@ -162,6 +169,12 @@ class CollectionBatchTest {
                     ((FakeSource)entry.source()).preview("1")).rule());
             try (var sqlite = org.jpy.PyModule.importModule("sqlite3");
                  var connection = sqlite.callMethod("connect", paths.databasePath().toString())) {
+                try (var cursor = connection.callMethod("execute", "SELECT config_json FROM collection_runs");
+                     var row = cursor.callMethod("fetchone"); var value = row.callMethod("__getitem__", 0)) {
+                    var saved = JsonSupport.GSON.fromJson(value.getStringValue(), com.google.gson.JsonObject.class).getAsJsonObject("settings");
+                    assertEquals(snapshot.linkedin(), JsonSupport.GSON.fromJson(saved.getAsJsonObject("linkedin").get("search"), CollectionSettings.LinkedIn.class));
+                    assertEquals(snapshot.justjoin(), JsonSupport.GSON.fromJson(saved.getAsJsonObject("justjoin").get("search"), CollectionSettings.JustJoin.class));
+                }
                 try (var cursor = connection.callMethod("execute", "SELECT run_id,accepted_count,collection_status FROM collection_runs");
                      var rows = cursor.callMethod("fetchall")) {
                     assertEquals("[('run', 2, 'complete')]", rows.repr());
