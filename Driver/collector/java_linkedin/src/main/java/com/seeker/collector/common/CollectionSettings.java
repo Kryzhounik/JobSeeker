@@ -19,12 +19,12 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
             throw new IllegalArgumentException("Expected distinct sources: linkedin, justjoin");
     }
 
-    /** One LinkedIn keyword/query, with its ordered locations and search filters. */
-    public record LinkedIn(String keywords, List<String> locations, List<String> experience,
+    /** Ordered LinkedIn queries and locations sharing one accepted-vacancy limit. */
+    public record LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
                            List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
                            String datePosted, String sort, int limit) {
         public LinkedIn {
-            keywords = Objects.requireNonNull(keywords).trim();
+            keywords = List.copyOf(keywords);
             locations = List.copyOf(locations);
             experience = List.copyOf(experience);
             remoteBroadWorkplace = List.copyOf(remoteBroadWorkplace);

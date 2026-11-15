@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class CollectionSettingsPaneTest {
     private static CollectionSettings defaults() {
         return new CollectionSettings(List.of("justjoin", "linkedin"),
-                new CollectionSettings.LinkedIn("Java", List.of("Moldova:106178099", "Ukraine:102264497"),
+                new CollectionSettings.LinkedIn(List.of("Java"), List.of("Moldova:106178099", "Ukraine:102264497"),
                         List.of("senior", "entry_level", "manager"), List.of("remote"),
                         List.of("remote", "hybrid"), List.of("full_time", "contract"), "week", "", 10),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en", "ru"),
@@ -38,6 +38,8 @@ class CollectionSettingsPaneTest {
                 new Scene(editor, 780, 750);
                 editor.applyCss(); editor.layout();
                 assertEquals(saved, editor.settings());
+                field(editor, "li-keywords").setText("Java, AI");
+                assertEquals(List.of("Java", "AI"), editor.settings().linkedin().keywords());
                 field(editor, "li-limit").setText("0");
                 assertThrows(IllegalArgumentException.class, editor::settings);
                 field(editor, "li-limit").setText("oops");

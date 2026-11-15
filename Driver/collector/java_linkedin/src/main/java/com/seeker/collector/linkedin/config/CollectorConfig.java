@@ -31,7 +31,7 @@ public record CollectorConfig(CollectionSettings.LinkedIn search, double delaySe
 
     private static CollectionSettings.LinkedIn loadSearch(Path path, Path profile) throws IOException {
         Properties p = PropertySettings.load(path, profile);
-        return new CollectionSettings.LinkedIn(p.getProperty("keywords", ""), csv(p.getProperty("locations", "")),
+        return new CollectionSettings.LinkedIn(csv(p.getProperty("keywords", "")), csv(p.getProperty("locations", "")),
                 csv(p.getProperty("experience", "")), csv(p.getProperty("remoteBroadWorkplace", "remote")),
                 csv(p.getProperty("workplace", "")), csv(p.getProperty("jobTypes", "")),
                 p.getProperty("datePosted", ""), p.getProperty("sort", ""), integer(p, "limit", 100));

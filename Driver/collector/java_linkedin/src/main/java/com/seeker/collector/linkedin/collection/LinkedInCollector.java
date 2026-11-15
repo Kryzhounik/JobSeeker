@@ -30,6 +30,7 @@ final class LinkedInCollector {
     private final Set<String> seenIds = new LinkedHashSet<>();
     private String currentLocation = "";
     private String currentSearch = "";
+    private String currentQuery = "";
     private int currentPage;
     private int currentCards;
     private String currentUrl = "";
@@ -61,6 +62,7 @@ final class LinkedInCollector {
                 if (!target.collectsJobs()) {
                     currentLocation = target.label();
                     currentSearch = "seed";
+                    currentQuery = target.query();
                     currentUrl = target.pageUrl(0);
                     progress("opening_seed", "");
                     System.err.println("LinkedIn seed: " + target.label());
@@ -126,6 +128,7 @@ final class LinkedInCollector {
     private void collectTarget(SearchPlan.Target target) {
         currentLocation = target.label();
         currentSearch = target.kind().name().toLowerCase(Locale.ROOT);
+        currentQuery = target.query();
         Set<String> targetSeenIds = new LinkedHashSet<>();
         int noNewPages = 0;
         int start = 0;
@@ -304,9 +307,12 @@ final class LinkedInCollector {
     }
 
     CollectionProgress snapshot(String stage, String message) {
-        return new CollectionProgress(runId, stage, currentLocation, currentSearch,
+        CollectionProgress progress = new CollectionProgress(runId, stage, currentLocation, currentSearch,
                 currentPage, currentCards, sink.acceptedCount(), urlCount == null ? config.search().limit() : 0,
                 sink.outcomes(), message, urlCount);
+        var fields = new java.util.LinkedHashMap<>(progress.fields());
+        fields.put("Query", currentQuery);
+        return new CollectionProgress(progress.runId(), progress.stage(), progress.action(), progress.progress(), fields, progress.details());
     }
 
     List<PageReport> pages() { return List.copyOf(pages); }

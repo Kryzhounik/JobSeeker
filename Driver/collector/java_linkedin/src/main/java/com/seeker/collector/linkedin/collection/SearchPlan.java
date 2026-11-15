@@ -49,6 +49,7 @@ final class SearchPlan {
     record Target(
             String label,
             Kind kind,
+            String query,
             String baseUrl
     ) {
         String pageUrl(int start) {
@@ -91,29 +92,31 @@ final class SearchPlan {
                 targets.add(new Target(
                         "seed:" + anchorName,
                         Kind.SEED,
-                        searchUrl(config, anchor, true, List.of())
+                        config.search().keywords().getFirst(),
+                        searchUrl(config, anchor, config.search().keywords().getFirst(), true, List.of())
                 ));
-                targets.add(new Target(
-                        locationName(rawLocation),
-                        Kind.ACCOUNT_REMOTE,
-                        searchUrl(config, rawLocation, true, List.of())
-                ));
+                for (String keyword : config.search().keywords()) {
+                    targets.add(new Target(
+                            locationName(rawLocation), Kind.ACCOUNT_REMOTE, keyword,
+                            searchUrl(config, rawLocation, keyword, true, List.of())
+                    ));
+                }
                 continue;
             }
 
             String name = locationName(rawLocation);
-            if (!priorityCompanyIds.isEmpty()) {
+            for (String keyword : config.search().keywords()) {
+                if (!priorityCompanyIds.isEmpty()) {
+                    targets.add(new Target(
+                            name + ":priority", Kind.PRIORITY, keyword,
+                            searchUrl(config, rawLocation, keyword, false, priorityCompanyIds)
+                    ));
+                }
                 targets.add(new Target(
-                        name + ":priority",
-                        Kind.PRIORITY,
-                        searchUrl(config, rawLocation, false, priorityCompanyIds)
+                        name, Kind.GENERAL, keyword,
+                        searchUrl(config, rawLocation, keyword, false, List.of())
                 ));
             }
-            targets.add(new Target(
-                    name,
-                    Kind.GENERAL,
-                    searchUrl(config, rawLocation, false, List.of())
-            ));
         }
         return targets;
     }
@@ -136,6 +139,7 @@ final class SearchPlan {
     private static String searchUrl(
             CollectorConfig config,
             String rawLocation,
+            String keyword,
             boolean remoteBroad,
             List<String> priorityCompanyIds
     ) {
@@ -145,7 +149,7 @@ final class SearchPlan {
         boolean locationless = isLocationless(rawLocation);
 
         Map<String, String> parameters = new LinkedHashMap<>();
-        parameters.put("keywords", config.search().keywords());
+        parameters.put("keywords", keyword);
         parameters.put("origin", "JOB_SEARCH_PAGE_SEARCH_BUTTON");
         if (!locationless) {
             if (!geoId.isBlank()) {

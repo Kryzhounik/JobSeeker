@@ -33,7 +33,7 @@ final class CollectionSettingsPane extends VBox {
             getChildren().add(new Label("LinkedIn configuration is missing or invalid. Fix its properties file to enable it."));
         } else {
         GridPane l = grid();
-        add(l, "li.keywords", "Keyword", li.keywords(), "One search query");
+        add(l, "li.keywords", "Queries (in order)", join(li.keywords()), "Java,AI — shared LinkedIn limit");
         add(l, "li.locations", "Locations (in order)", join(li.locations()), "Moldova:106178099,Ukraine:102264497; AccountRemote requires a country seed");
         add(l, "li.experience", "Experience", join(li.experience()), "entry_level,senior,manager");
         add(l, "li.remote", "AccountRemote workplace", join(li.remoteBroadWorkplace()), "remote,hybrid,office");
@@ -69,7 +69,7 @@ final class CollectionSettingsPane extends VBox {
         for (String source : initial.sources()) if (enabled(source)) sources.add(source);
         for (String source : List.of("linkedin", "justjoin"))
             if (enabled(source) && !sources.contains(source)) sources.add(source);
-        var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(value("li.keywords"),
+        var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(list("li.keywords"),
                 list("li.locations"), list("li.experience"), list("li.remote"), list("li.workplace"),
                 list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"))
                 : initial.linkedin();

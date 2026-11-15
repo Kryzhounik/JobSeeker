@@ -150,7 +150,7 @@ class CollectionBatchTest {
             limits.put(name, 1); sinks.put(name, entry.sink()); entries.add(entry);
         }
         var snapshot = new CollectionSettings(List.of("linkedin", "justjoin"),
-                new CollectionSettings.LinkedIn("Java snapshot", List.of("Poland"), List.of(), List.of("remote"),
+                new CollectionSettings.LinkedIn(List.of("Java snapshot"), List.of("Poland"), List.of(), List.of("remote"),
                         List.of("remote"), List.of(), "week", "", 1),
                 new CollectionSettings.JustJoin("kotlin", "all-locations", "7", List.of("en"), List.of("senior"), "DESC", "published", 1));
         var effectiveConfigs = Map.of("linkedin", com.seeker.collector.linkedin.config.CollectorConfig.load(paths.configPath(), snapshot.linkedin()),

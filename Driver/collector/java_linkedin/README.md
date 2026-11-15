@@ -56,6 +56,14 @@ Subsequent workflow filtering and analysis return a separate `WorkflowResult`.
 
 ## Runtime behavior
 
+LinkedIn `keywords` is an ordered comma-separated query list, for example
+`keywords=Java,AI`. Existing `keywords=Java` remains a single query. Each location
+runs every query in order before moving to the next location; each query retains
+the priority-company and general passes. AccountRemote is seeded once before
+its query group. One LinkedIn accepted-vacancy limit covers all queries and
+locations, so an earlier query can consume the entire budget. Overlapping job
+IDs are visited once per run. JustJoinIT retains its separate `mainTech` and limit.
+
 - The logged-in `/jobs/search-results/` UI is collected. There is no guest
   prefetch.
 - `AccountRemote` is seeded from the first configured country and collected

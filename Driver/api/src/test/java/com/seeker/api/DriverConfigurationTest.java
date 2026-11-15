@@ -57,7 +57,7 @@ class DriverConfigurationTest {
             assertNotNull(context.getBean(EasyReasoningService.class));
             assertEquals(1, context.getBeansOfType(DriverApi.class).size());
             var explicit = new com.seeker.collector.common.CollectionSettings(java.util.List.of("linkedin"),
-                    new com.seeker.collector.common.CollectionSettings.LinkedIn("Java", java.util.List.of("Poland"),
+                    new com.seeker.collector.common.CollectionSettings.LinkedIn(java.util.List.of("Java"), java.util.List.of("Poland"),
                             java.util.List.of(), java.util.List.of("remote"), java.util.List.of("remote"),
                             java.util.List.of(), "week", "", 23), null);
             var stop = new RuntimeException("Stop before Python or browser startup");

@@ -53,7 +53,7 @@ class CollectionSettingsTest {
         var languages = new ArrayList<>(List.of("en"));
         var levels = new ArrayList<>(List.of("mid"));
         var snapshot = new CollectionSettings(sources,
-                new CollectionSettings.LinkedIn("Java", locations, experience, remoteBroad, workplace, jobTypes, "week", "", 5),
+                new CollectionSettings.LinkedIn(List.of("Java"), locations, experience, remoteBroad, workplace, jobTypes, "week", "", 5),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", languages, levels, "DESC", "published", 0));
         for (var list : List.of(sources, locations, experience, remoteBroad, workplace, jobTypes, languages, levels)) list.clear();
         assertEquals(List.of("linkedin", "justjoin"), snapshot.sources());
@@ -123,6 +123,19 @@ class CollectionSettingsTest {
         assertEquals(6, CollectionSettingsLoader.loadForEditing(root).justjoin().limit());
     }
 
+    @Test void orderedQueriesRoundTripAndOwnTheirList() throws Exception {
+        var queries = new ArrayList<>(List.of("Java", "AI"));
+        var s = linkedin(8);
+        var multi = new CollectionSettings.LinkedIn(queries, s.locations(), s.experience(), s.remoteBroadWorkplace(),
+                s.workplace(), s.jobTypes(), s.datePosted(), s.sort(), s.limit());
+        queries.clear();
+        assertEquals(List.of("Java", "AI"), multi.keywords());
+        assertThrows(UnsupportedOperationException.class, () -> multi.keywords().clear());
+        CollectionSettingsLoader.save(root, new CollectionSettings(List.of("linkedin"), multi, null));
+        assertEquals("Java,AI", PropertySettings.load(linkedinFile).getProperty("keywords"));
+        assertEquals(multi, CollectionSettingsLoader.loadForEditing(root).linkedin());
+    }
+
     @Test void explicitRunsStayIndependentAndNextDefaultRunReadsChangedPreferences() throws Exception {
         var api = new CollectorApi(root);
         var first = new CollectionSettings(List.of("linkedin", "justjoin"), linkedin(5), justjoin(0));
@@ -141,7 +154,7 @@ class CollectionSettingsTest {
         assertEquals("0 / 17", defaults.get("linkedin accepted / limit"));
         assertEquals("0 / 11", defaults.get("justjoin accepted / limit"));
         var loaded = CollectionSettingsLoader.load(ProjectPaths.fromProjectRoot(root), null);
-        assertEquals("Changed file query", loaded.linkedin().keywords());
+        assertEquals(List.of("Changed file query"), loaded.linkedin().keywords());
         assertEquals("python", loaded.justjoin().mainTech());
         assertEquals(before, configContents());
     }
@@ -200,7 +213,7 @@ class CollectionSettingsTest {
     }
 
     private CollectionSettings.LinkedIn linkedin(int limit) {
-        return new CollectionSettings.LinkedIn("Java override", List.of("Ukraine:102264497"), List.of("senior"),
+        return new CollectionSettings.LinkedIn(List.of("Java override"), List.of("Ukraine:102264497"), List.of("senior"),
                 List.of("remote"), List.of("remote"), List.of("contract"), "week", "", limit);
     }
 

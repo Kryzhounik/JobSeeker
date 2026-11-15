@@ -68,6 +68,13 @@ required or justified by an observed failure. Report failures through existing
 error handling and fix concrete problems when they occur; do not silently
 suppress errors to keep the workflow running.
 
+## Verification Delegation
+
+The primary agent performs the requested work. Delegate additional functional
+verification, including writing and running test scenarios, to a `gpt-6-luna`
+subagent with `reasoning_effort="low"`, unless the task explicitly requires the
+primary agent to perform it. Production-code fixes remain with the primary agent.
+
 ## Coding Task Handoff
 
 Use this format for small, scoped coding tasks. For larger module-level
@@ -119,7 +126,8 @@ When reviewing a GitHub Issue, consider any draft implementation plan in its
 description or comments (ChatGPT, for example, cannot currently attach artifacts).
 When planning related tasks, account for the status and actual results of preceding related tasks.
 The reviewing agent may propose clarifications or additions. After agreement,
-attach the final plan as an Issue Artifact of type `plan` through GitHub CLI.
+use `Tools/publish_issue_plan.py` to publish the final Plan artifact and remove
+the superseded draft from the description. Usage is documented in the script.
 The implementing agent follows the attached plan and the issue requirements;
 it does not need to reconstruct the plan from old drafts or comments.
 

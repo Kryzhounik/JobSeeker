@@ -30,7 +30,9 @@ source selection and search settings reload for each collection call.
 
 `common.CollectionSettings` is the immutable user-preference snapshot for Collect
 and Batch. It contains ordered source IDs and distinct LinkedIn/JustJoin search
-records. LinkedIn has one keyword/query; JustJoin has one technology category.
+records. LinkedIn has an ordered query list sharing one source limit;
+JustJoin has one technology category. Queries run within each location, with
+priority/general passes per query and one seed before the AccountRemote group.
 Every supplied list is copied. Selected sources require their search record;
 unselected sources need no preferences. The same constructors validate file
 defaults and explicit values, including LinkedIn's positive limit and JustJoin's

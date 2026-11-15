@@ -40,7 +40,7 @@ public final class CollectionSettingsLoader {
         if (settings.sources().contains("linkedin")) {
             var s = settings.linkedin();
             update(profile.resolve("linkedin.properties"), Map.of(
-                    "keywords", s.keywords(), "locations", String.join(",", s.locations()),
+                    "keywords", String.join(",", s.keywords()), "locations", String.join(",", s.locations()),
                     "experience", String.join(",", s.experience()),
                     "remoteBroadWorkplace", String.join(",", s.remoteBroadWorkplace()),
                     "workplace", String.join(",", s.workplace()), "jobTypes", String.join(",", s.jobTypes()),

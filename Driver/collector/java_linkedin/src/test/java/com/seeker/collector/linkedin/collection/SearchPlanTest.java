@@ -15,6 +15,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SearchPlanTest {
+    @Test void queriesAreNestedInsideLocationsWithOneRemoteSeed() {
+        var original = config(List.of("Moldova:106178099", "AccountRemote", "Ukraine:102264497"));
+        var s = original.search();
+        var multi = new CollectorConfig(new com.seeker.collector.common.CollectionSettings.LinkedIn(
+                List.of("Java", "AI"), s.locations(), s.experience(), s.remoteBroadWorkplace(),
+                s.workplace(), s.jobTypes(), s.datePosted(), s.sort(), s.limit()), 0, "chrome", 90, 60, 3, 20);
+        var plan = SearchPlan.build(multi, List.of("101"));
+        assertEquals(List.of("seed:Moldova/Java", "AccountRemote/Java", "AccountRemote/AI",
+                "Moldova:priority/Java", "Moldova/Java", "Moldova:priority/AI", "Moldova/AI",
+                "Ukraine:priority/Java", "Ukraine/Java", "Ukraine:priority/AI", "Ukraine/AI"),
+                plan.stream().map(t -> t.label() + "/" + t.query()).toList());
+        assertEquals(1, plan.stream().filter(t -> !t.collectsJobs()).count());
+        for (var target : plan) {
+            var params = query(target.baseUrl());
+            assertEquals(target.query(), params.get("keywords"));
+            assertEquals("r604800", params.get("f_TPR"));
+            if (target.kind() == SearchPlan.Kind.PRIORITY) assertEquals("101", params.get("f_C"));
+        }
+    }
     @Test
     void buildsBrowserOnlyPlanWithRemoteSeedAndPriorityCountryPasses() {
         CollectorConfig config = config(List.of(
@@ -90,7 +109,7 @@ class SearchPlanTest {
 
     private CollectorConfig config(List<String> locations) {
         return new CollectorConfig(new com.seeker.collector.common.CollectionSettings.LinkedIn(
-                "Java",
+                List.of("Java"),
                 locations,
                 List.of("senior", "entry_level", "manager"),
                 List.of("remote"),
