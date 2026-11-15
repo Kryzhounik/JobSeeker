@@ -200,5 +200,10 @@ analysis. Resume and standalone collection commands are unchanged.
 Common JPy initialization and Python runtime loading are provided by Tools.
 Shared Python/JPy paths and `database.path` are configured in
 `Tools/runtime.properties`, independently of Collector. The local
-`runtime.properties` retains only `java.executable`, `raw.directory` and
+`raw.directory` in `Driver/collector/config/collector.properties` is the common
+RAW root (default `Data/raw`). Files go into `<root>/<source>/pages/`; the old
+RAW setting in `java_linkedin/runtime.properties` is ignored. Existing files are
+not moved.
+
+`runtime.properties` retains only `java.executable` and
 `profile.directory`.

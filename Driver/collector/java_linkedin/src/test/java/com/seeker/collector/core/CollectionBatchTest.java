@@ -86,13 +86,30 @@ class CollectionBatchTest {
         assertEquals(List.of("run", "blocked", "java_exception", 0, "HTTP failed"), finished.getFirst());
     }
 
+    @Test void failureKeepsAcceptedCountFromCompletedAndPartiallyProcessedSources() {
+        for (int partial : List.of(0, 2)) {
+            var calls = new ArrayList<String>();
+            var first = new FakeSource("linkedin", 50, calls);
+            first.offers = 50;
+            var second = new FakeSource("justjoin", 10, calls);
+            second.fail = partial == 0;
+            second.failAfter = partial == 0 ? Integer.MAX_VALUE : partial;
+            var entries = List.of(first.entry(), second.entry(), new FakeSource("unstarted", 1, calls).entry());
+            var finished = new ArrayList<List<Object>>();
+            IOException error = assertThrows(IOException.class, () -> run(entries, new ArrayList<>(), finished));
+            assertEquals("HTTP failed", error.getMessage());
+            assertEquals(List.of("linkedin", "justjoin"), calls);
+            assertEquals(List.of(List.of("run", "blocked", "java_exception", 50 + partial, "HTTP failed")), finished);
+        }
+    }
+
     @Test void configuredJustJoinDoesNotLoadLinkedInPreferencesOrStartItsBrowser(@TempDir Path root) throws Exception {
         Path collector = root.resolve("Driver/collector");
         Files.createDirectories(collector.resolve("config"));
         Files.createDirectories(collector.resolve("java_linkedin"));
         Files.createDirectories(root.resolve("Tools"));
         Files.createDirectories(root.resolve("Data/Profile/Driver/collector"));
-        Files.writeString(collector.resolve("config/collector.properties"), "sources=justjoin\n");
+        Files.writeString(collector.resolve("config/collector.properties"), "sources=justjoin\nraw.directory=raw\n");
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
         Files.writeString(collector.resolve("config/justjoin.properties"), "itemsCount=1\ndelaySeconds=0\n");
         Files.writeString(root.resolve("Data/Profile/Driver/collector/justjoin.properties"), "mainTech=java\nlimit=5\n");
@@ -138,6 +155,8 @@ class CollectionBatchTest {
                     new BatchProgress(ignored -> {}, limits, sinks));
             assertEquals(2, report.acceptedCount());
             assertEquals(2, report.sourceResults().size());
+            assertTrue(Files.isRegularFile(paths.rawDirectory().resolve("linkedin/pages/1.html")));
+            assertTrue(Files.isRegularFile(paths.rawDirectory().resolve("justjoin/pages/1.json")));
             assertEquals("B2", ((Map<?, ?>)((List<?>)report.scope().getLast().fields().get("languages")).getFirst()).get("level"));
             for (var entry : entries) assertEquals("duplicate_source_job_id", python.decidePreview(
                     ((FakeSource)entry.source()).preview("1")).rule());
@@ -150,6 +169,40 @@ class CollectionBatchTest {
                 try (var cursor = connection.callMethod("execute", "SELECT source,source_job_id,collection_run_id FROM source_jobs ORDER BY source");
                      var rows = cursor.callMethod("fetchall")) {
                     assertEquals("[('justjoin', '1', 'run'), ('linkedin', '1', 'run')]", rows.repr());
+                } finally { try (var ignored = connection.callMethod("close")) { } }
+            }
+        }
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
+    void failedSecondSourcePersistsPartialAcceptedCount(@TempDir Path temporary) throws Exception {
+        Path root = Path.of(System.getProperty("seeker.project.root"));
+        var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
+                root.resolve("Driver/collector/config/linkedin.properties"), temporary.resolve("jobs.sqlite"),
+                temporary.resolve("raw"), temporary.resolve("unused-profile"));
+        var first = new FakeSource("linkedin", 2, new ArrayList<>());
+        var second = new FakeSource("justjoin", 2, new ArrayList<>());
+        first.persist = second.persist = true;
+        second.failAfter = 1;
+        var entries = List.of(first.entry(), second.entry());
+        var limits = new LinkedHashMap<String, Integer>();
+        var sinks = new LinkedHashMap<String, CollectionAccumulator>();
+        entries.forEach(entry -> { limits.put(entry.source().source(), entry.limit()); sinks.put(entry.source().source(), entry.sink()); });
+        var runtime = com.seeker.python.PythonRuntime.load(root.resolve("Tools/runtime.properties"));
+        try (var python = new com.seeker.collector.common.python.JpyPythonGateway(paths, runtime)) {
+            python.startRun("failed-run", Map.of("sources", List.of("linkedin", "justjoin")));
+            assertThrows(IOException.class, () -> CollectionService.runBatch(entries, new VacancyProcessor(python), python,
+                    "failed-run", new BatchProgress(ignored -> {}, limits, sinks)));
+            try (var sqlite = org.jpy.PyModule.importModule("sqlite3");
+                 var connection = sqlite.callMethod("connect", paths.databasePath().toString())) {
+                try (var cursor = connection.callMethod("execute", "SELECT accepted_count,collection_status,status FROM collection_runs");
+                     var rows = cursor.callMethod("fetchall")) {
+                    assertEquals("[(3, 'blocked', 'failed')]", rows.repr());
+                }
+                try (var cursor = connection.callMethod("execute", "SELECT count(*) FROM source_jobs WHERE processing_status='CLEANED'");
+                     var rows = cursor.callMethod("fetchall")) {
+                    assertEquals("[(3,)]", rows.repr());
                 } finally { try (var ignored = connection.callMethod("close")) { } }
             }
         }
@@ -175,13 +228,15 @@ class CollectionBatchTest {
         String status = "complete";
         boolean fail;
         boolean persist;
+        int offers = 3;
+        int failAfter = Integer.MAX_VALUE;
         FakeSource(String name, int limit, List<String> calls) { this.name = name; this.limit = limit; this.calls = calls; }
         CollectionService.SourceRun entry() { return new CollectionService.SourceRun(this, limit, new CollectionAccumulator()); }
         public String source() { return name; }
         public SourceResult collectBatch(VacancyProcessor processor, CollectionSink sink) throws IOException {
             calls.add(name);
             if (fail) throw new IOException("HTTP failed");
-            for (int i = 1; i <= 3 && sink.acceptedCount() < limit; i++) {
+            for (int i = 1; i <= offers && sink.acceptedCount() < limit; i++) {
                 var fields = Map.<String, Object>of("languages", List.of(Map.of("code", "en", "level", "B2")));
                 if (persist) {
                     var preview = preview(Integer.toString(i));
@@ -190,6 +245,7 @@ class CollectionBatchTest {
                             : "{\"body\":\"Build Java backend services.\"}", name.equals("linkedin") ? "html" : "json", "script");
                     sink.record(processor.process(new PreparedVacancy(preview, "Build Java backend services.", null, fields)));
                 } else sink.record(new ProcessResult(name, Integer.toString(i), "Java", "raw_saved", "", fields));
+                if (sink.acceptedCount() >= failAfter) throw new IOException("HTTP failed");
             }
             return new SourceResult(status, "limit_reached", "");
         }

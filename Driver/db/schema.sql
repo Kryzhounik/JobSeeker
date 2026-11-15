@@ -259,8 +259,9 @@ CREATE TABLE IF NOT EXISTS job_technologies (
     UNIQUE(job_id, technology_id, requirement_type)
 );
 
-CREATE TABLE IF NOT EXISTS linkedin_collection_events (
+CREATE TABLE IF NOT EXISTS collection_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source TEXT NOT NULL,
     label TEXT NOT NULL DEFAULT '',
     start INTEGER,
     card_index INTEGER,
@@ -456,12 +457,12 @@ CREATE INDEX IF NOT EXISTS idx_job_technologies_technology
     ON job_technologies(technology_id);
 CREATE INDEX IF NOT EXISTS idx_job_technologies_requirement_type
     ON job_technologies(requirement_type);
-CREATE INDEX IF NOT EXISTS idx_linkedin_collection_events_job_id
-    ON linkedin_collection_events(job_id);
-CREATE INDEX IF NOT EXISTS idx_linkedin_collection_events_status
-    ON linkedin_collection_events(status);
-CREATE INDEX IF NOT EXISTS idx_linkedin_collection_events_page
-    ON linkedin_collection_events(label, start);
+CREATE INDEX IF NOT EXISTS idx_collection_events_source_job_id
+    ON collection_events(source, job_id);
+CREATE INDEX IF NOT EXISTS idx_collection_events_status
+    ON collection_events(status);
+CREATE INDEX IF NOT EXISTS idx_collection_events_page
+    ON collection_events(source, label, start);
 CREATE INDEX IF NOT EXISTS idx_linkedin_collection_pages_location
     ON linkedin_collection_pages(run_id, label, start);
 CREATE INDEX IF NOT EXISTS idx_codex_invocations_run_id

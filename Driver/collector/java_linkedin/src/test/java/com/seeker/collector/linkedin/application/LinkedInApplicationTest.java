@@ -34,6 +34,7 @@ class LinkedInApplicationTest {
                 python.executable=unused-python.exe
                 """);
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
+        Files.writeString(collector.resolve("config/collector.properties"), "sources=linkedin\nraw.directory=Data/raw\n");
         Path config = root.resolve("Data/Profile/Driver/collector/linkedin.properties");
         Files.createDirectories(config.getParent());
         Files.writeString(config, "limit=10\n");

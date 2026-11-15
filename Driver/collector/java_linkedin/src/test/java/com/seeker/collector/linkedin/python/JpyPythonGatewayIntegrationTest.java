@@ -67,7 +67,7 @@ class JpyPythonGatewayIntegrationTest {
     void callsExistingPythonPipelineAndReusesItsRuntimeInsideJvm() throws Exception {
         Path projectRoot = Path.of(required("seeker.project.root"));
         Path database = temporaryDirectory.resolve("jobs.sqlite");
-        Path rawDirectory = temporaryDirectory.resolve("raw/linkedin");
+        Path rawDirectory = temporaryDirectory.resolve("raw");
         ProjectPaths paths = new ProjectPaths(
                 projectRoot.resolve("Driver"),
                 projectRoot.resolve("Driver/collector"),
@@ -176,7 +176,7 @@ class JpyPythonGatewayIntegrationTest {
         assertEquals(originalStdout, stdoutId());
 
         assertTrue(Files.isRegularFile(
-                rawDirectory.resolve("pages/4444444444.html")
+                rawDirectory.resolve("linkedin/pages/4444444444.html")
         ));
     }
 

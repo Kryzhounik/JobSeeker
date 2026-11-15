@@ -28,7 +28,8 @@ class CollectorServiceTest(unittest.TestCase):
                        'title': 'Java Developer', 'company': fields['companyName'],
                        'location': fields['city'], 'workplace': fields['workplaceType']}
             self.assertEqual('open', service.decide_preview(preview)['preview_decision'])
-            service.save_raw(preview, json.dumps(fields), 'json', 'script')
+            raw_path = service.save_raw(preview, json.dumps(fields), 'json', 'script')
+            self.assertEqual(Path(directory) / 'raw' / 'justjoin' / 'pages' / f"{fields['slug']}.json", raw_path)
             result = service.process_vacancy({'preview': preview, 'description': 'Build backend services in Java.',
                                               'easyApply': None, 'fields': fields})
             self.assertEqual('raw_saved', result['status'])
@@ -53,6 +54,22 @@ class CollectorServiceTest(unittest.TestCase):
             justjoin = {**linkedin, 'source': 'justjoin', 'source_url': 'https://justjoin.it/job-offer/1234'}
             self.assertEqual('open', service.decide_preview(justjoin)['preview_decision'])
             self.assertEqual('duplicate_source_job_id', service.decide_preview(linkedin)['preview_rule'])
+
+    def test_raw_files_with_identical_names_are_isolated_by_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / 'custom-raw-root'
+            service = CollectorService(DRIVER_ROOT, Path(directory) / 'jobs.sqlite', root)
+            linkedin = {'source': 'linkedin', 'job_id': '123', 'source_url': 'https://www.linkedin.com/jobs/view/123/'}
+            justjoin = {'source': 'justjoin', 'job_id': '123', 'source_url': 'https://justjoin.it/job-offer/123'}
+            linkedin_html = '<h2>About the job</h2><p>LinkedIn original</p>'
+            justjoin_html = '<p>JustJoin original</p>'
+            first = service.save_raw(linkedin, linkedin_html, 'html', 'script')
+            second = service.save_raw(justjoin, justjoin_html, 'html', 'script')
+            self.assertEqual(root / 'linkedin/pages/123.html', first)
+            self.assertEqual(root / 'justjoin/pages/123.html', second)
+            self.assertEqual(linkedin_html, first.read_text(encoding='utf-8'))
+            self.assertEqual(justjoin_html, second.read_text(encoding='utf-8'))
+            self.assertFalse((root / 'pages').exists())
 
     def test_native_service_accepts_python_data_and_callable_without_bridge(self):
         with tempfile.TemporaryDirectory() as directory:

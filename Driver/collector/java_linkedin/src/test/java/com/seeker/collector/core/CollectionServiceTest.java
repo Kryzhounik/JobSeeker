@@ -44,6 +44,17 @@ class CollectionServiceTest {
         assertEquals(List.of(List.of("run", "blocked", "java_exception", 0, "source failed")), finished);
     }
 
+    @Test void urlFailureKeepsAcceptedCountAndDoesNotCountRejectedVacancies() {
+        var finished = new ArrayList<List<Object>>();
+        var python = gateway(finished);
+        var sink = new CollectionAccumulator();
+        sink.record(new ProcessResult("linkedin", "1", "Java", "raw_saved", ""));
+        sink.record(new ProcessResult("linkedin", "2", "Java", "content_filtered", "rejected"));
+        assertThrows(IOException.class, () -> CollectionService.run(source(sink, true), new VacancyProcessor(python),
+                python, sink, "urls", List.of("url"), ignored -> {}));
+        assertEquals(List.of(List.of("urls", "blocked", "java_exception", 1, "source failed")), finished);
+    }
+
     private static PythonGateway gateway(List<List<Object>> finished) {
         return (PythonGateway) Proxy.newProxyInstance(PythonGateway.class.getClassLoader(),
                 new Class<?>[]{PythonGateway.class}, (proxy, method, args) -> {

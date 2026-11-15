@@ -37,12 +37,16 @@ public record ProjectPaths(
         try (Reader reader = Files.newBufferedReader(projectRoot.resolve("Tools/runtime.properties"), StandardCharsets.UTF_8)) {
             sharedRuntime.load(reader);
         }
+        Properties collectorSettings = new Properties();
+        try (Reader reader = Files.newBufferedReader(collectorRoot.resolve("config/collector.properties"), StandardCharsets.UTF_8)) {
+            collectorSettings.load(reader);
+        }
         return new ProjectPaths(
                 driverRoot,
                 collectorRoot,
                 configPath,
                 path(projectRoot, sharedRuntime, "database.path"),
-                path(projectRoot, properties, "raw.directory"),
+                path(projectRoot, collectorSettings, "raw.directory"),
                 path(projectRoot, properties, "profile.directory")
         );
     }

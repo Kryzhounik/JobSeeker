@@ -92,7 +92,8 @@ public final class CollectionService {
                     ? "sources_complete" : result.stopReason(), report.acceptedCount(), report.message());
             return report;
         } catch (IOException | RuntimeException error) {
-            python.finishRun(runId, "blocked", "java_exception", 0,
+            python.finishRun(runId, "blocked", "java_exception",
+                    sources.stream().mapToInt(entry -> entry.sink().acceptedCount()).sum(),
                     error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
             throw error;
         }
@@ -132,7 +133,7 @@ public final class CollectionService {
             return report;
         } catch (IOException | RuntimeException error) {
             String message = error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage();
-            python.finishRun(runId, "blocked", "java_exception", 0, message);
+            python.finishRun(runId, "blocked", "java_exception", sink.acceptedCount(), message);
             throw error;
         }
     }

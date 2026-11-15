@@ -16,9 +16,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-LOGGING_ROOT = ROOT / "collector" / "logging"
-if str(LOGGING_ROOT) not in sys.path:
-    sys.path.insert(0, str(LOGGING_ROOT))
 
 from analyzer.candidate_fit.filter import default_resume_path
 from analyzer.candidate_fit.filter import evaluate_required_languages
@@ -39,7 +36,7 @@ from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 from db.readable_text import load_readable_text
 from common.paths import PROFILE_ROOT
-from linkedin_logger import record_preview_filter
+from collector.logging.collection_logger import record_preview_filter
 
 
 DEFAULT_PREVIEW_CONFIG = PROFILE_ROOT / "Driver/collector/linkedin_preview_filter.ini"

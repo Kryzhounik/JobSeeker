@@ -22,6 +22,7 @@ class DriverConfigurationTest {
         Path collector = Files.createDirectories(projectRoot.resolve("Driver/collector"));
         Files.createDirectories(collector.resolve("config"));
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
+        Files.writeString(collector.resolve("config/collector.properties"), "sources=linkedin\nraw.directory=Data/raw\n");
         Files.createDirectories(collector.resolve("java_linkedin"));
         Files.writeString(collector.resolve("java_linkedin/runtime.properties"), """
                 raw.directory=Data/raw

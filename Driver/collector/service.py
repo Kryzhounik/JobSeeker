@@ -8,7 +8,7 @@ from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import apply_preview_decision_with_filter
 from collector.filtering.linkedin_filter import content_response
 from collector.filtering.linkedin_filter import load_config
-from collector.logging.linkedin_logger import record_collection_event
+from collector.logging.collection_logger import record_collection_event
 from collector.logging.linkedin_run_logger import finish_collection_run
 from collector.logging.linkedin_run_logger import start_collection_run
 from collector.save_raw_page import save_content
@@ -21,10 +21,10 @@ from db.readable_text import save_collected_job
 class CollectorService:
     """Native Python collection operations; no JSON, JPy or Java dependencies."""
 
-    def __init__(self, driver_root: Path, db_path: Path, raw_dir: Path):
+    def __init__(self, driver_root: Path, db_path: Path, raw_root: Path):
         self.driver_root = driver_root.resolve()
         self.db_path = db_path.resolve()
-        self.raw_dir = raw_dir.resolve()
+        self.raw_root = raw_root.resolve()
         migrate_database(self.db_path)
         config_path = self.driver_root.parent / "Data/Profile/Driver/collector/linkedin_preview_filter.ini"
         self.preview_config = load_config(config_path)
@@ -43,9 +43,10 @@ class CollectorService:
         return result
 
     def save_raw(self, preview: dict, content: str, extension: str, method: str) -> Path:
+        source = preview.get("source", "linkedin")
         return save_content(
-            source=preview.get("source", "linkedin"), url=preview["source_url"], content=content,
-            out_dir=self.raw_dir, ext=extension, force=False, db_path=self.db_path,
+            source=source, url=preview["source_url"], content=content,
+            out_dir=self.raw_root / source, ext=extension, force=False, db_path=self.db_path,
             collection_method=method, collection_run_id=self.run_id,
         )
 

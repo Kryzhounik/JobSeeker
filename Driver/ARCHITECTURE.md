@@ -131,5 +131,7 @@ JPy использует один встроенный интерпретато�
 
 Общие технические пути Python/JPy и `database.path` находятся в локальном
 `Tools/runtime.properties` (пример — `Tools/runtime.properties.example`).
-Параметры коллектора `java.executable`, `raw.directory` и `profile.directory`
-остаются в `Driver/collector/java_linkedin/runtime.properties`.
+Параметры `java.executable` и `profile.directory` остаются в
+`Driver/collector/java_linkedin/runtime.properties`. Общий корень RAW
+`raw.directory` находится в `Driver/collector/config/collector.properties`;
+каждый источник сохраняет файлы в своём подкаталоге `<source>/pages/`.

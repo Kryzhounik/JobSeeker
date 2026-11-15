@@ -18,6 +18,14 @@ Each source receives its own accumulator, so its accepted limit is independent
 of earlier sources. A stopped source or exception prevents later sources from
 starting; no new recovery or partial-failure continuation is provided.
 
+`raw.directory` in `config/collector.properties` is the shared RAW root, passed
+through ProjectPaths and the bridge to the Python service. Shared raw saving
+adds `<source>/pages/`, isolating identical filenames across sources. The default
+root `Data/raw` retains LinkedIn's existing `Data/raw/linkedin/pages` layout.
+The old `raw.directory` in `java_linkedin/runtime.properties` is no longer read.
+Like other technical paths, the RAW root is resolved when the API is created;
+source selection and search settings reload for each collection call.
+
 `common.CollectorSource` is the retrieval boundary. Sources receive a
 `VacancyProcessor` and a `CollectionSink`. They can check a preview before fetching
 details, register raw content, submit a prepared vacancy and report its outcome.
@@ -38,6 +46,11 @@ and uses shared raw registration. Java gateways and Python bridge functions only
 adapt values and delegate. Existing Python module/file names are retained.
 Runs use the shared `collection_runs` table (renamed by migration 047);
 `linkedin_collection_pages` remains LinkedIn-specific diagnostics.
+Collection outcomes use the shared `collection_events` table with explicit
+`source` and `job_id`. Migration 048 retains historical events and recovers
+JustJoinIT identity from its saved URL/label; remaining historical events are
+LinkedIn. `collection_logger` owns the shared event operation; `linkedin_logger`
+remains a compatibility import/CLI only.
 
 ## Prepared data and structured fields
 

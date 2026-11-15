@@ -169,7 +169,7 @@ class JustJoinSourceTest {
             python.finishRun(report.runId(), result.status(), result.stopReason(), report.acceptedCount(), report.message());
             assertEquals(1, report.acceptedCount());
             assertEquals("B2", ((Map<?, ?>)((List<?>)report.scope().getFirst().fields().get("languages")).getFirst()).get("level"));
-            assertTrue(Files.exists(paths.rawDirectory().resolve("pages/" + offer.get("slug").getAsString() + ".json")));
+            assertTrue(Files.exists(paths.rawDirectory().resolve("justjoin/pages/" + offer.get("slug").getAsString() + ".json")));
             assertEquals("duplicate_source_job_id", processor.decidePreview(source.prepare(offer,
                     offer.get("slug").getAsString()).preview()).rule());
 

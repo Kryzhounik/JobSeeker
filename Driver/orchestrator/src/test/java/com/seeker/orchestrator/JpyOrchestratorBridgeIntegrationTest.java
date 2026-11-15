@@ -199,6 +199,7 @@ class JpyOrchestratorBridgeIntegrationTest {
         Path config = temporaryDirectory.resolve("Driver/collector/config/linkedin.properties");
         Files.createDirectories(config.getParent());
         Files.writeString(config, "");
+        Files.writeString(config.resolveSibling("collector.properties"), "sources=linkedin\nraw.directory=raw\n");
         Files.createDirectories(temporaryDirectory.resolve("Tools"));
         Files.writeString(temporaryDirectory.resolve("Tools/runtime.properties"),
                 Files.readString(project.resolve("Tools/runtime.properties"))

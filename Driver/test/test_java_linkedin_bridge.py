@@ -115,7 +115,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             with closing(sqlite3.connect(database)) as connection:
                 self.assertEqual(0, connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0])
                 self.assertEqual(("age_filtered",), connection.execute(
-                    "SELECT status FROM linkedin_collection_events WHERE job_id = '123'").fetchone())
+                    "SELECT status FROM collection_events WHERE job_id = '123'").fetchone())
 
     def test_easy_apply_marker_from_java_reaches_gui(self) -> None:
         from GUI.client_data import load_jobs
@@ -155,7 +155,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             database = root / "jobs.sqlite"
-            raw_dir = root / "raw" / "linkedin"
+            raw_dir = root / "raw"
             python_bridge.init_session(
                 str(DRIVER_ROOT),
                 str(database),
@@ -244,7 +244,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             )
 
             self.assertEqual(result["status"], "raw_saved")
-            self.assertTrue((raw_dir / "pages" / "4444444444.html").is_file())
+            self.assertTrue((raw_dir / "linkedin" / "pages" / "4444444444.html").is_file())
             self.assertFalse((root / "_tmp_collect").exists())
             with closing(sqlite3.connect(database)) as connection:
                 collected = connection.execute(
@@ -266,7 +266,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
                 event = connection.execute(
                     """
                     SELECT status
-                    FROM linkedin_collection_events
+                    FROM collection_events
                     WHERE job_id = '4444444444'
                     ORDER BY id DESC
                     LIMIT 1
