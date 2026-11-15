@@ -110,6 +110,15 @@ authorize implementing the task or reopening agreed design decisions.
 The result should resemble a well-written engineering issue or delegation
 to an experienced colleague, not a tutorial.
 
+## GitHub Issues - Implementation Plans
+
+When reviewing a GitHub Issue, consider any draft implementation plan in its
+description or comments (ChatGPT, for example, cannot currently attach artifacts).
+The reviewing agent may propose clarifications or additions. After agreement,
+attach the final plan as an Issue Artifact of type `plan` through GitHub CLI.
+The implementing agent follows the attached plan and the issue requirements;
+it does not need to reconstruct the plan from old drafts or comments.
+
 ## Module Implementation Documentation
 
 Use this format for larger developments requiring a module documentation set,
