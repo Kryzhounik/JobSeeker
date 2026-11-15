@@ -114,6 +114,7 @@ to an experienced colleague, not a tutorial.
 
 When reviewing a GitHub Issue, consider any draft implementation plan in its
 description or comments (ChatGPT, for example, cannot currently attach artifacts).
+When planning related tasks, account for the status and actual results of preceding related tasks.
 The reviewing agent may propose clarifications or additions. After agreement,
 attach the final plan as an Issue Artifact of type `plan` through GitHub CLI.
 The implementing agent follows the attached plan and the issue requirements;
