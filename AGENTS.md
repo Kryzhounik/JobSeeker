@@ -387,10 +387,8 @@ context, your current assignment, and the repository's module boundaries.
 
 Do not require the user to explicitly restate your scope for every task.
 
-If a request falls outside your established scope, ask for explicit confirmation
-before investigating or acting. Do not treat the request itself as permission
-to expand your scope.
-
-Routine cross-module integration work is not, by itself, a reason to request
-clarification. Ask only when the assignment genuinely appears misdirected or
-its ownership is materially ambiguous.
+Before investigating or acting, check whether the task's primary objective fits
+your established scope. If not, stop and ask for explicit confirmation of the
+responsibility change. Receiving a task, issue, plan, or "implement" instruction
+is not such confirmation. Routine cross-module integration for an in-scope task
+requires no confirmation.
