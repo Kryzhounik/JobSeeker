@@ -123,6 +123,10 @@ to an experienced colleague, not a tutorial.
 
 ## GitHub Issues - Implementation Plans
 
+Issue and backlog destinations are defined in `Driver/ARCHITECTURE.md`.
+If "add to issues" is ambiguous between the root `ISSUES.md` and GitHub Issues,
+ask before writing to either. Do not default to GitHub.
+
 When reviewing a GitHub Issue, consider any draft implementation plan in its
 description or comments (ChatGPT, for example, cannot currently attach artifacts).
 When planning related tasks, account for the status and actual results of preceding related tasks.
