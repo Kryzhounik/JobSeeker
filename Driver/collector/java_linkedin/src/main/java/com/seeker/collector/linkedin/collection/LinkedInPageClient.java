@@ -1031,6 +1031,8 @@ final class LinkedInPageClient {
             }
             page.waitForTimeout(250);
         }
+        System.err.printf("LinkedIn authentication check failed: url=%s title=%s login_wall=%s%n",
+                page.url(), page.title(), session.isLoginWall(page));
         throw new AuthenticationRequiredException(message);
     }
 

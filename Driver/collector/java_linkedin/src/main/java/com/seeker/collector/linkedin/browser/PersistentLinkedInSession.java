@@ -45,8 +45,8 @@ public final class PersistentLinkedInSession implements AutoCloseable {
     public boolean isAuthenticated(Page page) {
         return !isLoginWall(page) && page.locator(
                 "[data-test-global-nav-link='jobs'], "
-                        + "a[href*='/mynetwork/'], "
-                        + "a[href*='/messaging/'], "
+                        + "a[href*='/mynetwork'], "
+                        + "a[href*='/messaging'], "
                         + ".global-nav"
         ).count() > 0;
     }
