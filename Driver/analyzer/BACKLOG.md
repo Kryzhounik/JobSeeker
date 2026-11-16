@@ -8,7 +8,7 @@ Priority: Very High.
   experience not included in the main commercial resume, including personal
   projects and practical work with development tools.
 - Supply this evidence alongside the resume in the normal evaluation workflow.
-  Existing factual material in `Data/Profile/Applier/candidate_context.md` is a
+  Existing factual material in `Data/Profile/Applier/candidate_context.txt` is a
   starting point; cover-letter writing instructions are not evaluation input.
 - Preserve the distinction between commercial experience, personal projects,
   experiments, and plans. Credit supported experience without presenting it as

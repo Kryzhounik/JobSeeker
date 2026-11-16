@@ -11,7 +11,7 @@ jobs.source_job_ref → source_job_texts; source_job_texts.company_id → compan
 Python и путь базы берутся из общего `Tools/runtime.properties`.
 Вызывающий передаёт только внутренний jobs.id, а не текст вакансии.
 
-Писатель передаёт готовый промпт и только resume.txt и candidate_context.md в
+Писатель передаёт готовый промпт и только resume.txt и candidate_context.txt в
 CodexClient / Codex Proxy. Настройки модели и учёт расхода остаются у Proxy;
 Писатель переопределяет reasoning_effort на xhigh (Very High);
 браузерные инструменты не включаются. JSON-обёртка letter распаковывается

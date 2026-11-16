@@ -42,7 +42,7 @@ separate Analyzer and Applier copies of the candidate profile.
 | `resume.txt` | UTF-8 resume text supplied to agents |
 | `resume.pdf` | Resume document uploaded to application forms; update together with resume.txt |
 | `Applier/facts.md` | Confirmed applicant answers: contact details, authorization, compensation, notice period; do not duplicate resume.ini |
-| `Applier/candidate_context.md` | Additional candidate facts and factual boundaries used for cover letters |
+| `Applier/candidate_context.txt` | Additional candidate facts not already included in the resume |
 | `Driver/collector/linkedin.properties` | Search keywords, ordered locations, seniority, workplace modes, employment types, publication window and collection limit |
 | `Driver/collector/justjoin.properties` | JustJoin search technology, location, languages, experience, publication window, ordering and limit |
 | `Driver/collector/linkedin_preview_filter.ini` | Preview-filter enablement, blocked-title file, uncertain-title policy and maximum publication age |

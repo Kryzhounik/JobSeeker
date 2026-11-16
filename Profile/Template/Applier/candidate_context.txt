@@ -1,0 +1,6 @@
+# Additional Candidate Context
+
+Replace this guidance with confirmed candidate facts not already included in
+your resume, such as AI-assisted development experience, personal projects,
+and working preferences. Keep agent instructions in the consuming module's
+prompt, not in this file.
