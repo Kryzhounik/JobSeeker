@@ -15,6 +15,8 @@ or a draft fragment occurring other than exactly once cause an error before any
 writes. After publishing, removes only that fragment; comments are never edited.
 If the description changes during publication, it is not overwritten. The
 published artifact remains if the subsequent description update fails.
+PLAN_FILE is deleted after successful artifact publication. DRAFT_FILE is deleted
+after its fragment is successfully removed from the issue description.
 """
 
 import argparse
@@ -66,11 +68,13 @@ def main():
         artifact = api("POST", artifacts_path,
                        {"type": "plan", "name": "Implementation plan", "body": plan})
     print(f"Plan: https://github.com/{args.repo}/issues/{args.issue}/artifacts/{artifact['number']}", flush=True)
+    Path(args.plan_file).unlink()
 
     if draft is not None:
         if (api("GET", issue_path)["body"] or "") != body:
             raise SystemExit("Description changed during publication. Plan published; description untouched.")
         api("PATCH", issue_path, {"body": body.replace(draft, "", 1)})
+        Path(args.draft_file).unlink()
         print("Draft removed; other description text unchanged.")
 
 

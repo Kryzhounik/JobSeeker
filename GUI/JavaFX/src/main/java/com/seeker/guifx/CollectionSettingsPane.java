@@ -16,6 +16,7 @@ final class CollectionSettingsPane extends VBox {
     private final CheckBox justjoin = new CheckBox("JustJoinIT");
     private final Map<String, TextField> fields = new LinkedHashMap<>();
     private final CollectionSettings initial;
+    private final ListView<String> queries = new ListView<>();
 
     CollectionSettingsPane(CollectionSettings settings) {
         super(10);
@@ -33,7 +34,46 @@ final class CollectionSettingsPane extends VBox {
             getChildren().add(new Label("LinkedIn configuration is missing or invalid. Fix its properties file to enable it."));
         } else {
         GridPane l = grid();
-        add(l, "li.keywords", "Queries (in order)", join(li.keywords()), "Java,AI — shared LinkedIn limit");
+        queries.setId("li-keywords");
+        queries.getItems().setAll(li.keywords());
+        queries.setEditable(true);
+        queries.setCellFactory(view -> new javafx.scene.control.cell.TextFieldListCell<>(
+                new javafx.util.converter.DefaultStringConverter()) {
+            private TextField observedEditor;
+            @Override public void startEdit() {
+                super.startEdit();
+                if (getGraphic() instanceof TextField editor && editor != observedEditor) {
+                    observedEditor = editor;
+                    editor.focusedProperty().addListener((obs, old, focused) -> {
+                        if (!focused && isEditing()) commitEdit(editor.getText());
+                    });
+                }
+            }
+        });
+        queries.setPrefHeight(110);
+        queries.setMinHeight(80);
+        Button addQuery = queryButton("+", "li-query-add", "Add query");
+        Button removeQuery = queryButton("\u2212", "li-query-remove", "Remove query");
+        Button up = queryButton("\u2191", "li-query-up", "Move query up");
+        Button down = queryButton("\u2193", "li-query-down", "Move query down");
+        addQuery.setOnAction(event -> {
+            queries.getItems().add("");
+            int index = queries.getItems().size() - 1;
+            queries.getSelectionModel().select(index);
+            queries.scrollTo(index);
+            queries.edit(index);
+        });
+        removeQuery.disableProperty().bind(queries.getSelectionModel().selectedIndexProperty().lessThan(0));
+        up.disableProperty().bind(queries.getSelectionModel().selectedIndexProperty().lessThanOrEqualTo(0));
+        down.disableProperty().bind(javafx.beans.binding.Bindings.createBooleanBinding(() ->
+                queries.getSelectionModel().getSelectedIndex() < 0 || queries.getSelectionModel().getSelectedIndex()
+                        >= queries.getItems().size() - 1,
+                queries.getSelectionModel().selectedIndexProperty(), queries.getItems()));
+        removeQuery.setOnAction(event -> queries.getItems().remove(queries.getSelectionModel().getSelectedIndex()));
+        up.setOnAction(event -> moveQuery(-1));
+        down.setOnAction(event -> moveQuery(1));
+        l.addRow(l.getRowCount(), new Label("Queries (in order)"),
+                new VBox(5, queries, new HBox(5, addQuery, removeQuery, up, down)));
         add(l, "li.locations", "Locations (in order)", join(li.locations()), "Moldova:106178099,Ukraine:102264497; AccountRemote requires a country seed");
         add(l, "li.experience", "Experience", join(li.experience()), "entry_level,senior,manager");
         add(l, "li.remote", "AccountRemote workplace", join(li.remoteBroadWorkplace()), "remote,hybrid,office");
@@ -69,7 +109,8 @@ final class CollectionSettingsPane extends VBox {
         for (String source : initial.sources()) if (enabled(source)) sources.add(source);
         for (String source : List.of("linkedin", "justjoin"))
             if (enabled(source) && !sources.contains(source)) sources.add(source);
-        var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(list("li.keywords"),
+        var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(
+                queries.getItems().stream().map(String::strip).filter(value -> !value.isEmpty()).toList(),
                 list("li.locations"), list("li.experience"), list("li.remote"), list("li.workplace"),
                 list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"))
                 : initial.linkedin();
@@ -80,6 +121,20 @@ final class CollectionSettingsPane extends VBox {
     }
 
     private boolean enabled(String source) { return (source.equals("linkedin") ? linkedin : justjoin).isSelected(); }
+    private static Button queryButton(String symbol, String id, String description) {
+        Button button = new Button(symbol);
+        button.setId(id);
+        button.setTooltip(new Tooltip(description));
+        button.setAccessibleText(description);
+        return button;
+    }
+    private void moveQuery(int direction) {
+        int index = queries.getSelectionModel().getSelectedIndex();
+        int target = index + direction;
+        String query = queries.getItems().remove(index);
+        queries.getItems().add(target, query);
+        queries.getSelectionModel().select(target);
+    }
     private String value(String key) { return fields.get(key).getText().strip(); }
     private List<String> list(String key) { return PropertySettings.csv(value(key)); }
     private int integer(String key, String label) {

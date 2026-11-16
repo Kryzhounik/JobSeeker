@@ -95,8 +95,12 @@ facade to the controller for Batch, direct Collect, Apply, and GPT Eval.
 `stop()` closes the context; a JVM shutdown hook also covers JVM termination.
 Data connection initialization still runs in the background. Progress handlers are scoped
 to each call. Config has Filters (existing SQLite toggles) and Collection tabs.
-Collection edits source selection and both sites' search preferences. Save updates
-the existing properties files. Collect and Batch open the same editor with freshly
+Collection edits source selection and both sites' search preferences, including
+the ordered LinkedIn query list through the shared add/remove/up/down editor.
+The same editor supplies the per-run Collect/Batch confirmation. LinkedIn has
+one accepted-vacancy limit across all queries; all queries run per location
+before moving to the next location. The JustJoinIT limit remains independent.
+Save updates the existing properties files. Collect and Batch open the same editor with freshly
 loaded saved values; Confirm uses edits only for that run, and Cancel starts nothing.
 Source selection remains in `Driver/collector/config/collector.properties`, and site
 preferences remain in `Data/Profile/Driver/collector/`. Each source has its own

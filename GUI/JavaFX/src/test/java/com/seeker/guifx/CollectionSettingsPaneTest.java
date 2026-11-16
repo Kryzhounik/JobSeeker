@@ -1,11 +1,13 @@
 package com.seeker.guifx;
 
 import com.seeker.collector.common.CollectionSettings;
+import com.seeker.collector.core.CollectionSettingsLoader;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.List;
@@ -14,6 +16,8 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
 
 class CollectionSettingsPaneTest {
+    @TempDir Path tempDir;
+
     private static CollectionSettings defaults() {
         return new CollectionSettings(List.of("justjoin", "linkedin"),
                 new CollectionSettings.LinkedIn(List.of("Java"), List.of("Moldova:106178099", "Ukraine:102264497"),
@@ -36,10 +40,38 @@ class CollectionSettingsPaneTest {
                 assertTrue(((CheckBox) singleEditor.lookup("#source-justjoin")).isDisabled());
                 var editor = new CollectionSettingsPane(saved);
                 new Scene(editor, 780, 750);
+                editor.resize(780, 750);
                 editor.applyCss(); editor.layout();
                 assertEquals(saved, editor.settings());
-                field(editor, "li-keywords").setText("Java, AI");
-                assertEquals(List.of("Java", "AI"), editor.settings().linkedin().keywords());
+                ListView<String> queries = list(editor, "li-keywords");
+                editor.applyCss(); editor.layout();
+                assertEquals(List.of("Java"), queries.getItems());
+                button(editor, "li-query-add").fire();
+                assertEquals(List.of("Java", ""), queries.getItems());
+                queries.getSelectionModel().select(0);
+                queries.edit(0);
+                editor.applyCss(); editor.layout();
+                TextField queryEditor = (TextField) queries.lookup(".text-field");
+                assertNotNull(queryEditor);
+                queryEditor.setText(" Java ");
+                queryEditor.fireEvent(new javafx.scene.input.KeyEvent(
+                        javafx.scene.input.KeyEvent.KEY_PRESSED, "", "",
+                        javafx.scene.input.KeyCode.ENTER, false, false, false, false));
+                assertEquals(List.of(" Java ", ""), queries.getItems());
+                assertEquals(List.of("Java"), editor.settings().linkedin().keywords());
+                queries.getItems().remove(1);
+                queries.getItems().setAll("Java", "AI");
+                queries.getSelectionModel().select(1);
+                button(editor, "li-query-up").fire();
+                assertEquals(List.of("AI", "Java"), queries.getItems());
+                assertEquals(List.of("AI", "Java"), editor.settings().linkedin().keywords());
+                button(editor, "li-query-down").fire();
+                assertEquals(List.of("Java", "AI"), queries.getItems());
+                button(editor, "li-query-remove").fire();
+                assertEquals(List.of("Java"), queries.getItems());
+                button(editor, "li-query-add").fire();
+                queries.getItems().set(1, "   ");
+                assertEquals(List.of("Java"), editor.settings().linkedin().keywords());
                 field(editor, "li-limit").setText("0");
                 assertThrows(IllegalArgumentException.class, editor::settings);
                 field(editor, "li-limit").setText("oops");
@@ -78,12 +110,48 @@ class CollectionSettingsPaneTest {
                 reopened.getDialogPane().applyCss(); reopened.getDialogPane().layout();
                 assertEquals("10", field(reopened.getDialogPane(), "li-limit").getText());
 
+                var twoKeywords = withKeywords(saved, List.of("Java", "AI"));
+                for (String operation : List.of("Collect", "Batch")) {
+                    var queryDialog = new CollectionSettingsDialog(null, operation, twoKeywords);
+                    var queryPane = queryDialog.getDialogPane();
+                    queryPane.applyCss(); queryPane.layout();
+                    reorderKeywords(queryPane);
+                    ((Button) queryPane.lookupButton(queryPane.getButtonTypes().getFirst())).fire();
+                    assertEquals(List.of("AI", "Java"), queryDialog.getResult().linkedin().keywords());
+                    assertEquals(List.of("Java", "AI"), twoKeywords.linkedin().keywords());
+                }
+                var cancelledQueries = new CollectionSettingsDialog(null, "Batch", twoKeywords);
+                cancelledQueries.getDialogPane().applyCss(); cancelledQueries.getDialogPane().layout();
+                reorderKeywords(cancelledQueries.getDialogPane());
+                ((Button) cancelledQueries.getDialogPane().lookupButton(ButtonType.CANCEL)).fire();
+                assertNull(cancelledQueries.getResult());
+                assertEquals(List.of("Java", "AI"), twoKeywords.linkedin().keywords());
+
+                var reordered = withKeywords(new CollectionSettings(List.of("linkedin"), saved.linkedin(), null),
+                        List.of("AI", "Java"));
+                var profile = tempDir.resolve("Data/Profile/Driver/collector");
+                Files.createDirectories(profile);
+                Files.writeString(profile.resolve("linkedin.properties"), "keywords=Java\n");
+                Files.writeString(profile.resolve("justjoin.properties"), "mainTech=java\n");
+                var collectorConfig = tempDir.resolve("Driver/collector/config");
+                Files.createDirectories(collectorConfig);
+                Files.writeString(collectorConfig.resolve("collector.properties"), "sources=linkedin\n");
+                Files.writeString(collectorConfig.resolve("linkedin.properties"),
+                        "keywords=Java\nlocations=Moldova:106178099\nexperience=senior\n"
+                                + "remoteBroadWorkplace=remote\nworkplace=remote\njobTypes=full_time\n"
+                                + "datePosted=week\nsort=\nlimit=10\n");
+                CollectionSettingsLoader.save(tempDir, reordered);
+                assertEquals(reordered, CollectionSettingsLoader.loadForEditing(tempDir));
+
                 var windows = new AuxiliaryWindows(null, ignored -> {}, new SettingsStore(Path.of("tmp/ui-settings-test")),
                         ignored -> {}, ignored -> {});
                 try {
                     var tabs = windows.configContent(List.of(), saved);
                     assertEquals(List.of("Filters", "Collection"), tabs.getTabs().stream().map(Tab::getText).toList());
                     tabs.getSelectionModel().select(1);
+                    new Scene(tabs, 820, 760);
+                    tabs.applyCss(); tabs.layout();
+                    assertNotNull(tabs.lookup("#li-keywords"));
                     snapshot(tabs, "config-collection.png", 820, 760);
                     var preview = reopened.getDialogPane();
                     reopened.setDialogPane(new DialogPane());
@@ -98,6 +166,28 @@ class CollectionSettingsPaneTest {
 
     private static TextField field(Parent root, String id) {
         return (TextField) root.lookup("#" + id);
+    }
+
+    private static ListView<String> list(Parent root, String id) {
+        return (ListView<String>) root.lookup("#" + id);
+    }
+
+    private static Button button(Parent root, String id) {
+        return (Button) root.lookup("#" + id);
+    }
+
+    private static void reorderKeywords(Parent root) {
+        list(root, "li-keywords").getSelectionModel().select(0);
+        button(root, "li-query-down").fire();
+        assertEquals(List.of("AI", "Java"), list(root, "li-keywords").getItems());
+    }
+
+    private static CollectionSettings withKeywords(CollectionSettings settings, List<String> keywords) {
+        var source = settings.linkedin();
+        var linkedin = new CollectionSettings.LinkedIn(keywords, source.locations(), source.experience(),
+                source.remoteBroadWorkplace(), source.workplace(), source.jobTypes(), source.datePosted(),
+                source.sort(), source.limit());
+        return new CollectionSettings(settings.sources(), linkedin, settings.justjoin());
     }
 
     /** Render off screen: no window is shown or focused. */
