@@ -26,6 +26,31 @@ from test.test_json_validation import valid_analysis
 
 
 class OrchestratorBridgeTest(unittest.TestCase):
+    @patch("orchestrator.processing.add_fit_score")
+    @patch("orchestrator.processing.filter_json_file")
+    @patch("orchestrator.processing.run")
+    def test_candidate_fit_context_is_optional(self, proxy_run, fast_filter, add_fit) -> None:
+        fast_filter.return_value.passed = True
+        proxy_run.return_value = Result(
+            ["codex", "exec"], 0, "fit-thread", "{}", {}, [],
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            analyzed = root / "analyzed/linkedin/123.json"
+            analyzed.parent.mkdir(parents=True)
+            analyzed.write_text(json.dumps(valid_analysis()), encoding="utf-8")
+            context = root / "candidate_context.txt"
+            with patch.object(processing, "DATA_ROOT", root), patch.object(processing, "PROFILE_ROOT", root):
+                for present in (False, True):
+                    with self.subTest(context_present=present):
+                        if present:
+                            context.write_text("Personal project experience", encoding="utf-8")
+                        self.assertEqual("fit-thread", processing.run_candidate_fit(
+                            "run-1", "linkedin", "123", "fit", "fit-thread", root / "unused.sqlite",
+                        ))
+                        expected = (root / "resume.ini",) + ((context,) if present else ())
+                        self.assertEqual(proxy_run.call_args.kwargs["context_paths"], expected)
+
     @patch("orchestrator.processing.migrate_database")
     @patch("orchestrator.processing.load_job_facts_input")
     @patch("orchestrator.processing.run")

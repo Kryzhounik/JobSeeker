@@ -20,6 +20,10 @@ Input/output contract:
 The deterministic caller reads runtime switches from
 `analyzer/candidate_fit/config/filter.ini`. Candidate facts for this semantic
 operation live in `Data/Profile/resume.ini`.
+When supplied, also use `Data/Profile/candidate_context.txt` as supplemental
+confirmed experience, respecting its context and limitations. This file is
+optional; if absent, evaluate from the resume profile alone. Interests are not
+experience, and experiments or plans are not completed capabilities.
 
 Evaluation isolation:
 - Do not query existing scores from SQLite or inspect an existing scored JSON.

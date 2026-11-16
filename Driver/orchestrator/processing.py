@@ -244,6 +244,10 @@ def run_candidate_fit(
 
     schema = DRIVER_ROOT / "contracts" / "candidate_fit_result.schema.json"
     analysis = json.loads(analyzed_path.read_text(encoding="utf-8"))
+    context_paths = (PROFILE_ROOT / "resume.ini",)
+    candidate_context = PROFILE_ROOT / "candidate_context.txt"
+    if candidate_context.exists():
+        context_paths += (candidate_context,)
     result = run(
         run_id=run_id,
         operation="candidate_fit",
@@ -253,7 +257,7 @@ def run_candidate_fit(
         ),
         input_text=_json(analysis),
         input_name=analyzed_path.name,
-        context_paths=(PROFILE_ROOT / "resume.ini",),
+        context_paths=context_paths,
         output_schema=schema,
         db_path=database,
         thread_id=requested_thread_id,
