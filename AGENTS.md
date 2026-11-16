@@ -70,10 +70,11 @@ suppress errors to keep the workflow running.
 
 ## Verification Delegation
 
-The primary agent performs the requested work. Delegate additional functional
-verification, including writing and running test scenarios, to a `gpt-6-luna`
-subagent with `reasoning_effort="low"`, unless the task explicitly requires the
-primary agent to perform it. Production-code fixes remain with the primary agent.
+The primary agent performs the requested work. When additional functional
+verification is warranted, prefer delegating it, including writing and running
+test scenarios, to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
+the task explicitly requires the primary agent to perform it. Production-code
+fixes remain with the primary agent.
 
 ## Coding Task Handoff
 
