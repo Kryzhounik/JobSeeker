@@ -25,6 +25,8 @@ confirmed experience, respecting its context and limitations. This file is
 optional; if absent, evaluate from the resume profile alone. Interests are not
 experience, and experiments or plans are not completed capabilities.
 
+{{technology levels => Driver/contracts/technology_levels.md}}
+
 Evaluation isolation:
 - Do not query existing scores from SQLite or inspect an existing scored JSON.
 - The current vacancy input is its analyzed JSON only. Run this stage in the

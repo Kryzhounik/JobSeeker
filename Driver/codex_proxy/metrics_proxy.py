@@ -13,6 +13,7 @@ import argparse
 from datetime import datetime
 import json
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -27,6 +28,25 @@ from codex_proxy import metrics
 from codex_proxy.backend import Result
 from codex_proxy.errors import UsageLimitExceededError, usage_limit_error
 from codex_proxy.settings import load
+
+
+def _compose_instruction(path: Path, ancestors: tuple[Path, ...] = ()) -> str:
+    """Expand includes in trusted instruction files, never in operation data."""
+    path = path.resolve()
+    if path in ancestors:
+        chain = " -> ".join(str(item) for item in (*ancestors, path))
+        raise ValueError(f"Cyclic prompt include: {chain}")
+
+    def include(match: re.Match[str]) -> str:
+        title, reference = (part.strip() for part in match.groups())
+        included = _compose_instruction(ROOT.parent / reference, (*ancestors, path))
+        return f"\n{title}:\n{included}\n"
+
+    return re.sub(
+        r"\{\{\s*([^{}\r\n]+?)\s*=>\s*([^{}\r\n]+?)\s*\}\}",
+        include,
+        path.read_text(encoding="utf-8"),
+    )
 
 
 def cli_prompt(
@@ -48,7 +68,7 @@ def cli_prompt(
         ),
         "Return only the JSON object required by the output schema.",
         f"\nINSTRUCTION ({instruction_path.name}):\n"
-        + instruction_path.read_text(encoding="utf-8"),
+        + _compose_instruction(instruction_path),
         f"\nINPUT ({input_name}):\n" + input_text,
     ]
     sections.extend(

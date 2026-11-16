@@ -153,6 +153,56 @@ class CodexProxyTest(unittest.TestCase):
             self.assertIn("Use only Playwright MCP browser tools", browser_prompt)
             self.assertNotIn("Do not use tools", browser_prompt)
 
+    def test_cli_prompt_composes_nested_includes_only_in_instructions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instruction = root / "instruction.md"
+            rules = root / "rules.md"
+            context = root / "context.txt"
+            instruction.write_text(
+                "{{rules => rules.md}}\n{{again => levels.md}}", encoding="utf-8",
+            )
+            rules.write_text("RULES\n{{levels => levels.md}}", encoding="utf-8")
+            (root / "levels.md").write_text("SHARED LEVELS", encoding="utf-8")
+            data = "{{untrusted => missing.md}}"
+            context.write_text(data, encoding="utf-8")
+            with patch("codex_proxy.metrics_proxy.ROOT", root / "Driver"):
+                prompt = cli_prompt(instruction, data, "vacancy", (context,))
+            self.assertIn("RULES", prompt)
+            self.assertEqual(prompt.count("SHARED LEVELS"), 2)
+            self.assertEqual(prompt.count(data), 2)
+            self.assertNotIn("{{rules", prompt)
+            self.assertNotIn("{{levels", prompt)
+
+    def test_cli_prompt_rejects_missing_include(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instruction = root / "instruction.md"
+            instruction.write_text("{{rules => missing.md}}", encoding="utf-8")
+            with patch("codex_proxy.metrics_proxy.ROOT", root / "Driver"):
+                with self.assertRaises(FileNotFoundError):
+                    cli_prompt(instruction, "{}", "vacancy", ())
+
+    def test_cli_prompt_rejects_cyclic_includes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            instruction = root / "instruction.md"
+            instruction.write_text("{{rules => rules.md}}", encoding="utf-8")
+            (root / "rules.md").write_text(
+                "{{instruction => instruction.md}}", encoding="utf-8",
+            )
+            with patch("codex_proxy.metrics_proxy.ROOT", root / "Driver"):
+                with self.assertRaisesRegex(ValueError, "Cyclic prompt include"):
+                    cli_prompt(instruction, "{}", "vacancy", ())
+
+    def test_analyzer_prompts_contain_shared_technology_scale(self) -> None:
+        scale = (DRIVER_ROOT / "contracts/technology_levels.md").read_text(encoding="utf-8")
+        for relative in ("job_facts/extract.md", "candidate_fit/evaluate.md"):
+            with self.subTest(instruction=relative):
+                prompt = cli_prompt(DRIVER_ROOT / "analyzer" / relative, "{}", "vacancy", ())
+                self.assertIn(scale, prompt)
+                self.assertNotIn("{{technology levels", prompt)
+
     def test_cli_continuation_sends_only_the_next_input(self) -> None:
         prompt = cli_continuation_prompt('{"job_id":"2"}', "linkedin-2.json")
 

@@ -32,6 +32,23 @@ must not interpret, merge, or persist analyzed/scored JSON; run filters or
 scoring; update vacancy lifecycle state; or save jobs. Those responsibilities
 belong to the caller that owns the operation.
 
+## Prompt composition
+
+Trusted instruction files can include shared prompt fragments using
+repository-root-relative paths:
+
+```text
+{{technology levels => Driver/contracts/technology_levels.md}}
+```
+
+`cli_prompt()` recursively replaces these directives with the referenced UTF-8
+file contents, prefixed by the directive's title. Only trusted prompt files
+should be included. Missing files and cyclic includes fail prompt assembly
+before the model is called. Reusing a fragment in separate branches is allowed.
+Operation input and context data files are appended unchanged; directives in
+vacancy text or candidate data are never expanded. Continued sessions retain
+the instruction composed on their initial turn.
+
 CLI usage:
 
 ```text

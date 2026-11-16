@@ -131,8 +131,8 @@ Technology requirements:
   - Do not create many separate rows from a list of generic practices. Multiple
     supporting practices must not outnumber or obscure the role-defining stack
     and explicit must-have requirements.
-- Read and follow the shared [technology proficiency scale](../../contracts/technology_levels.md)
-  for `level_rank` and its matching normalized `level` label.
+- Use the shared technology proficiency scale below for `level_rank` and its
+  matching normalized `level` label.
 - Explicit JustJoinIT proficiency levels win when visible in the vacancy header;
   normalize them to the shared scale.
 - If a technology is only mentioned in text, infer the level from wording.
@@ -155,6 +155,8 @@ Technology requirements:
   CodePipeline, CodeBuild, and CodeDeploy` should usually be one required
   `AWS CI/CD pipelines` item, unless the vacancy clearly requires each service
   independently.
+
+{{technology levels => Driver/contracts/technology_levels.md}}
 
 Location and remote-work rules:
 - Treat the listed location or locations as confirmed candidate locations. Add
