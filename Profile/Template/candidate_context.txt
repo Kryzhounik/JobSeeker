@@ -1,0 +1,7 @@
+# Additional Candidate Context
+
+Replace this guidance with confirmed information that supplements or clarifies
+your resume: professional interests, working preferences, additional experience,
+activities and relevant qualifications or limitations. Include what matters
+for your profession and background. Keep agent instructions in the consuming
+module's prompt.

@@ -70,11 +70,33 @@ suppress errors to keep the workflow running.
 
 ## Verification Delegation
 
-The primary agent performs the requested work. When additional functional
+The primary agent is responsible for the requested work. When additional functional
 verification is warranted, prefer delegating it, including writing and running
 test scenarios, to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
 the task explicitly requires the primary agent to perform it. Production-code
-fixes remain with the primary agent.
+fixes remain with the primary agent, except for already-agreed mechanical edits
+delegated under the rule below.
+
+## Delegating Agreed Mechanical Edits
+
+This rule applies only to Sol primary agents. Use `gpt-6-luna` with
+`reasoning_effort="low"` as the delegate; no separate user approval is needed.
+Terra and Luna agents perform these edits directly rather than delegating them
+for cost optimization.
+
+Prefer delegation when a short handoff can describe a substantial batch of
+agreed mechanical edits, and preparing the handoff plus reviewing the result
+requires substantially less primary-agent work than making the edits directly.
+Perform small, isolated edits directly.
+
+Provide the agreed changes, relevant files, constraints, and necessary context,
+not the full discussion history. The subagent must not reopen agreed decisions
+or expand scope. The primary agent remains responsible for the result; verify
+it proportionately without repeating the delegated work.
+
+This includes mechanical production-code edits only when the specific changes
+are already agreed. New bug fixes and architectural decisions remain with the
+primary agent.
 
 ## Coding Task Handoff
 

@@ -139,7 +139,7 @@ remains independent of the database.
 Java callers use `ApplierApi.coverLetter(long)` or `coverLetter(long, Path)`;
 `coverletter.CoverLetterWriter` is the standalone writer API. Full cleaned vacancy
 text, title and company are loaded from SQLite by ID. Only the writer prompt,
-`Data/Profile/resume.txt` and `Data/Profile/Applier/candidate_context.txt` are supplied to
+`Data/Profile/resume.txt` and `Data/Profile/candidate_context.txt` are supplied to
 Codex Proxy; questionnaire facts, profile INI and PDF are excluded. See
 [architecture](ARCHITECTURE.md) and the [CLI skill](../.agents/skills/applier-cover-letter/SKILL.md).
 
