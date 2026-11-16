@@ -407,12 +407,7 @@ execution contract; the Java orchestrator owns pipeline behavior.
 - Do not commit inserts or raw downloaded pages.
 - Avoid building a large framework before the MVP proves useful.
 - Prefer one clear main view over many temporary display views.
-- Technologies use ranks:
-  - 1: optional / nice to have / plus.
-  - 2: junior / basic / listed required mention.
-  - 3: regular / hands-on / commercial or solid experience.
-  - 4: advanced / senior.
-  - 5: master / expert.
+- Technologies use the shared [proficiency scale](Driver/contracts/technology_levels.md).
 - `req` means required, `opt` means optional.
 - `score` is the first sorting field in `job_view`; it combines `fit` and
   `interest`.

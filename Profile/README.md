@@ -62,7 +62,8 @@ INI and properties files describe their entries in comments. The LinkedIn
 location format and `geoId` instructions. In `resume.ini`,
 each language maps to CEFR A1-C2. Location values are interest scores; presence
 means the location is available. `relocation.base` is added to a destination's
-score. Technology experience ranges from 0 (none) to 5 (core expertise).
+score. Technology proficiency uses the shared
+[1-5 scale](../Driver/contracts/technology_levels.md).
 Keyword and block-list entries use the meaning of their section; individual
 words do not need separate descriptions. Markdown answers and candidate context
 are free-form confirmed facts, not configuration keys.

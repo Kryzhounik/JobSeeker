@@ -131,17 +131,13 @@ Technology requirements:
   - Do not create many separate rows from a list of generic practices. Multiple
     supporting practices must not outnumber or obscure the role-defining stack
     and explicit must-have requirements.
-- level_rank:
-  - 1: nice to have / optional / will be a plus.
-  - 2: junior, basic, beginner, or required/listed/mentioned without depth.
-  - 3: regular, intermediate, hands-on experience, commercial experience,
-    production experience, solid experience, strong practical experience.
-  - 4: advanced, senior.
-  - 5: master, expert.
-- Explicit JustJoinIT levels win when visible in the vacancy header.
+- Read and follow the shared [technology proficiency scale](../../contracts/technology_levels.md)
+  for `level_rank` and its matching normalized `level` label.
+- Explicit JustJoinIT proficiency levels win when visible in the vacancy header;
+  normalize them to the shared scale.
 - If a technology is only mentioned in text, infer the level from wording.
-- If wording is too vague but the technology is required, use level_rank 2.
-- If wording is too vague and the technology is optional, use level_rank 1.
+- If wording gives no usable proficiency depth, use level_rank 2 regardless of
+  requirement importance.
 - Use a slash-separated name for interchangeable peer technologies at the same
   level of abstraction when any one of them satisfies the requirement. Keep the
   original sentence in `raw_value` and let candidate-fit evaluation choose the

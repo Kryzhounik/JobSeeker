@@ -134,7 +134,7 @@
               },
               "level": {
                 "type": "string",
-                "enum": ["nice to have", "junior", "regular", "advanced", "master"]
+                "enum": ["familiar", "junior", "regular", "advanced", "master"]
               },
               "level_rank": {
                 "type": "integer",
