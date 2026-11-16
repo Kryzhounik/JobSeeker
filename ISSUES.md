@@ -16,3 +16,16 @@ ready` after a timeout. The issue does not reproduce on every run.
 On the affected laptop, navigating directly to the full vacancy page makes
 the section visible and is being used as a workaround. A monitor-resolution
 interaction is suspected, but the cause has not been confirmed.
+
+## Minor: Empty LinkedIn keyword list is accepted
+
+`CollectionSettings.LinkedIn` currently accepts an empty `keywords` list
+(e.g. `keywords=`). With ordinary locations, `SearchPlan` creates no searches
+and collection may finish as `complete` without checking any vacancies. With
+`AccountRemote`, `keywords().getFirst()` fails and collection becomes `blocked`.
+
+An empty query list is invalid user configuration, not a request for an
+unfiltered search. Reject it during settings validation with a clear error,
+before starting collection. Add a focused regression test when addressing this.
+
+Severity: **Minor**. Deferred; not blocking Issue #4 review.
