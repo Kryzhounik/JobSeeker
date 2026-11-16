@@ -38,12 +38,6 @@ Analytics Engineer
 Administrator IT
 OpenSearch Engineer
 
-Artificial Intelligence Engineer
-AI Engineer
-AI Trainer
-AI/ML Engineer
-AI Construction Operations Specialist
-AI Automation Engineer
 Transformation Lead
 EMember of Technical Staff
 
@@ -168,11 +162,6 @@ Management Specialist
 
 macOS platform
 
-MLOps Engineer
-LLM Engineer
-Machine Learning Engineer
-Computer Vision Engineer
-Senior Machine Learning
 
 Manufacturing Specialist
 
@@ -225,7 +214,6 @@ Database Administrator
 Quality Assurance Engineer
 English Specialist
 Mechanical Engineer
-Data Scientist
 SQL Developer
 Fullstack
 Python
@@ -246,7 +234,6 @@ Director
 Security Software Engineer
 Logistics Manager
 Security Engineer
-AI Engineer
 Operations Manager
 Policy Consultant
 Operations Coordinator
@@ -343,7 +330,6 @@ FinOps Engineer
 D365 Commerce Developer
 Embedded Systems Engineer
 Go Software Engineer
-Machine Learning Specialist
 Build Engineer
 Revit API Developer
 Front End Engineer
@@ -373,7 +359,6 @@ UE Senior Programmer
 Affiliate Team Lead
 Nuclear Engineer
 FPGA Developer
-Senior ML Engineer
 Solana Engineer
 
 Administrator
@@ -434,9 +419,6 @@ Risk Operations
 Системный программист
 
 Specjalista ds Ciaglego Doskonalenia Procesow
-Expert AI Developer
-Senior GenAI
-Lead AI
 GCP Engineer
 
 Inzynier Jakosci
@@ -568,9 +550,7 @@ Wireless Systems Architect
 Workflow Specialist
 Computer Science Expert
 Analytics Team Lead
-Data Science Expert
 Governance SME
-LLM Evaluator
 Service Operations Engineer
 Sevice TL
 Specialist Data Dictionary
@@ -587,13 +567,11 @@ Security Expert
 Machine Engineer
 DevSecOps Tech Lead
 Governance Engineer
-ML Operations Engineer
 HCL Commerce Backend Developer
 Senior MuleSoft Engineer
 Finance Transformation Architect
 Research Assistant
 ASIC Verification Engineer
-Team Lead, Data Science
 Technical Expert
 Automation Engineer
 General Counsel
@@ -601,15 +579,12 @@ E-commerce Specialist
 Video Annotator
 Science Research Assistant
 CNC Programmer
-AI Architect
 GRC Content Engineer
 Quality Assurance
 Cloud Delivery Architect
 SRE Engineer
 Human Data Specialist
 DevOps Tech Lead
-Machine Learning Ops Engineer
-Senior ML
 Системний аналітик
 Observability Engineer
 IT Auditor
@@ -619,7 +594,6 @@ Acquisition Team Lead
 Senior Optimizely CMS 12 Developer
 Senior Appian Developer
 Senior Platform Engineer
-AI Developer Enablement Lead
 Senior Optimizely
 Application Security Lead
 Database Engineer
@@ -639,7 +613,6 @@ Executive Associate
 Инженер – проектировщик
 Marketing Creatives Producer
 Специалист по направлению
-Principal AI Solutions Engineer
 Доцент-преподаватель
 Координатор
 Structural Engineer
@@ -651,7 +624,6 @@ Manufacturing Engineer
 Senior Data Integration Engineer
 Менеджер
 Intervention Specialist
-AI Creative Engineer
 Product Team Lead
 DevSecOps Engineer
 Engineering Lab Technician
@@ -744,7 +716,6 @@ Contract Engineer
 Education Programme Lead
 Initiative Lead
 Education Specialist
-AI Data Collector
 Data Governance Lead
 Infrastruktury Informatycznej w obszarze inżynierii ds. sieci bezprzewodowych
 Inżynier / -ka Procesu Obróbki Cieplnej
@@ -838,7 +809,6 @@ Packet Core CMM Integration Engineer
 Senior M365 Engineer
 Тестировщик
 Vue Developer
-AI Software Engineer Expert
 VoIP Engineer
 Керівник напрямку
 Системний інженер
@@ -847,7 +817,6 @@ Head of Infrastructure
 Lead Product Engineer
 Senior Microsoft 365 Engineer
 Roku Developer
-AI Consulting Expert
 інженер вбудованого програмного
 Спеціаліст з кадрового
 Finance Coordinator
@@ -865,3 +834,34 @@ Senior Cloud Engineer
 Lead IAM Engineer
 BizOps Senior Systems Engineer
 QA with Automation
+
+# AI / ML / LLM
+Artificial Intelligence Engineer
+AI Engineer
+AI Trainer
+AI/ML Engineer
+AI Construction Operations Specialist
+AI Automation Engineer
+MLOps Engineer
+LLM Engineer
+Machine Learning Engineer
+Computer Vision Engineer
+Senior Machine Learning
+Data Scientist
+Machine Learning Specialist
+Senior ML Engineer
+Expert AI Developer
+Lead AI
+Data Science Expert
+LLM Evaluator
+ML Operations Engineer
+Team Lead, Data Science
+AI Architect
+Machine Learning Ops Engineer
+Senior ML
+AI Developer Enablement Lead
+Principal AI Solutions Engineer
+AI Creative Engineer
+AI Data Collector
+AI Software Engineer Expert
+AI Consulting Expert
