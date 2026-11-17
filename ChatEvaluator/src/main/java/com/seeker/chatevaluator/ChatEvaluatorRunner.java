@@ -85,7 +85,12 @@ public final class ChatEvaluatorRunner {
 
     private static boolean conversationData(Request request) {
         String path = URI.create(request.url()).getPath();
-        return path.contains("/backend-api/") && (path.contains("conversation") || path.endsWith("/me"));
+        return isConversationDataPath(path);
+    }
+
+    static boolean isConversationDataPath(String path) {
+        return path != null && path.contains("/backend-api/")
+                && (path.contains("conversation") || path.endsWith("/me"));
     }
 
     static Locator prepareConversation(Page page, String chatUrl, boolean navigate) throws IOException {

@@ -20,6 +20,14 @@ class ChatEvaluatorRunnerTest {
     private static final Turn SENT = new Turn("new", "user-new", URL, "", "", false);
 
     @Test
+    void conversationDataIgnoresUrlsWithoutPath() {
+        assertFalse(ChatEvaluatorRunner.isConversationDataPath(null));
+        assertFalse(ChatEvaluatorRunner.isConversationDataPath(""));
+        assertTrue(ChatEvaluatorRunner.isConversationDataPath("/backend-api/conversation"));
+        assertTrue(ChatEvaluatorRunner.isConversationDataPath("/backend-api/me"));
+    }
+
+    @Test
     void unresolvedHttpAddressRequiresBrowserCheck() throws Exception {
         ConnectException failure = new ConnectException();
         failure.initCause(new ConnectException());
