@@ -116,7 +116,7 @@ execution contract; the Java orchestrator owns pipeline behavior.
   отладки; обе папки не должны требоваться для выполнения workflow.
 - **MEDIUM: Автоматизированная адаптация Collector к изменениям LinkedIn UI.**
   Создать узкий пилот agent-driven разработки с использованием методик из
-  [идеи harness](autonomous-development-harness-idea.md): по команде пользователя
+  [идеи harness](docs/ideas/autonomous-development-harness-idea.md): по команде пользователя
   агенты исследуют изменившийся интерфейс, разрабатывают и проверяют новую
   версию DOM-адаптера. Это кандидат на применение harness, не готовая система.
   Подготовительный рефакторинг подчинён этой цели: инкапсулировать селекторы,
