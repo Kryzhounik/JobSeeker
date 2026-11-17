@@ -34,8 +34,8 @@ final class DeduplicationDatabase implements AutoCloseable {
         }
     }
 
-    void saveLink(String batchId, long duplicate, long original) {
-        try (PyObject ignored = bridge.callMethod("save_link", database, batchId, duplicate, original)) { }
+    void saveDecision(String batchId, long duplicate, Long original) {
+        try (PyObject ignored = bridge.callMethod("save_decision", database, batchId, duplicate, original)) { }
     }
 
     @Override public void close() { bridge.close(); }

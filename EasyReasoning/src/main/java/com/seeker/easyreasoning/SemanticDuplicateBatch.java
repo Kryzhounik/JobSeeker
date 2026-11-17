@@ -32,7 +32,7 @@ final class SemanticDuplicateBatch {
             if (!mode.equals("qwen")) throw new IllegalArgumentException("Unsupported dedup.mode: " + mode);
             try (var database = new DeduplicationDatabase(root)) {
                 process(database.loadBatch(batchId), compare,
-                        (duplicate, original) -> database.saveLink(batchId, duplicate, original));
+                        (duplicate, original) -> database.saveDecision(batchId, duplicate, original));
             } finally {
                 try { release.run(); }
                 catch (RuntimeException error) {
@@ -47,10 +47,20 @@ final class SemanticDuplicateBatch {
     static void process(List<VacancySnapshot> vacancies, BiPredicate<String, String> compare,
                         BiConsumer<Long, Long> save) {
         Map<Key, List<VacancySnapshot>> samples = new HashMap<>();
+        Set<Long> unresolved = new HashSet<>();
         for (VacancySnapshot vacancy : vacancies) {
             String title = vacancy.title().replaceAll("[\\s\\p{Z}]+", " ").strip().toLowerCase(Locale.ROOT);
-            if (vacancy.companyId() == null || title.isBlank()) continue;
-            var group = samples.computeIfAbsent(new Key(vacancy.companyId(), title), k -> new ArrayList<>());
+            if (vacancy.companyId() == null || title.isBlank()) {
+                if (!vacancy.checked()) save.accept(vacancy.id(), null);
+                continue;
+            }
+            Key key = new Key(vacancy.companyId(), title);
+            var group = samples.computeIfAbsent(key, k -> new ArrayList<>());
+            if (vacancy.checked()) {
+                if (vacancy.duplicateOf() == null) group.add(vacancy);
+                continue;
+            }
+            boolean incomplete = false;
             VacancySnapshot original = null;
             for (var sample : group) {
                 boolean duplicate;
@@ -58,11 +68,24 @@ final class SemanticDuplicateBatch {
                 catch (RuntimeException error) {
                     System.err.println("Semantic comparison failed: " + sample.source() + ":" + sample.jobId() + " vs "
                             + vacancy.source() + ":" + vacancy.jobId() + ": " + error);
+                    incomplete = true;
                     continue;
                 }
-                if (duplicate) { original = sample; break; }
+                if (duplicate) {
+                    if (unresolved.contains(sample.id())) { incomplete = true; continue; }
+                    original = sample;
+                    break;
+                }
             }
-            if (original == null) group.add(vacancy);
+            if (original == null && incomplete) {
+                unresolved.add(vacancy.id());
+                group.add(vacancy);
+                continue;
+            }
+            if (original == null) {
+                save.accept(vacancy.id(), null);
+                group.add(vacancy);
+            }
             else {
                 save.accept(vacancy.id(), original.id());
                 System.err.println("Semantic duplicate: " + vacancy.source() + ":" + vacancy.jobId()

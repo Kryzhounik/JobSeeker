@@ -81,14 +81,14 @@ class SemanticDuplicateBatchIntegrationTest {
             assertEquals(2, unloads.get(), "The same API must remain reusable after batch cleanup");
         }
         finally { model.stop(0); }
-        assertEquals(8, requests.size());
+        assertEquals(7, requests.size());
         assertEquals(2, unloads.get(), "Closing the API must not unload the model again");
         try (var sqlite = PyModule.importModule("sqlite3");
              var connection = sqlite.callMethod("connect",database.toString())) {
             try (var cursor = connection.callMethod("execute",
-                    "SELECT id,semantic_duplicate_of,processing_status FROM source_jobs ORDER BY id");
+                    "SELECT id,dedup_checked,semantic_duplicate_of,processing_status FROM source_jobs ORDER BY id");
                  PyObject rows = cursor.callMethod("fetchall")) {
-                assertEquals("[(1, None, 'CLEANED'), (2, 1, 'CLEANED'), (3, None, 'CLEANED'), (4, None, 'CLEANED')]", rows.repr());
+                assertEquals("[(1, 1, None, 'CLEANED'), (2, 1, 1, 'CLEANED'), (3, 0, None, 'CLEANED'), (4, 0, None, 'CLEANED')]", rows.repr());
             } finally { try (var ignored = connection.callMethod("close")) { } }
         }
     }

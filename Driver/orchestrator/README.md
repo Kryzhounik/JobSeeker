@@ -38,7 +38,7 @@ The application performs these operations:
    recommendations. The operation owns its `off`/`qwen` setting (see
    [EasyReasoning documentation](../../EasyReasoning/README.md)).
    Duplicate links do not exclude vacancies from subsequent processing;
-   model errors are visible and do not stop analysis. Resume is unchanged.
+   model errors are visible and do not stop analysis. Resume invokes the same deduplication stage; EasyReasoning skips already checked vacancies.
 2. Run the agent filter and atomically mark vacancies `RELEVANT` or `NONRELEVANT`.
 3. Extract `job_facts` in configured groups.
 4. Run the deterministic candidate-fit gate.
@@ -167,7 +167,9 @@ lookups, relevance decisions and accepted/rejected result matching. The agent
 returns `nonrelevant_jobs` as ordered `{source, job_id}` objects. The title-only
 decision rules are unchanged. Fact extraction, fit, interest and saving use each
 scope item's source; the shared candidate-fit session still spans the whole run.
-Resume loads saved work for every source and does not collect again. Its summary
+Resume loads saved work for every source and does not collect again. Before
+filtering and analysis it runs the same EasyReasoning deduplication stage as a
+normal workflow; already checked vacancies are skipped. Its summary
 `source` is the sole source, `mixed` for multiple sources, or empty for an empty
 scope. Scope entries always retain the actual source. Partial-stage results also
 derive their summary from nonempty scope; existing method signatures remain.

@@ -253,3 +253,22 @@ budget. Use Terraform for infrastructure and OCI CLI for authentication and
 operational checks. Protect the remote Ollama endpoint rather than exposing an
 unauthenticated inference API publicly. Credentials, private keys, and Terraform
 state must not enter Git or application logs.
+
+## Resuming deduplication
+
+Normal workflows and Resume invoke deduplication in the common processing path
+before filtering and analysis. `source_jobs.dedup_checked` records completion
+independently of analysis status and the optional `semantic_duplicate_of` link.
+Each completed decision saves its link (or NULL) and completion flag together.
+Old rows default to unchecked; `off` leaves flags unchanged.
+
+The batch is replayed in saved order: checked nonduplicates restore comparison
+samples, checked duplicates are skipped, and unchecked records are evaluated.
+A failed pair does not stop other comparisons, including later vacancies in the
+same group. An unresolved record remains a comparison candidate, but cannot be
+used as the saved original of a duplicate until its own decision is complete.
+A confirmed match to a resolved original completes the current decision;
+otherwise any failed required comparison or match to an unresolved candidate
+leaves the current record unchecked. Downstream analysis continues. Repeated calls on a
+fully checked batch make no model requests. Existing Resume eligibility checks
+remain unchanged.

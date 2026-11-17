@@ -90,6 +90,8 @@ def migration_already_effective(
         return "REFERENCES job_statuses(code)" in ddl
     if version in ("026_linkedin_collection_diagnostics", "047_collection_runs") and table_exists(connection, "collection_runs"):
         return True
+    if version == "050_dedup_checked":
+        return column_exists(connection, "source_jobs", "dedup_checked")
     if version == "046_semantic_duplicates":
         return column_exists(connection, "source_jobs", "semantic_duplicate_of")
     if version == "048_collection_events":

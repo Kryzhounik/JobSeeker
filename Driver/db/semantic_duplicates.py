@@ -6,13 +6,16 @@ def load_batch(connection: sqlite3.Connection, run_id: str) -> list[dict]:
     if connection.execute("SELECT 1 FROM collection_runs WHERE run_id = ?", (run_id,)).fetchone() is None:
         raise ValueError(f"Batch not found: {run_id}")
     rows = connection.execute("""
-        SELECT s.id, s.source, s.source_job_id, t.company_id, t.title, t.readable_text
+        SELECT s.id, s.source, s.source_job_id, t.company_id, t.title, t.readable_text, s.dedup_checked, s.semantic_duplicate_of
         FROM source_jobs s JOIN source_job_texts t ON t.source_job_ref = s.id
         WHERE s.collection_run_id = ?
           AND s.processing_status IN ('CLEANED','RELEVANT','NONRELEVANT','ANALYZED','SCORED','SAVED')
         ORDER BY s.id
     """, (run_id,)).fetchall()
-    return [dict(zip(('id', 'source', 'jobId', 'companyId', 'title', 'text'), row)) for row in rows]
+    result = [dict(zip(('id', 'source', 'jobId', 'companyId', 'title', 'text', 'checked', 'duplicateOf'), row)) for row in rows]
+    for vacancy in result:
+        vacancy['checked'] = bool(vacancy['checked'])
+    return result
 
 
 def load_snapshot(connection: sqlite3.Connection, run_id: str, source: str, job_id: str) -> dict:
@@ -37,4 +40,17 @@ def save_link(connection: sqlite3.Connection, run_id: str, duplicate_id: int, or
     """, (original_id, duplicate_id, run_id, original_id, run_id))
     if updated.rowcount != 1:
         raise ValueError("Both semantic duplicate records must belong to the current run")
+    connection.commit()
+
+
+def save_decision(connection: sqlite3.Connection, run_id: str,
+                  vacancy_id: int, original_id: int | None) -> None:
+    updated = connection.execute("""
+        UPDATE source_jobs SET semantic_duplicate_of=?, dedup_checked=1
+        WHERE id=? AND collection_run_id=? AND
+          (? IS NULL OR (? <> id AND EXISTS (
+            SELECT 1 FROM source_jobs original WHERE original.id=? AND original.collection_run_id=?)))
+    """, (original_id, vacancy_id, run_id, original_id, original_id, original_id, run_id))
+    if updated.rowcount != 1:
+        raise ValueError("Invalid deduplication decision or batch")
     connection.commit()

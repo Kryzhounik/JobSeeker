@@ -223,8 +223,6 @@ public final class WorkflowOrchestrator {
             return new WorkflowResult(collected.source(), collected.runId(), collected.status(),
                     collected, List.of(), 0, collected.message());
         }
-        run.preparing("Deduplication", "Comparing saved vacancy descriptions");
-        deduplicate.accept(collected.runId());
         return processScope(collected.source(), collected.runId(), collected.scope(), collected, run);
     }
 
@@ -236,6 +234,8 @@ public final class WorkflowOrchestrator {
         run.count("Scope", scope.size());
         run.preparing(collected == null ? "Relevance filter" : "Collection", "Loading processing scope");
         processingGateway.updateBatch(runId, "running", "", "");
+        run.preparing("Deduplication", "Comparing saved vacancy descriptions");
+        deduplicate.accept(runId);
         Map<JobKey, String> statuses = new HashMap<>(processingGateway.loadStatuses(scope));
         run.count("Already saved", atStatus(scope, statuses, "SAVED").size());
         run.count("Rejected by relevance", atStatus(scope, statuses, "NONRELEVANT").size());

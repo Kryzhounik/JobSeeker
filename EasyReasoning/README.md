@@ -94,7 +94,8 @@ method accepts only two texts and has no database access. The agreed boundary
 for batch operations is described in
 [Architecture](ARCHITECTURE.md#operation-layers-and-batch-ownership).
 Batch callers use `easyReasoning.deduplicateBatch(batchId)` to find and mark
-similar descriptions within a saved batch. All vacancies remain available for
+similar descriptions within a saved batch. Normal workflows and Resume use this
+operation; completed vacancy checks are persisted and skipped on subsequent calls. All vacancies remain available for
 analysis; model errors are reported without stopping batch processing.
 The operation is enabled with `dedup.mode=qwen` or disabled with `off` in
 `EasyReasoning/easy-reasoning.properties`. Its responsibilities and internal

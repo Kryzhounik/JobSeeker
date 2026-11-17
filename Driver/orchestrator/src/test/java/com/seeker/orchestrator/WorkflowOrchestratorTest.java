@@ -51,17 +51,19 @@ class WorkflowOrchestratorTest {
     }
 
     @Test
-    void doesNotDeduplicateBlockedEmptyOrResumedCollections() throws Exception {
+    void doesNotDeduplicateBlockedOrEmptyCollectionsButDoesResume() throws Exception {
         for (String status : List.of("blocked", "complete")) {
             var gateway = new FakeProcessingGateway(List.of());
             var workflow = new WorkflowOrchestrator((selection, settings, progress) -> report(status, List.of()),
                     (urls, prefix, progress) -> report(status, List.of()), gateway, progress -> List.of(),
-                    1, 10, id -> { throw new AssertionError("Unexpected deduplication"); });
+                    1, 10, id -> gateway.calls.add("dedup:" + id));
             workflow.processBatch("linkedin");
+            assertFalse(gateway.calls.contains("dedup:run-1"));
             gateway.batchStatuses.put("run-1", "failed");
             gateway.recoveredScope = List.of(item("1", "Java"));
             workflow.resume("run-1");
             assertEquals(1, gateway.filterInvocations);
+            assertEquals(1, gateway.calls.stream().filter(call -> call.equals("dedup:run-1")).count());
         }
     }
 
@@ -785,7 +787,7 @@ class WorkflowOrchestratorTest {
             assertEquals(scope, resumed.processedScope());
             assertEquals(0, resumed.savedCount());
             assertEquals(1, collects.get());
-            assertEquals(List.of("run-1"), deduplicated);
+            assertEquals(List.of("run-1", "run-1"), deduplicated);
         }
     }
 

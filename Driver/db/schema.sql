@@ -107,6 +107,7 @@ CREATE TABLE IF NOT EXISTS source_jobs (
     collection_run_id TEXT REFERENCES collection_runs(run_id),
     availability TEXT NOT NULL DEFAULT 'available' REFERENCES availability_statuses(code),
     unavailable_checks INTEGER NOT NULL DEFAULT 0 CHECK (unavailable_checks >= 0),
+    dedup_checked INTEGER NOT NULL DEFAULT 0 CHECK (dedup_checked IN (0,1)),
     semantic_duplicate_of INTEGER REFERENCES source_jobs(id) ON DELETE SET NULL,
     UNIQUE(source, source_job_id)
 );
