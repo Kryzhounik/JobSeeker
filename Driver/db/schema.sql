@@ -250,7 +250,7 @@ CREATE TABLE IF NOT EXISTS job_technologies (
         )
     ),
     level TEXT NOT NULL CHECK (
-        level IN ('nice to have', 'junior', 'regular', 'advanced', 'master')
+        level IN ('familiar', 'junior', 'regular', 'advanced', 'master')
     ),
     level_rank INTEGER NOT NULL CHECK (
         level_rank >= 1 AND level_rank <= 5
@@ -541,7 +541,7 @@ SELECT
                                 'required/listed'
                             ) THEN
                                 CASE jt.level_rank
-                                    WHEN 1 THEN 'nice to have'
+                                    WHEN 1 THEN 'familiar'
                                     WHEN 2 THEN 'junior'
                                     WHEN 3 THEN 'regular'
                                     WHEN 4 THEN 'advanced'
@@ -550,7 +550,7 @@ SELECT
                                 END
                             ELSE
                                 CASE jt.level_rank
-                                    WHEN 1 THEN 'nice to have'
+                                    WHEN 1 THEN 'familiar'
                                     WHEN 2 THEN 'junior'
                                     WHEN 3 THEN 'regular'
                                     WHEN 4 THEN 'advanced'
@@ -674,7 +674,7 @@ WITH ordered AS (
                 'required/listed'
             ) THEN
                 CASE jt.level_rank
-                    WHEN 1 THEN 'nice to have'
+                    WHEN 1 THEN 'familiar'
                     WHEN 2 THEN 'junior'
                     WHEN 3 THEN 'regular'
                     WHEN 4 THEN 'advanced'
@@ -683,7 +683,7 @@ WITH ordered AS (
                 END
             ELSE
                 CASE jt.level_rank
-                    WHEN 1 THEN 'nice to have'
+                    WHEN 1 THEN 'familiar'
                     WHEN 2 THEN 'junior'
                     WHEN 3 THEN 'regular'
                     WHEN 4 THEN 'advanced'
