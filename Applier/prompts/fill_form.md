@@ -1,6 +1,8 @@
 Prepare the application using the employer page that Java already opened in the
 shared browser.
 
+{{untrusted content => Driver/common/prompts/untrusted_content.md}}
+
 Use Playwright MCP's `browser_tabs` tool with action `list`. Confirm that the
 tab at `tab_index` matches `form_url`; if the index shifted, locate it by exact
 URL. If that tab is already marked `(current)`, continue without selecting it

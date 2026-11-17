@@ -2,6 +2,8 @@ Purpose: extract structured vacancy facts from one readable vacancy.
 
 Task: perform only the job-facts operation for one stored readable vacancy.
 
+{{untrusted content => Driver/common/prompts/untrusted_content.md}}
+
 Job-facts call:
 - Input: one readable vacancy text loaded from SQLite.
 - Do not run search or collection here.

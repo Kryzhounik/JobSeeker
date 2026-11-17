@@ -1,6 +1,8 @@
 Purpose: cheaply reject vacancies whose titles clearly describe work unrelated
 to a Java/JVM software-engineering career before detailed vacancy analysis.
 
+{{untrusted content => Driver/common/prompts/untrusted_content.md}}
+
 Input
 
 The input is one ordered JSON array of collected scope items. Every item
