@@ -336,6 +336,11 @@ Review priorities:
 5. **Failure handling** - Consider realistic failures proportionally to their
    actual consequences.
 
+Review documentation changes alongside the code. Before relying on a new or
+revised requirement or architectural decision to assess the implementation,
+verify that it follows from the task or a previously agreed decision. Check
+that the content fits the document's purpose and level of detail.
+
 **Avoid defensive overengineering:**
 
 - Do not demand elaborate recovery mechanisms, transactions, retries, queues,
