@@ -2,7 +2,7 @@
 name: applier-cover-letter
 description: Get a saved cover letter or generate one for a stored JobSeeker vacancy by internal jobs.id.
 ---
-Run from `C:/Users/user/Documents/Seeker` with Java 21 or newer:
+Run from the repository root with Java 21 or newer:
 
 ```powershell
 java -jar Applier/applier.jar cover-letter <jobs.id> [output.txt]
