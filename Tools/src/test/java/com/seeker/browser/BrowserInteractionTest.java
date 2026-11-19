@@ -170,6 +170,53 @@ class BrowserInteractionTest {
         }
     }
 
+    @Test void abortedRelevantRequestDoesNotPreventDomSuccess() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://data.test/**", route -> route.abort("aborted"));
+            Page page = context.newPage();
+            page.setContent("<main>Waiting for answer</main>");
+            var failed = new java.util.concurrent.atomic.AtomicReference<Request>();
+            page.onRequestFailed(failed::set);
+            try (var interaction = new BrowserInteraction(page, r -> r.url().contains("data.test"))) {
+                page.evaluate("""
+                    () => { fetch('https://data.test/conversation').catch(() => {
+                      setTimeout(() => { document.querySelector('main').innerText = 'Completed answer'; }, 300);
+                    }); }
+                    """);
+                assertEquals("Completed answer", interaction.await("reading completed answer",
+                        new BrowserInteraction.Policy(100, 1000, 3000), () -> {
+                            String text = (String) BrowserInteraction.read(page,
+                                    "() => document.querySelector('main').innerText", null, 100);
+                            return text.equals("Completed answer") ? BrowserInteraction.Observation.ready(text)
+                                    : BrowserInteraction.Observation.pending("", "waiting for completed answer");
+                        }));
+                assertNotNull(failed.get());
+                assertEquals("net::ERR_ABORTED", failed.get().failure());
+                assertFalse(interaction.hasPendingData());
+            }
+        }
+    }
+
+    @Test void abortedRelevantRequestWithoutResultStillTimesOutWithDiagnostic() {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            context.route("https://data.test/**", route -> route.abort("aborted"));
+            Page page = context.newPage();
+            page.setContent("<main>Waiting</main>");
+            try (var interaction = new BrowserInteraction(page, r -> r.url().contains("data.test"))) {
+                page.evaluate("() => { fetch('https://data.test/conversation').catch(() => {}); }");
+                IOException failure = assertThrows(BrowserInteraction.WaitTimeout.class,
+                        () -> interaction.await("waiting for missing answer",
+                                new BrowserInteraction.Policy(100, 500, 2000), () ->
+                                        BrowserInteraction.Observation.pending("", "no completed answer")));
+                assertTrue(failure.getMessage().contains("no useful progress"));
+                assertTrue(failure.getMessage().contains("ERR_ABORTED"));
+                assertFalse(interaction.hasPendingData());
+            }
+        }
+    }
+
     @Test void preexistingHungRequestHasABoundedUnknownLoadingPeriod() {
         try (var context = browser.newContext()) {
             context.setOffline(true);

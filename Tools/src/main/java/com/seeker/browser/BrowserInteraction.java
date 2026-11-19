@@ -97,7 +97,13 @@ public final class BrowserInteraction implements AutoCloseable {
         Consumer<Request> failed = request -> {
             if (loading.remove(request) || significant(target, request)) {
                 resourceError = "resource load failed: " + request.failure() + " " + path(request.url());
-                if (relevantData.test(request)) failure = resourceError;
+                if (relevantData.test(request)) {
+                    if ("net::ERR_ABORTED".equals(request.failure())) {
+                        // ChatGPT reports ERR_ABORTED even while the browser keeps working
+                        // and producing an answer. Keep the diagnostic, but continue DOM observation.
+                        // failure = resourceError;
+                    } else failure = resourceError;
+                }
             }
             if (mainDocument(target, request) && !"net::ERR_ABORTED".equals(request.failure()))
                 failure = "main document load failed: " + request.failure();
