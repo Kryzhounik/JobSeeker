@@ -241,6 +241,159 @@ class ChatHistoryReadinessTest {
         }
     }
 
+    private static final String SCROLLING_PAGE = """
+        <style>
+          body { margin: 0; }
+          #sidebar { position: fixed; width: 150px; height: 240px; overflow-y: auto; }
+          #history { margin-left: 170px; width: 500px; height: 240px; overflow-y: auto;
+                     overflow-anchor: none; scroll-behavior: smooth; }
+          form { position: fixed; bottom: 0; left: 170px; }
+        </style>
+        <aside id="sidebar"><div style="height:1800px">Other conversations</div></aside>
+        <main id="history"><div style="height:1800px">Earlier history</div>
+          <div data-turn-key="old"><div data-chatgpt-search-unit-key="old:user"
+               data-chatgpt-search-message-ids="old-user">Previous question</div></div>
+        </main>
+        <form><div role="textbox" contenteditable="true">Existing draft</div>
+          <button type="submit">Send</button></form>
+        """;
+
+    @Test
+    void preparationScrollsHistoryAndFollowsLoadedContentWithoutMovingSidebar() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent(SCROLLING_PAGE);
+            page.evaluate("""
+                () => {
+                  const history = document.querySelector('#history');
+                  history.scrollTo({top: 600, behavior: 'instant'});
+                  document.querySelector('#sidebar').scrollTop = 120;
+                  window.loadedAtBottom = false;
+                  history.addEventListener('scroll', () => {
+                    if (window.loadingMore || history.scrollTop + history.clientHeight < history.scrollHeight - 2) return;
+                    window.loadingMore = true;
+                    setTimeout(() => {
+                      const extra = document.createElement('div'); extra.style.height = '900px';
+                      history.append(extra); window.loadedAtBottom = true;
+                    }, 60);
+                  });
+                }
+                """);
+            var composer = ChatEvaluatorRunner.prepareConversation(page, page.url(), false);
+            assertEquals(Boolean.TRUE, page.evaluate("window.loadedAtBottom"));
+            assertTrue((Boolean) page.evaluate("""
+                () => { const h = document.querySelector('#history');
+                  return h.scrollHeight - h.clientHeight - h.scrollTop <= 2; }
+                """));
+            assertEquals(120, ((Number) page.evaluate("document.querySelector('#sidebar').scrollTop")).intValue());
+            assertEquals("Existing draft", composer.innerText());
+        }
+    }
+
+    @Test
+    void confirmationAndGrowingAnswerAreScrolledToBottomWithoutResending() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            page.setContent(SCROLLING_PAGE);
+            ChatEvaluatorRunner.prepareConversation(page, page.url(), false);
+            page.evaluate("""
+                () => {
+                  window.sends = 0; window.followedQuestion = false; window.followedAnswer = false;
+                  const history = document.querySelector('#history');
+                  document.querySelector('form').onsubmit = event => {
+                    event.preventDefault(); window.sends++;
+                    const editor = document.querySelector('[contenteditable]');
+                    const turn = document.createElement('div'); turn.dataset.turnKey = 'new';
+                    turn.innerHTML = '<div data-chatgpt-search-unit-key="new:user" data-chatgpt-search-message-ids="new-user"></div>';
+                    turn.firstChild.innerText = editor.innerText; editor.innerText = '';
+                    turn.style.minHeight = '2600px'; history.append(turn);
+                    const poll = setInterval(() => {
+                      const bottom = history.scrollHeight - history.clientHeight - history.scrollTop <= 2;
+                      if (!window.followedQuestion && bottom) {
+                        window.followedQuestion = true;
+                        const answer = document.createElement('div');
+                        answer.setAttribute('data-chatgpt-search-unit-key', 'new:assistant');
+                        answer.setAttribute('data-chatgpt-search-message-ids', 'new-answer');
+                        answer.innerText = 'First paragraph'; answer.style.height = '5000px';
+                        turn.append(answer);
+                      } else if (window.followedQuestion && bottom) {
+                        window.followedAnswer = true;
+                        turn.lastChild.innerText = 'First paragraph\\nLast paragraph';
+                        turn.insertAdjacentHTML('beforeend', '<div data-talvt-turn-state="complete"></div>');
+                        clearInterval(poll);
+                      }
+                    }, 100);
+                  };
+                }
+                """);
+            assertEquals("First paragraph\nLast paragraph",
+                    ChatEvaluatorRunner.sendAndAwait(page, page.url(), "https://jobs.test/scrolled"));
+            assertEquals(1, ((Number) page.evaluate("window.sends")).intValue());
+            assertEquals(Boolean.TRUE, page.evaluate("window.followedQuestion && window.followedAnswer"));
+            assertTrue((Boolean) page.evaluate("""
+                () => { const h = document.querySelector('#history');
+                  return h.scrollHeight - h.clientHeight - h.scrollTop <= 2; }
+                """));
+        }
+    }
+
+    @Test
+    void preparationWaitsForHistoryRequestsStartedByScrolling() throws Exception {
+        try (var context = browser.newContext()) {
+            context.setOffline(true);
+            Page page = context.newPage();
+            var pending = new java.util.HashMap<String, Route>();
+            page.onConsoleMessage(message -> {
+                Route route = pending.remove(message.text());
+                if (route != null) route.fulfill(new Route.FulfillOptions()
+                        .setContentType("text/plain").setBody("Loaded history"));
+            });
+            context.route("https://chat.test/**", route -> {
+                if (route.request().url().contains("/backend-api/f/conversation")) {
+                    String part = route.request().url().substring(route.request().url().lastIndexOf('=') + 1);
+                    String signal = "release-history-" + part;
+                    pending.put(signal, route);
+                    page.evaluate("signal => setTimeout(() => console.log(signal), 1000)", signal);
+                } else {
+                    route.fulfill(new Route.FulfillOptions().setContentType("text/html").setBody(
+                            SCROLLING_PAGE + """
+                            <script>
+                              window.loadedParts = 0;
+                              const history = document.querySelector('#history');
+                              history.addEventListener('scroll', async () => {
+                                if (window.loadingPart || window.loadedParts === 2
+                                    || history.scrollHeight - history.clientHeight - history.scrollTop > 2) return;
+                                window.loadingPart = true;
+                                const part = window.loadedParts + 1;
+                                await (await fetch('/backend-api/f/conversation?part=' + part)).text();
+                                const turn = document.createElement('div');
+                                turn.dataset.turnKey = 'loaded-' + part; turn.style.height = '900px';
+                                turn.innerHTML = '<div data-chatgpt-search-unit-key="loaded:user" '
+                                  + 'data-chatgpt-search-message-ids="loaded-user-' + part + '">Loaded question</div>';
+                                history.append(turn);
+                                window.loadedParts = part; window.loadingPart = false;
+                              });
+                            </script>
+                            """));
+                }
+            });
+            long started = System.nanoTime();
+            var composer = ChatEvaluatorRunner.prepareConversation(page, "https://chat.test/c/existing", true);
+            assertEquals(2, ((Number) page.evaluate("window.loadedParts")).intValue());
+            assertTrue((System.nanoTime() - started) / 1_000_000 >= 1900,
+                    "Preparation must await both intercepted one-second history downloads");
+            assertEquals("loaded-2", page.locator("[data-turn-key]").last().getAttribute("data-turn-key"));
+            assertTrue((Boolean) page.evaluate("""
+                () => { const h = document.querySelector('#history');
+                  return h.scrollHeight - h.clientHeight - h.scrollTop <= 2; }
+                """));
+            assertEquals("Existing draft", composer.innerText());
+            assertTrue(pending.isEmpty());
+        }
+    }
+
     @Test
     void stoppedHistoryBecomesReadyWithoutCompletedAssistant() throws Exception {
         try (var context = browser.newContext()) {

@@ -104,7 +104,12 @@ public final class ChatEvaluatorRunner {
                 if (stage.equals("sign-in required") || stage.equals("Cloudflare verification required"))
                     throw new IOException(stage + ". Complete it manually in the managed browser");
                 requireConversation(page, chatUrl);
-                String key = state.get("key").toString();
+                if (interaction.hasPendingData()) {
+                    stable[0] = 0;
+                    previousKey[0] = "";
+                    return BrowserInteraction.Observation.pending("", "waiting for conversation data to finish loading");
+                }
+                String key = state.get("key") + ":" + state.get("historyHeight");
                 stable[0] = stage.equals("ready") && key.equals(previousKey[0]) ? stable[0] + 1 : 0;
                 previousKey[0] = stage.equals("ready") ? key : "";
                 if (stable[0] >= 2) return BrowserInteraction.Observation.ready(messageComposer(page));
@@ -123,6 +128,14 @@ public final class ChatEvaluatorRunner {
               const editors = [...document.querySelectorAll(selector)].filter(visible);
               const editor = editors.length === 1 ? editors[0] : null;
               const last = [...document.querySelectorAll('[data-turn-key]')].at(-1);
+              // The composer is fixed; its visibility says nothing about the history position.
+              let history = last?.parentElement;
+              while (history && !(history.clientHeight > 0
+                  && /^(auto|scroll)$/.test(getComputedStyle(history).overflowY)))
+                history = history.parentElement;
+              history = history || document.scrollingElement;
+              if (history) history.scrollTo({top: history.scrollHeight, behavior: 'instant'});
+              const atBottom = !history || history.scrollHeight - history.clientHeight - history.scrollTop <= 2;
               const user = last?.querySelector('[data-chatgpt-search-unit-key$=":user"]');
               const key = last?.getAttribute('data-turn-key')?.trim() || '';
               let stage;
@@ -134,6 +147,7 @@ public final class ChatEvaluatorRunner {
                        || editor.closest('[aria-disabled="true" i], [inert]')) stage = 'message composer is disabled';
               else if (!key || !user?.getAttribute('data-chatgpt-search-message-ids')?.trim()) stage = 'waiting for conversation history';
               else if (has('button[data-testid="stop-button"], button#stop-button')) stage = 'previous response is still generating';
+              else if (!atBottom) stage = 'scrolling to the end of conversation';
               else stage = 'ready';
               const turns = [...document.querySelectorAll('[data-turn-key]')].map(turn => {
               const user = turn.querySelector('[data-chatgpt-search-unit-key$=":user"]');
@@ -150,7 +164,7 @@ public final class ChatEvaluatorRunner {
                 id(assistant), text(assistant),
                 turn.querySelector('[data-talvt-turn-state]')?.getAttribute('data-talvt-turn-state') === 'complete'];
             });
-              return {stage, key, turns, document: document.readyState,
+              return {stage, key, turns, historyHeight: history?.scrollHeight || 0, document: document.readyState,
                 composerEmpty: !!editor && !(editor.innerText || editor.value || '').trim()};
             }
             """, COMPOSER_SELECTOR);

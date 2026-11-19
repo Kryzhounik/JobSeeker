@@ -117,6 +117,11 @@ public final class BrowserInteraction implements AutoCloseable {
         });
     }
 
+    /** Caller-selected data requests whose downloads have not finished yet. */
+    public boolean hasPendingData() {
+        return loading.stream().anyMatch(relevantData);
+    }
+
     private boolean significant(Page target, Request request) {
         return mainDocument(target, request) || relevantData.test(request)
                 || ((request.resourceType().equals("script") || request.resourceType().equals("stylesheet"))
