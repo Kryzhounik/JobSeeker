@@ -45,6 +45,13 @@ do not require unrelated parts of the same module to be migrated.
 
 This applies to all architectural decisions, not only naming.
 
+## Documentation Updates During Implementation
+
+During implementation, update `REQUIREMENTS.md` or `ARCHITECTURE.md` only when
+the task introduces or changes an agreed requirement, contract, or architectural
+decision, or when the relevant document omits or misstates one. Keep routine
+choices about how to satisfy an existing requirement in the implementation.
+
 ## Data and Temporary Artifacts
 
 `Data/` is reserved for persistent application data and working results.
