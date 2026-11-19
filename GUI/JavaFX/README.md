@@ -18,11 +18,12 @@ Python function names or pass untyped values.
 
 ## Run on Windows
 
-Semantic duplicates show their referenced vacancy directly above them, with an
-indented arrow on the duplicate title. Filters and sorting apply to the matching
-vacancy only; its parent is contextual and moves with it. A parent may appear
-multiple times when referenced by multiple matching rows. The vacancy count
-excludes these contextual copies. Both rows retain their normal actions.
+Semantic duplicates appear beneath their referenced vacancy, with an indented
+arrow on the duplicate title and an italic parent title. Filters select vacancies;
+each parent appears once, using its matching row when present or a contextual
+copy otherwise. Groups sort by the parent's values, keeping matching duplicates
+attached in their existing order. The vacancy count excludes contextual parents.
+All rows retain their normal actions.
 
 The Recommendations button beside Batch/Collect runs `DriverApi.checkRecommendations`
 in the background using the shared progress panel. Email reading displays accumulated

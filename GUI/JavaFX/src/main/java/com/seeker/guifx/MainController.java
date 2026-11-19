@@ -50,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.concurrent.Callable;
@@ -158,6 +159,7 @@ public final class MainController {
     private TitleBlacklist titleBlacklist;
     private Stage stage;
     private JobRecord selectedJob;
+    private Set<Integer> duplicateParentIds = Set.of();
     private int detailLoadedJobId = -1;
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
     private final CheckBox unavailableCheck = new CheckBox("Unavailable");
@@ -830,6 +832,7 @@ public final class MainController {
         task.setOnSucceeded(event -> {
             if (requestId != refreshRequestId) return;
             List<TableColumn<JobRecord, ?>> sortOrder = List.copyOf(jobsTable.getSortOrder());
+            duplicateParentIds = JobRows.parentIds(task.getValue());
             jobsTable.setItems(FXCollections.observableArrayList(JobRows.sorted(task.getValue(), null)));
             if (!jobSortRestored) {
                 if (jobsTable.getSortOrder().isEmpty()) restoreJobSort();
@@ -1049,10 +1052,10 @@ public final class MainController {
         jobsTable.setRowFactory(table -> new javafx.scene.control.TableRow<>() {
             @Override protected void updateItem(JobRecord job, boolean empty) {
                 super.updateItem(job, empty);
+                boolean parent = !empty && job != null && duplicateParentIds.contains(job.jobId());
                 pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("duplicate-parent"),
-                        !empty && job != null && job.contextForJobId() != null);
-                setTooltip(!empty && job != null && job.contextForJobId() != null
-                        ? new Tooltip("Referenced by the duplicate below; shown regardless of filters") : null);
+                        parent);
+                setTooltip(parent ? new Tooltip("Referenced by the duplicates below") : null);
             }
         });
         bind(roleColumn, JobRecord::role);
