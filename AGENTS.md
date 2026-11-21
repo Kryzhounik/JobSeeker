@@ -80,9 +80,12 @@ suppress errors to keep the workflow running.
 The primary agent is responsible for the requested work. When additional
 functional verification is warranted, prefer delegating new test implementation
 and test execution to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
-the task explicitly requires the primary agent to perform it. The task must
-specify the expected behavior; the delegate writes tests against those
-requirements rather than defining them.
+the task explicitly requires the primary agent to perform it.
+
+The handoff must specify the scenarios to cover and the expected result for
+each. The delegate may implement and run those tests. Any unresolved decision
+about scenario boundaries, fixtures, or shared test helpers remains with the
+primary agent.
 
 Refactoring existing tests is governed by Delegating Agreed Mechanical Edits
 below. Correcting test design or assumptions and reviewing test quality remain
