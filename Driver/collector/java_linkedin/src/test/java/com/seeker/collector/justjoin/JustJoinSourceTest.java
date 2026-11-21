@@ -6,7 +6,6 @@ import com.seeker.collector.common.python.PythonGateway;
 import com.seeker.collector.core.CollectionAccumulator;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 import java.io.*;
 import java.lang.reflect.Proxy;
@@ -152,7 +151,6 @@ class JustJoinSourceTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
     void httpRetrievalPassesThroughRealSharedPythonStorageAndDeduplication() throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),

@@ -6,7 +6,6 @@ import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.tools.api.ProgressSnapshot;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.file.*;
@@ -133,7 +132,6 @@ class CollectionBatchTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
     void mixedCollectionUsesOneNativeRunAndRegistersBothSources(@TempDir Path temporary) throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
@@ -188,7 +186,6 @@ class CollectionBatchTest {
     }
 
     @Test
-    @EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
     void failedSecondSourcePersistsPartialAcceptedCount(@TempDir Path temporary) throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),

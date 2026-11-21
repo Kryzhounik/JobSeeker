@@ -57,6 +57,9 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <useModulePath>false</useModulePath>
+                    <systemPropertyVariables>
+                        <seeker.project.root>${project.basedir}/../..</seeker.project.root>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>

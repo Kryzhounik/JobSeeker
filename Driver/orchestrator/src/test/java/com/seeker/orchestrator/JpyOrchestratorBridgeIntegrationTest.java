@@ -7,7 +7,6 @@ import com.seeker.python.JpyRuntime;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -22,13 +21,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
 class JpyOrchestratorBridgeIntegrationTest {
     @TempDir
     Path temporaryDirectory;
 
     @Test
-    void importsOrchestratorBridgeThroughSharedRuntime() {
+    void importsOrchestratorBridgeThroughSharedRuntime() throws Exception {
         startRuntime();
         Path database = temporaryDirectory.resolve("jobs.sqlite");
 
@@ -250,15 +248,9 @@ class JpyOrchestratorBridgeIntegrationTest {
         }
     }
 
-    private void startRuntime() {
+    private void startRuntime() throws java.io.IOException {
         Path projectRoot = Path.of(required("seeker.project.root"));
-        PythonRuntime runtime = new PythonRuntime(
-                Path.of(required("seeker.python.library")),
-                Path.of(required("seeker.jpy.library")),
-                Path.of(required("seeker.jdl.library")),
-                Path.of(required("seeker.python.home")),
-                Path.of(required("seeker.python.executable"))
-        );
+        PythonRuntime runtime = PythonRuntime.load(projectRoot.resolve("Tools/runtime.properties"));
         JpyRuntime.ensureStarted(
                 runtime.pythonLibrary(),
                 runtime.jpyLibrary(),

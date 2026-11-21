@@ -11,7 +11,6 @@ import com.sun.net.httpserver.HttpServer;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
@@ -23,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
 class JpyPythonGatewayIntegrationTest {
     @TempDir
     Path temporaryDirectory;
@@ -34,8 +32,7 @@ class JpyPythonGatewayIntegrationTest {
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
                 root.resolve("Driver/collector/config/linkedin.properties"), temporaryDirectory.resolve("jobs.sqlite"),
                 temporaryDirectory.resolve("raw"), temporaryDirectory.resolve("unused-profile"));
-        var runtime = new PythonRuntime(Path.of(required("seeker.python.library")), Path.of(required("seeker.jpy.library")),
-                Path.of(required("seeker.jdl.library")), Path.of(required("seeker.python.home")), Path.of(required("seeker.python.executable")));
+        var runtime = PythonRuntime.load(root.resolve("Tools/runtime.properties"));
         com.google.gson.JsonObject offer;
         try (var input = new java.io.InputStreamReader(getClass().getResourceAsStream("/justjoin/offer.json"), StandardCharsets.UTF_8)) {
             offer = com.seeker.collector.common.JsonSupport.GSON.fromJson(input, com.google.gson.JsonObject.class);
@@ -76,13 +73,7 @@ class JpyPythonGatewayIntegrationTest {
                 rawDirectory,
                 temporaryDirectory.resolve("browser-profile")
         );
-        PythonRuntime runtime = new PythonRuntime(
-                Path.of(required("seeker.python.library")),
-                Path.of(required("seeker.jpy.library")),
-                Path.of(required("seeker.jdl.library")),
-                Path.of(required("seeker.python.home")),
-                Path.of(required("seeker.python.executable"))
-        );
+        PythonRuntime runtime = PythonRuntime.load(projectRoot.resolve("Tools/runtime.properties"));
         JpyRuntime.ensureStarted(runtime.pythonLibrary(), runtime.jpyLibrary(), runtime.jdlLibrary(),
                 runtime.pythonHome(), runtime.pythonExecutable(), projectRoot);
         String originalStdout = stdoutId();
