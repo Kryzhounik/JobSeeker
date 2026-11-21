@@ -77,33 +77,42 @@ suppress errors to keep the workflow running.
 
 ## Verification Delegation
 
-The primary agent is responsible for the requested work. When additional functional
-verification is warranted, prefer delegating it, including writing and running
-test scenarios, to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
-the task explicitly requires the primary agent to perform it. Production-code
-fixes remain with the primary agent, except for already-agreed mechanical edits
-delegated under the rule below.
+The primary agent is responsible for the requested work. When additional
+functional verification is warranted, prefer delegating new test implementation
+and test execution to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
+the task explicitly requires the primary agent to perform it. The task must
+specify the expected behavior; the delegate writes tests against those
+requirements rather than defining them.
+
+Refactoring existing tests is governed by Delegating Agreed Mechanical Edits
+below. Correcting test design or assumptions and reviewing test quality remain
+with the primary agent. Production-code fixes remain with the primary agent,
+except for eligible mechanical edits under that rule.
 
 ## Delegating Agreed Mechanical Edits
 
-This rule applies only to Sol primary agents. Use `gpt-6-luna` with
-`reasoning_effort="low"` as the delegate; no separate user approval is needed.
-Terra and Luna agents perform these edits directly rather than delegating them
-for cost optimization.
+Except for new test implementation covered by Verification Delegation,
+a Sol primary agent may delegate implementation work only for already-agreed
+mechanical edits. This restriction applies to both production code and test
+code. Use `gpt-6-luna` with `reasoning_effort="low"` for eligible work.
+No separate approval is needed for the delegation. Terra and Luna primary
+agents perform these edits directly.
 
-Prefer delegation when a short handoff can describe a substantial batch of
-agreed mechanical edits, and preparing the handoff plus reviewing the result
-requires substantially less primary-agent work than making the edits directly.
-Perform small, isolated edits directly.
+An edit is mechanical when the primary agent can state the exact
+transformation or point to an agreed pattern that determines the result.
+If the delegate must choose behavior, code structure, test scenario
+boundaries, or whether to introduce a shared abstraction, the task is
+ineligible. Agreement on the overall goal is insufficient.
 
-Provide the agreed changes, relevant files, constraints, and necessary context,
-not the full discussion history. The subagent must not reopen agreed decisions
-or expand scope. The primary agent remains responsible for the result; verify
-it proportionately without repeating the delegated work.
+For a mixed task, the primary agent retains the work that requires judgment
+and may delegate only a clearly separable mechanical portion. Parallelism,
+file count, and potential time savings do not make a task eligible.
 
-This includes mechanical production-code edits only when the specific changes
-are already agreed. New bug fixes and architectural decisions remain with the
-primary agent.
+Among eligible edits, delegate a substantial batch only when a short handoff
+and proportionate review take substantially less primary-agent effort than
+making the edits directly. Perform small, isolated edits directly. Give the
+delegate the agreed transformation, relevant files, constraints, and necessary
+context. The primary agent remains responsible for verifying the result.
 
 ## Coding Task Handoff
 
