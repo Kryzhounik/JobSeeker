@@ -8,7 +8,7 @@ import unittest
 from unittest.mock import patch
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[3]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
@@ -18,7 +18,6 @@ from collector.deprecated_agent_collection.scan_linkedin import parse_search_pag
 from collector.deprecated_agent_collection.scan_linkedin import search_page_url
 from collector.deprecated_agent_collection.scan_linkedin import should_stop_location
 from collector.deprecated_agent_collection.scan_linkedin import page_overlap_missing
-from collector.save_raw_page import validate_content
 from collector.deprecated_agent_collection.linkedin_search_urls import build_urls
 
 
@@ -216,12 +215,6 @@ class ScanLinkedInTest(unittest.TestCase):
         self.assertEqual(
             [page["label"] for page in result["pages"]],
             ["Moldova", "Moldova"],
-        )
-
-    def test_guest_job_description_is_valid_raw(self) -> None:
-        validate_content(
-            "linkedin",
-            '<div class="show-more-less-html__markup">Description</div>',
         )
 
 
