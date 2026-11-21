@@ -4,9 +4,10 @@ import com.seeker.tools.LinkedInJobAvailability;
 
 import java.net.URI;
 import java.time.Duration;
+import org.junit.jupiter.api.Test;
 
-public final class LinkedInAvailabilitySmoke {
-    public static void main(String[] args) {
+class LinkedInAvailabilityTest {
+    @Test void classifiesAvailabilityAndRejectsInvalidResponses() {
         URI job = URI.create("https://www.linkedin.com/jobs/view/123/");
         String html = "LinkedIn <div class='show-more-less-html__markup'>" + "a".repeat(1100);
         expect("available", 200, job, html);
@@ -17,7 +18,13 @@ public final class LinkedInAvailabilitySmoke {
         }
         expectError(200, URI.create("https://www.linkedin.com/authwall"), html);
         expectError(200, job, "LinkedIn job " + "a".repeat(1100));
+    }
+
+    @Test void requestPacingBacksOffAndRecovers() {
         checkPacing();
+    }
+
+    @Test void resultDetailsSummarizeCountsAndElapsedTime() {
         var summary = new LinkedInAvailabilityChecker.Result("Stopped", Duration.ofSeconds(800),
                 210, 0, 9, 5, 0, 2, 20, 6);
         if (summary.processed() != 14 || !summary.details().contains("13 min 20 s")
@@ -34,7 +41,6 @@ public final class LinkedInAvailabilitySmoke {
         if (empty.processed() != 0 || !empty.details().contains("0 min 00 s")) {
             throw new AssertionError(empty.details());
         }
-        System.out.println("LinkedIn availability response, pacing and summary checks OK");
     }
 
     private static void checkPacing() {

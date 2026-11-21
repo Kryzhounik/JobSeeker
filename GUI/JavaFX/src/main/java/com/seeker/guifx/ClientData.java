@@ -33,12 +33,18 @@ final class ClientData {
     private final PyModule module;
 
     ClientData() throws Exception {
+        this(null);
+    }
+
+    ClientData(Path databaseOverride) throws Exception {
         projectRoot = findProjectRoot();
         var runtime = new java.util.Properties();
         try (var reader = Files.newBufferedReader(projectRoot.resolve("Tools/runtime.properties"), java.nio.charset.StandardCharsets.UTF_8)) {
             runtime.load(reader);
         }
-        databasePath = projectRoot.resolve(runtime.getProperty("database.path", "Data/jobs.sqlite")).normalize();
+        databasePath = databaseOverride == null
+                ? projectRoot.resolve(runtime.getProperty("database.path", "Data/jobs.sqlite")).normalize()
+                : databaseOverride.toAbsolutePath().normalize();
         if (!Files.isRegularFile(databasePath)) {
             throw new IllegalStateException("Database not found: " + databasePath);
         }

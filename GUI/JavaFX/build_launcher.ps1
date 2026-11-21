@@ -46,48 +46,6 @@ if ($LASTEXITCODE -ne 0) {
 if ($LASTEXITCODE -ne 0) {
     throw "Fat GUI jar isolation check failed with exit code $LASTEXITCODE."
 }
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.ClientDataSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX data connection check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.GuiFeaturesSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX feature check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.BackgroundProcessPaneSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Background process panel check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.LinkedInAvailabilitySmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "LinkedIn availability check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.JobSortRefreshSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX job sorting check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.WindowStatusBarSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Shared status bar check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.RunsResumeSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Runs Resume check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.FxmlSmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "JavaFX FXML check failed with exit code $LASTEXITCODE."
-}
-& (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.FillLastColumnResizePolicySmoke
-if ($LASTEXITCODE -ne 0) {
-    throw "Table column fill check failed with exit code $LASTEXITCODE."
-}
-if ($UiSmoke) {
-    & (Join-Path $javaHomePath "bin\java.exe") -cp $classpath com.seeker.guifx.UiSmoke
-    if ($LASTEXITCODE -ne 0) {
-        throw "JavaFX UI check failed with exit code $LASTEXITCODE."
-    }
-}
 Push-Location $root
 try {
     & python -m unittest GUI.test_client_data_smoke
@@ -96,6 +54,12 @@ try {
     }
 } finally {
     Pop-Location
+}
+
+if ($UiSmoke) {
+    & $maven.Source -f (Join-Path $directory "pom.xml") '-Dtest=UiWindowTest' `
+        '-Dseeker.gui.interactive=true' test
+    if ($LASTEXITCODE -ne 0) { throw "Interactive GUI test failed with exit code $LASTEXITCODE." }
 }
 
 $source = Join-Path $directory "SeekerLauncher.cs"

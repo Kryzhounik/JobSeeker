@@ -1,10 +1,21 @@
 package com.seeker.guifx;
 
 import java.util.List;
+import java.nio.file.Path;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import static org.junit.jupiter.api.Assertions.*;
 
-public final class ClientDataSmoke {
-    public static void main(String[] args) throws Exception {
-        ClientData data = new ClientData();
+class ClientDataTest {
+    @TempDir static Path directory;
+    private static ClientData data;
+
+    @BeforeAll static void prepareDatabase() throws Exception {
+        data = new ClientData(TestDatabase.create(directory));
+    }
+
+    @Test void readsFixtureDataThroughJpy() throws Exception {
         var statuses = data.loadStatusValues();
         if (statuses.isEmpty()) {
             throw new IllegalStateException("No vacancy statuses returned from the database.");
@@ -14,6 +25,7 @@ public final class ClientDataSmoke {
             throw new IllegalStateException("No Reason code descriptions returned from the database.");
         }
         var jobs = data.loadJobs(new JobFilters(statuses, true, true, "", "", List.of()));
+        assertEquals(3, jobs.size());
         if (!jobs.isEmpty()) {
             data.loadDetail(jobs.getFirst().jobId());
             jobs.stream().filter(job -> job.sourceUrl().isBlank()).findFirst()
@@ -30,9 +42,10 @@ public final class ClientDataSmoke {
         var collected = data.loadCollectedJobs();
         var config = data.loadConfigRows();
         var availability = data.loadLinkedInAvailabilityCandidates();
-        System.out.println("Data connection OK: " + statuses + "; jobs " + jobs.size()
-                + "; reason codes " + reasonCodes.size() + "; companies " + companies.size()
-                + "; applications " + applications.size() + "; collected " + collected.size()
-                + "; config " + config.size() + "; availability candidates " + availability.size());
+        assertEquals(1, companies.size());
+        assertEquals(1, applications.size());
+        assertEquals(3, collected.size());
+        assertFalse(config.isEmpty());
+        assertFalse(availability.isEmpty());
     }
 }

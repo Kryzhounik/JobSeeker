@@ -25,6 +25,9 @@ import com.seeker.orchestrator.WorkflowProgress;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.applier.ApplierRunner;
 import com.seeker.chatevaluator.GptEvaluation;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.time.ZoneId;
@@ -33,14 +36,12 @@ import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
+class BackgroundProcessPaneTest {
+    @BeforeAll static void startJavaFx() { Platform.startup(() -> { }); }
+    @AfterAll static void stopJavaFx() { Platform.exit(); }
 
-public final class BackgroundProcessPaneSmoke {
-    public static void main(String[] args) throws Exception {
-        Platform.startup(() -> { });
-        try {
-            FutureTask<Void> check = new FutureTask<>(() -> {
+    @Test void processStateDockingAndDismissalRemainConsistent() throws Exception {
+        FxTestSupport.run(() -> {
                 StackPane overlay = new StackPane();
                 HBox docks = new HBox();
                 BackgroundProcessPane.Area area = new BackgroundProcessPane.Area(overlay, docks);
@@ -104,19 +105,32 @@ public final class BackgroundProcessPaneSmoke {
                 if (firstBadge.isVisible() || firstPanel.isVisible()) {
                     throw new AssertionError("Panel dismiss did not hide both views");
                 }
-                checkSnapshotProgress(area);
-                checkUsageLimits(area);
-                checkResize();
-                checkApplyProgress();
-                checkGptEvaluation();
                 return null;
-            });
-            Platform.runLater(check);
-            check.get(20, TimeUnit.SECONDS);
-            System.out.println("Background process pane states and docking OK");
-        } finally {
-            Platform.exit();
-        }
+        });
+    }
+
+    @Test void gptEvaluationPreservesResultsAndErrors() throws Exception {
+        FxTestSupport.run(() -> { checkGptEvaluation(); return null; });
+    }
+
+    @Test void applyProgressShowsCompletionFailureAndRestart() throws Exception {
+        FxTestSupport.run(() -> { checkApplyProgress(); return null; });
+    }
+
+    @Test void resizeKeepsPanelWithinOverlayAndRemembersDimensions() throws Exception {
+        FxTestSupport.run(() -> { checkResize(); return null; });
+    }
+
+    @Test void usageLimitRetainsProgressRetryTimeAndCanRestart() throws Exception {
+        FxTestSupport.run(() -> { checkUsageLimits(); return null; });
+    }
+
+    @Test void snapshotProgressUpdatesFieldsAndFitsAvailableHeight() throws Exception {
+        FxTestSupport.run(() -> { checkSnapshotProgress(); return null; });
+    }
+
+    @Test void collectionProgressSnapshotCanClearAndRestoreFields() throws Exception {
+        FxTestSupport.run(() -> { checkCollectionProgress(); return null; });
     }
 
     private static void checkGptEvaluation() {
@@ -223,7 +237,7 @@ public final class BackgroundProcessPaneSmoke {
                 new BackgroundProcessPane.Area(overlay, docks), "Resize", "Run ID") { };
         pane.beginProcess();
         new Scene(overlay, 1100, 850);
-        overlay.getStylesheets().add(BackgroundProcessPaneSmoke.class.getResource(
+        overlay.getStylesheets().add(BackgroundProcessPaneTest.class.getResource(
                 "/com/seeker/guifx/application.css").toExternalForm());
         overlay.resize(1100, 850);
         overlay.applyCss();
@@ -280,8 +294,9 @@ public final class BackgroundProcessPaneSmoke {
                 false, false, true, new PickResult(panel, sceneX, sceneY)));
     }
 
-    private static void checkUsageLimits(BackgroundProcessPane.Area area) {
-        SnapshotProgressPane resume = new SnapshotProgressPane(area, "Resume");
+    private static void checkUsageLimits() {
+        BackgroundProcessPane.Area resumeArea = area();
+        SnapshotProgressPane resume = new SnapshotProgressPane(resumeArea, "Resume");
         resume.begin("resume-run");
         resume.fail(new IllegalStateException("Scope loading failed"));
         if (!resume.fieldText("Run ID").equals("resume-run")) {
@@ -291,12 +306,13 @@ public final class BackgroundProcessPaneSmoke {
         String expectedTime = DateTimeFormatter.ofPattern("dd.MM.uuuu HH:mm:ss z")
                 .withZone(ZoneId.systemDefault()).format(retry);
         for (String title : List.of("Collect", "Batch", "Resume")) {
-            SnapshotProgressPane pane = new SnapshotProgressPane(area, title);
-            HBox badge = (HBox) area.docks().getChildren().getLast();
-            Button close = (Button) badge.getChildren().getLast();
-            VBox panel = (VBox) area.overlay().getChildren().getLast();
-            Map<String, String> metrics = Map.of("Saved", "3", "Job facts", "7 / 10");
             for (Instant retryAt : new Instant[]{retry, null}) {
+                BackgroundProcessPane.Area area = area();
+                SnapshotProgressPane pane = new SnapshotProgressPane(area, title);
+                HBox badge = (HBox) area.docks().getChildren().getLast();
+                Button close = (Button) badge.getChildren().getLast();
+                VBox panel = (VBox) area.overlay().getChildren().getLast();
+                Map<String, String> metrics = Map.of("Saved", "3", "Job facts", "7 / 10");
                 pane.begin();
                 pane.update(new ImmutableProgressSnapshot("limited-run", "Job facts", "Extracting facts",
                         "Job facts 7 / 10", metrics, "Last backend details"));
@@ -337,6 +353,11 @@ public final class BackgroundProcessPaneSmoke {
                 pane.complete(true);
                 assertState(badge, "completed");
             }
+            BackgroundProcessPane.Area area = area();
+            SnapshotProgressPane pane = new SnapshotProgressPane(area, title);
+            HBox badge = (HBox) area.docks().getChildren().getLast();
+            Button close = (Button) badge.getChildren().getLast();
+            VBox panel = (VBox) area.overlay().getChildren().getLast();
             pane.begin();
             pane.fail(new IllegalStateException("Codex usage limit: Quota exhausted; retry at 12:00"));
             assertState(badge, "failed");
@@ -347,14 +368,15 @@ public final class BackgroundProcessPaneSmoke {
         }
     }
 
-    private static void checkSnapshotProgress(BackgroundProcessPane.Area area) {
+    private static void checkSnapshotProgress() {
+        BackgroundProcessPane.Area area = area();
         SnapshotProgressPane batch = new SnapshotProgressPane(area, "Batch");
         HBox badge = (HBox) area.docks().getChildren().getLast();
         ToggleButton dock = (ToggleButton) badge.getChildren().getFirst();
         Button dismiss = (Button) badge.getChildren().getLast();
         batch.begin();
         Scene scene = new Scene(area.overlay(), 900, 1000);
-        scene.getStylesheets().add(BackgroundProcessPaneSmoke.class.getResource(
+        scene.getStylesheets().add(BackgroundProcessPaneTest.class.getResource(
                 "/com/seeker/guifx/application.css").toExternalForm());
         VBox panel = (VBox) area.overlay().getChildren().getLast();
         for (int height : new int[]{1000, 900}) {
@@ -450,7 +472,14 @@ public final class BackgroundProcessPaneSmoke {
         dismiss.fire();
         if (badge.isVisible()) throw new AssertionError("Completed batch cannot be dismissed");
 
+    }
+
+    private static void checkCollectionProgress() {
+        BackgroundProcessPane.Area area = area();
         SnapshotProgressPane collect = new SnapshotProgressPane(area, "Collect");
+        Map<String, String> next = new LinkedHashMap<>();
+        next.put("A second field", "123");
+        next.put("New metric", "6 / 20");
         collect.begin();
         collect.update(new CollectionProgress("collect-run", "Same stage", "Same action", "6 / 20", next, ""));
         VBox collectPanel = (VBox) area.overlay().getChildren().getLast();
@@ -492,5 +521,9 @@ public final class BackgroundProcessPaneSmoke {
                 throw new AssertionError("Incorrect process state: " + state);
             }
         }
+    }
+
+    private static BackgroundProcessPane.Area area() {
+        return new BackgroundProcessPane.Area(new StackPane(), new HBox());
     }
 }

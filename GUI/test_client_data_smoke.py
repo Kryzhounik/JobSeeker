@@ -1,7 +1,9 @@
-"""Exercise ID-based GUI writes against a disposable database snapshot."""
+"""Exercise ID-based GUI writes against a deterministic disposable database."""
 
 import json
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
 from contextlib import closing
@@ -12,14 +14,13 @@ from GUI import client_data
 
 class ClientDataSmoke(unittest.TestCase):
     def test_job_without_url_can_be_updated(self):
-        source = Path(__file__).resolve().parents[1] / "Data" / "jobs.sqlite"
-        if not source.is_file():
-            self.skipTest("Local jobs database is unavailable")
+        root = Path(__file__).resolve().parents[1]
         with tempfile.TemporaryDirectory() as directory:
             snapshot = Path(directory) / "jobs.sqlite"
-            with closing(sqlite3.connect(source)) as original:
-                with closing(sqlite3.connect(snapshot)) as copy:
-                    original.backup(copy)
+            subprocess.run([
+                sys.executable, str(root / "GUI/JavaFX/src/test/python/create_database.py"),
+                str(root), str(snapshot),
+            ], check=True, capture_output=True, text=True)
 
             statuses = json.loads(client_data.load_status_values(snapshot))
             jobs = json.loads(client_data.load_jobs(snapshot, json.dumps({

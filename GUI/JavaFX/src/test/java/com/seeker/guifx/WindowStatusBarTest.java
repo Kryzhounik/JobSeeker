@@ -8,15 +8,16 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.layout.BorderPane;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
+class WindowStatusBarTest {
+    @BeforeAll static void startJavaFx() { Platform.startup(() -> { }); }
+    @AfterAll static void stopJavaFx() { Platform.exit(); }
 
-public final class WindowStatusBarSmoke {
-    public static void main(String[] args) throws Exception {
-        Platform.startup(() -> { });
-        try {
-            FutureTask<Void> check = new FutureTask<>(() -> {
+    @Test void footerPlacementSurvivesResizeAndActionsDoNotOverlap() throws Exception {
+        FxTestSupport.run(() -> {
                 Label count = new Label("17 runs");
                 WindowStatusBar status = new WindowStatusBar(count);
                 TextArea details = new TextArea("Run details");
@@ -29,7 +30,7 @@ public final class WindowStatusBarSmoke {
                 split.setDividerPositions(0.82);
                 BorderPane root = new BorderPane(split, null, null, status, null);
                 new Scene(root, 1000, 620);
-                root.getStylesheets().add(WindowStatusBarSmoke.class.getResource(
+                root.getStylesheets().add(WindowStatusBarTest.class.getResource(
                         "/com/seeker/guifx/application.css").toExternalForm());
                 for (int width : new int[]{700, 1250}) {
                     root.resize(width, 620);
@@ -61,12 +62,6 @@ public final class WindowStatusBarSmoke {
                     throw new AssertionError("Left action overlaps the status text");
                 }
                 return null;
-            });
-            Platform.runLater(check);
-            check.get(20, TimeUnit.SECONDS);
-            System.out.println("Shared window status bar placement OK");
-        } finally {
-            Platform.exit();
-        }
+        });
     }
 }

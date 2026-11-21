@@ -74,6 +74,8 @@ lives directly under `GUI/`, in `client_data.py`.
 
 ## Focused Form Verification
 
+Prefer JUnit tests over standalone `main()`-based smoke tests unless a separate process is necessary.
+
 For small form changes, start with a focused check of the affected component,
 not a full application launch. `CollectionSettingsPaneTest` is an existing
 example: on the JavaFX thread, construct the form with fixture data and check

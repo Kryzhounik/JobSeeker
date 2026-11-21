@@ -4,20 +4,17 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.control.Button;
 import javafx.scene.layout.HBox;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+class FxmlTest {
+    @BeforeAll static void startJavaFx() { Platform.startup(() -> { }); }
+    @AfterAll static void stopJavaFx() { Platform.exit(); }
 
-public final class FxmlSmoke {
-    public static void main(String[] args) throws Exception {
-        CountDownLatch finished = new CountDownLatch(1);
-        AtomicReference<Throwable> failure = new AtomicReference<>();
-        Platform.startup(() -> Platform.runLater(() -> {
-            try {
-                FXMLLoader loader = new FXMLLoader(FxmlSmoke.class.getResource(
-                        "/com/seeker/guifx/main-view.fxml"));
-                loader.load();
+    @Test void toolbarStructureAndHandlersArePresent() throws Exception {
+        FxTestSupport.run(() -> {
+            FXMLLoader loader = loadView();
                 Button open = (Button) loader.getNamespace().get("openButton");
                 Button eval = (Button) loader.getNamespace().get("chatEvalButton");
                 Button letter = (Button) loader.getNamespace().get("letterButton");
@@ -66,22 +63,28 @@ public final class FxmlSmoke {
                         || loader.getNamespace().containsKey("searchButton")) {
                     throw new AssertionError("Toolbar order or Batch action/style changed");
                 }
-                checkApplyIsolation(loader);
-                checkDuplicateTitles();
-            } catch (Throwable error) {
-                failure.set(error);
-            } finally {
-                finished.countDown();
-            }
-        }));
-        if (!finished.await(20, TimeUnit.SECONDS)) {
-            throw new IllegalStateException("FXML did not load within 20 seconds.");
-        }
-        Platform.exit();
-        if (failure.get() != null) {
-            throw new IllegalStateException("FXML load failed", failure.get());
-        }
-        System.out.println("FXML load OK");
+            return null;
+        });
+    }
+
+    @Test void applyBusyStateDoesNotDisableUnrelatedActions() throws Exception {
+        FxTestSupport.run(() -> {
+            checkApplyIsolation(loadView());
+            return null;
+        });
+    }
+
+    @Test void duplicateTitlesStayIndentedAndSortingPreservesSelection() throws Exception {
+        FxTestSupport.run(() -> {
+            checkDuplicateTitles();
+            return null;
+        });
+    }
+
+    private static FXMLLoader loadView() throws Exception {
+        FXMLLoader loader = new FXMLLoader(FxmlTest.class.getResource("/com/seeker/guifx/main-view.fxml"));
+        loader.load();
+        return loader;
     }
 
     private static void checkApplyIsolation(FXMLLoader loader) throws Exception {

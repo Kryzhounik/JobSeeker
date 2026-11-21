@@ -28,23 +28,30 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 import java.util.function.BooleanSupplier;
 
-public final class UiSmoke {
-    private static final Path SETTINGS = Path.of(System.getProperty("user.dir"),
-            "GUI/JavaFX/target/ui-smoke-settings.json");
+@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "seeker.gui.interactive", matches = "true")
+class UiWindowTest {
+    @org.junit.jupiter.api.io.TempDir static Path directory;
+    private static Path SETTINGS;
+    private static Path database;
 
-    public static void main(String[] args) throws Exception {
+    @org.junit.jupiter.api.BeforeAll static void prepare() throws Exception {
+        database = TestDatabase.create(directory);
+        SETTINGS = directory.resolve("settings.json");
+    }
+
+    @org.junit.jupiter.api.Test void interactiveWindowsAndNavigation() throws Exception {
         System.setProperty("seeker.gui.settings.path", SETTINGS.toString());
         Platform.startup(() -> { });
         MainController controller = null;
         try {
-            FXMLLoader loader = new FXMLLoader(UiSmoke.class.getResource(
+            FXMLLoader loader = new FXMLLoader(UiWindowTest.class.getResource(
                     "/com/seeker/guifx/main-view.fxml"));
             Stage stage = onFx(() -> {
                 Stage window = new Stage();
                 Scene scene = new Scene(loader.load(), 1440, 900);
                 ((MainController) loader.getController()).initializeData(
-                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()));
-                scene.getStylesheets().add(UiSmoke.class.getResource(
+                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()), database);
+                scene.getStylesheets().add(UiWindowTest.class.getResource(
                         "/com/seeker/guifx/application.css").toExternalForm());
                 window.setTitle("Seeker Jobs UI check");
                 window.setScene(scene);
@@ -137,7 +144,7 @@ public final class UiSmoke {
             checkWindow(stage, "#configButton", "Config");
 
             onFx(() -> {
-                saveSnapshot(stage, Path.of("GUI/JavaFX/target/ui-smoke.png"));
+                saveSnapshot(stage, directory.resolve("ui.png"));
                 stage.setWidth(1100);
                 stage.setHeight(750);
                 return null;
@@ -152,7 +159,7 @@ public final class UiSmoke {
                 if (idFilter.getWidth() < 110) {
                     throw new AssertionError("ID filter was squeezed on resize");
                 }
-                saveSnapshot(stage, Path.of("GUI/JavaFX/target/ui-smoke-small.png"));
+                saveSnapshot(stage, directory.resolve("ui-small.png"));
                 return null;
             });
             JobRecord applied = onFx(() -> jobs.getItems().stream()
@@ -259,3 +266,4 @@ public final class UiSmoke {
         return task.get();
     }
 }
+

@@ -7,14 +7,16 @@ import javafx.scene.control.TableView;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-public final class RunsResumeSmoke {
-    public static void main(String[] args) throws Exception {
-        Platform.startup(() -> { });
-        try {
-            FutureTask<Void> check = new FutureTask<>(() -> {
+class RunsResumeTest {
+    @BeforeAll static void startJavaFx() { Platform.startup(() -> { }); }
+    @AfterAll static void stopJavaFx() { Platform.exit(); }
+
+    @Test void resumeAvailabilityTracksSelectionStatusAndBusyState() throws Exception {
+        FxTestSupport.run(() -> {
                 TableView<CollectionRunDto> table = new TableView<>();
                 SimpleBooleanProperty busy = new SimpleBooleanProperty();
                 List<String> calls = new ArrayList<>();
@@ -41,13 +43,7 @@ public final class RunsResumeSmoke {
                 table.getSelectionModel().clearSelection();
                 check(resume.isDisabled(), "Clearing selection did not disable Resume");
                 return null;
-            });
-            Platform.runLater(check);
-            check.get(20, TimeUnit.SECONDS);
-            System.out.println("Runs Resume selection, status gating and busy-state checks OK");
-        } finally {
-            Platform.exit();
-        }
+        });
     }
 
     private static void check(boolean condition, String message) {

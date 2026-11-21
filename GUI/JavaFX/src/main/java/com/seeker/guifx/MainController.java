@@ -285,10 +285,14 @@ public final class MainController {
     }
 
     void initializeData(DriverApi api) {
+        initializeData(api, null);
+    }
+
+    void initializeData(DriverApi api, java.nio.file.Path databasePath) {
         Task<ClientSession> connectionTask = new Task<>() {
             @Override
             protected ClientSession call() throws Exception {
-                ClientData data = new ClientData();
+                ClientData data = new ClientData(databasePath);
                 return new ClientSession(data, api, data.loadStatusValues(), data.loadReasonCodeDescriptions());
             }
         };

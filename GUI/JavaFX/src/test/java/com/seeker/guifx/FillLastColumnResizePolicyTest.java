@@ -4,14 +4,16 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.FutureTask;
+class FillLastColumnResizePolicyTest {
+    @BeforeAll static void startJavaFx() { Platform.startup(() -> { }); }
+    @AfterAll static void stopJavaFx() { Platform.exit(); }
 
-public final class FillLastColumnResizePolicySmoke {
-    public static void main(String[] args) throws Exception {
-        Platform.startup(() -> { });
-        try {
-            FutureTask<Void> check = new FutureTask<>(() -> {
+    @Test void lastColumnFillsRemainderAndRetainsMinimumWidth() throws Exception {
+        FxTestSupport.run(() -> {
                 TableView<String> table = new TableView<>();
                 TableColumn<String, String> first = new TableColumn<>("First");
                 TableColumn<String, String> last = new TableColumn<>("Last");
@@ -43,12 +45,6 @@ public final class FillLastColumnResizePolicySmoke {
                     throw new AssertionError("Empty space remained after column resize");
                 }
                 return null;
-            });
-            Platform.runLater(check);
-            check.get();
-            System.out.println("Table column fill check OK");
-        } finally {
-            Platform.exit();
-        }
+        });
     }
 }
