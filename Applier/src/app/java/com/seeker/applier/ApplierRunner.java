@@ -31,12 +31,11 @@ public final class ApplierRunner {
     }
 
     public Result run(String jobUrl) throws IOException, InterruptedException, UsageLimitExceededException {
-        Properties runtime = load(projectRoot.resolve("Driver/collector/java_linkedin/runtime.properties"));
+        Properties runtime = load(projectRoot.resolve("Tools/runtime.properties"));
         Properties collector = load(projectRoot.resolve("Driver/collector/config/linkedin.properties"));
         Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
         String channel = collector.getProperty("browserChannel", "chrome").strip();
-        Properties sharedRuntime = load(projectRoot.resolve("Tools/runtime.properties"));
-        String python = sharedRuntime.getProperty("python.executable", "python").strip();
+        String python = runtime.getProperty("python.executable", "python").strip();
 
         try (ManagedBrowser browser = ManagedBrowser.connect(profile, channel)) {
             double timeoutMs = Double.parseDouble(

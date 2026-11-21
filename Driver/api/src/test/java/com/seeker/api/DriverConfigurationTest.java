@@ -23,14 +23,10 @@ class DriverConfigurationTest {
         Files.createDirectories(collector.resolve("config"));
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
         Files.writeString(collector.resolve("config/collector.properties"), "sources=linkedin\nraw.directory=Data/raw\n");
-        Files.createDirectories(collector.resolve("java_linkedin"));
-        Files.writeString(collector.resolve("java_linkedin/runtime.properties"), """
-                raw.directory=Data/raw
-                profile.directory=Data/profile
-                """);
         Files.createDirectories(projectRoot.resolve("Tools"));
         Files.writeString(projectRoot.resolve("Tools/runtime.properties"), """
                 database.path=Data/jobs.sqlite
+                profile.directory=Data/profile
                 python.library=unused/python.dll
                 jpy.library=unused/jpy.dll
                 jdl.library=unused/jdl.dll

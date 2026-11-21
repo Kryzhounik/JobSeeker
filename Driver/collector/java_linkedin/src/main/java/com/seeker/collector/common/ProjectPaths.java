@@ -26,13 +26,6 @@ public record ProjectPaths(
                             + projectRoot
             );
         }
-        Properties properties = new Properties();
-        try (Reader reader = Files.newBufferedReader(
-                collectorRoot.resolve("java_linkedin/runtime.properties"),
-                StandardCharsets.UTF_8
-        )) {
-            properties.load(reader);
-        }
         Properties sharedRuntime = new Properties();
         try (Reader reader = Files.newBufferedReader(projectRoot.resolve("Tools/runtime.properties"), StandardCharsets.UTF_8)) {
             sharedRuntime.load(reader);
@@ -47,7 +40,7 @@ public record ProjectPaths(
                 configPath,
                 path(projectRoot, sharedRuntime, "database.path"),
                 path(projectRoot, collectorSettings, "raw.directory"),
-                path(projectRoot, properties, "profile.directory")
+                path(projectRoot, sharedRuntime, "profile.directory")
         );
     }
 

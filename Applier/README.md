@@ -51,10 +51,9 @@ Applier reuses these existing files; it has no separate copies of these settings
   passes its complete contents alongside the resume text and facts in the initial
   prompt. A path or link in the facts file alone does not load another file;
   the agent uses browser tools and does not fetch profile files on demand.
-- `Driver/collector/java_linkedin/runtime.properties`: `profile.directory` selects
-  the persistent browser profile.
 - `Tools/runtime.properties`: `python.executable` starts the Codex Proxy;
-  `database.path` selects the shared database for cover letters.
+  `database.path` selects the shared database for cover letters, and
+  `profile.directory` selects the persistent browser profile.
 - `Driver/collector/config/linkedin.properties`: `browserChannel` selects the
   browser when starting it (default `chrome`), and `pageTimeoutSeconds` sets
   browser action and navigation timeouts (default `60`).

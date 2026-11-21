@@ -105,16 +105,15 @@ class CollectionBatchTest {
     @Test void configuredJustJoinDoesNotLoadLinkedInPreferencesOrStartItsBrowser(@TempDir Path root) throws Exception {
         Path collector = root.resolve("Driver/collector");
         Files.createDirectories(collector.resolve("config"));
-        Files.createDirectories(collector.resolve("java_linkedin"));
         Files.createDirectories(root.resolve("Tools"));
         Files.createDirectories(root.resolve("Data/Profile/Driver/collector"));
         Files.writeString(collector.resolve("config/collector.properties"), "sources=justjoin\nraw.directory=raw\n");
         Files.writeString(collector.resolve("config/linkedin.properties"), "");
         Files.writeString(collector.resolve("config/justjoin.properties"), "itemsCount=1\ndelaySeconds=0\n");
         Files.writeString(root.resolve("Data/Profile/Driver/collector/justjoin.properties"), "mainTech=java\nlimit=5\n");
-        Files.writeString(collector.resolve("java_linkedin/runtime.properties"), "raw.directory=raw\nprofile.directory=unused-profile\n");
         Files.writeString(root.resolve("Tools/runtime.properties"), """
                 database.path=jobs.sqlite
+                profile.directory=unused-profile
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

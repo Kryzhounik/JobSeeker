@@ -9,14 +9,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ProjectPathsTest {
     @Test void separatesSharedDatabaseFromCollectorPaths(@TempDir Path root) throws Exception {
-        Path collector = Files.createDirectories(root.resolve("Driver/collector/java_linkedin"));
         Files.createDirectories(root.resolve("Driver/collector/config"));
         Files.writeString(root.resolve("Driver/collector/config/linkedin.properties"), "");
         Files.writeString(root.resolve("Driver/collector/config/collector.properties"), "sources=linkedin\nraw.directory=storage/raw\n");
-        Files.writeString(collector.resolve("runtime.properties"),
-                "raw.directory=output/html\nprofile.directory=browser/profile\n");
         Files.createDirectories(root.resolve("Tools"));
-        Files.writeString(root.resolve("Tools/runtime.properties"), "database.path=storage/custom jobs.sqlite\n");
+        Files.writeString(root.resolve("Tools/runtime.properties"),
+                "database.path=storage/custom jobs.sqlite\nprofile.directory=browser/profile\n");
         ProjectPaths paths = ProjectPaths.fromProjectRoot(root);
         assertEquals(root.resolve("storage/custom jobs.sqlite"), paths.databasePath());
         assertEquals(root.resolve("storage/raw"), paths.rawDirectory());

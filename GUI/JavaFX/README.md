@@ -9,7 +9,7 @@ The shared Java/Python boundary and client-data adaptation are described in
 
 `ClientDataContractsTest` checks the client-data
 contracts without starting Python, opening windows, or accessing a database.
-It and `CollectorProgressTest` run under JUnit with `mvn test`.
+It runs under JUnit with `mvn test`.
 `GptEvaluationTest` and `SpringContextTest` also run there, checking the answer
 panel and application context lifecycle without external operations.
 The GUI feature, FXML, layout, progress-panel and availability checks also run
@@ -95,9 +95,9 @@ dependencies on Driver API, Collector result types, and Tools, and imports their
 versions from the installed Driver POM. The GUI's preparation script installs
 changed backend dependencies automatically before rebuilding the GUI. Maven
 downloads the JavaFX platform modules on the first build.
-The Python/JNI library paths and database path come from `Tools/runtime.properties`.
-Collector-specific Java, browser-profile and raw-output paths remain in
-`Driver/collector/java_linkedin/runtime.properties`.
+The Python/JNI library paths, database path and browser-profile path come from
+`Tools/runtime.properties`. The shared raw-output root comes from
+`Driver/collector/config/collector.properties`.
 
 `SeekerApplication.init()` creates a plain Spring Context on the launcher
 thread and obtains one `DriverApi` from `DriverConfiguration`. It passes the
@@ -178,8 +178,7 @@ a brighter green than Collect.
 
 Collect calls `DriverApi.collectBatch(settings, handler)` in the GUI JVM using
 the confirmed settings. Batch uses the same session facade. These actions do
-not read `collector.mode` or launch the CLI. The legacy process adapter remains
-separate; standalone CLI collection continues loading its defaults from files.
+not launch the CLI. Standalone CLI collection continues loading its defaults from files.
 Python stdout redirection belongs only to CLI entry points, not to the direct
 library calls.
 

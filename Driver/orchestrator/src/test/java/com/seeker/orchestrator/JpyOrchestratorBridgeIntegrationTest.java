@@ -201,10 +201,8 @@ class JpyOrchestratorBridgeIntegrationTest {
         Files.createDirectories(temporaryDirectory.resolve("Tools"));
         Files.writeString(temporaryDirectory.resolve("Tools/runtime.properties"),
                 Files.readString(project.resolve("Tools/runtime.properties"))
-                        + "\ndatabase.path=" + database.toString().replace('\\', '/') + "\n");
-        Files.createDirectories(temporaryDirectory.resolve("Driver/collector/java_linkedin"));
-        Files.writeString(temporaryDirectory.resolve("Driver/collector/java_linkedin/runtime.properties"),
-                "raw.directory=raw\nprofile.directory=unused-profile\n");
+                        + "\ndatabase.path=" + database.toString().replace('\\', '/')
+                        + "\nprofile.directory=unused-profile\n");
         Files.writeString(temporaryDirectory.resolve("source_identity_fixture.py"), """
                 from pathlib import Path
                 import sqlite3

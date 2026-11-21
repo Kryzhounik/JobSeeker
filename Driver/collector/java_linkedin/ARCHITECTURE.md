@@ -22,7 +22,8 @@ starting; no new recovery or partial-failure continuation is provided.
 through ProjectPaths and the bridge to the Python service. Shared raw saving
 adds `<source>/pages/`, isolating identical filenames across sources. The default
 root `Data/raw` retains LinkedIn's existing `Data/raw/linkedin/pages` layout.
-The old `raw.directory` in `java_linkedin/runtime.properties` is no longer read.
+The shared browser profile is configured by `profile.directory` in
+`Tools/runtime.properties`, alongside the database and Python/JPy paths.
 Like other technical paths, the RAW root is resolved when the API is created;
 source selection and search settings reload for each collection call.
 

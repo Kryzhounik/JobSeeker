@@ -5,8 +5,7 @@
 One `DriverApi` belongs to a GUI session. It is constructed on the connection
 worker, then reused for Batch, direct Collect, Apply, and GPT Eval. Each call
 receives its own progress handler; the facade does not retain UI callbacks.
-The direct Collector adapter reuses that same facade. Collect and Batch always
-use typed direct calls with the settings confirmed for that run.
+Collect and Batch use typed direct calls with the settings confirmed for that run.
 
 `CollectionSettingsPane` is shared by Config and the modal run confirmation.
 `CollectionSettingsLoader` owns fresh property loading and saving outside the
@@ -27,11 +26,9 @@ GUI does not translate stage codes, interpret outcomes, or derive saved counts.
 Completion changes only the visual state, preserving the last snapshot. A
 failure retains its stage, action, and fields and adds the exception to Details.
 
-Both Collector transports expose `Consumer<ProgressSnapshot>`. Direct mode
-forwards the Java callback; process mode deserializes the CLI's same contract
-into `ImmutableProgressSnapshot`, preserving field order. Neither transport
-manufactures progress snapshots. Execution and lifecycle status remain separate
-from the snapshot's display-ready stage/action strings.
+Collection progress arrives through the Java `Consumer<ProgressSnapshot>` callback.
+The GUI displays the supplied snapshots. Execution and lifecycle status remain
+separate from the snapshot's display-ready stage/action strings.
 
 `BackgroundProcessPane` tracks completion separately from its visual state.
 `setProcessState(WAITING)` alone does not finish a running operation; callers

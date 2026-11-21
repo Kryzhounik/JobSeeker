@@ -19,14 +19,10 @@ class LinkedInApplicationTest {
     void reusedApplicationReadsCurrentConfigForBatchAndUrlCollection(@TempDir Path root) throws Exception {
         Path collector = root.resolve("Driver/collector");
         Files.createDirectories(collector.resolve("config"));
-        Files.createDirectories(collector.resolve("java_linkedin"));
-        Files.writeString(collector.resolve("java_linkedin/runtime.properties"), """
-                raw.directory=Data/raw
-                profile.directory=Data/profile
-                """);
         Files.createDirectories(root.resolve("Tools"));
         Files.writeString(root.resolve("Tools/runtime.properties"), """
                 database.path=Data/jobs.sqlite
+                profile.directory=Data/profile
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

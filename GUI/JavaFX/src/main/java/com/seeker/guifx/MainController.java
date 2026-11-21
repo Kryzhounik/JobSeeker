@@ -153,7 +153,6 @@ public final class MainController {
 
     private ClientData clientData;
     private DriverApi driverApi;
-    private DirectCollectorClient directCollector;
     private AuxiliaryWindows auxiliaryWindows;
     private SettingsStore settingsStore;
     private TitleBlacklist titleBlacklist;
@@ -299,7 +298,6 @@ public final class MainController {
         connectionTask.setOnSucceeded(event -> {
             clientData = connectionTask.getValue().clientData();
             driverApi = connectionTask.getValue().driverApi();
-            directCollector = new DirectCollectorClient(driverApi);
             auxiliaryWindows = new AuxiliaryWindows(
                     clientData, this::focusJobFromAuxiliary, settingsStore,
                     this::addTitleToBlacklist, this::startResume
@@ -495,7 +493,7 @@ public final class MainController {
         progressPane.begin();
         Task<CollectionReport> task = new Task<>() {
             @Override protected CollectionReport call() throws Exception {
-                return directCollector.collect(settings, progress -> Platform.runLater(() -> progressPane.update(progress)));
+                return driverApi.collectBatch(settings, progress -> Platform.runLater(() -> progressPane.update(progress)));
             }
         };
         task.setOnSucceeded(event -> {

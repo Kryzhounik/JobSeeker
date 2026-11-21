@@ -21,7 +21,6 @@ class CollectionSettingsTest {
     @BeforeEach void setup() throws Exception {
         Path collector = root.resolve("Driver/collector");
         Files.createDirectories(collector.resolve("config"));
-        Files.createDirectories(collector.resolve("java_linkedin"));
         Files.createDirectories(root.resolve("Tools"));
         Path profile = Files.createDirectories(root.resolve("Data/Profile/Driver/collector"));
         linkedinFile = profile.resolve("linkedin.properties");
@@ -32,9 +31,9 @@ class CollectionSettingsTest {
         Files.writeString(collector.resolve("config/justjoin.properties"), "itemsCount=12\ndelaySeconds=3\n");
         Files.writeString(linkedinFile, "keywords=Java from file\nlocations=Poland:105072130\nlimit=4\n");
         Files.writeString(justjoinFile, "mainTech=java\nlanguages=en\nlimit=2\n");
-        Files.writeString(collector.resolve("java_linkedin/runtime.properties"), "profile.directory=unused\n");
         Files.writeString(root.resolve("Tools/runtime.properties"), """
                 database.path=jobs.sqlite
+                profile.directory=unused
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

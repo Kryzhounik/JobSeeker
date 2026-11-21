@@ -1,5 +1,0 @@
-# Copy this file to runtime.properties and replace the collector-local paths.
-# Shared Python/JPy and database settings: Tools/runtime.properties.example.
-java.executable=C:/path/to/jdk-21-or-newer/bin/java.exe
-# Shared RAW root: ../config/collector.properties (raw.directory=Data/raw).
-profile.directory=Data/browser_profiles/linkedin
