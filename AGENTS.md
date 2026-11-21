@@ -75,6 +75,12 @@ required or justified by an observed failure. Report failures through existing
 error handling and fix concrete problems when they occur; do not silently
 suppress errors to keep the workflow running.
 
+## Test Data Isolation
+
+Each test must define the data it needs or obtain it from test fixtures
+or setup code. Test results must be independent of pre-existing application
+data, personal configuration, and test execution order.
+
 ## Verification Delegation
 
 The primary agent is responsible for the requested work. When additional
