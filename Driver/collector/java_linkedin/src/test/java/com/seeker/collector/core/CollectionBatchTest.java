@@ -113,7 +113,6 @@ class CollectionBatchTest {
         Files.writeString(root.resolve("Data/Profile/Driver/collector/justjoin.properties"), "mainTech=java\nlimit=5\n");
         Files.writeString(root.resolve("Tools/runtime.properties"), """
                 database.path=jobs.sqlite
-                profile.directory=unused-profile
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

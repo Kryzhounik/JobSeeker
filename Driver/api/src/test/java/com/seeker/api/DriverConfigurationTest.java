@@ -26,7 +26,6 @@ class DriverConfigurationTest {
         Files.createDirectories(projectRoot.resolve("Tools"));
         Files.writeString(projectRoot.resolve("Tools/runtime.properties"), """
                 database.path=Data/jobs.sqlite
-                profile.directory=Data/profile
                 python.library=unused/python.dll
                 jpy.library=unused/jpy.dll
                 jdl.library=unused/jdl.dll

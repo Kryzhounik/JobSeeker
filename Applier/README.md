@@ -13,8 +13,7 @@ collector. Applier first looks for a host-specific Playwright adapter. If no
 adapter matches, it uses the existing Codex Proxy with Playwright MCP. No
 adapter scripts are installed yet, so version 0.1 uses the Codex path. The
 form stays open for human review, completion of missing answers, and submission.
-`ManagedBrowser` starts or attaches to the shared browser using the persistent
-`Data/browser_profiles/linkedin` profile and local CDP endpoint. Each Java
+Applier reuses the browser and persistent profile shared with Collector. Each Java
 client closes only the tabs it owns; Applier leaves an opened form tab available
 for review. Form preparation never submits or marks a vacancy Applied.
 
@@ -52,8 +51,7 @@ Applier reuses these existing files; it has no separate copies of these settings
   prompt. A path or link in the facts file alone does not load another file;
   the agent uses browser tools and does not fetch profile files on demand.
 - `Tools/runtime.properties`: `python.executable` starts the Codex Proxy;
-  `database.path` selects the shared database for cover letters, and
-  `profile.directory` selects the persistent browser profile.
+  `database.path` selects the shared database for cover letters.
 - `Driver/collector/config/linkedin.properties`: `browserChannel` selects the
   browser when starting it (default `chrome`), and `pageTimeoutSeconds` sets
   browser action and navigation timeouts (default `60`).

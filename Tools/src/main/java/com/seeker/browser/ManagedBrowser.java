@@ -22,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** Connects clients to one visible Chromium process that outlives those clients. */
 public final class ManagedBrowser implements AutoCloseable {
+    public static final Path LINKEDIN_PROFILE_DIRECTORY = Path.of("Data/browser_profiles/linkedin");
     public static final String CDP_ENDPOINT = "http://127.0.0.1:9222";
     private static final String VERSION_ENDPOINT = CDP_ENDPOINT + "/json/version";
     private static final Duration START_TIMEOUT = Duration.ofSeconds(90);

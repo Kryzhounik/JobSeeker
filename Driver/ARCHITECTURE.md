@@ -158,7 +158,7 @@ JPy использует один встроенный интерпретато�
 инициализация выполняется через `JpyRuntime.ensureStarted(...)`;
 закрытие отдельного gateway не останавливает общий интерпретатор.
 
-Общие технические пути Python/JPy, `database.path` и `profile.directory` находятся в локальном
+Общие технические пути Python/JPy и `database.path` находятся в локальном
 `Tools/runtime.properties` (пример — `Tools/runtime.properties.example`).
 Общий корень RAW
 `raw.directory` находится в `Driver/collector/config/collector.properties`;

@@ -40,7 +40,7 @@ public record ProjectPaths(
                 configPath,
                 path(projectRoot, sharedRuntime, "database.path"),
                 path(projectRoot, collectorSettings, "raw.directory"),
-                path(projectRoot, sharedRuntime, "profile.directory")
+                projectRoot.resolve(com.seeker.browser.ManagedBrowser.LINKEDIN_PROFILE_DIRECTORY)
         );
     }
 

@@ -33,7 +33,7 @@ public final class ApplierRunner {
     public Result run(String jobUrl) throws IOException, InterruptedException, UsageLimitExceededException {
         Properties runtime = load(projectRoot.resolve("Tools/runtime.properties"));
         Properties collector = load(projectRoot.resolve("Driver/collector/config/linkedin.properties"));
-        Path profile = resolve(projectRoot, runtime.getProperty("profile.directory"));
+        Path profile = projectRoot.resolve(ManagedBrowser.LINKEDIN_PROFILE_DIRECTORY);
         String channel = collector.getProperty("browserChannel", "chrome").strip();
         String python = runtime.getProperty("python.executable", "python").strip();
 
@@ -267,11 +267,6 @@ public final class ApplierRunner {
             properties.load(reader);
         }
         return properties;
-    }
-
-    private static Path resolve(Path root, String configured) {
-        Path path = Path.of(configured.strip());
-        return path.isAbsolute() ? path.normalize() : root.resolve(path).normalize();
     }
 
     private static boolean sameHost(String first, String second) {

@@ -33,7 +33,6 @@ class CollectionSettingsTest {
         Files.writeString(justjoinFile, "mainTech=java\nlanguages=en\nlimit=2\n");
         Files.writeString(root.resolve("Tools/runtime.properties"), """
                 database.path=jobs.sqlite
-                profile.directory=unused
                 python.library=unused-python.dll
                 jpy.library=unused-jpy.dll
                 jdl.library=unused-jdl.dll

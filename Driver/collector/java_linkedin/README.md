@@ -70,11 +70,10 @@ IDs are visited once per run. JustJoinIT retains its separate `mainTech` and lim
   first. Each country then gets a priority-company pass and a general pass.
   See [the purpose and current limitations of this workaround](#international-remote-search).
 - Collection is intentionally single-threaded.
-- `database.path` and `profile.directory` are configured in
+- `database.path` is configured in
   `Tools/runtime.properties`; `raw.directory` is configured in
   `Driver/collector/config/collector.properties`.
-- The managed visible Chrome process uses the persistent profile at
-  `Data/browser_profiles/linkedin` and exposes CDP only on loopback. It remains
+- The managed Chrome process uses a persistent profile shared with Applier. It remains
   open after collector commands. Run `login` once and sign in with the existing
   account; collection and application preparation reuse that session.
 - Details-pane HTML is passed from Java to Python as a string. No pane files,
@@ -168,7 +167,7 @@ and this machine has no MSVC C++ toolchain. jpy 2.1.0 provides a compatible
 CPython 3.14 Windows wheel, so it is the active in-process bridge.
 
 Copy `Tools/runtime.properties.example` to `Tools/runtime.properties` and set the
-shared Python/JPy, database and browser-profile paths there. They are not exposed as
+shared Python/JPy and database paths there. They are not exposed as
 command-line options. Change the local file only if an installation moves.
 
 ## Commands
@@ -210,7 +209,7 @@ collects and saves vacancies. Each publication retains its scope entry and
 analysis. Resume and standalone collection commands are unchanged.
 
 Common JPy initialization and Python runtime loading are provided by Tools.
-Shared Python/JPy paths, `database.path` and `profile.directory` are configured in
+Shared Python/JPy paths and `database.path` are configured in
 `Tools/runtime.properties`, independently of Collector. The local
 `raw.directory` in `Driver/collector/config/collector.properties` is the common
 RAW root (default `Data/raw`). Files go into `<root>/<source>/pages/`.
