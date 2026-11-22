@@ -32,11 +32,14 @@ LAZY_OLD_VACANCY_HTML = '''
 '''
 
 
-class JavaLinkedInBridgeTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class JavaLinkedInBridgeTest(FilterTestCase):
     def test_cleanup_runs_between_html_cleaner_and_persistence_and_filter(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
-            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
             self.addCleanup(python_bridge.close_session)
             preview = {"job_id": "7111111111", "source_url": "https://www.linkedin.com/jobs/view/7111111111/",
                        "title": "Java Developer"}
@@ -58,7 +61,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
     def test_cleanup_error_does_not_save_or_filter_original_text(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
-            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
             self.addCleanup(python_bridge.close_session)
             preview = {"job_id": "7222222222", "source_url": "https://www.linkedin.com/jobs/view/7222222222/",
                        "title": "Java Developer"}
@@ -104,7 +107,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
             raw = Path(directory) / "raw"
-            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(raw))
+            self.init_session(str(DRIVER_ROOT), str(database), str(raw))
             self.addCleanup(python_bridge.close_session)
             preview = {"job_id": "123", "source_url": "https://www.linkedin.com/jobs/view/123/",
                        "title": "Java Developer"}
@@ -122,7 +125,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
-            python_bridge.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
+            self.init_session(str(DRIVER_ROOT), str(database), str(Path(directory) / "raw"))
             self.addCleanup(python_bridge.close_session)
             cases = [
                 ('<button id="jobs-apply-button-id" aria-label="Easy Apply to Example">Apply</button>', True),
@@ -156,7 +159,7 @@ class JavaLinkedInBridgeTest(unittest.TestCase):
             root = Path(directory)
             database = root / "jobs.sqlite"
             raw_dir = root / "raw"
-            python_bridge.init_session(
+            self.init_session(
                 str(DRIVER_ROOT),
                 str(database),
                 str(raw_dir),

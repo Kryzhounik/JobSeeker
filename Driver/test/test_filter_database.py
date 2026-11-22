@@ -18,10 +18,12 @@ from db.job_mapper import delete_jobs
 from db.job_mapper import delete_source_jobs
 from db.job_mapper import apply_refilter_transitions
 from db.migrate import migrate_database
-from Tools.filter_database import collect_refilter_transitions
 
 
-class FilterDatabaseTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class FilterDatabaseTest(FilterTestCase):
     def test_collect_returns_only_earlier_rejection_transitions(self) -> None:
         with TemporaryDirectory() as temp_directory:
             db_path = Path(temp_directory) / "jobs.sqlite"
@@ -123,7 +125,7 @@ class FilterDatabaseTest(unittest.TestCase):
                 )
                 connection.commit()
 
-            rejected = collect_refilter_transitions(db_path)
+            rejected = self.collect_refilter_transitions(db_path)
 
             self.assertEqual(
                 rejected,
@@ -240,7 +242,7 @@ class FilterDatabaseTest(unittest.TestCase):
                 connection.commit()
 
             self.assertEqual(applied_refs, [20, 30, 40, 50, 70, 80])
-            self.assertEqual(collect_refilter_transitions(db_path), [])
+            self.assertEqual(self.collect_refilter_transitions(db_path), [])
             with closing(sqlite3.connect(db_path)) as connection:
                 self.assertEqual(
                     connection.execute("SELECT count(*) FROM source_jobs").fetchone()[0],

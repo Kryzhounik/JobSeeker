@@ -10,7 +10,6 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from analyzer.candidate_fit.filter import evaluate_required_languages
-from analyzer.candidate_fit.filter import filter_job_json
 
 
 def base_job(**overrides):
@@ -27,7 +26,10 @@ def base_job(**overrides):
     return job
 
 
-class CandidateFitFilterTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class CandidateFitFilterTest(FilterTestCase):
     def test_english_level_is_compared_with_resume_level(self) -> None:
         result = evaluate_required_languages(
             [
@@ -60,12 +62,12 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason, "English required C1, resume lower")
 
     def test_hybrid_allowed_onsite_location_passes(self) -> None:
-        result = filter_job_json(base_job(location="Chisinau, Moldova"))
+        result = self.filter_job_json(base_job(location="Chisinau, Moldova"))
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
     def test_unknown_work_type_at_allowed_location_passes(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 location="Greater Drohobych Area, Ukraine",
                 remote_type="unknown",
@@ -75,33 +77,33 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "ok")
 
     def test_hybrid_disallowed_onsite_location_fails_location(self) -> None:
-        result = filter_job_json(base_job(location="Warsaw, Poland"))
+        result = self.filter_job_json(base_job(location="Warsaw, Poland"))
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
     def test_remote_worldwide_scope_allows_available_location(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(remote_type="remote", remote_scope="worldwide", location="")
         )
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
     def test_remote_region_scope_allows_available_location(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(remote_type="remote", remote_scope="EMEA", location="")
         )
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
     def test_remote_country_outside_available_locations_fails_location(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(remote_type="remote", remote_scope="Poland", location="")
         )
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
     def test_unspecified_relocation_does_not_hard_reject(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 remote_type="remote",
                 remote_scope="Kazakhstan",
@@ -112,7 +114,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "ok")
 
     def test_explicit_disallowed_relocation_still_fails_location(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 remote_type="remote",
                 remote_scope="Kazakhstan",
@@ -123,19 +125,19 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "loc")
 
     def test_unknown_remote_scope_does_not_hard_reject(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(remote_type="remote", remote_scope="unknown", location="Lithuania")
         )
         self.assertTrue(result.passed)
         self.assertEqual(result.reason_code, "ok")
 
     def test_worldwide_candidate_location_does_not_allow_any_onsite_location(self) -> None:
-        result = filter_job_json(base_job(location="New York, United States"))
+        result = self.filter_job_json(base_job(location="New York, United States"))
         self.assertFalse(result.passed)
         self.assertEqual(result.reason_code, "loc")
 
     def test_required_missing_programming_language_does_not_hard_fail(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 technologies=[
                     {
@@ -154,7 +156,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "ok")
 
     def test_core_missing_programming_language_fails_tech(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 technologies=[
                     {
@@ -174,7 +176,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertIn("core programming language missing", result.reason)
 
     def test_basic_core_programming_language_does_not_hard_fail(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 technologies=[
                     {
@@ -193,7 +195,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "ok")
 
     def test_core_programming_language_alternatives_use_known_option(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 technologies=[
                     {
@@ -212,7 +214,7 @@ class CandidateFitFilterTest(unittest.TestCase):
         self.assertEqual(result.reason_code, "ok")
 
     def test_core_mixed_alternative_item_does_not_hard_fail(self) -> None:
-        result = filter_job_json(
+        result = self.filter_job_json(
             base_job(
                 technologies=[
                     {

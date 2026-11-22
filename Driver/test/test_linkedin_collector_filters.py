@@ -11,24 +11,23 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.filtering.linkedin_filter import DEFAULT_TECHNOLOGY_RULES
-from collector.filtering.linkedin_filter import DEFAULT_PREVIEW_CONFIG
 from collector.filtering.linkedin_filter import Vacancy
-from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import blocked_terms
-from collector.filtering.linkedin_filter import decide_content
-from collector.filtering.linkedin_filter import filter_vacancy
 from collector.filtering.linkedin_filter import load_config
 from collector.filtering.linkedin_filter import matches_term
 
 
-class LinkedInCollectorFiltersTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class LinkedInCollectorFiltersTest(FilterTestCase):
     def test_technology_rules_file_is_reloaded_for_each_filter(self) -> None:
         with TemporaryDirectory() as temp_directory:
             rules_path = Path(temp_directory) / "technology_rules.py"
             original_rules = DEFAULT_TECHNOLOGY_RULES.read_text(encoding="utf-8")
             rules_path.write_text(original_rules, encoding="utf-8")
 
-            before = VacancyFilter(
+            before = self.VacancyFilter(
                 technology_rules_path=rules_path,
             ).filter_text("", "Advanced Python")
             rules_path.write_text(
@@ -38,7 +37,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            after = VacancyFilter(
+            after = self.VacancyFilter(
                 technology_rules_path=rules_path,
             ).filter_text("", "Advanced Python")
 
@@ -46,17 +45,17 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertFalse(after.rejected)
 
     def test_moved_preview_filter_loads_its_blocklist(self) -> None:
-        terms = blocked_terms(load_config(DEFAULT_PREVIEW_CONFIG))
+        terms = blocked_terms(load_config(self.preview_path))
         self.assertIn("Python", terms)
         self.assertTrue(matches_term("Senior Python Developer", "Python"))
 
     def test_deep_camunda_requirement_is_blocked(self) -> None:
-        result = decide_content("Deep expertise in Camunda 8 (preferably 8.8 or later)")
+        result = self.decide_content("Deep expertise in Camunda 8 (preferably 8.8 or later)")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Camunda"])
 
     def test_strong_clickup_requirement_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong hands-on experience with ClickUp, including building "
             "workflows and systems, not just using pre-built templates"
         )
@@ -64,11 +63,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["ClickUp"])
 
     def test_optional_clickup_experience_is_not_blocked(self) -> None:
-        result = decide_content("Strong hands-on experience with ClickUp is a plus")
+        result = self.decide_content("Strong hands-on experience with ClickUp is a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_sap_signavio_requirement_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong hands-on experience with SAP Signavio, ideally within "
             "Process Management\u0020"
         )
@@ -76,21 +75,21 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["SAP Signavio"])
 
     def test_advanced_c_requirement_is_blocked(self) -> None:
-        result = decide_content("Advanced C programming skills with industry experience")
+        result = self.decide_content("Advanced C programming skills with industry experience")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C"])
 
     def test_advanced_and_list_is_blocked_by_python(self) -> None:
-        result = decide_content("Advanced SQL and Python")
+        result = self.decide_content("Advanced SQL and Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_advanced_or_list_keeps_java_alternative(self) -> None:
-        result = decide_content("Advanced Python or Java")
+        result = self.decide_content("Advanced Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_cpp_matches_only_cpp_technology(self) -> None:
-        result = decide_content("Advanced C++ programming skills with industry experience")
+        result = self.decide_content("Advanced C++ programming skills with industry experience")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++"])
 
@@ -101,7 +100,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Fluent C++",
         ):
             with self.subTest(text=text):
-                result = decide_content(text)
+                result = self.decide_content(text)
                 self.assertEqual(result["content_decision"], "skip")
                 self.assertEqual(result["content_technologies"], ["C++"])
 
@@ -111,88 +110,88 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Fluent contest C++ or Java (STL, complexity)",
         ):
             with self.subTest(text=text):
-                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+                self.assertEqual(self.decide_content(text)["content_decision"], "analyze")
 
     def test_fluent_english_does_not_bind_unrelated_technology(self) -> None:
-        result = decide_content("Fluent English and some familiarity with C++")
+        result = self.decide_content("Fluent English and some familiarity with C++")
         self.assertEqual(result["content_decision"], "analyze")
         self.assertNotIn("content_technologies", result)
 
     def test_camunda_in_non_strict_alternative_list_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Solutions using Power Platform, UiPath, Camunda, Flowable, Appian, n8n or similar"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_technology_explicitly_required_is_blocked(self) -> None:
-        result = decide_content("Production experience with Camunda is required")
+        result = self.decide_content("Production experience with Camunda is required")
         self.assertEqual(result["content_decision"], "skip")
 
     def test_generic_experience_with_technology_is_not_blocked(self) -> None:
-        result = decide_content("Experience with React")
+        result = self.decide_content("Experience with React")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_blocked_technology_is_not_blocked(self) -> None:
-        result = decide_content("Advanced C would be a plus")
+        result = self.decide_content("Advanced C would be a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_available_alternative_prevents_rejection(self) -> None:
-        result = decide_content("5+ years of backend development in Java and/or C")
+        result = self.decide_content("5+ years of backend development in Java and/or C")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_java_in_same_requirement_prevents_rejection(self) -> None:
-        result = decide_content("Strong proficiency in C or Java is required")
+        result = self.decide_content("Strong proficiency in C or Java is required")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_java_before_punctuation_prevents_rejection(self) -> None:
-        result = decide_content("Strong proficiency in C or Java.")
+        result = self.decide_content("Strong proficiency in C or Java.")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_java_in_adjacent_line_prevents_rejection(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced C programming skills are required\nJava backend experience"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_javascript_in_adjacent_line_does_not_count_as_java(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced C programming skills are required\nJavaScript experience"
         )
         self.assertEqual(result["content_decision"], "skip")
 
     def test_non_java_alternative_is_still_blocked(self) -> None:
-        result = decide_content("5+ years of Camunda or UiPath experience")
+        result = self.decide_content("5+ years of Camunda or UiPath experience")
         self.assertEqual(result["content_decision"], "skip")
 
     def test_go_requirement_is_blocked(self) -> None:
-        result = decide_content("Strong proficiency in Go is required")
+        result = self.decide_content("Strong proficiency in Go is required")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Go"])
 
     def test_lowercase_go_as_ordinary_word_is_not_blocked(self) -> None:
-        result = decide_content("Our solutions go far beyond basic scripting")
+        result = self.decide_content("Our solutions go far beyond basic scripting")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_unrelated_required_word_does_not_bind_python(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Required to be smart, but knowing Python could be not bad"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_unrelated_advanced_word_does_not_bind_python(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced communication skills. Some familiarity with Python."
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_plain_proficiency_in_technology_is_blocked(self) -> None:
-        result = decide_content("Proficiency in Python")
+        result = self.decide_content("Proficiency in Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
         self.assertEqual(len(result["content_signals"]), 1)
 
     def test_proficiency_in_alternative_language_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in programming languages such as "
             "C/C++, C#, Python, or Rust"
         )
@@ -203,19 +202,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_java_in_proficiency_language_list_prevents_rejection(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in programming languages such as C++, Java, or Python"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_unblocked_proficiency_alternative_prevents_rejection(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in programming languages such as C++, Scala, or Python"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_javascript_in_proficiency_language_list_is_not_java(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in programming languages such as "
             "C++, JavaScript, or Python"
         )
@@ -226,18 +225,18 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_optional_proficiency_language_list_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in programming languages such as C++ or Python is a plus"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_proficiency_uses_plain_proficiency_template(self) -> None:
-        result = decide_content("Strong proficiency in Python")
+        result = self.decide_content("Strong proficiency in Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(len(result["content_signals"]), 1)
 
     def test_electronjs_proficiency_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in ElectronJS and responsibility for developing and "
             "maintaining ElectronJS desktop applications."
         )
@@ -245,19 +244,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["ElectronJS"])
 
     def test_proven_experience_with_pulumi_is_blocked(self) -> None:
-        result = decide_content("Proven experience with Pulumi (TypeScript).")
+        result = self.decide_content("Proven experience with Pulumi (TypeScript).")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["TypeScript", "Pulumi"])
 
     def test_proficiency_comma_list_keeps_other_tools_as_options(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in Amazon Web Services (AWS), Apache Kafka, PySpark, "
             "Snowflake, and dbt"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_example_technology_list_keeps_java_alternative(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in data engineering tools and languages "
             "(e.g., Python, Java, Go)."
         )
@@ -266,24 +265,24 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_example_technology_list_blocks_when_all_examples_are_blocked(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in data engineering languages (e.g., Python, Go)."
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "Go"])
 
     def test_proficiency_with_terraform_is_blocked(self) -> None:
-        result = decide_content("Proficiency with Terraform")
+        result = self.decide_content("Proficiency with Terraform")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Terraform"])
 
     def test_deep_hands_on_expertise_is_blocked(self) -> None:
-        result = decide_content("Deep hands-on expertise with Node.js — must-have.")
+        result = self.decide_content("Deep hands-on expertise with Node.js — must-have.")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Node.js"])
 
     def test_versioned_cpp_is_blocked_as_cpp(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong proficiency in C++17 (or later) with a deep understanding "
             "of the language specification, memory management, standard "
             "library, and multi-threading."
@@ -292,39 +291,39 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_versioned_cpp_with_real_java_alternative_is_not_blocked(self) -> None:
-        result = decide_content("Strong proficiency in C++17 (or later) or Java")
+        result = self.decide_content("Strong proficiency in C++17 (or later) or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_list_of_technology_skills_is_blocked(self) -> None:
-        result = decide_content("Strong Python, PySpark, and SQL skills")
+        result = self.decide_content("Strong Python, PySpark, and SQL skills")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "PySpark"])
 
     def test_short_strong_technology_list_is_blocked(self) -> None:
-        result = decide_content("Strong Python, PySpark and SQL")
+        result = self.decide_content("Strong Python, PySpark and SQL")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "PySpark"])
 
     def test_strong_technology_before_semicolon_is_blocked(self) -> None:
-        result = decide_content("Strong C++; Linux and embedded software.")
+        result = self.decide_content("Strong C++; Linux and embedded software.")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_strong_single_technology_is_blocked(self) -> None:
-        result = decide_content("Strong Python.")
+        result = self.decide_content("Strong Python.")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_short_strong_or_list_keeps_unblocked_option(self) -> None:
-        result = decide_content("Strong Python or Java")
+        result = self.decide_content("Strong Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_short_strong_list_is_not_blocked(self) -> None:
-        result = decide_content("Strong Python, PySpark and SQL is a plus")
+        result = self.decide_content("Strong Python, PySpark and SQL is a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_short_strong_list_does_not_cross_into_next_requirement(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "A strong comfort level with Linux is highly desired\n"
             "Familiarity with programming/scripting "
             "(C++, Java, Python, Perl, JavaScript, shell)/ Cloud"
@@ -332,19 +331,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_software_development_experience_is_blocked(self) -> None:
-        result = decide_content("Strong software development experience with Python")
+        result = self.decide_content("Strong software development experience with Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_strong_software_engineering_experience_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong software engineering experience in C++ and Python"
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++", "Python"])
 
     def test_strong_modified_backend_engineering_experience_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong extensive hands-on practical large-scale distributed "
             "backend engineering experience with Go"
         )
@@ -354,13 +353,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_strong_software_engineering_or_list_keeps_unblocked_option(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong software engineering experience in C++ or Java"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_professional_software_development_experience_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Solid track record of professional software development "
             "experience in Python, Go for back-end roles"
         )
@@ -368,41 +367,41 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Python", "Go"])
 
     def test_professional_software_development_experience_keeps_java_option(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Professional software development experience in Python or Java"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_professional_software_development_experience_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Professional software development experience in Python, Go is a plus"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_experience_and_list_blocks_each_unsupported_item(self) -> None:
-        result = decide_content("Strong experience with Spark, Scala, and Python")
+        result = self.decide_content("Strong experience with Spark, Scala, and Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_rule"], "hard_blocked_technology")
         self.assertEqual(result["content_technologies"], ["Spark", "Python"])
 
     def test_strong_experience_single_technology_is_blocked(self) -> None:
-        result = decide_content("Strong experience with Python")
+        result = self.decide_content("Strong experience with Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_strong_commercial_vue_and_nuxt_experience_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong commercial experience with Vue.js 3 and Nuxt.js"
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Vue.js", "Nuxt.js"])
 
     def test_strong_commercial_vue_or_java_experience_is_not_blocked(self) -> None:
-        result = decide_content("Strong commercial experience with Vue.js 3 or Java")
+        result = self.decide_content("Strong commercial experience with Vue.js 3 or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_java_does_not_hide_and_list_requirement(self) -> None:
-        result = decide_content("Strong experience with Java and Python")
+        result = self.decide_content("Strong experience with Java and Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
@@ -412,10 +411,10 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Strong experience with Scala or Python",
         ):
             with self.subTest(text=text):
-                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+                self.assertEqual(self.decide_content(text)["content_decision"], "analyze")
 
     def test_all_blocked_or_list_alternatives_are_rejected(self) -> None:
-        result = decide_content("Strong experience with JavaScript or Python")
+        result = self.decide_content("Strong experience with JavaScript or Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
@@ -423,13 +422,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_optional_strong_experience_list_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong experience with Spark, Scala, and Python is a plus"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_proficiency_comma_keeps_rest_api_option(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong proficiency with Python, REST APIs and Cloud (e.g. AWS, GCP)"
         )
         self.assertEqual(result["content_decision"], "analyze")
@@ -437,7 +436,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_strong_proficiency_in_go_with_non_technology_requirement_is_blocked(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "You have strong proficiency in Go and deep understanding of "
             "distributed systems and service-oriented architecture"
         )
@@ -445,7 +444,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Go"])
 
     def test_long_technology_name_hides_nested_alias(self) -> None:
-        result = decide_content("Strong proficiency with Node.js and TypeScript")
+        result = self.decide_content("Strong proficiency with Node.js and TypeScript")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
@@ -453,11 +452,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_strong_proficiency_or_list_keeps_unblocked_alternative(self) -> None:
-        result = decide_content("Strong proficiency with Python or Java")
+        result = self.decide_content("Strong proficiency with Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_experience_with_required_technology_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Experience with TypeScript, Node.js, PostgreSQL, and Python"
         )
         self.assertEqual(result["content_decision"], "skip")
@@ -467,29 +466,29 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_experience_with_single_technology_remains_soft(self) -> None:
-        result = decide_content("Experience with Python")
+        result = self.decide_content("Experience with Python")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_extensive_experience_with_required_technology_list_is_blocked(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Extensive experience with PHP, and modern frameworks."
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["PHP"])
 
     def test_extensive_experience_with_single_technology_is_blocked(self) -> None:
-        result = decide_content("Extensive experience with PHP")
+        result = self.decide_content("Extensive experience with PHP")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["PHP"])
 
     def test_extensive_experience_keeps_unblocked_alternative(self) -> None:
-        result = decide_content("Extensive experience with PHP or Java")
+        result = self.decide_content("Extensive experience with PHP or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_technology_first_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "6+ years of professional software engineering, TypeScript-first, "
             "across React/Next.js and Node.js."
         )
@@ -497,7 +496,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["TypeScript"])
 
     def test_fluency_in_blocked_technology_alternatives_is_blocked(self) -> None:
-        result = decide_content("Fluency in Golang, Python, C, C++, or Rust")
+        result = self.decide_content("Fluency in Golang, Python, C, C++, or Rust")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
@@ -505,7 +504,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_expert_level_knowledge_of_technology_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "expert-level knowledge of TypeScript (and/or JavaScript), HTML, and CSS"
         )
         self.assertEqual(result["content_decision"], "skip")
@@ -515,7 +514,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_expert_level_knowledge_does_not_absorb_next_requirement(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "At least 5 years of experience in front-end development, with "
             "expert-level knowledge of TypeScript (and/or JavaScript), HTML, "
             "and CSS, extensive experience with ReactJS (or similar UI "
@@ -528,28 +527,28 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_unblocked_list_does_not_hide_later_required_technology(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Experience with Python or Java, strong experience with PHP."
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["PHP"])
 
     def test_expert_level_knowledge_keeps_java_alternative(self) -> None:
-        result = decide_content("expert-level knowledge of TypeScript or Java")
+        result = self.decide_content("expert-level knowledge of TypeScript or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_expert_level_knowledge_is_not_blocked(self) -> None:
-        result = decide_content("expert-level knowledge of TypeScript is a plus")
+        result = self.decide_content("expert-level knowledge of TypeScript is a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_fluency_keeps_unknown_technology_alternative(self) -> None:
-        result = decide_content("Fluency in Golang, MATLAB or TypeScript")
+        result = self.decide_content("Fluency in Golang, MATLAB or TypeScript")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_hands_on_experience_around_years_with_technology_is_blocked(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Hands-on experience around 5 years with PyTorch and PyTorch "
             "Lightning for building, training, and extending production pipelines"
         )
@@ -557,16 +556,16 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["PyTorch"])
 
     def test_advanced_single_technology_is_blocked(self) -> None:
-        result = decide_content("Advanced Python")
+        result = self.decide_content("Advanced Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_advanced_technology_keeps_unblocked_alternative(self) -> None:
-        result = decide_content("Advanced Python or Java")
+        result = self.decide_content("Advanced Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_experience_does_not_cross_into_familiarity_after_bullet(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "\u2022 Experience with cloud platforms (AWS, GCP, Azure) and "
             "containerization technologies (Docker, Kubernetes) "
             "\u2022 Familiarity with CI/CD pipelines and infrastructure as code "
@@ -575,7 +574,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_hard_requirement_after_bullet_is_still_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "\u2022 Experience with cloud platforms "
             "\u2022 Proficiency in Terraform"
         )
@@ -583,13 +582,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Terraform"])
 
     def test_such_as_list_keeps_unblocked_alternative(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Experience with programming languages such as Python, R, and Java"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_such_as_list_of_only_blocked_alternatives_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Experience with programming languages such as Python, Go, and PHP"
         )
         self.assertEqual(result["content_decision"], "skip")
@@ -599,13 +598,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_optional_strong_proficiency_list_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong proficiency with Python, REST APIs and Cloud is a plus"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_preferred_version_does_not_make_whole_list_optional(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong proficiency in Angular and TypeScript "
             "(Angular 19+ preferred)."
         )
@@ -613,13 +612,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["TypeScript"])
 
     def test_preferred_technology_still_makes_requirement_optional(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong proficiency in Angular and TypeScript preferred."
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_ukrainian_confident_knowledge_list_is_blocked(self) -> None:
-        result = decide_content("Впевнене знання C/C++, Golang.")
+        result = self.decide_content("Впевнене знання C/C++, Golang.")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(
             result["content_technologies"],
@@ -627,16 +626,16 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_significant_experience_with_technology_is_blocked(self) -> None:
-        result = decide_content("You have significant experience with Python")
+        result = self.decide_content("You have significant experience with Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_significant_experience_or_list_keeps_unblocked_option(self) -> None:
-        result = decide_content("Significant experience with Python or Java")
+        result = self.decide_content("Significant experience with Python or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_significant_experience_is_not_blocked(self) -> None:
-        result = decide_content("Significant experience with Python is a plus")
+        result = self.decide_content("Significant experience with Python is a plus")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_strong_hands_on_technology_experience_is_blocked(self) -> None:
@@ -649,12 +648,12 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             ("Strong hands on experience with Python", "Python"),
         ):
             with self.subTest(text=text):
-                result = decide_content(text)
+                result = self.decide_content(text)
                 self.assertEqual(result["content_decision"], "skip")
                 self.assertEqual(result["content_technologies"], [technology])
 
     def test_strong_hands_on_wordpress_development_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong hands-on experience with WordPress development "
             "(themes, plugins, performance optimization)"
         )
@@ -662,7 +661,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["WordPress"])
 
     def test_optional_strong_hands_on_experience_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Nice to have:\n"
             "Strong hands-on experience with SAP ABAP and S/4HANA development."
         )
@@ -671,23 +670,23 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_java_alternative_to_strong_hands_on_experience_is_not_blocked(
         self,
     ) -> None:
-        result = decide_content("Strong hands-on experience with SAP ABAP or Java")
+        result = self.decide_content("Strong hands-on experience with SAP ABAP or Java")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_proven_knowledge_of_technology_is_blocked(self) -> None:
-        result = decide_content("Proven knowledge of Python")
+        result = self.decide_content("Proven knowledge of Python")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_good_understanding_of_technology_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "A good understanding of C++ build processes and tooling."
         )
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_proven_hands_on_development_experience_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proven hands-on experience in software development using Python; "
             "write high-quality, idiomatic Python code to create new features"
         )
@@ -695,14 +694,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_optional_proven_hands_on_development_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proven hands-on experience in software development using Python "
             "would be a plus"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_expertise_with_technologies_including_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Expertise with modern frontend technologies including React, "
             "TypeScript, and JavaScript."
         )
@@ -713,7 +712,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_optional_expertise_including_list_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Expertise with modern frontend technologies including React, "
             "TypeScript, and JavaScript would be a plus."
         )
@@ -722,7 +721,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_professional_proficiency_developing_with_technology_is_blocked(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "You have demonstrated professional proficiency in developing "
             "public-facing APIs and web applications using Python."
         )
@@ -730,7 +729,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["Python"])
 
     def test_unrequired_applied_ai_languages_are_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "You will work mostly in TypeScript & Python. Experience isn’t "
             "strictly required, but it is a big plus. Comfort with typed "
             "languages and modern backend practices is a must."
@@ -738,16 +737,16 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_one_year_alone_is_not_a_hard_requirement(self) -> None:
-        result = decide_content("1+ years of work experience with JavaScript")
+        result = self.decide_content("1+ years of work experience with JavaScript")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_two_years_is_a_hard_requirement(self) -> None:
-        result = decide_content("2+ years of work experience with JavaScript")
+        result = self.decide_content("2+ years of work experience with JavaScript")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["JavaScript"])
 
     def test_two_years_building_interfaces_with_technologies_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "2+ years of experience building dynamic, responsive interfaces "
             "with React and TypeScript/JavaScript"
         )
@@ -758,14 +757,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_two_years_building_interfaces_keeps_java_alternative(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "2+ years of experience building dynamic, responsive interfaces "
             "with React or Java"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_one_year_building_interfaces_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "1+ years of experience building dynamic, responsive interfaces "
             "with React and TypeScript"
         )
@@ -774,7 +773,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_minimum_years_written_in_words_is_blocked(self) -> None:
         for count in ("two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"):
             with self.subTest(count=count):
-                result = decide_content(
+                result = self.decide_content(
                     f"Minimum of {count} years of experience in Node.JS development."
                 )
                 self.assertEqual(result["content_decision"], "skip")
@@ -783,7 +782,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
     def test_written_year_ranges_are_blocked(self) -> None:
         for count in ("three-five", "three to five", "two+", "THREE"):
             with self.subTest(count=count):
-                result = decide_content(f"{count} years of experience with Python")
+                result = self.decide_content(f"{count} years of experience with Python")
                 self.assertEqual(result["content_decision"], "skip")
                 self.assertEqual(result["content_technologies"], ["Python"])
 
@@ -795,7 +794,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "One-three years of experience with Python",
         ):
             with self.subTest(text=text):
-                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+                self.assertEqual(self.decide_content(text)["content_decision"], "analyze")
 
     def test_written_years_keep_optional_and_java_exceptions(self) -> None:
         for text in (
@@ -803,10 +802,10 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Three years of experience with Python or Java",
         ):
             with self.subTest(text=text):
-                self.assertEqual(decide_content(text)["content_decision"], "analyze")
+                self.assertEqual(self.decide_content(text)["content_decision"], "analyze")
 
     def test_ukrainian_years_and_technology_list_is_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "5+ років досвіду backend-розробки з використанням "
             "Node.js та TypeScript"
         )
@@ -817,20 +816,20 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_ukrainian_or_list_keeps_unblocked_alternative(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "5+ років досвіду backend-розробки з використанням "
             "Node.js або Java"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_ukrainian_one_year_stays_optional(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "1+ рік досвіду backend-розробки з використанням Node.js"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_year_range_binds_listed_technologies(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "5–7 years of experience with React and JavaScript development"
         )
         self.assertEqual(result["content_decision"], "skip")
@@ -840,25 +839,25 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         )
 
     def test_kotlin_is_not_a_blocked_technology(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Commercial experience in Kotlin SW development (3+ years)"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_scala_is_not_a_blocked_technology(self) -> None:
-        result = decide_content("5+ years of experience with Scala")
+        result = self.decide_content("5+ years of experience with Scala")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_not_required_technology_is_not_blocked(self) -> None:
-        result = decide_content("Advanced C knowledge is not required")
+        result = self.decide_content("Advanced C knowledge is not required")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_preferred_technology_is_not_blocked(self) -> None:
-        result = decide_content("5+ years of C preferred")
+        result = self.decide_content("5+ years of C preferred")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_preferably_terraform_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Experience with Infrastructure as Code, preferably Terraform "
             "Experience working with multiple cloud environments "
             "(at least one deeply)"
@@ -866,14 +865,14 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_ideally_python_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "• Strong foundation in probability, statistics and data analysis "
             "• Excellent programming skills, ideally in Python"
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_generic_language_alternative_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Strong Python skills (or another general-purpose programming "
             "language) and experience applying them across data engineering, "
             "platform automation, and analytical workloads."
@@ -881,19 +880,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_only_blocked_skills_alternatives_are_blocked(self) -> None:
-        result = decide_content("Strong Python skills (or C++)")
+        result = self.decide_content("Strong Python skills (or C++)")
         self.assertEqual(result["content_decision"], "skip")
         self.assertIn("Python", result["content_technologies"])
 
     def test_expertise_in_open_language_alternatives_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Have a strong software engineering background with expertise in "
             "Python, C++, or comparable programming languages."
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_expertise_in_only_blocked_alternatives_is_blocked(self) -> None:
-        result = decide_content("Expertise in Python or C++")
+        result = self.decide_content("Expertise in Python or C++")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "C++"])
 
@@ -913,25 +912,25 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             ),
         ):
             with self.subTest(introduction=introduction):
-                result = decide_content(introduction + "\n" + qualification)
+                result = self.decide_content(introduction + "\n" + qualification)
                 self.assertEqual(result["content_decision"], "analyze")
 
     def test_comma_list_with_only_blocked_technologies_is_blocked(self) -> None:
-        result = decide_content("Expertise in Python, Go, Rust")
+        result = self.decide_content("Expertise in Python, Go, Rust")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "Go", "Rust"])
 
     def test_comma_list_keeps_lowercase_unblocked_technology(self) -> None:
-        result = decide_content("Expertise in Python, scala")
+        result = self.decide_content("Expertise in Python, scala")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_explicit_and_joins_technologies_after_comma(self) -> None:
-        result = decide_content("Strong experience with Python, Java, and Go")
+        result = self.decide_content("Strong experience with Python, Java, and Go")
         self.assertEqual(result["content_decision"], "skip")
         self.assertEqual(result["content_technologies"], ["Python", "Go"])
 
     def test_at_least_one_parenthesized_engine_keeps_unknown_alternatives(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced proficiency with at least one major game engine "
             "(Unity, Godot, Unreal), including editor tools, scene management, "
             "and debugging utilities."
@@ -945,13 +944,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             ("framework", "C#, Spring, Golang"),
         ):
             with self.subTest(category=category, options=options):
-                result = decide_content(
+                result = self.decide_content(
                     f"Advanced proficiency with at least one {category} ({options})"
                 )
                 self.assertEqual(result["content_decision"], "analyze")
 
     def test_at_least_one_parenthesized_list_blocks_all_prohibited_options(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced proficiency with at least one language (C#, Python, Golang), "
             "including debugging tools."
         )
@@ -964,19 +963,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Python and at least one framework (Spring, Struts)",
         ):
             with self.subTest(requirement=requirement):
-                result = decide_content("Advanced proficiency with " + requirement)
+                result = self.decide_content("Advanced proficiency with " + requirement)
                 self.assertEqual(result["content_decision"], "skip")
                 self.assertIn("Python", result["content_technologies"])
 
     def test_backend_language_preference_for_go_is_not_blocked(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Proficiency in at least one backend language with strong "
             "preferences towards Go."
         )
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_willingness_to_expand_into_go_is_not_a_hard_requirement(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Senior-level expertise in at least one core language: Go or a JVM "
             "language (Java/Kotlin). High proficiency in one stack is required, "
             "with a willingness to expand technical knowledge into Go."
@@ -984,13 +983,13 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_optional_heading_in_adjacent_line_prevents_rejection(self) -> None:
-        result = decide_content("Nice to have:\nAdvanced C programming skills")
+        result = self.decide_content("Nice to have:\nAdvanced C programming skills")
         self.assertEqual(result["content_decision"], "analyze")
 
     def test_following_preferred_heading_does_not_make_requirement_optional(
         self,
     ) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "10-14 years of experience building commercial software in C++\n"
             "Preferred Skills\n"
             "Familiar with Parallel C++ Design Patterns"
@@ -999,11 +998,11 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result["content_technologies"], ["C++"])
 
     def test_requirement_split_across_adjacent_lines_is_blocked(self) -> None:
-        result = decide_content("Deep expertise in\nCamunda 8")
+        result = self.decide_content("Deep expertise in\nCamunda 8")
         self.assertEqual(result["content_decision"], "skip")
 
     def test_java_title_bypasses_content_filter(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced C programming skills are required",
             title="Senior Java Backend Developer",
         )
@@ -1017,7 +1016,7 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
             "Java Consultant",
         ):
             with self.subTest(title=title):
-                result = filter_vacancy(Vacancy(
+                result = self.filter_vacancy(Vacancy(
                     title=title,
                     text="Proficiency in Python is required",
                 ))
@@ -1025,19 +1024,19 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
                 self.assertEqual(result.rule, "title_pass_word")
 
     def test_javascript_title_still_hits_title_block(self) -> None:
-        result = filter_vacancy(Vacancy(title="JavaScript Python Developer"))
+        result = self.filter_vacancy(Vacancy(title="JavaScript Python Developer"))
         self.assertTrue(result.rejected)
         self.assertEqual(result.rule, "title_blocked")
 
     def test_javascript_title_does_not_match_java_pass_word(self) -> None:
-        result = decide_content(
+        result = self.decide_content(
             "Advanced C programming skills are required",
             title="Senior JavaScript Developer",
         )
         self.assertEqual(result["content_decision"], "skip")
 
     def test_full_vacancy_runs_title_then_content_filters(self) -> None:
-        result = filter_vacancy(
+        result = self.filter_vacancy(
             Vacancy(
                 title="Backend Engineer",
                 text="Deep expertise in Camunda 8 is required",
@@ -1047,12 +1046,12 @@ class LinkedInCollectorFiltersTest(unittest.TestCase):
         self.assertEqual(result.rule, "hard_blocked_technology")
 
     def test_title_only_vacancy_does_not_require_text(self) -> None:
-        result = filter_vacancy(Vacancy(title="Senior Python Developer"))
+        result = self.filter_vacancy(Vacancy(title="Senior Python Developer"))
         self.assertTrue(result.rejected)
         self.assertEqual(result.rule, "title_blocked")
 
     def test_php_title_is_blocked_with_intervening_role_words(self) -> None:
-        result = filter_vacancy(Vacancy(title="Senior PHP Backend Engineer"))
+        result = self.filter_vacancy(Vacancy(title="Senior PHP Backend Engineer"))
         self.assertTrue(result.rejected)
         self.assertEqual(result.rule, "title_blocked")
         self.assertEqual(result.terms, ("PHP",))

@@ -13,8 +13,6 @@ if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
 from collector.filtering.linkedin_filter import Vacancy
-from collector.filtering.linkedin_filter import VacancyFilter
-from collector.filtering.linkedin_filter import decide_preview
 from db.job_mapper import existing_source_urls
 from db.job_mapper import load_job_json
 from db.job_mapper import save_job_json
@@ -23,8 +21,12 @@ from db.job_registry import insert_source_job
 from db.readable_text import save_collected_job
 
 
-class CompanyNormalizationTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class CompanyNormalizationTest(FilterTestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.temp_directory = TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
         self.db_path = Path(self.temp_directory.name) / "jobs.sqlite"
@@ -119,7 +121,7 @@ class CompanyNormalizationTest(unittest.TestCase):
             )
             connection.commit()
 
-        result = decide_preview(
+        result = self.decide_preview(
             {
                 "title": "Senior Java Backend Developer",
                 "company": "blocked company",
@@ -142,7 +144,7 @@ class CompanyNormalizationTest(unittest.TestCase):
             )
             connection.commit()
 
-        result = VacancyFilter(db_path=self.db_path).filter(
+        result = self.VacancyFilter(db_path=self.db_path).filter(
             Vacancy(
                 title="Senior Java Backend Developer",
                 text="Java experience",
@@ -161,7 +163,7 @@ class CompanyNormalizationTest(unittest.TestCase):
             )
             connection.commit()
 
-        result = decide_preview(
+        result = self.decide_preview(
             {
                 "title": "Senior Java Backend Developer",
                 "company": "Ordinary Company",

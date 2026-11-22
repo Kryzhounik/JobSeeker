@@ -13,9 +13,6 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from collector.filtering.linkedin_filter import DEFAULT_PREVIEW_CONFIG
-from collector.filtering.linkedin_filter import VacancyFilter
-from collector.filtering.linkedin_filter import apply_preview_decision
 from db.config import COMPANY_FILTER
 from db.config import LANGUAGE_FILTER
 from db.config import TECHNOLOGY_FILTER
@@ -26,8 +23,12 @@ from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
 
 
-class FilterConfigTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class FilterConfigTest(FilterTestCase):
     def setUp(self) -> None:
+        super().setUp()
         self.temp_directory = TemporaryDirectory()
         self.addCleanup(self.temp_directory.cleanup)
         self.db_path = Path(self.temp_directory.name) / "jobs.sqlite"
@@ -81,7 +82,7 @@ class FilterConfigTest(unittest.TestCase):
             "collector.filtering.linkedin_filter.load_filter_switches",
             wraps=load_filter_switches,
         ) as loader:
-            vacancy_filter = VacancyFilter(db_path=self.db_path)
+            vacancy_filter = self.VacancyFilter(db_path=self.db_path)
             vacancy_filter.filter_title("Backend Engineer")
             vacancy_filter.filter_company("Ordinary Company")
             vacancy_filter.filter_text("Backend Engineer", "Java experience")
@@ -89,11 +90,11 @@ class FilterConfigTest(unittest.TestCase):
         self.assertEqual(loader.call_count, 1)
 
     def test_new_filter_instance_refreshes_database_snapshot(self) -> None:
-        first_filter = VacancyFilter(db_path=self.db_path)
+        first_filter = self.VacancyFilter(db_path=self.db_path)
         self.disable(TITLE_FILTER)
 
         first_result = first_filter.filter_title("Senior Python Developer")
-        refreshed_result = VacancyFilter(db_path=self.db_path).filter_title(
+        refreshed_result = self.VacancyFilter(db_path=self.db_path).filter_title(
             "Senior Python Developer"
         )
 
@@ -115,9 +116,9 @@ class FilterConfigTest(unittest.TestCase):
                 side_effect=lambda item, _db_path: item,
             ),
         ):
-            apply_preview_decision(
+            self.apply_preview_decision(
                 payload,
-                DEFAULT_PREVIEW_CONFIG,
+                self.preview_path,
                 self.db_path,
             )
 
@@ -131,7 +132,7 @@ class FilterConfigTest(unittest.TestCase):
             )
             connection.commit()
 
-        apply_preview_decision(
+        self.apply_preview_decision(
             [
                 {
                     "title": "Senior Python Developer",
@@ -144,7 +145,7 @@ class FilterConfigTest(unittest.TestCase):
                     "source_url": "https://example.test/company",
                 },
             ],
-            DEFAULT_PREVIEW_CONFIG,
+            self.preview_path,
             self.db_path,
         )
 
@@ -187,7 +188,7 @@ class FilterConfigTest(unittest.TestCase):
             )
             connection.commit()
 
-        vacancy_filter = VacancyFilter(db_path=self.db_path)
+        vacancy_filter = self.VacancyFilter(db_path=self.db_path)
         cases = [
             ("language-log", "English C1 required"),
             ("technology-log", "Proficiency in Python"),
@@ -232,7 +233,7 @@ class FilterConfigTest(unittest.TestCase):
     def test_disabled_title_filter_does_not_block_title(self) -> None:
         self.disable(TITLE_FILTER)
 
-        result = VacancyFilter(db_path=self.db_path).filter_title(
+        result = self.VacancyFilter(db_path=self.db_path).filter_title(
             "Senior Python Developer"
         )
 
@@ -251,7 +252,7 @@ class FilterConfigTest(unittest.TestCase):
             )
             connection.commit()
 
-        result = VacancyFilter(db_path=self.db_path).filter_company(
+        result = self.VacancyFilter(db_path=self.db_path).filter_company(
             "Blocked Company"
         )
 
@@ -261,7 +262,7 @@ class FilterConfigTest(unittest.TestCase):
     def test_disabled_technology_filter_does_not_block_requirement(self) -> None:
         self.disable(TECHNOLOGY_FILTER)
 
-        result = VacancyFilter(db_path=self.db_path).filter_text(
+        result = self.VacancyFilter(db_path=self.db_path).filter_text(
             "Backend Engineer",
             "Proficiency in Python",
         )
@@ -272,7 +273,7 @@ class FilterConfigTest(unittest.TestCase):
     def test_disabled_language_filter_does_not_block_requirement(self) -> None:
         self.disable(LANGUAGE_FILTER)
 
-        result = VacancyFilter(db_path=self.db_path).filter_text(
+        result = self.VacancyFilter(db_path=self.db_path).filter_text(
             "Backend Engineer",
             "Fluent in English",
         )

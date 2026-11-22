@@ -11,19 +11,21 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from collector.service import CollectorService
 from collector.linkedin_preparation import LinkedInPreparation
 from collector.java_linkedin import python_bridge
 
 
-class CollectorServiceTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class CollectorServiceTest(FilterTestCase):
     def test_shared_processing_preserves_actual_justjoin_fields_without_linkedin_preparation(self):
         fixture = DRIVER_ROOT / 'collector/java_linkedin/src/test/resources/justjoin/offer.json'
         fields = json.loads(fixture.read_text(encoding='utf-8'))
         fields.pop('body')
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / 'jobs.sqlite'
-            service = CollectorService(DRIVER_ROOT, database, Path(directory) / 'raw')
+            service = self.CollectorService(DRIVER_ROOT, database, Path(directory) / 'raw')
             preview = {'source': 'justjoin', 'job_id': fields['slug'], 'source_url': fields['url'],
                        'title': 'Java Developer', 'company': fields['companyName'],
                        'location': fields['city'], 'workplace': fields['workplaceType']}
@@ -46,7 +48,7 @@ class CollectorServiceTest(unittest.TestCase):
 
     def test_registration_check_is_scoped_to_the_source(self):
         with tempfile.TemporaryDirectory() as directory:
-            service = CollectorService(DRIVER_ROOT, Path(directory) / 'jobs.sqlite', Path(directory) / 'raw')
+            service = self.CollectorService(DRIVER_ROOT, Path(directory) / 'jobs.sqlite', Path(directory) / 'raw')
             linkedin = {'source': 'linkedin', 'job_id': '1234',
                         'source_url': 'https://www.linkedin.com/jobs/view/1234/', 'title': 'Java Engineer'}
             service.save_raw(linkedin, '<h2>About the job</h2><p>Java services</p>', 'html', 'playwright')
@@ -58,7 +60,7 @@ class CollectorServiceTest(unittest.TestCase):
     def test_raw_files_with_identical_names_are_isolated_by_source(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / 'custom-raw-root'
-            service = CollectorService(DRIVER_ROOT, Path(directory) / 'jobs.sqlite', root)
+            service = self.CollectorService(DRIVER_ROOT, Path(directory) / 'jobs.sqlite', root)
             linkedin = {'source': 'linkedin', 'job_id': '123', 'source_url': 'https://www.linkedin.com/jobs/view/123/'}
             justjoin = {'source': 'justjoin', 'job_id': '123', 'source_url': 'https://justjoin.it/job-offer/123'}
             linkedin_html = '<h2>About the job</h2><p>LinkedIn original</p>'
@@ -74,7 +76,7 @@ class CollectorServiceTest(unittest.TestCase):
     def test_native_service_accepts_python_data_and_callable_without_bridge(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / 'jobs.sqlite'
-            service = CollectorService(DRIVER_ROOT, database, Path(directory) / 'raw')
+            service = self.CollectorService(DRIVER_ROOT, database, Path(directory) / 'raw')
             service.start_run('native-run', {})
             preview = {'job_id': '8123456789',
                        'source_url': 'https://www.linkedin.com/jobs/view/8123456789/',

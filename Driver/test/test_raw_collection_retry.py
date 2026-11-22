@@ -18,13 +18,17 @@ from collector.java_linkedin import python_bridge
 from collector.save_raw_page import save_content
 
 
-class RawCollectionRetryTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class RawCollectionRetryTest(FilterTestCase):
     def setUp(self) -> None:
+        super().setUp()
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.database = Path(directory.name) / "jobs.sqlite"
         self.raw = Path(directory.name) / "raw"
-        python_bridge.init_session(str(DRIVER_ROOT), str(self.database), str(self.raw))
+        self.init_session(str(DRIVER_ROOT), str(self.database), str(self.raw))
         self.addCleanup(python_bridge.close_session)
         python_bridge.start_run("first-run", "{}")
         self.connection = sqlite3.connect(self.database)
@@ -62,7 +66,7 @@ class RawCollectionRetryTest(unittest.TestCase):
         self.assertEqual("raw_saved", result["status"])
         self.assertEqual([(original_row[0], "CLEANED", "retry-run")], self.connection.execute(
             "SELECT id, processing_status, collection_run_id FROM source_jobs").fetchall())
-        self.assertEqual(self.fresh, (self.raw / "pages/7777777777.html").read_text(encoding="utf-8"))
+        self.assertEqual(self.fresh, (self.raw / "linkedin/pages/7777777777.html").read_text(encoding="utf-8"))
         text = self.connection.execute("SELECT readable_text FROM source_job_texts").fetchone()[0]
         self.assertIn("Fresh Java services.", text)
         self.assertNotIn("Original Java services.", text)

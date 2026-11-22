@@ -9,15 +9,17 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(DRIVER_ROOT))
 from collector.logging.collection_logger import record_collection_event
 from collector.logging.linkedin_logger import record_collection_event as legacy_record_event
-from collector.service import CollectorService
 from db.migrate import migrate_database
 
 
-class CollectionEventsTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class CollectionEventsTest(FilterTestCase):
     def test_shared_service_keeps_source_for_outcomes_and_processed_vacancies(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"
-            service = CollectorService(DRIVER_ROOT, database, Path(directory) / "raw")
+            service = self.CollectorService(DRIVER_ROOT, database, Path(directory) / "raw")
             for source in ("linkedin", "justjoin"):
                 preview = {"source": source, "job_id": "123", "title": "Java Developer",
                            "source_url": "https://www.linkedin.com/jobs/view/123/" if source == "linkedin"

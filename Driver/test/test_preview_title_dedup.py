@@ -11,12 +11,15 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from collector.filtering.linkedin_filter import decide_preview
 from db.migrate import migrate_database
 
 
-class PreviewTitleDedupTest(unittest.TestCase):
+from Driver.test.filter_test_support import FilterTestCase
+
+
+class PreviewTitleDedupTest(FilterTestCase):
     def setUp(self) -> None:
+        super().setUp()
         directory = TemporaryDirectory()
         self.addCleanup(directory.cleanup)
         self.database = Path(directory.name) / "jobs.sqlite"
@@ -36,7 +39,7 @@ class PreviewTitleDedupTest(unittest.TestCase):
 
     def preview(self, title: str = "Senior Java Developer ID96248",
                 company: str = "AgileEngine", job_id: str = "200") -> dict:
-        return decide_preview(
+        return self.decide_preview(
             {"job_id": job_id, "title": title, "company": company},
             db_path=self.database,
         )
