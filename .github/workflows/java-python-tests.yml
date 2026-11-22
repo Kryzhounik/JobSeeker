@@ -79,15 +79,17 @@ jobs:
       - name: Java tests (without browser)
         shell: bash
         run: |
-          mvn -B -ntp -f Driver/pom.xml \
+          mvn -B -ntp -fae -f Driver/pom.xml \
             "-Dseeker.project.root=$GITHUB_WORKSPACE" \
             -Dseeker.jpy.integration=true \
             test
 
       - name: Python Driver tests
+        if: ${{ !cancelled() }}
         run: python -m unittest discover -s Driver/test -p 'test_*.py' -v
 
       - name: Python Applier tests
+        if: ${{ !cancelled() }}
         run: python -m unittest discover -s Applier/tests -p 'test_*.py' -v
 
       - name: Save JUnit reports
