@@ -81,6 +81,25 @@ Each test must define the data it needs or obtain it from test fixtures
 or setup code. Test results must be independent of pre-existing application
 data, personal configuration, and test execution order.
 
+## Test Execution Policy
+
+GitHub Actions runs the full test suites. These rules apply to implementation,
+code review, and delegated work.
+
+- Do not run local tests routinely after making changes.
+- Run a focused test locally only when its result is needed to choose the next
+  code change, investigate a specific suspected defect, or verify a fix for a
+  known failure. Use the smallest test that answers the question.
+- Run tests explicitly requested by the user. Run a full suite locally only
+  when the user explicitly requests a full run.
+- Use CI results supplied directly in the task. Do not search for runs, open
+  CI links, fetch logs, or poll CI status unless the user explicitly asks.
+  If no result is supplied for the revision under review, treat its CI status
+  as unknown.
+- Limit test output before it reaches the agent's context. Preserve the exit
+  status. On failure, include only the failing test or step, the error message,
+  and the relevant stack frames.
+
 ## Verification Delegation
 
 The primary agent is responsible for the requested work. When additional
@@ -318,9 +337,6 @@ complete.
 ## Independent Review - Test Execution Policy
 
 Do not run existing test suites by default during code review.
-
-Assume the implementation agent has already executed the relevant tests and
-reported their results.
 
 Focus review effort on:
 
