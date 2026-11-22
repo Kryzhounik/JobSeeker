@@ -11,6 +11,11 @@
     <name>Job Seeker Java</name>
 
     <properties>
+        <tests.source>src/test/java</tests.source>
+        <tests.mode>all</tests.mode>
+        <tests.output>test-classes</tests.output>
+        <skipTests>false</skipTests>
+        <tests.python.skip>${skipTests}</tests.python.skip>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <seeker.libs.directory>${maven.multiModuleProjectDirectory}/${seeker.libs.relative}</seeker.libs.directory>
@@ -118,18 +123,12 @@
         </dependencies>
     </dependencyManagement>
 
+    <!-- mvn test runs all tests, with configured Python/JPy and Playwright Chromium.
+         CI selects ci-unit or ci-browser; compiled test outputs are isolated. -->
     <profiles>
-        <!--
-            Ordinary tests (src/test/java): mvn -f Driver/pom.xml clean test
-            Include browser tests: mvn -f Driver/pom.xml clean test -Pbrowser-tests
-            This profile adds src/browser-test/java in Tools, Applier, and
-            ChatEvaluator; install Playwright Chromium before running them.
-            Use clean when switching profiles to remove previously compiled
-            browser tests from target/test-classes.
-            Java/Python integration tests use local Tools/runtime.properties.
-        -->
         <profile>
-            <id>browser-tests</id>
+            <id>all-tests</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
             <build>
                 <plugins>
                     <plugin>
@@ -141,9 +140,7 @@
                                 <phase>generate-test-sources</phase>
                                 <goals><goal>add-test-source</goal></goals>
                                 <configuration>
-                                    <sources>
-                                        <source>${project.basedir}/src/browser-test/java</source>
-                                    </sources>
+                                    <sources><source>${project.basedir}/src/browser-test/java</source></sources>
                                 </configuration>
                             </execution>
                         </executions>
@@ -151,11 +148,64 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>ci-unit</id>
+            <properties>
+                <tests.mode>unit</tests.mode>
+                <tests.output>unit-test-classes</tests.output>
+            </properties>
+        </profile>
+        <profile>
+            <id>ci-browser</id>
+            <properties>
+                <tests.source>src/browser-test/java</tests.source>
+                <tests.mode>browser</tests.mode>
+                <tests.output>browser-test-classes</tests.output>
+                <tests.python.skip>true</tests.python.skip>
+            </properties>
+        </profile>
     </profiles>
 
     <build>
+        <testSourceDirectory>${project.basedir}/${tests.source}</testSourceDirectory>
+        <testOutputDirectory>${project.build.directory}/${tests.output}</testOutputDirectory>
         <finalName>${project.artifactId}</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <reportsDirectory>${project.build.directory}/surefire-reports/${tests.mode}</reportsDirectory>
+                    <systemPropertyVariables>
+                        <seeker.project.root>${maven.multiModuleProjectDirectory}</seeker.project.root>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <inherited>false</inherited>
+                <executions>
+                    <execution>
+                        <id>python-driver-tests</id>
+                        <phase>test</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <skip>${tests.python.skip}</skip>
+                            <executable>python</executable>
+                            <workingDirectory>${project.basedir}/..</workingDirectory>
+                            <environmentVariables>
+                                <PYTHONPATH>${project.basedir}/..${path.separator}${project.basedir}</PYTHONPATH>
+                            </environmentVariables>
+                            <arguments>
+                                <argument>-m</argument><argument>unittest</argument>
+                                <argument>discover</argument><argument>-s</argument><argument>Driver/test</argument>
+                                <argument>-p</argument><argument>test_*.py</argument><argument>-v</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -203,6 +253,11 @@
         </plugins>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.6.4</version>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>

@@ -19,8 +19,8 @@ existing application migrations and deterministic fixture rows. They require
 the configured local Python/JPy runtime, but never read the working database.
 GUI checks use off-screen Scenes, without showing windows. `FatJarSmoke` remains
 a separate check against the packaged artifact.
-`UiWindowTest` retains the optional native-window checks on another temporary
-database. It is skipped unless `seeker.gui.interactive=true` is explicitly set.
+`UiWindowTest` checks native windows against another temporary database and
+is included in the full test run.
 Company updates have separate
 LinkedIn ID, priority, and blacklist methods, so UI handlers do not choose
 Python function names or pass untyped values.
@@ -56,8 +56,8 @@ GUI feature and FXML checks, and saves the JDK and Maven paths in `java-home.txt
 and `maven-path.txt`. The launcher leaves no console window. Its startup output,
 build output and errors go to a separate `logs/launch-*.log` for each run.
 Rebuild the launcher after changing its C# source or moving the JDK.
-The normal build does not open test windows.
-The existing `-UiSmoke` build option enables `UiWindowTest` explicitly.
+The test run includes native-window checks.
+The existing `-UiSmoke` build option reruns `UiWindowTest` explicitly.
 The script publishes `SeekerJobs.exe` from a compiled staging file. When an older
 launcher is still running, its executable is retained under `target/` until it
 can be removed; no second launcher name is required in the GUI directory.
@@ -238,7 +238,9 @@ from working statuses: a 404 increments the failure count, three consecutive
 404 checks mark the source deleted, and a valid open vacancy resets the count.
 Explicitly closed pages are marked closed. Rate limits, authentication pages,
 and network errors do not change availability. The Unavailable checkbox shows
-closed, unavailable, and deleted records; they are hidden when it is unchecked.
+closed, unavailable, and deleted records within the selected working statuses;
+they are hidden when it is unchecked. It does not select the working status
+`Closed`. With no working statuses selected, the result is empty.
 Its JSONL log is
 `GUI/JavaFX/linkedin_availability_check.log`. The completion/stopped dialog shows
 elapsed time, checked/total vacancies, the resulting availability counts,

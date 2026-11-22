@@ -1,4 +1,4 @@
-name: Java and Python tests
+name: Unit tests
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  java-python-tests:
+  unit-tests:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -79,9 +79,9 @@ jobs:
       - name: Java tests (without browser)
         shell: bash
         run: |
-          mvn -B -ntp -fae -f Driver/pom.xml \
+          mvn -B -ntp -fae -f Driver/pom.xml -Pci-unit \
             "-Dseeker.project.root=$GITHUB_WORKSPACE" \
-            -Dseeker.jpy.integration=true \
+            -Dtests.python.skip=true \
             test
 
       - name: Python Driver tests
@@ -96,6 +96,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: java-python-test-reports
-          path: '**/target/surefire-reports/*.xml'
+          name: unit-test-reports
+          path: '**/target/surefire-reports/unit/*.xml'
           if-no-files-found: ignore

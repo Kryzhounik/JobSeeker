@@ -6,7 +6,6 @@ import com.sun.net.httpserver.HttpServer;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.junit.jupiter.api.io.TempDir;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
@@ -14,7 +13,6 @@ import java.nio.file.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
-@EnabledIfSystemProperty(named = "seeker.jpy.integration", matches = "true")
 class SemanticDuplicateBatchIntegrationTest {
     @TempDir Path root;
 

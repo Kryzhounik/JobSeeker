@@ -10,6 +10,11 @@
     <name>Seeker GUI (JavaFX)</name>
 
     <properties>
+        <tests.source>src/test/java</tests.source>
+        <tests.mode>all</tests.mode>
+        <tests.output>test-classes</tests.output>
+        <skipTests>false</skipTests>
+        <tests.python.skip>${skipTests}</tests.python.skip>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <javafx.version>21.0.12</javafx.version>
@@ -73,9 +78,68 @@
         </dependency>
     </dependencies>
 
+    <!-- mvn test runs this project's tests. CI selects ci-unit or ci-gui. -->
+    <profiles>
+        <profile>
+            <id>all-tests</id>
+            <activation><activeByDefault>true</activeByDefault></activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>build-helper-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gui-test-sources</id>
+                                <phase>generate-test-sources</phase>
+                                <goals><goal>add-test-source</goal></goals>
+                                <configuration>
+                                    <sources><source>${project.basedir}/src/gui-test/java</source></sources>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>ci-unit</id>
+            <properties>
+                <tests.mode>unit</tests.mode>
+                <tests.output>unit-test-classes</tests.output>
+            </properties>
+        </profile>
+        <profile>
+            <id>ci-gui</id>
+            <properties>
+                <tests.source>src/gui-test/java</tests.source>
+                <tests.mode>gui</tests.mode>
+                <tests.output>gui-test-classes</tests.output>
+                <tests.python.skip>true</tests.python.skip>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
+        <testSourceDirectory>${project.basedir}/${tests.source}</testSourceDirectory>
+        <testOutputDirectory>${project.build.directory}/${tests.output}</testOutputDirectory>
         <finalName>${project.artifactId}</finalName>
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <id>test-support-sources</id>
+                        <phase>generate-test-sources</phase>
+                        <goals><goal>add-test-source</goal></goals>
+                        <configuration>
+                            <sources><source>${project.basedir}/src/test-support/java</source></sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
@@ -83,6 +147,7 @@
                 <configuration>
                     <!-- JavaFX toolkit cannot restart after Platform.exit() in another test class. -->
                     <reuseForks>false</reuseForks>
+                    <reportsDirectory>${project.build.directory}/surefire-reports/${tests.mode}</reportsDirectory>
                 </configuration>
             </plugin>
             <plugin>
@@ -139,6 +204,38 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.6.4</version>
                 <executions>
+                    <execution>
+                        <id>python-gui-tests</id>
+                        <phase>test</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <skip>${tests.python.skip}</skip>
+                            <executable>python</executable>
+                            <workingDirectory>${project.basedir}/../..</workingDirectory>
+                            <environmentVariables>
+                                <PYTHONPATH>${project.basedir}/../..${path.separator}${project.basedir}/../../Driver</PYTHONPATH>
+                            </environmentVariables>
+                            <arguments>
+                                <argument>-m</argument><argument>unittest</argument>
+                                <argument>discover</argument><argument>-s</argument><argument>GUI</argument>
+                                <argument>-p</argument><argument>test_*.py</argument><argument>-v</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>verify-gui-jar</id>
+                        <phase>verify</phase>
+                        <goals><goal>exec</goal></goals>
+                        <configuration>
+                            <skip>${skipTests}</skip>
+                            <executable>${java.home}/bin/java</executable>
+                            <arguments>
+                                <argument>-cp</argument>
+                                <argument>${project.build.testOutputDirectory}${path.separator}${project.basedir}/dist/${project.build.finalName}.jar</argument>
+                                <argument>com.seeker.guifx.FatJarSmoke</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
                     <execution>
                         <id>publish-gui-jar</id>
                         <phase>package</phase>

@@ -29,15 +29,18 @@ class JobFiltersTest(unittest.TestCase):
             CREATE TABLE applications (id INTEGER PRIMARY KEY, job_id INTEGER);
             CREATE VIEW job_list AS
                 SELECT j.id AS job_id, 100 AS score, 50 AS fit, 400 AS interest,
-                    CASE WHEN j.id = 2 THEN 'Closed' ELSE 'New' END AS status,
+                    CASE WHEN j.id IN (2, 4) THEN 'Closed'
+                         WHEN j.id = 5 THEN 'Checked' ELSE 'New' END AS status,
                     '' AS remote_scope, '' AS relocation, '' AS location,
                     '' AS company, '' AS title, '' AS role, '' AS seniority,
                     '' AS primary_language, '' AS salary, '' AS added_at,
                     '' AS source_url
                 FROM jobs j;
             INSERT INTO source_jobs (id, availability) VALUES
-                (1, 'available'), (2, 'available'), (3, 'unavailable');
-            INSERT INTO jobs (id, source_job_ref) VALUES (1, 1), (2, 2), (3, 3);
+                (1, 'available'), (2, 'available'), (3, 'unavailable'),
+                (4, 'closed'), (5, 'unavailable'), (6, 'closed'), (7, 'deleted');
+            INSERT INTO jobs (id, source_job_ref) VALUES
+                (1, 1), (2, 2), (3, 3), (4, 4), (5, 5), (6, 6), (7, 7);
         """)
 
     def load_ids(self, statuses, show_unavailable):
@@ -53,14 +56,19 @@ class JobFiltersTest(unittest.TestCase):
     def test_new_excludes_closed_and_unavailable(self):
         self.assertEqual({1}, self.load_ids(["New"], False))
 
-    def test_show_unavailable_does_not_add_closed_status(self):
-        self.assertEqual({1, 3}, self.load_ids(["New"], True))
+    def test_unavailable_widens_availability_within_selected_statuses(self):
+        self.assertEqual({1, 3, 6, 7}, self.load_ids(["New"], True))
+        self.assertEqual({5}, self.load_ids(["Checked"], True))
+        self.assertEqual(set(), self.load_ids(["Checked"], False))
 
     def test_closed_is_returned_only_when_requested(self):
         self.assertEqual({2}, self.load_ids(["Closed"], False))
+        self.assertEqual({2, 4}, self.load_ids(["Closed"], True))
 
     def test_no_selected_statuses_returns_no_jobs(self):
-        self.assertEqual(set(), self.load_ids([], True))
+        for show_unavailable in (False, True):
+            with self.subTest(show_unavailable=show_unavailable):
+                self.assertEqual(set(), self.load_ids([], show_unavailable))
 
     def test_duplicate_parent_ignores_child_filters(self):
         self.connection.execute("UPDATE source_jobs SET semantic_duplicate_of = 2 WHERE id = 1")

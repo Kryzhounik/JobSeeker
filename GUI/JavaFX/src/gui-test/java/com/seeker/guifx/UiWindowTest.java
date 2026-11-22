@@ -28,7 +28,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
 import java.util.function.BooleanSupplier;
 
-@org.junit.jupiter.api.condition.EnabledIfSystemProperty(named = "seeker.gui.interactive", matches = "true")
 class UiWindowTest {
     @org.junit.jupiter.api.io.TempDir static Path directory;
     private static Path SETTINGS;
