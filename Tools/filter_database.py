@@ -79,11 +79,16 @@ def calculate_refilter_action(
 
 
 def collect_refilter_transitions(
-    db_path: Path = DB_PATH,
+    db_path: Path | None = None,
+    *,
+    vacancy_filter: VacancyFilter | None = None,
 ) -> list[dict[str, Any]]:
     transitions: list[dict[str, Any]] = []
+    if db_path is None:
+        db_path = vacancy_filter.db_path if vacancy_filter is not None else DB_PATH
     migrate_database(db_path)
-    vacancy_filter = VacancyFilter(db_path=db_path)
+    if vacancy_filter is None:
+        vacancy_filter = VacancyFilter(db_path=db_path)
 
     database = sqlite3.connect(db_path)
     try:

@@ -7,7 +7,6 @@ import sqlite3
 from collector.filtering.linkedin_filter import VacancyFilter
 from collector.filtering.linkedin_filter import apply_preview_decision_with_filter
 from collector.filtering.linkedin_filter import content_response
-from collector.filtering.linkedin_filter import load_config
 from collector.logging.collection_logger import record_collection_event
 from collector.logging.linkedin_run_logger import finish_collection_run
 from collector.logging.linkedin_run_logger import start_collection_run
@@ -21,14 +20,16 @@ from db.readable_text import save_collected_job
 class CollectorService:
     """Native Python collection operations; no JSON, JPy or Java dependencies."""
 
-    def __init__(self, driver_root: Path, db_path: Path, raw_root: Path):
+    def __init__(self, driver_root: Path, db_path: Path, raw_root: Path,
+                 *, vacancy_filter: VacancyFilter | None = None):
         self.driver_root = driver_root.resolve()
         self.db_path = db_path.resolve()
         self.raw_root = raw_root.resolve()
         migrate_database(self.db_path)
         config_path = self.driver_root.parent / "Data/Profile/Driver/collector/linkedin_preview_filter.ini"
-        self.preview_config = load_config(config_path)
-        self.vacancy_filter = VacancyFilter(preview_config_path=config_path, db_path=self.db_path)
+        self.vacancy_filter = vacancy_filter if vacancy_filter is not None else VacancyFilter(
+            preview_config_path=config_path, db_path=self.db_path)
+        self.preview_config = self.vacancy_filter.preview_config
         self.run_id: str | None = None
 
     def start_run(self, run_id: str, config: dict) -> None:

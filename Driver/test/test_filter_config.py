@@ -21,6 +21,7 @@ from db.config import config_enabled
 from db.config import load_filter_switches
 from db.filter_rejections import save_content_filter_rejection
 from db.migrate import migrate_database
+from collector.filtering import linkedin_filter as filtering
 
 
 from Driver.test.filter_test_support import FilterTestCase
@@ -36,6 +37,20 @@ class FilterConfigTest(FilterTestCase):
 
     def connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.db_path)
+
+    def test_public_preview_uses_injected_filters_database_by_default(self) -> None:
+        with closing(self.connect()) as connection:
+            connection.execute(
+                "INSERT INTO source_jobs (source, source_job_id, processing_status) "
+                "VALUES ('linkedin', 'fixture-duplicate', 'CLEANED')"
+            )
+            connection.commit()
+        vacancy_filter = self.VacancyFilter(db_path=self.db_path)
+        result = filtering.decide_preview(
+            {"title": "Backend Engineer", "job_id": "fixture-duplicate"},
+            vacancy_filter=vacancy_filter,
+        )
+        self.assertEqual(result["preview_rule"], "duplicate_source_job_id")
 
     def disable(self, config_name: str) -> None:
         with closing(self.connect()) as connection:

@@ -2,7 +2,6 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
-from unittest.mock import patch
 
 from collector.filtering import linkedin_filter as filtering
 from analyzer.candidate_fit import filter as fit
@@ -103,12 +102,11 @@ Serbia=100
     def decide_content(self, text, config_path=None, **kwargs):
         defaults = dict(content_config_path=config_path or self.content_path)
         title = kwargs.pop('title', '')
-        if 'language_config_path' in kwargs:
-            defaults['language_config_path'] = kwargs.pop('language_config_path')
-        return filtering.content_response(self.VacancyFilter(**(defaults | kwargs)).filter_text(title, text))
+        return filtering.decide_content(
+            text, title=title, vacancy_filter=self.VacancyFilter(**(defaults | kwargs)))
 
     def filter_vacancy(self, vacancy):
-        return self.VacancyFilter().filter(vacancy)
+        return filtering.filter_vacancy(vacancy, vacancy_filter=self.VacancyFilter())
 
     def filter_job_json(self, record, **kwargs):
         return fit.filter_job_json(record, **(dict(resume_path=self.resume_path, filter_path=self.fit_path) | kwargs))
@@ -116,24 +114,25 @@ Serbia=100
     def decide_preview(self, preview, config_path=None, db_path=None):
         database = db_path or self.database_path
         vf = self.VacancyFilter(preview_config_path=config_path or self.preview_path, db_path=database)
-        return filtering.decide_preview_with_filter(preview, vf.preview_config, vf, database)
+        return filtering.decide_preview(preview, db_path=database, vacancy_filter=vf)
 
     def apply_preview_decision(self, payload, config_path=None, db_path=None):
         database = db_path or self.database_path
         vf = self.VacancyFilter(preview_config_path=config_path or self.preview_path, db_path=database)
-        return filtering.apply_preview_decision_with_filter(payload, vf.preview_config, vf, database)
+        return filtering.apply_preview_decision(
+            payload, config_path or self.preview_path, database, vacancy_filter=vf)
 
     def CollectorService(self, driver_root, db_path, raw_root):
         from collector.service import CollectorService
-        with patch('collector.service.VacancyFilter', side_effect=self.VacancyFilter):
-            return CollectorService(self.test_root / 'Driver', db_path, raw_root)
+        return CollectorService(self.test_root / 'Driver', db_path, raw_root,
+                                vacancy_filter=self.VacancyFilter(db_path=db_path))
 
     def init_session(self, driver_root, db_path, raw_root):
         from collector.java_linkedin import python_bridge
-        with patch.object(python_bridge, 'CollectorService', side_effect=self.CollectorService):
-            python_bridge.init_session(driver_root, db_path, raw_root)
+        python_bridge.init_session(driver_root, db_path, raw_root,
+                                  vacancy_filter=self.VacancyFilter(db_path=Path(db_path)))
 
     def collect_refilter_transitions(self, db_path):
         from Tools import filter_database
-        with patch.object(filter_database, 'VacancyFilter', side_effect=self.VacancyFilter):
-            return filter_database.collect_refilter_transitions(db_path)
+        return filter_database.collect_refilter_transitions(
+            db_path, vacancy_filter=self.VacancyFilter(db_path=db_path))

@@ -340,6 +340,11 @@ def content_units(text: str) -> list[tuple[str, str]]:
 
 
 class VacancyFilter:
+    """Configuration and database snapshot reusable by public filter operations.
+
+    When supplied to an operation, this instance owns its filter configuration;
+    configuration-path defaults are used only when constructing a new instance.
+    """
     def __init__(
         self,
         preview_config_path: Path = DEFAULT_PREVIEW_CONFIG,
@@ -678,8 +683,12 @@ class VacancyFilter:
             )
 
 
-def filter_vacancy(vacancy: Vacancy) -> FilterResult:
-    return VacancyFilter().filter(vacancy)
+def filter_vacancy(
+    vacancy: Vacancy, *, vacancy_filter: VacancyFilter | None = None,
+) -> FilterResult:
+    if vacancy_filter is None:
+        vacancy_filter = VacancyFilter()
+    return vacancy_filter.filter(vacancy)
 
 
 def source_job_id(preview: dict[str, Any]) -> str:
@@ -748,16 +757,20 @@ def is_duplicate_company_title(preview: dict[str, Any], db_path: Path = DEFAULT_
 def decide_preview(
     preview: dict[str, Any],
     config_path: Path = DEFAULT_PREVIEW_CONFIG,
-    db_path: Path = DEFAULT_DB,
+    db_path: Path | None = None,
+    *,
+    vacancy_filter: VacancyFilter | None = None,
 ) -> dict[str, Any]:
-    config = load_config(config_path)
-    vacancy_filter = VacancyFilter(
-        preview_config_path=config_path,
-        db_path=db_path,
-    )
+    if db_path is None:
+        db_path = vacancy_filter.db_path if vacancy_filter is not None else DEFAULT_DB
+    if vacancy_filter is None:
+        vacancy_filter = VacancyFilter(
+            preview_config_path=config_path,
+            db_path=db_path,
+        )
     return decide_preview_with_filter(
         preview,
-        config,
+        vacancy_filter.preview_config,
         vacancy_filter,
         db_path,
     )
@@ -812,13 +825,16 @@ def decide_content(
     language_config_path: Path = DEFAULT_LANGUAGE_CONFIG,
     resume_path: Path = DEFAULT_RESUME_CONFIG,
     db_path: Path = DEFAULT_DB,
+    vacancy_filter: VacancyFilter | None = None,
 ) -> dict[str, Any]:
-    result = VacancyFilter(
-        content_config_path=config_path,
-        language_config_path=language_config_path,
-        resume_path=resume_path,
-        db_path=db_path,
-    ).filter_text(title, text)
+    if vacancy_filter is None:
+        vacancy_filter = VacancyFilter(
+            content_config_path=config_path,
+            language_config_path=language_config_path,
+            resume_path=resume_path,
+            db_path=db_path,
+        )
+    result = vacancy_filter.filter_text(title, text)
     return content_response(result)
 
 
@@ -841,16 +857,20 @@ def content_response(result: FilterResult) -> dict[str, Any]:
 def apply_preview_decision(
     payload: Any,
     config_path: Path,
-    db_path: Path = DEFAULT_DB,
+    db_path: Path | None = None,
+    *,
+    vacancy_filter: VacancyFilter | None = None,
 ) -> Any:
-    config = load_config(config_path)
-    vacancy_filter = VacancyFilter(
-        preview_config_path=config_path,
-        db_path=db_path,
-    )
+    if db_path is None:
+        db_path = vacancy_filter.db_path if vacancy_filter is not None else DEFAULT_DB
+    if vacancy_filter is None:
+        vacancy_filter = VacancyFilter(
+            preview_config_path=config_path,
+            db_path=db_path,
+        )
     return apply_preview_decision_with_filter(
         payload,
-        config,
+        vacancy_filter.preview_config,
         vacancy_filter,
         db_path,
     )

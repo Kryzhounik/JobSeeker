@@ -19,15 +19,18 @@ for import_root in (DRIVER_ROOT, COLLECTOR_ROOT):
         sys.path.insert(0, str(import_root))
 
 from collector.service import CollectorService
+from collector.filtering.linkedin_filter import VacancyFilter
 from collector.linkedin_preparation import LinkedInPreparation
 
 
 _session: CollectorService | None = None
 
 
-def init_session(driver_root: str, db_path: str, raw_root: str) -> None:
+def init_session(driver_root: str, db_path: str, raw_root: str,
+                 *, vacancy_filter: VacancyFilter | None = None) -> None:
     global _session
-    _session = CollectorService(Path(driver_root), Path(db_path), Path(raw_root))
+    _session = CollectorService(Path(driver_root), Path(db_path), Path(raw_root),
+                                vacancy_filter=vacancy_filter)
 
 
 def priority_company_ids() -> str:

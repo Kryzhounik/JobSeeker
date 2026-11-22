@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 
 DRIVER_ROOT = Path(__file__).resolve().parents[1]
@@ -15,12 +16,26 @@ from collector.filtering.linkedin_filter import Vacancy
 from collector.filtering.linkedin_filter import blocked_terms
 from collector.filtering.linkedin_filter import load_config
 from collector.filtering.linkedin_filter import matches_term
+from collector.filtering import linkedin_filter as filtering
 
 
 from Driver.test.filter_test_support import FilterTestCase
 
 
 class LinkedInCollectorFiltersTest(FilterTestCase):
+    def test_test_helpers_call_public_application_entry_points(self) -> None:
+        cases = (
+            ("decide_content", ("Advanced Python",)),
+            ("decide_preview", ({"title": "Senior Python Developer"},)),
+            ("apply_preview_decision", ({"title": "Senior Python Developer"},)),
+            ("filter_vacancy", (Vacancy(title="Backend Engineer"),)),
+        )
+        for name, arguments in cases:
+            with self.subTest(entry_point=name):
+                with patch.object(filtering, name, side_effect=RuntimeError("public entry reached")):
+                    with self.assertRaisesRegex(RuntimeError, "public entry reached"):
+                        getattr(self, name)(*arguments)
+
     def test_technology_rules_file_is_reloaded_for_each_filter(self) -> None:
         with TemporaryDirectory() as temp_directory:
             rules_path = Path(temp_directory) / "technology_rules.py"
