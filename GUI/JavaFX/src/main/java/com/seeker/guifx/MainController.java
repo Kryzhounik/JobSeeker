@@ -288,6 +288,11 @@ public final class MainController {
     }
 
     void initializeData(DriverApi api, java.nio.file.Path databasePath) {
+        initializeData(api, databasePath, ClientData.findProjectRoot());
+    }
+
+    void initializeData(DriverApi api, java.nio.file.Path databasePath,
+                        java.nio.file.Path collectionSettingsRoot) {
         Task<ClientSession> connectionTask = new Task<>() {
             @Override
             protected ClientSession call() throws Exception {
@@ -300,7 +305,7 @@ public final class MainController {
             driverApi = connectionTask.getValue().driverApi();
             auxiliaryWindows = new AuxiliaryWindows(
                     clientData, this::focusJobFromAuxiliary, settingsStore,
-                    this::addTitleToBlacklist, this::startResume
+                    this::addTitleToBlacklist, this::startResume, collectionSettingsRoot
             );
             loadStatusFilters(connectionTask.getValue().statuses());
             availableStatuses = connectionTask.getValue().statuses();

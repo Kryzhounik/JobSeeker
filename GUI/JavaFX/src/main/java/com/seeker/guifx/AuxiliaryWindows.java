@@ -35,6 +35,7 @@ import javafx.util.StringConverter;
 
 import java.awt.Desktop;
 import java.net.URI;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
@@ -48,6 +49,7 @@ final class AuxiliaryWindows {
     private final SettingsStore settingsStore;
     private final Consumer<String> addTitleToBlacklist;
     private final Consumer<CollectionRunDto> resumeRun;
+    private final Path collectionSettingsRoot;
     private final BooleanProperty workflowRunning = new SimpleBooleanProperty();
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor(runnable -> {
         Thread thread = new Thread(runnable, "javafx-auxiliary-data");
@@ -69,13 +71,15 @@ final class AuxiliaryWindows {
             Consumer<Integer> openJob,
             SettingsStore settingsStore,
             Consumer<String> addTitleToBlacklist,
-            Consumer<CollectionRunDto> resumeRun
+            Consumer<CollectionRunDto> resumeRun,
+            Path collectionSettingsRoot
     ) {
         this.data = data;
         this.openJob = openJob;
         this.settingsStore = settingsStore;
         this.addTitleToBlacklist = addTitleToBlacklist;
         this.resumeRun = resumeRun;
+        this.collectionSettingsRoot = collectionSettingsRoot;
     }
 
     void setWorkflowRunning(boolean running) {
@@ -512,7 +516,7 @@ final class AuxiliaryWindows {
     }
 
     void showConfig() {
-        submit(() -> new ConfigData(data.loadConfigRows(), CollectionSettingsLoader.loadForEditing(ClientData.findProjectRoot())),
+        submit(() -> new ConfigData(data.loadConfigRows(), CollectionSettingsLoader.loadForEditing(collectionSettingsRoot)),
                 this::buildConfig, error -> showError("Config load failed", error));
     }
 
@@ -552,7 +556,7 @@ final class AuxiliaryWindows {
                     editor.setDisable(true);
                     save.setDisable(true);
                     submit(() -> {
-                        CollectionSettingsLoader.save(ClientData.findProjectRoot(), edited);
+                        CollectionSettingsLoader.save(collectionSettingsRoot, edited);
                         return null;
                     }, ignored -> {
                         status.setText("Saved"); editor.setDisable(false); save.setDisable(false);

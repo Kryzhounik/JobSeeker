@@ -36,6 +36,7 @@ class UiWindowTest {
     @org.junit.jupiter.api.BeforeAll static void prepare() throws Exception {
         database = TestDatabase.create(directory);
         SETTINGS = directory.resolve("settings.json");
+        TestCollectionSettings.create(directory);
     }
 
     @org.junit.jupiter.api.Test void interactiveWindowsAndNavigation() throws Exception {
@@ -49,7 +50,7 @@ class UiWindowTest {
                 Stage window = new Stage();
                 Scene scene = new Scene(loader.load(), 1440, 900);
                 ((MainController) loader.getController()).initializeData(
-                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()), database);
+                        new com.seeker.api.DriverApi(ClientData.findProjectRoot()), database, directory);
                 scene.getStylesheets().add(UiWindowTest.class.getResource(
                         "/com/seeker/guifx/application.css").toExternalForm());
                 window.setTitle("Seeker Jobs UI check");
@@ -141,6 +142,19 @@ class UiWindowTest {
             checkWindow(stage, "#applicationsButton", "Applications");
             checkWindow(stage, "#collectedButton", "Collected jobs");
             checkWindow(stage, "#configButton", "Config");
+            onFx(() -> {
+                Stage config = Window.getWindows().stream().filter(window -> window instanceof Stage s
+                        && s.isShowing() && s.getTitle().equals("Config"))
+                        .map(Stage.class::cast).findFirst().orElseThrow();
+                var tabs = (javafx.scene.control.TabPane) config.getScene().getRoot();
+                tabs.getSelectionModel().select(1);
+                tabs.applyCss(); tabs.layout();
+                var keywords = (javafx.scene.control.ListView<?>) tabs.lookup("#li-keywords");
+                if (!keywords.getItems().equals(List.of("Fixture Java"))) {
+                    throw new AssertionError("Config did not load its fixture profile");
+                }
+                return null;
+            });
 
             onFx(() -> {
                 saveSnapshot(stage, directory.resolve("ui.png"));
@@ -207,8 +221,16 @@ class UiWindowTest {
     private static void checkWindow(Stage main, String buttonId, String title) throws Exception {
         Button button = lookup(main, buttonId, Button.class);
         onFx(() -> { button.fire(); return null; });
-        waitUntil(() -> Window.getWindows().stream().anyMatch(window ->
-                window instanceof Stage stage && stage.isShowing() && title.equals(stage.getTitle())),
+        waitUntil(() -> {
+            Window.getWindows().stream().filter(window -> window instanceof Stage s
+                    && s.isShowing() && s.getTitle().equals(title + " load failed"))
+                    .findFirst().ifPresent(window -> {
+                        throw new AssertionError(title + " load failed: "
+                                + ((javafx.scene.control.DialogPane) window.getScene().getRoot()).getContentText());
+                    });
+            return Window.getWindows().stream().anyMatch(window ->
+                    window instanceof Stage stage && stage.isShowing() && title.equals(stage.getTitle()));
+        },
                 title + " window did not open");
         onFx(() -> {
             Stage auxiliary = Window.getWindows().stream()

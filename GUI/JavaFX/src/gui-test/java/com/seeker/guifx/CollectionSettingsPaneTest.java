@@ -18,6 +18,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class CollectionSettingsPaneTest {
     @TempDir Path tempDir;
 
+    @Test void configFixtureLoadsWithoutPersonalProfile() throws Exception {
+        var expected = TestCollectionSettings.create(tempDir);
+        assertEquals(expected, CollectionSettingsLoader.loadForEditing(tempDir));
+    }
+
     private static CollectionSettings defaults() {
         return new CollectionSettings(List.of("justjoin", "linkedin"),
                 new CollectionSettings.LinkedIn(List.of("Java"), List.of("Moldova:106178099", "Ukraine:102264497"),
@@ -144,7 +149,7 @@ class CollectionSettingsPaneTest {
                 assertEquals(reordered, CollectionSettingsLoader.loadForEditing(tempDir));
 
                 var windows = new AuxiliaryWindows(null, ignored -> {}, new SettingsStore(Path.of("tmp/ui-settings-test")),
-                        ignored -> {}, ignored -> {});
+                        ignored -> {}, ignored -> {}, tempDir);
                 try {
                     var tabs = windows.configContent(List.of(), saved);
                     assertEquals(List.of("Filters", "Collection"), tabs.getTabs().stream().map(Tab::getText).toList());
