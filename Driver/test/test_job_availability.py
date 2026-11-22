@@ -59,7 +59,7 @@ class JobAvailabilityTest(unittest.TestCase):
             self.assertEqual(state, {"availability": outcome, "unavailable_checks": 0})
         self.assertEqual(self.connection.execute("SELECT status FROM jobs").fetchone()[0], "Applied")
 
-    def test_filter_and_recheck_include_legacy_closed(self):
+    def test_filter_respects_statuses_and_recheck_includes_legacy_closed(self):
         self.add_job("1")
         self.add_job("2", "Checked", "unavailable")
         self.add_job("3", "Closed", "closed")
@@ -69,7 +69,8 @@ class JobAvailabilityTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         filters["show_unavailable"] = True
         rows = json.loads(client_data.load_jobs(self.database, json.dumps(filters)))
-        self.assertEqual(len(rows), 4)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual({row["status"] for row in rows}, {"New", "Checked"})
         candidates = json.loads(client_data.load_linkedin_availability_candidates(self.database))
         self.assertEqual({r["source_job_id"] for r in candidates}, {"1", "2", "3"})
 
