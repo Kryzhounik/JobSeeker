@@ -152,6 +152,8 @@ def load_reason_code_descriptions_from_connection(
 def load_jobs(db_path: str | Path, filters_json: str) -> str:
     filters = json.loads(filters_json or "{}")
     statuses = [str(value) for value in filters.get("statuses", []) if value]
+    if bool(filters.get("show_unavailable", False)) and "Closed" not in statuses:
+        statuses.append("Closed")
     reasons = [str(value).strip() for value in filters.get("reasons", []) if str(value).strip()]
     where_parts: list[str] = []
     parameters: list[Any] = []
