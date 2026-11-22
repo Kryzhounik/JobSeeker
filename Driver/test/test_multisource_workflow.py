@@ -17,7 +17,7 @@ from db.collection_runs import list_runs
 from collector.logging.linkedin_run_logger import start_collection_run, finish_collection_run
 from orchestrator import processing, python_bridge
 from codex_proxy.backend import Result
-from test.test_json_validation import valid_analysis
+from Driver.test.test_json_validation import valid_analysis
 
 
 from Driver.test.filter_test_support import ProcessingTestCase

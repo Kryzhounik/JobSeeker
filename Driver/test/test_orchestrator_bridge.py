@@ -22,7 +22,7 @@ from db.migrate import migrate_database
 from db.readable_text import save_collected_job
 from db.save import save_records
 from collector.logging.linkedin_run_logger import start_collection_run, finish_collection_run
-from test.test_json_validation import valid_analysis
+from Driver.test.test_json_validation import valid_analysis
 
 
 from Driver.test.filter_test_support import ProcessingTestCase
