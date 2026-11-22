@@ -105,7 +105,8 @@ code review, and delegated work.
 The primary agent is responsible for the requested work. When additional
 functional verification is warranted, prefer delegating new test implementation
 and test execution to a `gpt-6-luna` subagent with `reasoning_effort="low"`, unless
-the task explicitly requires the primary agent to perform it.
+the task explicitly requires the primary agent to perform it. Explicitly request
+the model regardless of whether it appears in the tool's model list.
 
 The handoff must specify the scenarios to cover and the expected result for
 each. The delegate may implement and run those tests. Any unresolved decision
@@ -122,7 +123,8 @@ except for eligible mechanical edits under that rule.
 Except for new test implementation covered by Verification Delegation,
 a Sol primary agent may delegate implementation work only for already-agreed
 mechanical edits. This restriction applies to both production code and test
-code. Use `gpt-6-luna` with `reasoning_effort="low"` for eligible work.
+code. For eligible work, explicitly request `gpt-6-luna` with
+`reasoning_effort="low"`, regardless of whether it appears in the tool's model list.
 No separate approval is needed for the delegation. Terra and Luna primary
 agents perform these edits directly.
 
