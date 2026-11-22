@@ -20,7 +20,10 @@ from codex_proxy.backend import Result
 from test.test_json_validation import valid_analysis
 
 
-class MultisourceWorkflowTest(unittest.TestCase):
+from Driver.test.filter_test_support import ProcessingTestCase
+
+
+class MultisourceWorkflowTest(ProcessingTestCase):
     def test_rename_preserves_batch_jobs_pages_and_foreign_keys(self):
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "jobs.sqlite"

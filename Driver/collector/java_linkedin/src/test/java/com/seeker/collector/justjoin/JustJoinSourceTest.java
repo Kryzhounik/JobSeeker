@@ -151,6 +151,7 @@ class JustJoinSourceTest {
     }
 
     @Test
+    @org.junit.jupiter.api.extension.ExtendWith(com.seeker.collector.support.CollectorProfileExtension.class)
     void httpRetrievalPassesThroughRealSharedPythonStorageAndDeduplication() throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),

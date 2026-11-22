@@ -2,9 +2,35 @@
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
+from contextlib import contextmanager
+from unittest.mock import patch
 
 from collector.filtering import linkedin_filter as filtering
 from analyzer.candidate_fit import filter as fit
+
+
+@contextmanager
+def isolated_collector_session():
+    """Supply the same filter fixtures to Java/JPy integration tests."""
+    from collector.java_linkedin import python_bridge
+
+    class Fixture(FilterTestCase):
+        pass
+
+    Fixture.setUpClass()
+    try:
+        fixture = Fixture()
+        original_init = python_bridge.init_session
+
+        def init_session(driver_root, db_path, raw_root):
+            fixture.database_path = Path(db_path)
+            original_init(driver_root, db_path, raw_root,
+                          vacancy_filter=fixture.VacancyFilter())
+
+        with patch.object(python_bridge, 'init_session', init_session):
+            yield
+    finally:
+        Fixture.doClassCleanups()
 
 LANGUAGE_POLICY = '''[ranges]
 beginner=A1
@@ -136,3 +162,17 @@ Serbia=100
         from Tools import filter_database
         return filter_database.collect_refilter_transitions(
             db_path, vacancy_filter=self.VacancyFilter(db_path=db_path))
+
+
+class ProcessingTestCase(FilterTestCase):
+    def setUp(self):
+        super().setUp()
+        from orchestrator import processing
+        from analyzer.job_interest import calculate
+
+        self.write(self.test_profile / 'Driver/analyzer/interest.ini',
+                   '[tech.keywords]\nJava=50\n')
+        for module in (processing, fit, calculate):
+            patcher = patch.object(module, 'PROFILE_ROOT', self.test_profile)
+            patcher.start()
+            self.addCleanup(patcher.stop)

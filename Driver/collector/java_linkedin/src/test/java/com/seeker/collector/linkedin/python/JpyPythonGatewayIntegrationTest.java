@@ -27,6 +27,7 @@ class JpyPythonGatewayIntegrationTest {
     Path temporaryDirectory;
 
     @Test
+    @org.junit.jupiter.api.extension.ExtendWith(com.seeker.collector.support.CollectorProfileExtension.class)
     void sharedGatewayProcessesPreparedJustJoinDataWithoutLinkedInOrCleanerCalls() throws Exception {
         Path root = Path.of(required("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
@@ -61,6 +62,7 @@ class JpyPythonGatewayIntegrationTest {
     }
 
     @Test
+    @org.junit.jupiter.api.extension.ExtendWith(com.seeker.collector.support.CollectorProfileExtension.class)
     void callsExistingPythonPipelineAndReusesItsRuntimeInsideJvm() throws Exception {
         Path projectRoot = Path.of(required("seeker.project.root"));
         Path database = temporaryDirectory.resolve("jobs.sqlite");

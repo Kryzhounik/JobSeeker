@@ -25,7 +25,10 @@ from collector.logging.linkedin_run_logger import start_collection_run, finish_c
 from test.test_json_validation import valid_analysis
 
 
-class OrchestratorBridgeTest(unittest.TestCase):
+from Driver.test.filter_test_support import ProcessingTestCase
+
+
+class OrchestratorBridgeTest(ProcessingTestCase):
     @patch("orchestrator.processing.add_fit_score")
     @patch("orchestrator.processing.filter_json_file")
     @patch("orchestrator.processing.run")

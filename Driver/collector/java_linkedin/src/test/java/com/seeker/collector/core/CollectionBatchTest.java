@@ -130,6 +130,7 @@ class CollectionBatchTest {
     }
 
     @Test
+    @org.junit.jupiter.api.extension.ExtendWith(com.seeker.collector.support.CollectorProfileExtension.class)
     void mixedCollectionUsesOneNativeRunAndRegistersBothSources(@TempDir Path temporary) throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
@@ -184,6 +185,7 @@ class CollectionBatchTest {
     }
 
     @Test
+    @org.junit.jupiter.api.extension.ExtendWith(com.seeker.collector.support.CollectorProfileExtension.class)
     void failedSecondSourcePersistsPartialAcceptedCount(@TempDir Path temporary) throws Exception {
         Path root = Path.of(System.getProperty("seeker.project.root"));
         var paths = new ProjectPaths(root.resolve("Driver"), root.resolve("Driver/collector"),
