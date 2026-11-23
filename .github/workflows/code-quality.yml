@@ -1,0 +1,212 @@
+name: Code quality
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  code-quality:
+    name: Static analysis (Java + Python)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: '**/pom.xml'
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Prepare reports
+        run: mkdir -p quality-reports
+
+      # One CodeQL initialization covers both languages in this one job.
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: java-kotlin,python
+          queries: security-and-quality
+          config: |
+            paths-ignore:
+              - Driver/collector/deprecated_agent_collection
+
+      # This project also runs Python tests from Maven unless skipTests is set.
+      - name: Compile Java without tests
+        run: |
+          mvn -B -ntp -f Driver/pom.xml \
+            -DskipTests -Dmaven.test.skip=true -Dtests.python.skip=true install
+          mvn -B -ntp -f GUI/JavaFX/pom.xml \
+            -DskipTests -Dmaven.test.skip=true -Dtests.python.skip=true compile
+
+      # PMD's bundled design rules include GodClass and CognitiveComplexity.
+      # Keep a full-repository report, not only changed files.
+      - name: PMD (Java quality)
+        uses: pmd/pmd-github-action@v2
+        with:
+          version: '7.29.0'
+          sourcePath: '.'
+          rulesets: 'category/java/design.xml,category/java/bestpractices.xml,category/java/errorprone.xml'
+          analyzeModifiedFilesOnly: false
+          createGitHubAnnotations: false
+          uploadSarifReport: false
+
+      - name: CPD (Java duplication)
+        run: |
+          mvn -B -ntp -f Driver/pom.xml \
+            org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
+          mvn -B -ntp -f GUI/JavaFX/pom.xml \
+            org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
+
+      - name: SpotBugs (Java bugs)
+        run: |
+          mvn -B -ntp -f Driver/pom.xml \
+            -Dspotbugs.xmlOutput=true -Dspotbugs.outputXmlFilename=spotbugs.xml \
+            com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
+          mvn -B -ntp -f GUI/JavaFX/pom.xml \
+            -Dspotbugs.xmlOutput=true -Dspotbugs.outputXmlFilename=spotbugs.xml \
+            com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
+
+      - name: Ruff (Python quality)
+        run: |
+          python -m pip install --quiet ruff
+          ruff check . --select E4,E7,E9,F,B,C4,SIM \
+            --extend-exclude Driver/collector/deprecated_agent_collection \
+            --output-format json --exit-zero > quality-reports/ruff.json
+
+      - name: CodeQL (Java and Python)
+        id: codeql
+        uses: github/codeql-action/analyze@v4
+        with:
+          output: quality-reports/codeql
+
+      # Findings generate colored annotations; only scanner/build failures fail CI.
+      - name: Findings and annotations
+        if: always()
+        env:
+          CODEQL_REPORTS: ${{ steps.codeql.outputs.sarif-output }}
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from collections import Counter, defaultdict
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+
+          repo = Path.cwd()
+          findings = []
+          summary = os.environ['GITHUB_STEP_SUMMARY']
+
+          def add(tool, severity, file, line, message):
+              file = str(file or '').replace('file://', '')
+              path = Path(file)
+              if path.is_absolute():
+                  try:
+                      file = str(path.relative_to(repo))
+                  except ValueError:
+                      file = ''
+              findings.append((tool, severity, file.replace('\\', '/'), max(1, int(line or 1)), str(message)))
+
+          def sarif(path, tool):
+              data = json.loads(path.read_text(encoding='utf-8'))
+              for run in data.get('runs', []):
+                  rules = {r.get('id'): r for r in run.get('tool', {}).get('driver', {}).get('rules', [])}
+                  for result in run.get('results', []):
+                      rule = rules.get(result.get('ruleId'), {})
+                      props = rule.get('properties', {})
+                      score = float(props.get('security-severity') or 0)
+                      level = result.get('level') or rule.get('defaultConfiguration', {}).get('level', 'warning')
+                      severity = 'error' if level == 'error' or score >= 7 else 'notice' if level == 'note' else 'warning'
+                      location = (result.get('locations') or [{}])[0].get('physicalLocation', {})
+                      artifact = location.get('artifactLocation', {})
+                      region = location.get('region', {})
+                      message = result.get('message', {}).get('text', result.get('ruleId', 'Finding'))
+                      add(tool, severity, artifact.get('uri', ''), region.get('startLine', 1), message)
+
+          pmd = Path('pmd-report.sarif')
+          if pmd.is_file():
+              sarif(pmd, 'PMD')
+
+          for path in repo.rglob('target/cpd.xml'):
+              root = ET.parse(path).getroot()
+              for duplication in root.findall('.//{*}duplication'):
+                  lines = duplication.get('lines', '?')
+                  for match in duplication.findall('{*}file'):
+                      add('CPD', 'warning', match.get('path'), match.get('line'),
+                          f'Duplicated Java block ({lines} lines)')
+
+          for path in repo.rglob('target/spotbugs.xml'):
+              root = ET.parse(path).getroot()
+              module = path.parent.parent
+              for bug in root.findall('.//BugInstance'):
+                  rank = int(bug.get('rank') or 20)
+                  severity = 'error' if rank <= 9 else 'warning'
+                  source = bug.find('.//SourceLine[@sourcepath]')
+                  rel = source.get('sourcepath') if source is not None else ''
+                  file = module / 'src/main/java' / rel if rel else ''
+                  line = source.get('start') if source is not None else 1
+                  message = bug.findtext('LongMessage') or bug.get('type', 'Potential defect')
+                  add('SpotBugs', severity, file, line, message)
+
+          ruff = Path('quality-reports/ruff.json')
+          if ruff.is_file():
+              for issue in json.loads(ruff.read_text(encoding='utf-8')):
+                  code = issue['code']
+                  severity = 'error' if code.startswith('E9') or code in ('F821', 'F822', 'F823') else 'warning'
+                  add('Ruff', severity, issue['filename'], issue['location']['row'],
+                      f"{code}: {issue['message']}")
+
+          codeql_dir = Path(os.environ.get('CODEQL_REPORTS') or 'quality-reports/codeql')
+          if codeql_dir.exists():
+              for path in codeql_dir.glob('*.sarif'):
+                  sarif(path, 'CodeQL')
+
+          counts = defaultdict(Counter)
+          for tool, severity, *_ in findings:
+              counts[tool][severity] += 1
+
+          with open(summary, 'a', encoding='utf-8') as out:
+              out.write('## Code quality findings\n\n')
+              out.write('🔴 Error = serious finding · 🟡 Warning = review · 🔵 Notice = minor\n\n')
+              out.write('| Analyzer | 🔴 Error | 🟡 Warning | 🔵 Notice | Total |\n')
+              out.write('|---|---:|---:|---:|---:|\n')
+              for tool in ('PMD', 'CPD', 'SpotBugs', 'Ruff', 'CodeQL'):
+                  c = counts[tool]
+                  out.write(f"| {tool} | {c['error']} | {c['warning']} | {c['notice']} | {sum(c.values())} |\n")
+              out.write('\nCodeQL findings are also available under **Security → Code scanning**.\n')
+              out.write('Detailed raw reports are attached as a workflow artifact.\n')
+
+          def escape(value):
+              return str(value).replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+
+          # GitHub limits how many annotations a step can display. Keep the rest in reports.
+          order = {'error': 0, 'warning': 1, 'notice': 2}
+          for tool, severity, file, line, message in sorted(findings, key=lambda f: order[f[1]])[:50]:
+              location = f' file={escape(file)},line={line}' if file else ''
+              print(f'::{severity}{location}::{escape(tool + ": " + message)}')
+          print(f'Found {len(findings)} total issues; displayed up to 50 annotations.')
+          PY
+
+      - name: Keep full reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-quality-reports
+          path: |
+            pmd-report.sarif
+            quality-reports/
+            **/target/cpd.xml
+            **/target/spotbugs.xml
+          if-no-files-found: ignore
