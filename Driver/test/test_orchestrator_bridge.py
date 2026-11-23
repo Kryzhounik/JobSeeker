@@ -82,6 +82,57 @@ class OrchestratorBridgeTest(ProcessingTestCase):
                 self.assertFalse((Path(directory) / "analyzed").exists())
         migrate.assert_not_called()
 
+    @patch("orchestrator.processing.mark_status")
+    @patch("orchestrator.processing.migrate_database")
+    @patch("orchestrator.processing.load_job_facts_input")
+    @patch("orchestrator.processing.run")
+    def test_exact_cefr_trailing_plus_comparison_preserves_agent_values(
+        self, proxy_run, load_input, migrate, mark_status,
+    ) -> None:
+        load_input.return_value = {
+            "readable_text": "English: B2+",
+            "script_language_facts": [{
+                "name": "English", "level": "B2+", "level_rank": 4,
+                "raw_value": "English: B2+", "exact": True,
+            }],
+        }
+        scenarios = (
+            ("plus_script_plain_agent", "B2+", "B2", 4, True),
+            ("plain_script_plus_agent", "B2", "B2+", 4, True),
+            ("different_level", "B2+", "C1", 5, False),
+            ("different_rank", "B2+", "B2", 5, False),
+        )
+        for name, script_level, agent_level, agent_rank, passes in scenarios:
+            with self.subTest(scenario=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                database = root / "jobs.sqlite"
+                load_input.return_value["script_language_facts"][0]["level"] = script_level
+                analysis = valid_analysis()
+                analysis["languages"] = [{
+                    "name": "English", "level": agent_level, "level_rank": agent_rank,
+                    "raw_value": f"Agent supplied {agent_level}",
+                }]
+                proxy_run.return_value = Result(
+                    ["codex", "exec"], 0, "facts-thread", json.dumps(analysis), {}, [],
+                )
+                with patch.object(processing, "DATA_ROOT", root):
+                    if passes:
+                        self.assertEqual("facts-thread", python_bridge.run_job_facts(
+                            "run-1", "linkedin", "123", "facts", None, str(database),
+                        ))
+                        saved = json.loads(
+                            (root / "analyzed/linkedin/123.json").read_text(encoding="utf-8")
+                        )
+                        self.assertEqual(saved["languages"], analysis["languages"])
+                    else:
+                        with self.assertRaisesRegex(ValueError, "CEFR conflict for linkedin:123"):
+                            python_bridge.run_job_facts(
+                                "run-1", "linkedin", "123", "facts", None, str(database),
+                            )
+                        self.assertFalse((root / "analyzed").exists())
+        self.assertEqual(migrate.call_count, 2)
+        self.assertEqual(mark_status.call_count, 2)
+
     @patch("orchestrator.processing.run")
     def test_agent_can_raise_inexact_script_level(self, proxy_run) -> None:
         with tempfile.TemporaryDirectory() as directory:

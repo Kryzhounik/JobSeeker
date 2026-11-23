@@ -174,6 +174,7 @@ def run_job_facts(
     # Keep agent extraction independent of script facts. Missing or conflicting
     # explicit CEFR must fail so parser/prompt errors remain visible; do not
     # silently fill or overwrite the agent's result.
+    # Compare base CEFR labels; a trailing + does not change their numeric rank.
     languages = {row["name"].strip().casefold(): row for row in analysis["languages"]}
     for fact in input_value["script_language_facts"]:
         if not fact["exact"]:
@@ -181,7 +182,8 @@ def run_job_facts(
         observed = languages.get(fact["name"].casefold())
         if (
             observed is None
-            or observed["level"].strip().upper() != fact["level"]
+            or observed["level"].strip().upper().removesuffix("+")
+            != fact["level"].strip().upper().removesuffix("+")
             or observed["level_rank"] != fact["level_rank"]
         ):
             actual = (
