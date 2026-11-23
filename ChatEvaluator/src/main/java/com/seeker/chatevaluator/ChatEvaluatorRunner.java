@@ -25,7 +25,6 @@ import java.util.Set;
 /** Sends a vacancy URL to the configured existing ChatGPT conversation. */
 public final class ChatEvaluatorRunner {
     private static final String CHAT_CONFIG = "Data/chat_evaluator/config.properties";
-    private static final String LINKEDIN_RUNTIME = "Driver/collector/java_linkedin/runtime.properties";
     private static final String LINKEDIN_CONFIG = "Driver/collector/config/linkedin.properties";
     private static final String COMPOSER_SELECTOR = "form #prompt-textarea, "
             + "form [contenteditable='true'][data-testid='prompt-textarea'], "
@@ -57,11 +56,8 @@ public final class ChatEvaluatorRunner {
         Path root = projectRoot.toAbsolutePath().normalize();
         Properties chat = load(root.resolve(CHAT_CONFIG));
         String chatUrl = required(chat, "chat.url", root.resolve(CHAT_CONFIG));
-        Properties runtime = load(root.resolve(LINKEDIN_RUNTIME));
         Properties linkedin = load(root.resolve(LINKEDIN_CONFIG));
-        String profileValue = required(runtime, "profile.directory", root.resolve(LINKEDIN_RUNTIME));
-        Path profile = Path.of(profileValue);
-        if (!profile.isAbsolute()) profile = root.resolve(profile).normalize();
+        Path profile = root.resolve(ManagedBrowser.LINKEDIN_PROFILE_DIRECTORY);
         String channel = linkedin.getProperty("browserChannel", "chrome").strip();
 
         boolean availabilityConfirmed = availableViaHttp(() -> LinkedInJobAvailability.fetch(vacancyUrl));

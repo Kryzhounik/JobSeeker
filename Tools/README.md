@@ -65,9 +65,7 @@ JavaFX используют обычную Maven-зависимость, не к
 
 `Tools/runtime.properties` содержит настройки `python.home`, `python.executable`,
 `python.library`, `jpy.library`, `jdl.library` и `database.path` для Java-модулей.
-Для настройки скопировать `runtime.properties.example` в `runtime.properties`;
+Для настройки скопировать `Tools/runtime.properties.example` в `Tools/runtime.properties`;
 локальный файл исключён из Git. Относительный путь базы разрешается от корня
 проекта; пути Python/JPy сохраняют правила загрузки `PythonRuntime`.
-Параметры Java-запуска коллектора, HTML и браузерного профиля остаются в
-`Driver/collector/java_linkedin/runtime.properties`. Общий runtime не требует
-наличия конфигурации Collector.
+Общий runtime не требует наличия конфигурации Collector.
