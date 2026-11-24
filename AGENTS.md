@@ -45,12 +45,16 @@ do not require unrelated parts of the same module to be migrated.
 
 This applies to all architectural decisions, not only naming.
 
-## Documentation Updates During Implementation
+## Requirements and Architecture During Implementation
 
-During implementation, update `REQUIREMENTS.md` or `ARCHITECTURE.md` only when
-the task introduces or changes an agreed requirement, contract, or architectural
-decision, or when the relevant document omits or misstates one. Keep routine
-choices about how to satisfy an existing requirement in the implementation.
+REQUIREMENTS.md and ARCHITECTURE.md define the agreed requirements and
+architectural decisions that implementation must follow. A code change
+does not by itself authorize a change to either specification. Modify
+them only when the user explicitly asks for or approves the change.
+
+If the task conflicts with an applicable project rule, requirement, or
+architectural decision, report the conflict and wait for the user's
+decision before implementing the affected change.
 
 ## Data and Temporary Artifacts
 
