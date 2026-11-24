@@ -1,6 +1,9 @@
 package com.seeker.mailer.internal;
 
 import com.seeker.mailer.MailException;
+import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Objects;
 
 /** Pure argument checks shared by mail access and the command adapter. */
 public final class MailValidation {
@@ -17,6 +20,14 @@ public final class MailValidation {
         folder(folder);
         if (!MessageSelector.decode(id).folder().equals(folder)) {
             throw new MailException("Message selector belongs to another folder");
+        }
+    }
+
+    public static void exportPath(Path output) throws MailException {
+        Objects.requireNonNull(output, "output");
+        if (output.toString().isBlank() || output.getFileName() == null
+                || !output.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".eml")) {
+            throw new MailException("Export output must have an .eml extension");
         }
     }
 }

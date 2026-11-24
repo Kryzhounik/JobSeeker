@@ -222,8 +222,13 @@ picocli commands and typed parameters, validates mail-specific arguments before
 calling the API, and returns its Java results. Mailer itself has no picocli
 annotations. The shared runner creates console writers, parses and dispatches
 commands, formats results and returns the exit code; only `main` exits the JVM.
-This replaces Mailer's hand-written argument parser without migrating other
-modules. The runner also accepts caller-owned writers for reuse inside a JVM.
+The runner also accepts caller-owned writers for reuse inside a JVM. This
+follows the [project-wide CLI architecture](../Driver/ARCHITECTURE.md).
+
+Mail-specific argument rules are shared between the adapter and mail access.
+The adapter reports invalid folders, selectors and export paths as CLI input
+errors (code 2). Mail access repeats those checks for direct Java callers.
+Filesystem and mailbox failures remain operational errors (CLI code 1).
 
 `DriverApi.checkRecommendations()` delegates to Orchestrator and returns its
 `WorkflowResult`. The `check-recommendations` router command delegates to the

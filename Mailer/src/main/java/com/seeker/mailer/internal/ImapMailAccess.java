@@ -317,11 +317,8 @@ public final class ImapMailAccess {
 
     private MailExport saveMessage(String folder, String id, Path output) throws MailException {
         MailValidation.selection(folder, id);
-        Objects.requireNonNull(output, "output");
+        MailValidation.exportPath(output);
         Path target = output.toAbsolutePath().normalize();
-        if (target.getFileName() == null || !target.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".eml")) {
-            throw new MailException("Export output must have an .eml extension");
-        }
         Path temporary = null;
         MailException failure = null;
         try {

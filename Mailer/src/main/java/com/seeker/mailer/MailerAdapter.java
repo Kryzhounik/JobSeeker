@@ -3,7 +3,6 @@ package com.seeker.mailer;
 import com.seeker.mailer.internal.MailValidation;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
@@ -51,10 +50,7 @@ public final class MailerAdapter {
             @Option(names = "--output", required = true, paramLabel = "<path.eml>") Path output
     ) throws MailException {
         validateSelection(folder, id);
-        if (output.toString().isBlank() || output.getFileName() == null
-                || !output.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".eml")) {
-            throw new ParameterException(spec.commandLine(), "Invalid export path: expected a .eml file");
-        }
+        validateExportPath(output);
         return mailer.exportMessage(folder, id, output);
     }
 
@@ -74,6 +70,14 @@ public final class MailerAdapter {
     private void validateSelection(String folder, String id) {
         try {
             MailValidation.selection(folder, id);
+        } catch (MailException error) {
+            throw new ParameterException(spec.commandLine(), error.getMessage());
+        }
+    }
+
+    private void validateExportPath(Path output) {
+        try {
+            MailValidation.exportPath(output);
         } catch (MailException error) {
             throw new ParameterException(spec.commandLine(), error.getMessage());
         }
