@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MainTest {
     @Test
-    void forwardsCollectorCommandsIncludingTheirNames() {
+    void forwardsCollectorCommandsIncludingTheirNames() throws Exception {
         for (String command : List.of("login", "collect-batch")) {
             String[] args = {command};
             assertRoute("collector", args, args);
@@ -24,7 +24,7 @@ class MainTest {
     }
 
     @Test
-    void forwardsOrchestratorCommandsWithoutParsingArguments() {
+    void forwardsOrchestratorCommandsWithoutParsingArguments() throws Exception {
         for (String[] args : List.of(
                 new String[]{"process-batch", "linkedin"},
                 new String[]{"process-urls", "url-1", "url-2"},
@@ -38,7 +38,7 @@ class MainTest {
     }
 
     @Test
-    void removesOnlyRouterCommandForApplierAndChatEvaluator() {
+    void removesOnlyRouterCommandForApplierAndChatEvaluator() throws Exception {
         assertRoute("applier", new String[]{"apply", "url"}, new String[]{"url"});
         assertRoute("chat", new String[]{"chat-eval", "url"}, new String[]{"url"});
         assertRoute("applier", new String[]{"apply"}, new String[0]);
@@ -46,7 +46,7 @@ class MainTest {
     }
 
     @Test
-    void rejectsMissingOrUnknownCommandWithoutCallingModules() {
+    void rejectsMissingOrUnknownCommandWithoutCallingModules() throws Exception {
         ToIntFunction<String[]> unexpected = args -> {
             throw new AssertionError("Module must not be called");
         };
@@ -58,8 +58,8 @@ class MainTest {
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
             System.setOut(out);
             System.setErr(err);
-            assertEquals(2, Main.execute(new String[0], unexpected, unexpected, unexpected, unexpected));
-            assertEquals(2, Main.execute(new String[]{"unknown"}, unexpected, unexpected, unexpected, unexpected));
+            assertEquals(2, Main.execute(new String[0], () -> unexpected.applyAsInt(new String[0]), unexpected, unexpected, unexpected));
+            assertEquals(2, Main.execute(new String[]{"unknown"}, () -> unexpected.applyAsInt(new String[]{"unknown"}), unexpected, unexpected, unexpected));
         } finally {
             System.setOut(originalOut);
             System.setErr(originalErr);
@@ -69,11 +69,11 @@ class MainTest {
         assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Unknown command: unknown"));
     }
 
-    private static void assertRoute(String expectedModule, String[] args, String[] expectedArgs) {
+    private static void assertRoute(String expectedModule, String[] args, String[] expectedArgs) throws Exception {
         List<String> called = new ArrayList<>();
         List<String[]> forwarded = new ArrayList<>();
         int code = Main.execute(args,
-                rest -> { called.add("collector"); forwarded.add(rest); return 17; },
+                () -> { called.add("collector"); forwarded.add(args); return 17; },
                 rest -> { called.add("orchestrator"); forwarded.add(rest); return 17; },
                 rest -> { called.add("applier"); forwarded.add(rest); return 17; },
                 rest -> { called.add("chat"); forwarded.add(rest); return 17; });

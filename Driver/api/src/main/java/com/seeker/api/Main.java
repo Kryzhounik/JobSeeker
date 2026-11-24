@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.stream.Stream;
 
 import java.util.Arrays;
+import java.util.concurrent.Callable;
 import java.util.function.ToIntFunction;
 
 /** Routes commands to module CLI handlers in the same JVM. */
@@ -16,20 +17,20 @@ public final class Main {
     private Main() {
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws Exception {
         int exitCode = execute(args);
         if (exitCode != 0) {
             System.exit(exitCode);
         }
     }
 
-    public static int execute(String[] args) {
+    public static int execute(String[] args) throws Exception {
         var chatEvaluator = new ChatEvaluatorAdapter(new ChatEvaluatorApi(
                 Path.of(System.getProperty("seeker.projectRoot", "."))));
         var applier = new ApplierAdapter(new ApplierApi(
                 Path.of(System.getProperty("seeker.projectRoot", "."))));
         return execute(args,
-                com.seeker.collector.linkedin.Main::execute,
+                () -> com.seeker.collector.core.CollectorCli.execute(args),
                 com.seeker.orchestrator.Main::execute,
                 rest -> CliRunner.run(applier, ApplierAdapter.arguments(rest)),
                 // Preserve chat-eval URL while using the same annotated command as the standalone CLI.
@@ -39,18 +40,18 @@ public final class Main {
 
     static int execute(
             String[] args,
-            ToIntFunction<String[]> collector,
+            Callable<Integer> collector,
             ToIntFunction<String[]> orchestrator,
             ToIntFunction<String[]> applier,
             ToIntFunction<String[]> chatEvaluator
-    ) {
+    ) throws Exception {
         if (args.length == 0) {
             System.err.println("Expected a command: login, collect-batch, process-batch, "
                     + "process-urls, check-recommendations, resume, job-facts, finish-analysis, apply, chat-eval");
             return 2;
         }
         return switch (args[0]) {
-            case "login", "collect-batch" -> collector.applyAsInt(args);
+            case "login", "collect-batch" -> collector.call();
             case "process-batch", "process-urls", "check-recommendations", "resume", "job-facts", "finish-analysis" ->
                     orchestrator.applyAsInt(args);
             case "apply" -> applier.applyAsInt(Arrays.copyOfRange(args, 1, args.length));

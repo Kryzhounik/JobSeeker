@@ -118,9 +118,11 @@ def save_content(
             )
         pages_dir.mkdir(parents=True, exist_ok=True)
         if path.exists() and not (force or resume_raw):
+            # TODO: Kept temporarily; move to a logger because this pollutes console output.
             print(f"skip existing {path}")
         else:
             path.write_text(content, encoding="utf-8")
+            # TODO: Kept temporarily; move to a logger because this pollutes console output.
             print(f"saved {source} {url} -> {path}")
         connection.commit()
     return path

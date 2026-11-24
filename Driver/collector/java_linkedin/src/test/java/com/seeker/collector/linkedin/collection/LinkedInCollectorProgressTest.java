@@ -4,20 +4,22 @@ import com.seeker.collector.common.*;
 
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.common.python.PythonGateway;
-import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.collector.common.JsonSupport;
 import com.seeker.tools.api.ImmutableProgressSnapshot;
 import com.seeker.tools.api.ProgressSnapshot;
+import com.seeker.tools.cli.CliRunner;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Proxy;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -82,15 +84,19 @@ class LinkedInCollectorProgressTest {
     void processOutputPreservesTheSameCompleteOrderedSnapshot() {
         ProgressSnapshot direct = new CollectionProgress("run", "opening_job", "Poland", "priority",
                 2, 25, 7, 100, Map.of("raw_saved", 7, "age_filtered", 2), "Loading 123");
-        PrintStream original = System.err;
-        ByteArrayOutputStream output = new ByteArrayOutputStream();
-        try (PrintStream stream = new PrintStream(output, true, StandardCharsets.UTF_8)) {
-            System.setErr(stream);
-            CliOutput.printProgress(direct);
-        } finally {
-            System.setErr(original);
+        @Command(name = "progress")
+        class ProgressCommand {
+            @Command(name = "emit")
+            public void emit(@Option(names = "--_cb", hidden = true) Consumer<ProgressSnapshot> callback) {
+                callback.accept(direct);
+            }
         }
-        String json = output.toString(StandardCharsets.UTF_8).strip().substring("COLLECTOR_PROGRESS ".length());
+        StringWriter output = new StringWriter();
+        PrintWriter stdout = new PrintWriter(output);
+        int exitCode = CliRunner.run(new ProgressCommand(),
+                stdout, new PrintWriter(new StringWriter()), "emit");
+        assertEquals(0, exitCode);
+        String json = output.toString().strip();
         ProgressSnapshot parsed = JsonSupport.GSON.fromJson(json, ImmutableProgressSnapshot.class);
         assertEquals(direct.runId(), parsed.runId());
         assertFalse(parsed.fields().containsKey("Run ID"));

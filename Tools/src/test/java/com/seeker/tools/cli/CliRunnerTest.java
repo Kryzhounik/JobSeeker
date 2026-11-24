@@ -1,9 +1,16 @@
 package com.seeker.tools.cli;
 
 import com.google.gson.JsonParser;
+import com.seeker.tools.api.ImmutableProgressSnapshot;
+import com.seeker.tools.api.ProgressSnapshot;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -87,6 +94,97 @@ class CliRunnerTest {
         assertEquals(1, commands.textCalls);
     }
 
+    @Test
+    void writesAndFlushesProgressDuringCommandBeforeFinalResult() {
+        var output = new Output(false);
+        var first = snapshot("run-1", "collect", "page", "1/2",
+                orderedFields("page", "1", "status", "started"), "first page");
+        var second = snapshot("run-1", "collect", "page", "2/2",
+                orderedFields("page", "2", "status", "complete"), "second page");
+        var commands = new ProgressCommands(List.of(first, second), output.stdout);
+
+        int exitCode = CliRunner.run(commands, output.out(), output.err(), "run");
+
+        assertEquals(0, exitCode);
+        var lines = output.stdout().lines().toList();
+        assertEquals(3, lines.size());
+        assertProgress(lines.get(0), first);
+        assertProgress(lines.get(1), second);
+        var result = JsonParser.parseString(lines.get(2)).getAsJsonObject();
+        assertEquals(Instant.parse("2025-02-03T04:05:06Z").toString(), result.get("createdAt").getAsString());
+        assertEquals("progress complete", result.get("label").getAsString());
+        assertEquals(1, commands.calls);
+        assertEquals("", output.stderr());
+    }
+
+    @Test
+    void keepsProgressAndReportsCommandFailureWithoutFinalResult() {
+        var output = new Output(false);
+        var progress = snapshot("run-2", "collect", "page", "1/2",
+                orderedFields("page", "1"), "started");
+        var commands = new ProgressCommands(List.of(progress), output.stdout);
+        commands.failAfterProgress = true;
+
+        int exitCode = CliRunner.run(commands, output.out(), output.err(), "run");
+
+        assertEquals(1, exitCode);
+        var lines = output.stdout().lines().toList();
+        assertEquals(1, lines.size());
+        assertProgress(lines.get(0), progress);
+        assertEquals("request failed" + System.lineSeparator(), output.stderr());
+    }
+
+    private static ImmutableProgressSnapshot snapshot(String runId, String stage, String action,
+                                                       String progress, Map<String, String> fields,
+                                                       String details) {
+        return new ImmutableProgressSnapshot(runId, stage, action, progress,
+                new LinkedHashMap<>(fields), details);
+    }
+
+    private static Map<String, String> orderedFields(String... values) {
+        var fields = new LinkedHashMap<String, String>();
+        for (int i = 0; i < values.length; i += 2) fields.put(values[i], values[i + 1]);
+        return fields;
+    }
+
+    private static void assertProgress(String line, ProgressSnapshot expected) {
+        var json = JsonParser.parseString(line).getAsJsonObject();
+        assertEquals(expected.runId(), json.get("runId").getAsString());
+        assertEquals(expected.stage(), json.get("stage").getAsString());
+        assertEquals(expected.action(), json.get("action").getAsString());
+        assertEquals(expected.progress(), json.get("progress").getAsString());
+        assertEquals(expected.fields(), new com.google.gson.Gson().fromJson(
+                json.get("fields"), new com.google.gson.reflect.TypeToken<LinkedHashMap<String, String>>() {}.getType()));
+        assertEquals(new ArrayList<>(expected.fields().keySet()),
+                new ArrayList<>(json.getAsJsonObject("fields").keySet()));
+        assertEquals(expected.details(), json.get("details").getAsString());
+    }
+
+    @Command(name = "progress", mixinStandardHelpOptions = true)
+    static class ProgressCommands {
+        private final List<ProgressSnapshot> updates;
+        private final StringWriter stdout;
+        int calls;
+        boolean failAfterProgress;
+
+        ProgressCommands(List<ProgressSnapshot> updates, StringWriter stdout) {
+            this.updates = updates;
+            this.stdout = stdout;
+        }
+
+        @picocli.CommandLine.Command(name = "run")
+        public Result run(@Option(names = "--_cb", hidden = true) Consumer<ProgressSnapshot> progress) {
+            calls++;
+            for (int i = 0; i < updates.size(); i++) {
+                progress.accept(updates.get(i));
+                assertTrue(stdout.toString().lines().count() == i + 1,
+                        "progress must be flushed before command continues");
+            }
+            if (failAfterProgress) throw new IllegalStateException("request failed");
+            return new Result(Instant.parse("2025-02-03T04:05:06Z"), "progress complete");
+        }
+    }
+
     @Command(name = "tools", mixinStandardHelpOptions = true)
     static class Commands {
         int dtoCalls;
@@ -128,13 +226,18 @@ class CliRunnerTest {
     private static final class Output {
         private final StringWriter stdout = new StringWriter();
         private final StringWriter stderr = new StringWriter();
+        private final boolean autoFlush;
+
+        Output() { this(true); }
+
+        Output(boolean autoFlush) { this.autoFlush = autoFlush; }
 
         PrintWriter out() {
-            return new PrintWriter(stdout, true);
+            return new PrintWriter(stdout, autoFlush);
         }
 
         PrintWriter err() {
-            return new PrintWriter(stderr, true);
+            return new PrintWriter(stderr, autoFlush);
         }
 
         String stdout() {

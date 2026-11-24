@@ -48,7 +48,11 @@ page/cards, processed, accepted/limit, and each rejection/failure counter.
 The same complete snapshot is sent directly and serialized by the process CLI.
 Snapshots do not write a console protocol themselves.
 
-The CLI encodes callbacks as `COLLECTOR_PROGRESS ` JSON lines on stderr.
+`CollectorCli` runs the `login` and `collect-batch` commands through
+`CollectorAdapter` and the shared Tools `CliRunner`. Progress callbacks and the
+final result are printed as separate JSON lines on stdout; command diagnostics
+use stderr. Legacy Python file-saving messages also appear on stdout until
+they are moved to a logger.
 
 `CollectionReport` describes collection only: `accepted_count` is the number
 accepted by Collector and `outcomes` contains only Collector outcomes.
@@ -91,8 +95,8 @@ IDs are visited once per run. JustJoinIT retains its separate `mainTech` and lim
 - For compatibility, Python still saves canonical raw HTML, writes collector
   metadata, readable text, and lifecycle data to SQLite, applies the current
   filters, and records collection events.
-- A successful command writes one final JSON result to stdout. Unhandled errors
-  retain their normal Java stack trace. Analysis and scoring remain the caller's
+- A successful command writes its final JSON result after any progress updates.
+  The shared runner reports command errors on stderr. Analysis and scoring remain the caller's
   next stages and are never run by this module.
 
 The normal `process-batch linkedin` workflow now enters through the Java workflow

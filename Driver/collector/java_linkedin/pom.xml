@@ -79,7 +79,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.seeker.collector.linkedin.Main</mainClass>
+                            <mainClass>com.seeker.collector.core.CollectorCli</mainClass>
                         </manifest>
                     </archive>
                 </configuration>
