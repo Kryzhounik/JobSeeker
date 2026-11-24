@@ -87,7 +87,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.seeker.applier.Main</mainClass>
+                            <mainClass>com.seeker.applier.ApplierCli</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

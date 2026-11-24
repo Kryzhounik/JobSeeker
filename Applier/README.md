@@ -107,8 +107,9 @@ On completion, stdout contains one JSON object, using the existing result fields
 
 Exit code `0` means preparation returned a result (including partially filled
 or skipped). Code `1` means execution failed; the error is
-written to stderr with its exception chain. Code `2` means the argument count
-or URL is invalid.
+written to stderr by the shared CliRunner. Code `2` means picocli could not parse the command (missing/extra arguments
+or a value of the wrong type). Invalid operation values, such as a non-HTTP URL
+or a nonpositive jobs.id, are API errors with code `1`. Code `3` means the Codex usage limit was reached.
 The console does not change the vacancy's Applied status.
 
 ## Java API
@@ -117,7 +118,7 @@ The console does not change the vacancy's Applied status.
 as a `Path` and the vacancy URL as a `String`. It blocks until preparation
 finishes, then returns `ApplierRunner.Result(status, note, submissionObserved)`;
 execution errors are thrown as exceptions. The GUI runs this call in its
-existing background task. The CLI calls it directly.
+existing background task. The CLI reaches the same runner through `ApplierApi`.
 
 ## Standalone cover-letter writer
 
@@ -153,3 +154,4 @@ or written to the optional file; storage failures are reported as errors.
 There is one letter per vacancy, enforced by the `job_id` primary key. The normal
 database migrations run before lookup. Migration `045_one_cover_letter_per_job.sql`
 reduces old duplicate records to the most recently saved letter.
+

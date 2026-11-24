@@ -1,5 +1,7 @@
 package com.seeker.api;
 
+import com.seeker.applier.ApplierApi;
+import com.seeker.applier.ApplierAdapter;
 import com.seeker.chatevaluator.ChatEvaluatorApi;
 import com.seeker.chatevaluator.ChatEvaluatorAdapter;
 import com.seeker.tools.cli.CliRunner;
@@ -24,10 +26,12 @@ public final class Main {
     public static int execute(String[] args) {
         var chatEvaluator = new ChatEvaluatorAdapter(new ChatEvaluatorApi(
                 Path.of(System.getProperty("seeker.projectRoot", "."))));
+        var applier = new ApplierAdapter(new ApplierApi(
+                Path.of(System.getProperty("seeker.projectRoot", "."))));
         return execute(args,
                 com.seeker.collector.linkedin.Main::execute,
                 com.seeker.orchestrator.Main::execute,
-                com.seeker.applier.Main::execute,
+                rest -> CliRunner.run(applier, ApplierAdapter.arguments(rest)),
                 // Preserve chat-eval URL while using the same annotated command as the standalone CLI.
                 urls -> CliRunner.run(chatEvaluator,
                         Stream.concat(Stream.of("evaluate"), Arrays.stream(urls)).toArray(String[]::new)));
