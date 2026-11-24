@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
+import com.seeker.codex.UsageLimitExceededException;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -41,6 +42,13 @@ public final class CliRunner {
     }
 
     private static int handleError(Exception error, CommandLine command, CommandLine.ParseResult parseResult) {
+        if (error instanceof UsageLimitExceededException limit) {
+            command.getErr().println("Codex usage limit: " + limit.getMessage());
+            if (limit.getRetryAt() != null)
+                command.getErr().println("Retry at: " + limit.getRetryAt());
+            command.getErr().flush();
+            return 3;
+        }
         command.getErr().println(error.getMessage());
         command.getErr().flush();
         if (error instanceof CommandLine.ParameterException) {
