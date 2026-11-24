@@ -13,7 +13,6 @@ import com.seeker.tools.LinkedInJobAvailability;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -37,22 +36,14 @@ public final class ChatEvaluatorRunner {
     }
 
     public static String run(Path projectRoot, String vacancyUrl) throws Exception {
-        return evaluation(projectRoot).run(vacancyUrl).answer();
+        return new ChatEvaluatorApi(projectRoot).evaluate(vacancyUrl);
     }
 
     public static GptEvaluation.Result run(Path projectRoot, String vacancyUrl, int jobId) throws Exception {
-        return evaluation(projectRoot).run(vacancyUrl, jobId);
+        return new ChatEvaluatorApi(projectRoot).evaluate(vacancyUrl, jobId);
     }
 
-    private static GptEvaluation evaluation(Path projectRoot) {
-        Path root = projectRoot.toAbsolutePath().normalize();
-        return new GptEvaluation(url -> evaluateInBrowser(root, url), new PythonEvaluationStore(root));
-    }
-
-    private static String evaluateInBrowser(Path projectRoot, String vacancyUrl) throws Exception {
-        if (vacancyUrl == null || vacancyUrl.isBlank()) {
-            throw new IllegalArgumentException("Vacancy URL must not be blank.");
-        }
+    static String evaluateInBrowser(Path projectRoot, String vacancyUrl) throws Exception {
         Path root = projectRoot.toAbsolutePath().normalize();
         Properties chat = load(root.resolve(CHAT_CONFIG));
         String chatUrl = required(chat, "chat.url", root.resolve(CHAT_CONFIG));
@@ -406,44 +397,4 @@ public final class ChatEvaluatorRunner {
         return value.strip();
     }
 
-    public static void main(String[] args) {
-        int exitCode = execute(args);
-        if (exitCode != 0) {
-            System.exit(exitCode);
-        }
-    }
-
-    public static int execute(String[] args) {
-        if (args.length != 1 || !isHttpUrl(args[0])) {
-            write(System.err, "Expected one vacancy URL argument. See ChatEvaluator/README.md.\n");
-            return 2;
-        }
-        try {
-            write(System.out, run(args[0]));
-            return 0;
-        } catch (Exception error) {
-            String message = error.getMessage();
-            if (message == null || message.isBlank()) message = error.getClass().getSimpleName();
-            write(System.err, "ChatEvaluator failed: " + message + System.lineSeparator());
-            return 1;
-        }
-    }
-
-    private static void write(java.io.PrintStream stream, String value) {
-        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
-        stream.write(bytes, 0, bytes.length);
-        stream.flush();
-    }
-
-    private static boolean isHttpUrl(String value) {
-        if (value == null || value.isBlank()) return false;
-        try {
-            URI uri = URI.create(value);
-            return uri.getHost() != null
-                    && ("http".equalsIgnoreCase(uri.getScheme())
-                    || "https".equalsIgnoreCase(uri.getScheme()));
-        } catch (IllegalArgumentException ignored) {
-            return false;
-        }
-    }
 }

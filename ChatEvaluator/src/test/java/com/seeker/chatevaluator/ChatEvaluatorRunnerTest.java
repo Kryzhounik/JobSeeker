@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
+import com.seeker.tools.cli.CliRunner;
 import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 import java.net.ConnectException;
@@ -81,9 +83,11 @@ class ChatEvaluatorRunnerTest {
         try {
             System.setOut(new PrintStream(out, true, StandardCharsets.UTF_8));
             System.setErr(new PrintStream(err, true, StandardCharsets.UTF_8));
-            assertEquals(2, ChatEvaluatorRunner.execute(new String[]{URL, "42"}));
+            var commands = new ChatEvaluatorAdapter(new ChatEvaluatorApi(java.nio.file.Path.of(".")));
+            assertEquals(2, CliRunner.run(commands, new PrintWriter(System.out, true),
+                    new PrintWriter(System.err, true), "evaluate", URL, "42"));
             assertEquals("", out.toString(StandardCharsets.UTF_8));
-            assertTrue(err.toString(StandardCharsets.UTF_8).contains("Expected one vacancy URL"));
+            assertFalse(err.toString(StandardCharsets.UTF_8).isBlank());
         } finally {
             System.setOut(previousOut);
             System.setErr(previousErr);

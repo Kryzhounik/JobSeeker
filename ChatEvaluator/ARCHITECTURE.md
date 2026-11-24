@@ -3,9 +3,9 @@
 ## Общий сценарий
 
 GUI вызывает `DriverApi.evaluateWithChatGPT(url, jobId)`, который обращается к
-`ChatEvaluatorRunner.run(root, url, jobId)` и возвращает `GptEvaluation.Result`.
+`ChatEvaluatorApi.evaluate(url, jobId)` и возвращает `GptEvaluation.Result`.
 Входы `DriverApi.evaluateWithChatGPT(url)` и CLI используют
-`ChatEvaluatorRunner.run(root, url)` и возвращают полный текст ответа.
+`ChatEvaluatorApi.evaluate(url)` и возвращают полный текст ответа.
 CLI определяет корень через JVM-свойство `seeker.projectRoot`
 (по умолчанию текущая директория). Все входы выполняют общую операцию
 `GptEvaluation` из модуля ChatEvaluator, включая сохранение.

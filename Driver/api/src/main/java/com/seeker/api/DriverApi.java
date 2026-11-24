@@ -3,7 +3,7 @@ package com.seeker.api;
 import com.seeker.applier.ApplierRunner;
 import com.seeker.applier.ApplierApi;
 import com.seeker.codex.UsageLimitExceededException;
-import com.seeker.chatevaluator.ChatEvaluatorRunner;
+import com.seeker.chatevaluator.ChatEvaluatorApi;
 import com.seeker.chatevaluator.GptEvaluation;
 import com.seeker.collector.core.CollectorApi;
 import com.seeker.tools.api.ProgressSnapshot;
@@ -26,12 +26,14 @@ public final class DriverApi {
     private final CollectorApi collector;
     private final WorkflowOrchestrator orchestrator;
     private final ApplierApi applier;
+    private final ChatEvaluatorApi chatEvaluator;
 
     public DriverApi(Path projectRoot) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
         this.collector = new CollectorApi(this.projectRoot);
         this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
         this.applier = new ApplierApi(this.projectRoot);
+        this.chatEvaluator = new ChatEvaluatorApi(this.projectRoot);
     }
 
     public LoginResult login() throws IOException {
@@ -135,10 +137,10 @@ public final class DriverApi {
     }
 
     public String evaluateWithChatGPT(String url) throws Exception {
-        return ChatEvaluatorRunner.run(projectRoot, url);
+        return chatEvaluator.evaluate(url);
     }
 
     public GptEvaluation.Result evaluateWithChatGPT(String url, int jobId) throws Exception {
-        return ChatEvaluatorRunner.run(projectRoot, url, jobId);
+        return chatEvaluator.evaluate(url, jobId);
     }
 }
