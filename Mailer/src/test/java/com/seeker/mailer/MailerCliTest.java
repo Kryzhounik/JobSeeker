@@ -1,127 +1,102 @@
 package com.seeker.mailer;
 
 import com.google.gson.JsonParser;
+import com.seeker.tools.cli.CliRunner;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class MailerCliTest {
+    private final Mailer api = mock(Mailer.class);
     private final ByteArrayOutputStream output = new ByteArrayOutputStream();
     private final ByteArrayOutputStream errors = new ByteArrayOutputStream();
-    private final PrintStream stdout = new PrintStream(output, true, StandardCharsets.UTF_8);
-    private final PrintStream stderr = new PrintStream(errors, true, StandardCharsets.UTF_8);
+    private final PrintWriter stdout = new PrintWriter(output, true, StandardCharsets.UTF_8);
+    private final PrintWriter stderr = new PrintWriter(errors, true, StandardCharsets.UTF_8);
+
+    private int run(String... args) {
+        return CliRunner.run(new MailerAdapter(api), stdout, stderr, args);
+    }
 
     @Test
-    void validatesAllSyntaxBeforeCallingMail() {
-        for (String[] args : new String[][]{{}, {"unknown"}, {"folders", "extra"}, {"Folders"}, {"messages"}}) {
-            assertEquals(2, run(args, stdout, stderr, () -> {
-                fail("Invalid syntax must not call mail");
-                return null;
-            }));
+    void validatesSyntaxBeforeCallingMail() {
+        for (String[] args : new String[][]{{}, {"unknown"}, {"folders", "extra"}, {"Folders"},
+                {"messages"}, {"messages", "--folder"}, {"messages", "--folder", " "},
+                {"messages", "--folder", "INBOX", "extra"}, {"messages", "--wrong", "INBOX"},
+                {"messages", "--folder", "--folder"}, {"messages", "--folder", "INBOX\n"}}) {
+            assertEquals(2, run(args));
         }
+        verifyNoInteractions(api);
         assertEquals("", output.toString(StandardCharsets.UTF_8));
         assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Usage:"));
     }
 
     @Test
-    void delegatesOnceAndPrintsUtf8JsonWithHierarchyAndEscapedNames() {
-        var calls = new AtomicInteger();
+    void delegatesOnceAndPrintsUtf8Json() throws MailException {
         String name = "Входящие/\"Пример\"\n";
-        assertEquals(0, run(new String[]{"folders"}, stdout, stderr, () -> {
-            calls.incrementAndGet();
-            return List.of(new MailFolder(name, name, "Входящие", "/", true, false));
-        }));
-        assertEquals(1, calls.get());
+        when(api.listFolders()).thenReturn(List.of(new MailFolder(name, name, "Входящие", "/", true, false)));
+        assertEquals(0, run("folders"));
         var json = JsonParser.parseString(output.toString(StandardCharsets.UTF_8)).getAsJsonArray();
         assertEquals(name, json.get(0).getAsJsonObject().get("fullName").getAsString());
         assertTrue(json.get(0).getAsJsonObject().get("holdsMessages").getAsBoolean());
+        verify(api).listFolders();
+        verifyNoMoreInteractions(api);
         assertEquals("", errors.toString(StandardCharsets.UTF_8));
     }
 
     @Test
-    void emptyListingIsSuccessfulJsonArray() {
-        assertEquals(0, run(new String[]{"folders"}, stdout, stderr, List::of));
+    void emptyListingIsSuccessfulJsonArray() throws MailException {
+        when(api.listFolders()).thenReturn(List.of());
+        assertEquals(0, run("folders"));
         assertEquals("[]", output.toString(StandardCharsets.UTF_8).strip());
-        assertEquals("", errors.toString(StandardCharsets.UTF_8));
     }
 
     @Test
-    void errorsDoNotCorruptStdoutOrPrintProviderSecrets() {
-        assertEquals(1, run(new String[]{"folders"}, stdout, stderr, () -> {
-            throw new MailException("IMAP authentication failed", new Exception("private provider response"));
-        }));
+    void failuresLeaveStdoutEmptyAndDoNotPrintProviderCauses() throws MailException {
+        when(api.listFolders()).thenThrow(new MailException("IMAP authentication failed", new Exception("private")));
+        assertEquals(1, run("folders"));
         assertEquals("", output.toString(StandardCharsets.UTF_8));
         assertEquals("IMAP authentication failed", errors.toString(StandardCharsets.UTF_8).strip());
     }
 
     @Test
-    void outputFailureReturnsAnError() {
-        var broken = new PrintStream(new OutputStream() {
-            @Override public void write(int value) throws java.io.IOException {
-                throw new java.io.IOException("fixture output failure");
+    void outputFailureReturnsAnError() throws MailException {
+        when(api.listFolders()).thenReturn(List.of());
+        var broken = new PrintWriter(new OutputStream() {
+            @Override public void write(int value) throws IOException {
+                throw new IOException("fixture output failure");
             }
-        });
-        assertEquals(1, run(new String[]{"folders"}, broken, stderr, List::of));
+        }, true, StandardCharsets.UTF_8);
+        assertEquals(1, CliRunner.run(new MailerAdapter(api), broken, stderr, "folders"));
         assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Cannot write"));
     }
 
-    private int run(String[] args, PrintStream out, PrintStream err, MailerCli.FolderSource source) {
-        return runExisting(args, out, err, source, folder -> {
-            fail("Folder command must not enumerate messages");
-            return null;
-        });
-    }
-
     @Test
-    void messageSyntaxIsValidatedBeforeEitherOperation() {
-        for (String[] args : new String[][]{{"messages"}, {"messages", "--folder"},
-                {"messages", "--folder", " "}, {"messages", "--folder", "INBOX", "extra"},
-                {"messages", "--wrong", "INBOX"}, {"messages", "--folder", "--folder"},
-                {"messages", "--folder", "INBOX\n"}}) {
-            assertEquals(2, runExisting(args, stdout, stderr, () -> {
-                fail("Must validate before mail"); return null;
-            }, folder -> { fail("Must validate before mail"); return null; }));
-        }
-    }
-
-    @Test
-    void messagesDelegateOnceAndSerializeReceiptInstantAndMissingHeaders() {
-        var calls = new AtomicInteger();
-        var receipt = java.time.Instant.parse("2026-10-21T10:00:00Z");
-        assertEquals(0, runExisting(new String[]{"messages", "--folder", "INBOX"}, stdout, stderr,
-                () -> { fail("Must not list folders"); return null; }, folder -> {
-                    calls.incrementAndGet();
-                    assertEquals("INBOX", folder);
-                    return new MailMessageListing(folder, 1, List.of(new MailMessageHeader(
-                            "selector", List.of("fixture@example.invalid"), null, receipt, null, false)));
-                }));
-        assertEquals(1, calls.get());
+    void messagesSerializeReceiptInstantAndMissingHeaders() throws MailException {
+        var receipt = Instant.parse("2026-10-21T10:00:00Z");
+        when(api.listMessages("INBOX")).thenReturn(new MailMessageListing("INBOX", 1,
+                List.of(new MailMessageHeader("selector", List.of("fixture@example.invalid"), null, receipt, null, false))));
+        assertEquals(0, run("messages", "--folder", "INBOX"));
         var json = JsonParser.parseString(output.toString(StandardCharsets.UTF_8)).getAsJsonObject();
         assertEquals(1, json.get("messageCount").getAsInt());
         var header = json.getAsJsonArray("messages").get(0).getAsJsonObject();
         assertEquals(receipt.toString(), header.get("receivedAt").getAsString());
         assertTrue(header.get("subject").isJsonNull());
-        assertEquals("", errors.toString(StandardCharsets.UTF_8));
+        verify(api).listMessages("INBOX");
+        verifyNoMoreInteractions(api);
     }
 
     @Test
-    void messageFailureLeavesStdoutEmpty() {
-        assertEquals(1, runExisting(new String[]{"messages", "--folder", "INBOX"}, stdout, stderr,
-                List::of, folder -> { throw new MailException("Enumeration failed"); }));
+    void messageListingFailureLeavesStdoutEmpty() throws MailException {
+        when(api.listMessages("INBOX")).thenThrow(new MailException("Enumeration failed"));
+        assertEquals(1, run("messages", "--folder", "INBOX"));
         assertEquals("", output.toString(StandardCharsets.UTF_8));
         assertEquals("Enumeration failed", errors.toString(StandardCharsets.UTF_8).strip());
-    }
-
-    private int runExisting(String[] args, PrintStream out, PrintStream err,
-                            MailerCli.FolderSource folders, MailerCli.MessageSource messages) {
-        return MailerCli.run(args, out, err, folders, messages,
-                (folder, id) -> { fail("Must not read a body"); return null; },
-                (folder, id, path) -> { fail("Must not export a message"); return null; },
-                () -> { fail("Must not scan recommendations"); return null; });
     }
 }

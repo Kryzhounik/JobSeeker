@@ -216,6 +216,15 @@ separate change, not part of this operation.
 
 ## Facade and CLI integration
 
+The standalone path is `MailerCli.main -> Tools CliRunner -> MailerAdapter ->
+Mailer`. `MailerCli` creates one API and adapter. `MailerAdapter` declares
+picocli commands and typed parameters, validates mail-specific arguments before
+calling the API, and returns its Java results. Mailer itself has no picocli
+annotations. The shared runner creates console writers, parses and dispatches
+commands, formats results and returns the exit code; only `main` exits the JVM.
+This replaces Mailer's hand-written argument parser without migrating other
+modules. The runner also accepts caller-owned writers for reuse inside a JVM.
+
 `DriverApi.checkRecommendations()` delegates to Orchestrator and returns its
 `WorkflowResult`. The `check-recommendations` router command delegates to the
 Orchestrator CLI in the same JVM, just like `process-urls`.

@@ -209,7 +209,7 @@ public final class ImapMailAccess {
         String subject = null;
         Boolean seen = null;
         try {
-            validateSelection(folderName, id);
+            MailValidation.selection(folderName, id);
             MessageSelector selector = MessageSelector.decode(id);
             MailSettings settings = MailSettings.load(projectRoot);
             String account = MessageSelector.accountScope(settings);
@@ -270,17 +270,6 @@ public final class ImapMailAccess {
         }
     }
 
-    /** Validate selector syntax and folder before reading configuration or opening mail. */
-    public static void validateSelection(String folder, String id) throws MailException {
-        if (folder == null || folder.isBlank() || folder.indexOf('\r') >= 0 || folder.indexOf('\n') >= 0
-                || folder.indexOf('\0') >= 0) {
-            throw new MailException("Invalid folder name");
-        }
-        if (!MessageSelector.decode(id).folder().equals(folder)) {
-            throw new MailException("Message selector belongs to another folder");
-        }
-    }
-
     public MailMessageContent readMessage(String folder, String id) throws MailException {
         log.write("READ_START", id, null, null, "Folder: " + folder);
         var result = withMessage("READ", folder, id, (message, actualFolder) -> {
@@ -327,7 +316,7 @@ public final class ImapMailAccess {
     }
 
     private MailExport saveMessage(String folder, String id, Path output) throws MailException {
-        validateSelection(folder, id);
+        MailValidation.selection(folder, id);
         Objects.requireNonNull(output, "output");
         Path target = output.toAbsolutePath().normalize();
         if (target.getFileName() == null || !target.getFileName().toString().toLowerCase(java.util.Locale.ROOT).endsWith(".eml")) {

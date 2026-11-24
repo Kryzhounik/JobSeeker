@@ -75,6 +75,10 @@ required or justified by an observed failure. Report failures through existing
 error handling and fix concrete problems when they occur; do not silently
 suppress errors to keep the workflow running.
 
+Keep control flow shallow in every method and lambda. When loops and
+conditionals are deeply nested, split the logic into clearly named operations
+so each method can be understood on its own. Keep lambdas short and focused.
+
 ## Test Data Isolation
 
 Each test must define the data it needs or obtain it from test fixtures

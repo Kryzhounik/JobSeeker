@@ -1,53 +1,56 @@
 package com.seeker.mailer;
 
 import com.google.gson.JsonParser;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
+import com.seeker.tools.cli.CliRunner;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class RecommendationCliTest {
-    private final ByteArrayOutputStream output = new ByteArrayOutputStream();
-    private final ByteArrayOutputStream errors = new ByteArrayOutputStream();
+    private final Mailer api = mock(Mailer.class);
+    private final StringWriter output = new StringWriter();
+    private final StringWriter errors = new StringWriter();
 
-    private int run(String[] args, MailerCli.RecommendationSource source) {
-        return MailerCli.run(args, new PrintStream(output, true, StandardCharsets.UTF_8),
-                new PrintStream(errors, true, StandardCharsets.UTF_8),
-                () -> { fail("Must not list folders"); return null; },
-                folder -> { fail("Must not list messages"); return null; },
-                (folder, id) -> { fail("Must not read individual messages"); return null; },
-                (folder, id, path) -> { fail("Must not export"); return null; }, source);
+    private int run(String... args) {
+        return CliRunner.run(new MailerAdapter(api), new PrintWriter(output, true), new PrintWriter(errors, true), args);
     }
 
     @Test
-    void delegatesOnceAndPrintsOnlyCommonApiUrlArray() {
-        var calls = new AtomicInteger();
-        assertEquals(0, run(new String[]{"recommendation-urls"}, () -> {
-            calls.incrementAndGet();
-            return List.of("https://www.linkedin.com/jobs/view/12345/");
-        }));
-        assertEquals(1, calls.get());
-        var json = JsonParser.parseString(output.toString(StandardCharsets.UTF_8)).getAsJsonArray();
+    void delegatesOnceAndPrintsOnlyApiUrlArray() throws MailException {
+        when(api.getRecommendationUrls()).thenReturn(List.of("https://www.linkedin.com/jobs/view/12345/"));
+        assertEquals(0, run("recommendation-urls"));
+        var json = JsonParser.parseString(output.toString()).getAsJsonArray();
         assertEquals("https://www.linkedin.com/jobs/view/12345/", json.get(0).getAsString());
-        assertEquals("", errors.toString(StandardCharsets.UTF_8));
+        verify(api).getRecommendationUrls();
+        verifyNoMoreInteractions(api);
+        assertEquals("", errors.toString());
     }
 
     @Test
-    void emptyOutputIsSuccessfulAndExtraArgumentsNeverCallApi() {
-        assertEquals(0, run(new String[]{"recommendation-urls"}, List::of));
-        assertEquals("[]", output.toString(StandardCharsets.UTF_8).strip());
-        assertEquals(2, run(new String[]{"recommendation-urls", "extra"}, () -> { fail("Invalid syntax must not call mail"); return null; }));
+    void emptyResultIsSuccessfulAndExtraArgumentsNeverCallApi() throws MailException {
+        when(api.getRecommendationUrls()).thenReturn(List.of());
+        assertEquals(0, run("recommendation-urls"));
+        assertEquals("[]", output.toString().strip());
+        clearInvocations(api);
+        assertEquals(2, run("recommendation-urls", "extra"));
+        verifyNoInteractions(api);
     }
 
     @Test
-    void failurePropagatesWithoutPartialJsonOrProviderSecret() {
-        assertEquals(1, run(new String[]{"recommendation-urls"}, () -> {
-            throw new MailException("Recommendation pass failed", new Exception("private provider response"));
-        }));
-        assertEquals("", output.toString(StandardCharsets.UTF_8));
-        assertEquals("Recommendation pass failed", errors.toString(StandardCharsets.UTF_8).strip());
+    void failureDoesNotPrintPartialJsonOrProviderCause() throws MailException {
+        when(api.getRecommendationUrls()).thenThrow(new MailException("Recommendation pass failed", new Exception("private")));
+        assertEquals(1, run("recommendation-urls"));
+        assertEquals("", output.toString());
+        assertEquals("Recommendation pass failed", errors.toString().strip());
+    }
+
+    @Test
+    void helpDoesNotConsumeRecommendations() {
+        assertEquals(0, run("recommendation-urls", "--help"));
+        verifyNoInteractions(api);
+        assertTrue(output.toString().contains("Usage:"));
     }
 }
