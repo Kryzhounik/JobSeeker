@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="JobSeeker"
+         xmlns="http://pmd.sourceforge.net/ruleset/2.0.0">
+
+    <description>JobSeeker quality rules</description>
+
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="OnDemandImport"/>
+        <exclude name="UnitTestContainsTooManyAsserts"/>
+    </rule>
+
+    <rule ref="category/java/design.xml"/>
+    <rule ref="category/java/errorprone.xml"/>
+
+</ruleset>

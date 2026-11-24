@@ -1,8 +1,8 @@
 name: Code quality
 
 on:
-  push:
-    branches: [master]
+  schedule:
+    - cron: '17 3 * * *'
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Check recent commits
+        id: changes
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
+             [ "$(git log -1 --format=%ct)" -gt "$(date -u -d '24 hours ago' +%s)" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/setup-java@v4
+        if: steps.changes.outputs.run == 'true'
         with:
           distribution: temurin
           java-version: '21'
@@ -25,10 +35,12 @@ jobs:
           cache-dependency-path: '**/pom.xml'
 
       - uses: actions/setup-python@v6
+        if: steps.changes.outputs.run == 'true'
         with:
           python-version: '3.12'
 
       - name: Initialize CodeQL
+        if: steps.changes.outputs.run == 'true'
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin,python
@@ -38,39 +50,45 @@ jobs:
               - Driver/collector/deprecated_agent_collection
 
       - name: Compile Java (no tests)
+        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml -DskipTests -Dmaven.test.skip=true -Dtests.python.skip=true install
           mvn -B -ntp -f GUI/JavaFX/pom.xml -DskipTests -Dmaven.test.skip=true compile
 
       - name: PMD (Java quality)
+        if: steps.changes.outputs.run == 'true'
         uses: pmd/pmd-github-action@v2
         with:
           version: '7.29.0'
           sourcePath: '.'
-          rulesets: 'category/java/design.xml,category/java/bestpractices.xml,category/java/errorprone.xml'
+          rulesets: '.github/pmd-ruleset.xml'
           analyzeModifiedFilesOnly: false
 
       - name: CPD (Java duplication)
+        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
           mvn -B -ntp -f GUI/JavaFX/pom.xml org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
 
       - name: SpotBugs (Java bugs)
+        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml -Dspotbugs.xmlOutput=true com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
           mvn -B -ntp -f GUI/JavaFX/pom.xml -Dspotbugs.xmlOutput=true com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
 
       - name: Ruff (Python quality)
+        if: steps.changes.outputs.run == 'true'
         shell: bash
         run: |
           python -m pip install --quiet ruff
           ruff check . --select E4,E7,E9,F,B,C4,SIM --extend-exclude Driver/collector/deprecated_agent_collection --output-format concise --exit-zero | tee ruff.txt
 
       - name: CodeQL analysis
+        if: steps.changes.outputs.run == 'true'
         uses: github/codeql-action/analyze@v4
 
       - name: Save reports
-        if: always()
+        if: always() && steps.changes.outputs.run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: code-quality-reports
