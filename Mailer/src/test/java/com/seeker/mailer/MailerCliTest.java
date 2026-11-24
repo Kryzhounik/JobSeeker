@@ -27,9 +27,9 @@ class MailerCliTest {
     @Test
     void validatesSyntaxBeforeCallingMail() {
         for (String[] args : new String[][]{{}, {"unknown"}, {"folders", "extra"}, {"Folders"},
-                {"messages"}, {"messages", "--folder"}, {"messages", "--folder", " "},
+                {"messages"}, {"messages", "--folder"},
                 {"messages", "--folder", "INBOX", "extra"}, {"messages", "--wrong", "INBOX"},
-                {"messages", "--folder", "--folder"}, {"messages", "--folder", "INBOX\n"}}) {
+                {"messages", "--folder", "--folder"}}) {
             assertEquals(2, run(args));
         }
         verifyNoInteractions(api);
@@ -98,5 +98,16 @@ class MailerCliTest {
         assertEquals(1, run("messages", "--folder", "INBOX"));
         assertEquals("", output.toString(StandardCharsets.UTF_8));
         assertEquals("Enumeration failed", errors.toString(StandardCharsets.UTF_8).strip());
+    }
+
+    @Test
+    void folderValidationBelongsToApiAndReturnsOne() throws MailException {
+        for (String folder : List.of(" ", "INBOX\n")) {
+            when(api.listMessages(folder)).thenThrow(new MailException("Invalid folder name"));
+            assertEquals(1, run("messages", "--folder", folder));
+            verify(api).listMessages(folder);
+        }
+        verifyNoMoreInteractions(api);
+        assertEquals("", output.toString(StandardCharsets.UTF_8));
     }
 }

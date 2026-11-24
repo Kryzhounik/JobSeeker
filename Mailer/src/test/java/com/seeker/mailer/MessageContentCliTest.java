@@ -21,21 +21,37 @@ class MessageContentCliTest {
     }
 
     @Test
-    void rejectsMalformedSyntaxSelectorsAndPathsBeforeMail() {
+    void rejectsMalformedSyntaxAndUnparseablePathsBeforeApiCall() {
         for (String[] args : new String[][]{
                 {"message"}, {"message", "--folder", "INBOX", "--id"},
-                {"message", "--folder", "INBOX", "--id", "broken"},
-                {"message", "--folder", "Archive", "--id", ID},
                 {"message", "--folder", "INBOX", "--id", ID, "extra"},
                 {"message", "--folder", "INBOX", "--wrong", ID},
                 {"export", "--folder", "INBOX", "--id", ID},
-                {"export", "--folder", "INBOX", "--id", ID, "--output", ""},
-                {"export", "--folder", "INBOX", "--id", ID, "--output", "file.html"},
                 {"export", "--folder", "INBOX", "--id", ID, "--output", "\0.eml"},
                 {"export", "--folder", "INBOX", "--id", ID, "--output", "file.eml", "extra"}}) {
             assertEquals(2, run(args));
         }
         verifyNoInteractions(api);
+        assertEquals("", output.toString());
+    }
+
+    @Test
+    void inputValuesReachApiAndItsValidationErrorsReturnOne() throws MailException {
+        when(api.readMessage("INBOX", "broken")).thenThrow(new MailException("Invalid message selector"));
+        when(api.readMessage("Archive", ID)).thenThrow(new MailException("Message selector belongs to another folder"));
+        when(api.exportMessage("INBOX", ID, Path.of(""))).thenThrow(new MailException("Invalid export path"));
+        when(api.exportMessage("INBOX", ID, Path.of("file.html"))).thenThrow(new MailException("Invalid export path"));
+
+        assertEquals(1, run("message", "--folder", "INBOX", "--id", "broken"));
+        assertEquals(1, run("message", "--folder", "Archive", "--id", ID));
+        assertEquals(1, run("export", "--folder", "INBOX", "--id", ID, "--output", ""));
+        assertEquals(1, run("export", "--folder", "INBOX", "--id", ID, "--output", "file.html"));
+
+        verify(api).readMessage("INBOX", "broken");
+        verify(api).readMessage("Archive", ID);
+        verify(api).exportMessage("INBOX", ID, Path.of(""));
+        verify(api).exportMessage("INBOX", ID, Path.of("file.html"));
+        verifyNoMoreInteractions(api);
         assertEquals("", output.toString());
     }
 

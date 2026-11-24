@@ -5,7 +5,7 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Pure argument checks shared by mail access and the command adapter. */
+/** Argument checks for mail access. */
 public final class MailValidation {
     private MailValidation() {}
 

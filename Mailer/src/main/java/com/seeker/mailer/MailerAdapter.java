@@ -1,21 +1,15 @@
 package com.seeker.mailer;
 
-import com.seeker.mailer.internal.MailValidation;
 import java.nio.file.Path;
 import java.util.List;
 import picocli.CommandLine.Command;
-import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
-import picocli.CommandLine.ParameterException;
-import picocli.CommandLine.Spec;
 
 /** Command declarations and delegation; the runner owns parsing and console output. */
 @Command(name = "mailer", description = "Read email and extract vacancy recommendations.",
         mixinStandardHelpOptions = true)
 public final class MailerAdapter {
     private final Mailer mailer;
-    @Spec
-    private CommandSpec spec;
 
     public MailerAdapter(Mailer mailer) {
         this.mailer = mailer;
@@ -30,7 +24,6 @@ public final class MailerAdapter {
     public MailMessageListing messages(
             @Option(names = "--folder", required = true, paramLabel = "<folder>") String folder
     ) throws MailException {
-        validateFolder(folder);
         return mailer.listMessages(folder);
     }
 
@@ -39,7 +32,6 @@ public final class MailerAdapter {
             @Option(names = "--folder", required = true, paramLabel = "<folder>") String folder,
             @Option(names = "--id", required = true, paramLabel = "<id>") String id
     ) throws MailException {
-        validateSelection(folder, id);
         return mailer.readMessage(folder, id);
     }
 
@@ -49,37 +41,11 @@ public final class MailerAdapter {
             @Option(names = "--id", required = true, paramLabel = "<id>") String id,
             @Option(names = "--output", required = true, paramLabel = "<path.eml>") Path output
     ) throws MailException {
-        validateSelection(folder, id);
-        validateExportPath(output);
         return mailer.exportMessage(folder, id, output);
     }
 
     @Command(name = "recommendation-urls", description = "Extract new URLs and advance Mailer's checkpoint.", mixinStandardHelpOptions = true)
     public List<String> recommendationUrls() throws MailException {
         return mailer.getRecommendationUrls();
-    }
-
-    private void validateFolder(String folder) {
-        try {
-            MailValidation.folder(folder);
-        } catch (MailException error) {
-            throw new ParameterException(spec.commandLine(), error.getMessage());
-        }
-    }
-
-    private void validateSelection(String folder, String id) {
-        try {
-            MailValidation.selection(folder, id);
-        } catch (MailException error) {
-            throw new ParameterException(spec.commandLine(), error.getMessage());
-        }
-    }
-
-    private void validateExportPath(Path output) {
-        try {
-            MailValidation.exportPath(output);
-        } catch (MailException error) {
-            throw new ParameterException(spec.commandLine(), error.getMessage());
-        }
     }
 }
