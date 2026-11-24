@@ -216,20 +216,6 @@ separate change, not part of this operation.
 
 ## Facade and CLI integration
 
-The standalone path is `MailerCli.main -> Tools CliRunner -> MailerAdapter ->
-Mailer`. `MailerCli` creates one API and adapter. `MailerAdapter` declares
-picocli commands and typed parameters, validates mail-specific arguments before
-calling the API, and returns its Java results. Mailer itself has no picocli
-annotations. The shared runner creates console writers, parses and dispatches
-commands, formats results and returns the exit code; only `main` exits the JVM.
-The runner also accepts caller-owned writers for reuse inside a JVM. This
-follows the [project-wide CLI architecture](../Driver/ARCHITECTURE.md).
-
-Mail-specific argument rules are shared between the adapter and mail access.
-The adapter reports invalid folders, selectors and export paths as CLI input
-errors (code 2). Mail access repeats those checks for direct Java callers.
-Filesystem and mailbox failures remain operational errors (CLI code 1).
-
 `DriverApi.checkRecommendations()` delegates to Orchestrator and returns its
 `WorkflowResult`. The `check-recommendations` router command delegates to the
 Orchestrator CLI in the same JVM, just like `process-urls`.
@@ -249,14 +235,10 @@ java -jar Mailer/mailer.jar export --folder <folder> --id <id> --output <path.em
 java -jar Mailer/mailer.jar recommendation-urls
 ```
 
-Run it from the repository root. Structured results use UTF-8 JSON on stdout;
-diagnostics and failures go to stderr. Exit codes are `0` for success, `1` for
-operational failure and `2` for invalid arguments. Validate syntax before opening
-the mailbox or changing state. All commands delegate to the common Java API.
+Run these commands from the repository root.
 
 The integrated `check-recommendations` command accepts no additional arguments
-and prints the existing `WorkflowResult` JSON. Preserve the existing router and
-Orchestrator CLI conventions without adding a result wrapper or child JVM.
+and prints the existing `WorkflowResult` JSON.
 
 ## Message interpretation
 
