@@ -31,18 +31,6 @@ public final class ChatEvaluatorRunner {
 
     private ChatEvaluatorRunner() { }
 
-    public static String run(String vacancyUrl) throws Exception {
-        return run(Path.of(System.getProperty("seeker.projectRoot", ".")), vacancyUrl);
-    }
-
-    public static String run(Path projectRoot, String vacancyUrl) throws Exception {
-        return new ChatEvaluatorApi(projectRoot).evaluate(vacancyUrl);
-    }
-
-    public static GptEvaluation.Result run(Path projectRoot, String vacancyUrl, int jobId) throws Exception {
-        return new ChatEvaluatorApi(projectRoot).evaluate(vacancyUrl, jobId);
-    }
-
     static String evaluateInBrowser(Path projectRoot, String vacancyUrl) throws Exception {
         Path root = projectRoot.toAbsolutePath().normalize();
         Properties chat = load(root.resolve(CHAT_CONFIG));
