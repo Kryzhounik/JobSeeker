@@ -49,14 +49,14 @@ class ChatEvaluatorCliTest {
     }
 
     @Test
-    void realApiRejectsInvalidUrlsAndAdapterReturnsUsageError(@TempDir Path root) {
+    void realApiRejectsInvalidUrlsAndRunnerReturnsApiError(@TempDir Path root) {
         ChatEvaluatorApi realApi = new ChatEvaluatorApi(root);
         for (String url : new String[]{null, "not a URL", "file:///jobs/123"}) {
-            assertThrows(ChatEvaluatorApi.InvalidUrlException.class, () -> realApi.evaluate(url));
-            assertThrows(ChatEvaluatorApi.InvalidUrlException.class, () -> realApi.evaluate(url, 123));
+            assertThrows(IllegalArgumentException.class, () -> realApi.evaluate(url));
+            assertThrows(IllegalArgumentException.class, () -> realApi.evaluate(url, 123));
         }
 
-        assertEquals(2, CliRunner.run(new ChatEvaluatorAdapter(realApi), stdout, stderr,
+        assertEquals(1, CliRunner.run(new ChatEvaluatorAdapter(realApi), stdout, stderr,
                 "evaluate", "not a URL"));
         assertEquals("", output.toString(StandardCharsets.UTF_8));
         assertTrue(errors.toString(StandardCharsets.UTF_8).contains("Expected one HTTP(S) vacancy URL."));

@@ -23,16 +23,13 @@ public final class ChatEvaluatorApi {
         return evaluation.run(url, jobId);
     }
 
-    public static final class InvalidUrlException extends IllegalArgumentException {
-        private InvalidUrlException() { super("Expected one HTTP(S) vacancy URL."); }
-    }
-
     private static void validateUrl(String url) {
-        if (url == null || url.isBlank()) throw new InvalidUrlException();
+        if (url == null || url.isBlank()) throw new IllegalArgumentException("Expected one HTTP(S) vacancy URL.");
         URI uri;
         try { uri = URI.create(url); }
-        catch (IllegalArgumentException error) { throw new InvalidUrlException(); }
+        catch (IllegalArgumentException error) { throw new IllegalArgumentException("Expected one HTTP(S) vacancy URL."); }
         if (uri.getHost() == null || !("http".equalsIgnoreCase(uri.getScheme())
-                || "https".equalsIgnoreCase(uri.getScheme()))) throw new InvalidUrlException();
+                || "https".equalsIgnoreCase(uri.getScheme())))
+            throw new IllegalArgumentException("Expected one HTTP(S) vacancy URL.");
     }
 }
