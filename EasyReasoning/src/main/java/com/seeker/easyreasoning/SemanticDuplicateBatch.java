@@ -64,6 +64,8 @@ final class SemanticDuplicateBatch {
             VacancySnapshot original = null;
             for (var sample : group) {
                 boolean duplicate;
+                System.err.println("Semantic comparison started: " + sample.source() + ":" + sample.jobId() + " vs "
+                        + vacancy.source() + ":" + vacancy.jobId());
                 try { duplicate = compare.test(sample.text(), vacancy.text()); }
                 catch (RuntimeException error) {
                     System.err.println("Semantic comparison failed: " + sample.source() + ":" + sample.jobId() + " vs "
