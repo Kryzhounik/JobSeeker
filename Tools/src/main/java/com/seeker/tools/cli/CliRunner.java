@@ -6,6 +6,9 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializer;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.tools.api.ProgressSnapshot;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -27,6 +30,37 @@ public final class CliRunner {
         var stdout = new PrintWriter(System.out, true, StandardCharsets.UTF_8);
         var stderr = new PrintWriter(System.err, true, StandardCharsets.UTF_8);
         return run(commands, stdout, stderr, args);
+    }
+
+    /** Long-lived console session. The caller owns the adapter and its API. */
+    public static int runSession(Object commands) throws IOException {
+        var input = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+        var stdout = new PrintWriter(System.out, true, StandardCharsets.UTF_8);
+        var stderr = new PrintWriter(System.err, true, StandardCharsets.UTF_8);
+        return runSession(commands, input, stdout, stderr);
+    }
+
+    /** Reads text commands without closing the caller's streams or API. */
+    public static int runSession(Object commands, BufferedReader input, PrintWriter stdout,
+                                 PrintWriter stderr) throws IOException {
+        var sessionInput = new CliSessionInput(input);
+        int exitCode = 0;
+        stderr.println("Ready. Enter a command or stop.");
+        stderr.flush();
+        while (true) {
+            String[] arguments;
+            try {
+                arguments = sessionInput.readCommand();
+            } catch (IllegalArgumentException error) {
+                stderr.println(error.getMessage());
+                stderr.flush();
+                exitCode = 2;
+                continue;
+            }
+            if (arguments == null) return exitCode;
+            int commandCode = run(commands, stdout, stderr, arguments);
+            if (commandCode != 0) exitCode = commandCode;
+        }
     }
 
     /** Uses the same output format as command results, flushing each update immediately. */

@@ -17,7 +17,7 @@ class VacancyCleanerTest {
 
     @BeforeEach
     void writePrompt() throws Exception {
-        Files.writeString(diagnostics.resolve("prompt.txt"), "Настраиваемый промпт\nNumbered source:\n");
+        Files.writeString(diagnostics.resolve("prompt.txt"), "Custom prompt\nNumbered source:\n");
     }
 
     private VacancyCleaner cleaner(boolean enabled, Function<String, String> generate) {
@@ -30,7 +30,7 @@ class VacancyCleanerTest {
     @Test
     void disabledReturnsOriginalWithoutModelOrDiagnostics() throws Exception {
         Files.delete(diagnostics.resolve("prompt.txt"));
-        String original = "  Навигация\r\nJava developer\nПодвал  ";
+        String original = "  Navigation\r\nJava developer\nFooter  ";
         assertSame(original, cleaner(false, prompt -> { throw new AssertionError("Model called"); })
                 .cleanVacancy(original));
         assertFalse(Files.exists(diagnostics.resolve("samples")));
@@ -43,23 +43,23 @@ class VacancyCleanerTest {
             received.set(prompt);
             return "{\"from_line\":1,\"to_line\":1}";
         });
-        cleaner.cleanVacancy("Вакансия");
-        assertEquals("Настраиваемый промпт\nNumbered source:\n1: Вакансия\n", received.get());
-        Files.writeString(diagnostics.resolve("prompt.txt"), "Изменённый промпт");
-        cleaner.cleanVacancy("Вакансия");
-        assertEquals("Изменённый промпт\n1: Вакансия\n", received.get());
+        cleaner.cleanVacancy("Vacancy");
+        assertEquals("Custom prompt\nNumbered source:\n1: Vacancy\n", received.get());
+        Files.writeString(diagnostics.resolve("prompt.txt"), "Updated prompt");
+        cleaner.cleanVacancy("Vacancy");
+        assertEquals("Updated prompt\n1: Vacancy\n", received.get());
         Files.delete(diagnostics.resolve("prompt.txt"));
-        assertThrows(java.io.UncheckedIOException.class, () -> cleaner.cleanVacancy("Вакансия"));
+        assertThrows(java.io.UncheckedIOException.class, () -> cleaner.cleanVacancy("Vacancy"));
     }
 
     @Test
     void retainsExactContiguousSourceIncludingMixedLineEndingsAndWhitespace() throws Exception {
-        String original = "Вступление\r\n  Java developer \n\tТребования: Java\rПодвал\n";
+        String original = "Introduction\r\n  Java developer \n\tRequirements: Java\rFooter\n";
         AtomicReference<String> prompt = new AtomicReference<>();
         String response = "{\"from_line\":2,\"to_line\":3}";
         String result = cleaner(true, value -> { prompt.set(value); return response; }).cleanVacancy(original);
-        assertEquals("  Java developer \n\tТребования: Java\r", result);
-        assertTrue(prompt.get().contains("1: Вступление\r\n2:   Java developer \n3: \tТребования: Java\r4: Подвал\n"));
+        assertEquals("  Java developer \n\tRequirements: Java\r", result);
+        assertTrue(prompt.get().contains("1: Introduction\r\n2:   Java developer \n3: \tRequirements: Java\r4: Footer\n"));
         try (var files = Files.list(diagnostics.resolve("samples"))) {
             var saved = files.toList();
             assertEquals(3, saved.size());

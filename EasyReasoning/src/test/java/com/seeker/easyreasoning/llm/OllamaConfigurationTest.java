@@ -71,7 +71,7 @@ class OllamaConfigurationTest {
             requestTarget.set(exchange.getRequestMethod() + " " + exchange.getRequestURI());
             requestBody.set(exchange.getRequestBody().readAllBytes());
             byte[] response = """
-                    {"model":"test-model","message":{"role":"assistant","content":"  Ответ\\n"},"done":true}
+                    {"model":"test-model","message":{"role":"assistant","content":"  Response\\n"},"done":true}
                     """.getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             exchange.sendResponseHeaders(200, response.length);
@@ -93,12 +93,12 @@ class OllamaConfigurationTest {
                     """.formatted(server.getAddress().getPort()));
             context.refresh();
             assertEquals(0, calls.get(), "Context initialization must not contact Ollama");
-            assertEquals("  Ответ\n", context.getBean(EasyReasoningService.class).generate("Проверка"));
+            assertEquals("  Response\n", context.getBean(EasyReasoningService.class).generate("Check"));
             assertEquals(1, calls.get());
             assertEquals("POST /api/chat", requestTarget.get());
             var json = JsonMapper.builder().build().readTree(requestBody.get());
             assertEquals("test-model", json.path("model").asString());
-            assertEquals("Проверка", json.path("messages").get(0).path("content").asString());
+            assertEquals("Check", json.path("messages").get(0).path("content").asString());
             assertFalse(json.path("stream").asBoolean());
         } finally {
             server.stop(0);

@@ -71,11 +71,11 @@ class DescriptionComparisonApplicationTest {
         try {
             try (var app = new EasyReasoningApi(root)) {
                 assertTrue(requests.isEmpty(), "Creating the gateway must not invoke the model");
-                assertTrue(app.areDuplicateDescriptions("First\r\ntext", "Second текст"));
+                assertTrue(app.areDuplicateDescriptions("First\r\ntext", "Second text"));
                 assertFalse(app.areDuplicateDescriptions("Other first", "Other second"));
             }
             assertEquals(3, requests.size());
-            assertEquals(instruction + "\n\nAD 1:\nFirst\r\ntext\n\nAD 2:\nSecond текст",
+            assertEquals(instruction + "\n\nAD 1:\nFirst\r\ntext\n\nAD 2:\nSecond text",
                     requests.getFirst().path("messages").get(1).path("content").asString());
             for (int n = 0; n < 2; n++) {
                 assertEquals(2, requests.get(n).path("messages").size());

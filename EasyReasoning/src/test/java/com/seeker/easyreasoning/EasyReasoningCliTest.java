@@ -31,16 +31,15 @@ class EasyReasoningCliTest {
         var server = server(requests, false, false);
         try {
             var output = run("""
-                    generate "Первая строка
-                    Вторая строка"
+                    generate "First line
+                    Second line"
                     generate Another request
                     stop
                     generate Must not run
                     """);
-            assertEquals("  Ответ\n  Ответ\n", output.text());
+            assertEquals(("  Response\n" + System.lineSeparator()).repeat(2), output.text());
             assertEquals(0, output.exitCode());
             assertTrue(output.errors().startsWith("Ready."));
-            assertTrue(output.errors().contains("Stopped."));
             assertFalse(output.errors().contains("Error:"));
             assertEquals(3, requests.size());
             for (int index = 0; index < 2; index++) {
@@ -48,7 +47,7 @@ class EasyReasoningCliTest {
                 assertEquals("-1m", requests.get(index).path("keep_alive").asString());
                 assertEquals(1, requests.get(index).path("messages").size());
             }
-            assertEquals("Первая строка\nВторая строка",
+            assertEquals("First line\nSecond line",
                     requests.get(0).path("messages").get(0).path("content").asString());
             assertEquals("Another request",
                     requests.get(1).path("messages").get(0).path("content").asString());
@@ -70,11 +69,10 @@ class EasyReasoningCliTest {
                     generate "Fails"
                     generate "Works"
                     """);
-            assertEquals("  Ответ\n", output.text());
+            assertEquals("  Response\n" + System.lineSeparator(), output.text());
             assertEquals(1, output.exitCode(), "Later success must not erase an earlier error");
-            assertTrue(output.errors().contains("Usage: generate"));
-            assertEquals(2, output.errors().lines().filter(line -> line.startsWith("Error:")).count());
-            assertTrue(output.errors().contains("Stopped."));
+            assertTrue(output.errors().contains("unknown"));
+            assertTrue(output.errors().contains("unavailable"));
             assertEquals(3, requests.size(), "Failed generation must not be retried");
             assertEquals("0", requests.get(2).path("keep_alive").asString());
         } finally {
@@ -93,8 +91,7 @@ class EasyReasoningCliTest {
                     """);
             assertEquals("", output.text());
             assertEquals(1, output.exitCode());
-            assertTrue(output.errors().contains("Error:"));
-            assertTrue(output.errors().contains("Stopped."));
+            assertTrue(output.errors().contains("unavailable"));
             assertEquals(2, requests.size());
             assertEquals("0", requests.get(1).path("keep_alive").asString());
         } finally {
@@ -103,18 +100,21 @@ class EasyReasoningCliTest {
     }
 
     @Test
-    void unloadFailureIsFatalAndDoesNotAcknowledgeSuccessfulStop() throws Exception {
+    void unloadFailurePropagatesToApiOwnerAfterSession() throws Exception {
         List<JsonNode> requests = new ArrayList<>();
         var server = server(requests, false, true);
         StringWriter output = new StringWriter();
         StringWriter errors = new StringWriter();
         try {
-            assertThrows(RuntimeException.class, () -> Main.run(root,
-                    new BufferedReader(new StringReader("""
+            assertThrows(RuntimeException.class, () -> {
+                try (var api = new EasyReasoningApi(root)) {
+                    EasyReasoningCli.run(api, new BufferedReader(new StringReader("""
                             generate "Hello"
                             stop
-                            """)), new PrintWriter(output), new PrintWriter(errors)));
-            assertEquals("  Ответ\n", output.toString());
+                            """)), new PrintWriter(output), new PrintWriter(errors));
+                }
+            });
+            assertEquals("  Response\n" + System.lineSeparator(), output.toString());
             assertFalse(errors.toString().contains("Stopped."));
             assertEquals(2, requests.size(), "Unload is attempted once");
         } finally {
@@ -123,7 +123,7 @@ class EasyReasoningCliTest {
     }
 
     private HttpServer server(List<JsonNode> requests, boolean failFirst, boolean failUnload) throws Exception {
-        return server(requests, failFirst, failUnload, "  Ответ\n");
+        return server(requests, failFirst, failUnload, "  Response\n");
     }
 
     private HttpServer server(List<JsonNode> requests, boolean failFirst, boolean failUnload, String answer) throws Exception {
@@ -164,14 +164,14 @@ class EasyReasoningCliTest {
         var server = server(requests, false, false);
         try {
             var output = run("""
-                    generate "Скажи \\"привет\\" по пути C:\\Users\\user."
+                    generate "Say \\"hello\\" at path C:\\Users\\user."
                     generate "Unclosed
                     """);
-            assertEquals("  Ответ\n", output.text());
+            assertEquals("  Response\n" + System.lineSeparator(), output.text());
             assertTrue(output.errors().contains("Unclosed quote"));
-            assertEquals(1, output.exitCode());
+            assertEquals(2, output.exitCode());
             assertEquals(2, requests.size());
-            assertEquals("Скажи \"привет\" по пути C:\\Users\\user.",
+            assertEquals("Say \"hello\" at path C:\\Users\\user.",
                     requests.get(0).path("messages").get(0).path("content").asString());
         } finally {
             server.stop(0);
@@ -181,8 +181,11 @@ class EasyReasoningCliTest {
     private CliOutput run(String commands) throws Exception {
         StringWriter output = new StringWriter();
         StringWriter errors = new StringWriter();
-        int exitCode = Main.run(root, new BufferedReader(new StringReader(commands)),
-                new PrintWriter(output), new PrintWriter(errors));
+        int exitCode;
+        try (var api = new EasyReasoningApi(root)) {
+            exitCode = EasyReasoningCli.run(api, new BufferedReader(new StringReader(commands)),
+                    new PrintWriter(output), new PrintWriter(errors));
+        }
         return new CliOutput(output.toString(), errors.toString(), exitCode);
     }
 
@@ -200,14 +203,14 @@ class EasyReasoningCliTest {
                         new BufferedReader(new StringReader("generate First\nstop\n")),
                         new PrintWriter(output), new PrintWriter(errors)));
                 assertEquals(1, requests.size(), "stop must not unload the caller's model");
-                assertEquals("  Ответ\n", api.generate("Between sessions"));
+                assertEquals("  Response\n", api.generate("Between sessions"));
                 assertEquals(0, EasyReasoningCli.run(api,
                         new BufferedReader(new StringReader("generate Second\n")),
                         new PrintWriter(output), new PrintWriter(errors)));
                 assertEquals(3, requests.size(), "EOF must not unload the caller's model");
                 assertFalse(errors.toString().contains("Stopped."));
             }
-            assertEquals("  Ответ\n  Ответ\n", output.toString());
+            assertEquals(("  Response\n" + System.lineSeparator()).repeat(2), output.toString());
             assertEquals(4, requests.size());
             assertEquals("0", requests.getLast().path("keep_alive").asString());
         } finally {
@@ -231,7 +234,7 @@ class EasyReasoningCliTest {
                     "vacancy.trimming.enabled=true\n", java.nio.file.StandardOpenOption.APPEND);
             var enabled = run("clean-vacancy \"before\nJava developer\nafter\"\nstop\n");
             assertEquals(0, enabled.exitCode());
-            assertEquals("Java developer\n", enabled.text());
+            assertEquals("Java developer\n" + System.lineSeparator(), enabled.text());
             assertEquals(2, requests.size());
             assertTrue(requests.getFirst().path("messages").get(0).path("content").asString().contains("2: Java developer"));
             assertEquals("0", requests.getLast().path("keep_alive").asString());

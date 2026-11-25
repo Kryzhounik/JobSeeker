@@ -16,7 +16,7 @@ class VacancyDescriptionComparatorTest {
 
     private VacancyDescriptionComparator comparator(Function<String, String> generate) throws Exception {
         Path prompt = root.resolve("prompt.md");
-        Files.writeString(prompt, "Compare descriptions. Инструкция UTF-8.\n");
+        Files.writeString(prompt, "Compare descriptions. UTF-8 instruction: café.\n");
         return new VacancyDescriptionComparator(new EasyReasoningService() {
             public String generate(String text) { return generate.apply(text); }
             public void close() {}
@@ -33,10 +33,10 @@ class VacancyDescriptionComparatorTest {
     void sendsExternalUtf8InstructionAndBothUnchangedTextsWithoutPreviousInput() throws Exception {
         AtomicReference<String> received = new AtomicReference<>();
         var comparator = comparator(p -> { received.set(p); return "NO SUBSTANTIVE DIFFERENCES"; });
-        String first = "  Первая\r\nJava \"backend\"  ";
+        String first = "  First\r\nJava \"backend\"  ";
         String second = "Second\nRemote\t";
         comparator.areDuplicateDescriptions(first, second);
-        assertEquals("Compare descriptions. Инструкция UTF-8.\n\n\nAD 1:\n" + first
+        assertEquals("Compare descriptions. UTF-8 instruction: café.\n\n\nAD 1:\n" + first
                 + "\n\nAD 2:\n" + second, received.get());
         Files.writeString(root.resolve("prompt.md"), "Updated instructions");
         comparator.areDuplicateDescriptions("Next first", "Next second");

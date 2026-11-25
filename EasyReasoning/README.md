@@ -53,12 +53,6 @@ from it, and closes it in `stop()` (with a JVM shutdown hook as a fallback).
 Existing lower-module services and their CLIs do not use that context. The
 EasyReasoning CLI creates its own context containing only gateway components.
 
-The standalone `Main` owns `EasyReasoningApi` and closes it after the CLI session.
-`EasyReasoningCli.run(api, input, output, errors)` is a public reusable handler:
-it accepts a ready API and returns an exit code. Its `stop` command or EOF ends
-the command loop; the caller remains responsible for closing the API. Standalone
-shutdown still unloads the used model before acknowledging `Stopped.`.
-
 ## Client configuration
 
 Edit `EasyReasoning/easy-reasoning.properties` to change the server address or
@@ -212,15 +206,14 @@ generate "Первая строка
 Inside double quotes, `\"` inserts a quote and `\\` inserts a backslash. Other
 backslashes are literal. Multiline input uses LF between lines.
 
-Each generation invokes the same `EasyReasoningService.generate(prompt)` API.
-`clean-vacancy` invokes the configured `cleanVacancy(text)` operation.
-The model's answer is printed directly to stdout, followed by a line ending if
-needed. Requests are independent, without accumulating chat history. Readiness,
+The model's answer is printed as plain text to stdout, followed by a line ending.
+Requests are independent, without accumulating chat history. Readiness,
 errors and shutdown messages are plain text on stderr. After a command or
 request error the process remains available for the next command.
-If any command or generation failed during the session, the process exits 1
-on `stop` or end-of-input, even if subsequent requests succeeded. A session
-without errors exits 0. Startup and backend shutdown failures also exit 1.
+On `stop` or end-of-input, the session returns its last nonzero command code;
+later successful commands do not erase an earlier error. Command codes follow
+the [shared CLI contract](../Tools/ARCHITECTURE.md). A session without errors
+exits 0. Startup and backend shutdown failures exit 1.
 
 `stop` unloads the used model and closes the application, then prints `Stopped.`
 on stderr. End-of-input performs the same normal cleanup. Do not

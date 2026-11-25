@@ -157,15 +157,11 @@ Collectors call that operation unconditionally. `EasyReasoningApi`
 provides a standalone, reusable context for such callers; callers with an
 existing context can obtain `VacancyCleaner` directly.
 
-Follow [Driver's API/CLI architecture](../Driver/ARCHITECTURE.md): the standalone
-`Main` creates and closes `EasyReasoningApi`. The public
-`EasyReasoningCli.run(api, input, output, errors)` handler accepts that ready API
-and returns an exit code; it does not create or close the API or terminate the JVM.
-Other Java callers can reuse the same API across CLI sessions and direct calls.
+Follow [Driver's API/CLI architecture](../Driver/ARCHITECTURE.md).
+EasyReasoning uses the shared long-lived session from
+[Tools](../Tools/ARCHITECTURE.md), reusing one initialized API across commands.
 
-Use a long-lived Java process: initialize Spring and the selected backend once,
-accept repeated operations through the CLI, and shut down through a separate
-stop command. Operation calls reuse the initialized application. On the first local
+On the first local
 inference request, the backend checks server readiness and, if needed, starts
 `.tools/ollama/ollama.exe serve` itself and waits for readiness. An unused API
 does not start Ollama. All process management stays inside `llm`. Closing the API
