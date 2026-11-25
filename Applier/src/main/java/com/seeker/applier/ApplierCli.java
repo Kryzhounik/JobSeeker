@@ -8,7 +8,11 @@ public final class ApplierCli {
     private ApplierCli() {}
 
     public static void main(String[] args) {
+        System.exit(execute(args));
+    }
+
+    public static int execute(String[] args) {
         var api = new ApplierApi(Path.of(System.getProperty("seeker.projectRoot", ".")));
-        System.exit(CliRunner.run(new ApplierAdapter(api), ApplierAdapter.arguments(args)));
+        return CliRunner.run(new ApplierAdapter(api), ApplierAdapter.arguments(args));
     }
 }

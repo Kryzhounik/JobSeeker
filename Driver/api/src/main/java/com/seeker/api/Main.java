@@ -1,12 +1,7 @@
 package com.seeker.api;
 
-import com.seeker.applier.ApplierApi;
-import com.seeker.applier.ApplierAdapter;
-import com.seeker.chatevaluator.ChatEvaluatorApi;
-import com.seeker.chatevaluator.ChatEvaluatorAdapter;
-import com.seeker.tools.cli.CliRunner;
-import java.nio.file.Path;
-import java.util.stream.Stream;
+import com.seeker.applier.ApplierCli;
+import com.seeker.chatevaluator.ChatEvaluatorCli;
 
 import java.util.Arrays;
 import java.util.concurrent.Callable;
@@ -25,17 +20,11 @@ public final class Main {
     }
 
     public static int execute(String[] args) throws Exception {
-        var chatEvaluator = new ChatEvaluatorAdapter(new ChatEvaluatorApi(
-                Path.of(System.getProperty("seeker.projectRoot", "."))));
-        var applier = new ApplierAdapter(new ApplierApi(
-                Path.of(System.getProperty("seeker.projectRoot", "."))));
         return execute(args,
                 () -> com.seeker.collector.core.CollectorCli.execute(args),
                 () -> com.seeker.orchestrator.OrchestratorCli.execute(args),
-                rest -> CliRunner.run(applier, ApplierAdapter.arguments(rest)),
-                // Preserve chat-eval URL while using the same annotated command as the standalone CLI.
-                urls -> CliRunner.run(chatEvaluator,
-                        Stream.concat(Stream.of("evaluate"), Arrays.stream(urls)).toArray(String[]::new)));
+                ApplierCli::execute,
+                ChatEvaluatorCli::execute);
     }
 
     static int execute(
