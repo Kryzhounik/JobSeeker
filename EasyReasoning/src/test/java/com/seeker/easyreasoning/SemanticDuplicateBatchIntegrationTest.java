@@ -7,6 +7,8 @@ import org.jpy.PyModule;
 import org.jpy.PyObject;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.env.StandardEnvironment;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
@@ -72,15 +74,30 @@ class SemanticDuplicateBatchIntegrationTest {
         model.start();
         write("EasyReasoning/easy-reasoning.properties", "spring.ai.ollama.base-url=http://127.0.0.1:"
                 + model.getAddress().getPort() + "\n");
-        try (var api = new EasyReasoningApi(root)) {
-            api.deduplicateBatch("batch");
+        try (var context = new AnnotationConfigApplicationContext()) {
+            var sources = context.getEnvironment().getPropertySources();
+            sources.remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME);
+            sources.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME);
+            context.registerBean(Path.class, () -> root);
+            context.register(EasyReasoningConfiguration.class);
+            context.refresh();
+            var backend = context.getBean(EasyReasoningService.class);
+            // This test exercises batch persistence and backend lifecycle, not tokenization.
+            EasyReasoningService comparisons = new EasyReasoningService() {
+                @Override public String generate(String prompt) { return backend.generate(prompt); }
+                @Override public void close() { backend.close(); }
+            };
+            var comparator = new VacancyDescriptionComparator(comparisons,
+                    root.resolve("EasyReasoning/prompts/compare-vacancy-descriptions.md"));
+            var batch = new SemanticDuplicateBatch(root, comparator::areDuplicateDescriptions, comparisons::close);
+            batch.processBatch("batch");
             assertEquals(1, unloads.get(), "The model must be unloaded before processBatch returns");
-            api.deduplicateBatch("batch");
-            assertEquals(2, unloads.get(), "The same API must remain reusable after batch cleanup");
+            batch.processBatch("batch");
+            assertEquals(2, unloads.get(), "The same backend must remain reusable after batch cleanup");
         }
         finally { model.stop(0); }
         assertEquals(7, requests.size());
-        assertEquals(2, unloads.get(), "Closing the API must not unload the model again");
+        assertEquals(2, unloads.get(), "Closing the context must not unload the model again");
         try (var sqlite = PyModule.importModule("sqlite3");
              var connection = sqlite.callMethod("connect",database.toString())) {
             try (var cursor = connection.callMethod("execute",
