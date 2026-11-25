@@ -1,6 +1,9 @@
 package com.seeker.easyreasoning;
 
 import java.io.*;
+import java.util.function.Consumer;
+import com.seeker.tools.api.ProgressSnapshot;
+import com.seeker.tools.api.ImmutableProgressSnapshot;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -20,7 +23,9 @@ final class SemanticDuplicateBatch {
         this.release = release;
     }
 
-    void processBatch(String batchId) {
+    void processBatch(String batchId) { processBatch(batchId, ignored -> { }); }
+
+    void processBatch(String batchId, Consumer<ProgressSnapshot> progress) {
         try {
             Properties config = new Properties();
             Path file = root.resolve("EasyReasoning/easy-reasoning.properties");
@@ -28,11 +33,11 @@ final class SemanticDuplicateBatch {
                 try (var reader = Files.newBufferedReader(file, StandardCharsets.UTF_8)) { config.load(reader); }
             }
             String mode = config.getProperty("dedup.mode", "qwen").strip();
-            if (mode.equals("off")) return;
+            if (mode.equals("off")) { publish(progress, batchId, 0, 0, "", "Complete"); return; }
             if (!mode.equals("qwen")) throw new IllegalArgumentException("Unsupported dedup.mode: " + mode);
             try (var database = new DeduplicationDatabase(root)) {
                 process(database.loadBatch(batchId), compare,
-                        (duplicate, original) -> database.saveDecision(batchId, duplicate, original));
+                        (duplicate, original) -> database.saveDecision(batchId, duplicate, original), batchId, progress);
             } finally {
                 try { release.run(); }
                 catch (RuntimeException error) {
@@ -46,53 +51,135 @@ final class SemanticDuplicateBatch {
 
     static void process(List<VacancySnapshot> vacancies, BiPredicate<String, String> compare,
                         BiConsumer<Long, Long> save) {
-        Map<Key, List<VacancySnapshot>> samples = new HashMap<>();
-        Set<Long> unresolved = new HashSet<>();
-        for (VacancySnapshot vacancy : vacancies) {
-            String title = vacancy.title().replaceAll("[\\s\\p{Z}]+", " ").strip().toLowerCase(Locale.ROOT);
-            if (vacancy.companyId() == null || title.isBlank()) {
+        process(vacancies, compare, save, null, ignored -> { });
+    }
+
+    static void process(List<VacancySnapshot> vacancies, BiPredicate<String, String> compare,
+                        BiConsumer<Long, Long> save, String batchId, Consumer<ProgressSnapshot> progress) {
+        new BatchRun(vacancies, compare, save, batchId, progress).run();
+    }
+
+    private static Key key(VacancySnapshot vacancy) {
+        String title = vacancy.title().replaceAll("[\\s\\p{Z}]+", " ").strip().toLowerCase(Locale.ROOT);
+        return vacancy.companyId() == null || title.isBlank() ? null : new Key(vacancy.companyId(), title);
+    }
+
+    private static void publish(Consumer<ProgressSnapshot> listener, String batchId, long done,
+                                long total, String pair, String action) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        fields.put("Comparisons", done + " / " + total);
+        fields.put("Compared vacancies", pair);
+        listener.accept(new ImmutableProgressSnapshot(batchId, "Deduplication", action,
+                "Deduplication " + done + " / " + total, fields, pair));
+    }
+
+    private static final class BatchRun {
+        private final List<VacancySnapshot> vacancies;
+        private final BiPredicate<String, String> compare;
+        private final BiConsumer<Long, Long> save;
+        private final String batchId;
+        private final Consumer<ProgressSnapshot> listener;
+        private final Map<Key, List<VacancySnapshot>> samples = new HashMap<>();
+        private final Set<Long> unresolved = new HashSet<>();
+        private long completed;
+        private String lastPair = "";
+
+        BatchRun(List<VacancySnapshot> vacancies, BiPredicate<String, String> compare,
+                 BiConsumer<Long, Long> save, String batchId, Consumer<ProgressSnapshot> listener) {
+            this.vacancies = vacancies;
+            this.compare = compare;
+            this.save = save;
+            this.batchId = batchId;
+            this.listener = listener;
+        }
+
+        void run() {
+            long remaining = remainingComparisons(0, 0);
+            publish(listener, batchId, completed, completed + remaining, lastPair, "Comparing descriptions");
+            for (int index = 0; index < vacancies.size(); index++) processVacancy(index);
+            publish(listener, batchId, completed, completed, lastPair, "Complete");
+        }
+
+        private void processVacancy(int index) {
+            VacancySnapshot vacancy = vacancies.get(index);
+            Key key = key(vacancy);
+            if (key == null) {
                 if (!vacancy.checked()) save.accept(vacancy.id(), null);
-                continue;
+                return;
             }
-            Key key = new Key(vacancy.companyId(), title);
-            var group = samples.computeIfAbsent(key, k -> new ArrayList<>());
+            var group = samples.computeIfAbsent(key, ignored -> new ArrayList<>());
             if (vacancy.checked()) {
                 if (vacancy.duplicateOf() == null) group.add(vacancy);
-                continue;
+                return;
             }
+            compareVacancy(index, vacancy, group);
+        }
+
+        private void compareVacancy(int index, VacancySnapshot vacancy, List<VacancySnapshot> group) {
             boolean incomplete = false;
-            VacancySnapshot original = null;
-            for (var sample : group) {
-                boolean duplicate;
-                System.err.println("Semantic comparison started: " + sample.source() + ":" + sample.jobId() + " vs "
-                        + vacancy.source() + ":" + vacancy.jobId());
-                try { duplicate = compare.test(sample.text(), vacancy.text()); }
-                catch (RuntimeException error) {
-                    System.err.println("Semantic comparison failed: " + sample.source() + ":" + sample.jobId() + " vs "
-                            + vacancy.source() + ":" + vacancy.jobId() + ": " + error);
-                    incomplete = true;
-                    continue;
+            int count = group.size();
+            for (int pairIndex = 0; pairIndex < count; pairIndex++) {
+                VacancySnapshot sample = group.get(pairIndex);
+                Boolean duplicate = comparePair(sample, vacancy);
+                completed++;
+                if (Boolean.TRUE.equals(duplicate) && !unresolved.contains(sample.id())) {
+                    save.accept(vacancy.id(), sample.id());
+                    System.err.println("Semantic duplicate: " + vacancy.source() + ":" + vacancy.jobId()
+                            + " -> " + sample.source() + ":" + sample.jobId());
+                    report(index + 1, 0);
+                    return;
                 }
-                if (duplicate) {
-                    if (unresolved.contains(sample.id())) { incomplete = true; continue; }
-                    original = sample;
-                    break;
-                }
+                incomplete |= duplicate == null || Boolean.TRUE.equals(duplicate);
+                boolean lastPair = pairIndex + 1 == count;
+                if (lastPair) finishVacancy(vacancy, group, incomplete);
+                reportNextPosition(index, pairIndex + 1, lastPair);
             }
-            if (original == null && incomplete) {
-                unresolved.add(vacancy.id());
-                group.add(vacancy);
-                continue;
+            if (count == 0) finishVacancy(vacancy, group, false);
+        }
+
+        private void reportNextPosition(int vacancyIndex, int nextSample, boolean vacancyFinished) {
+            if (vacancyFinished) {
+                report(vacancyIndex + 1, 0);
+                return;
             }
-            if (original == null) {
-                save.accept(vacancy.id(), null);
-                group.add(vacancy);
+            report(vacancyIndex, nextSample);
+        }
+
+        private Boolean comparePair(VacancySnapshot sample, VacancySnapshot vacancy) {
+            lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
+            System.err.println("Semantic comparison started: " + lastPair);
+            try { return compare.test(sample.text(), vacancy.text()); }
+            catch (RuntimeException error) {
+                System.err.println("Semantic comparison failed: " + lastPair + ": " + error);
+                return null;
             }
-            else {
-                save.accept(vacancy.id(), original.id());
-                System.err.println("Semantic duplicate: " + vacancy.source() + ":" + vacancy.jobId()
-                        + " -> " + original.source() + ":" + original.jobId());
+        }
+
+        private void finishVacancy(VacancySnapshot vacancy, List<VacancySnapshot> group, boolean incomplete) {
+            if (incomplete) unresolved.add(vacancy.id());
+            else save.accept(vacancy.id(), null);
+            group.add(vacancy);
+        }
+
+        // Assume no future duplicates: each pending vacancy becomes another candidate.
+        private long remainingComparisons(int nextVacancy, int nextSample) {
+            Map<Key, Long> counts = new HashMap<>();
+            samples.forEach((key, group) -> counts.put(key, (long) group.size()));
+            long remaining = 0;
+            for (int index = nextVacancy; index < vacancies.size(); index++) {
+                VacancySnapshot vacancy = vacancies.get(index);
+                Key key = key(vacancy);
+                if (key == null) continue;
+                long count = counts.getOrDefault(key, 0L);
+                if (!vacancy.checked()) remaining += count - (index == nextVacancy ? nextSample : 0);
+                if (!vacancy.checked() || vacancy.duplicateOf() == null) counts.put(key, count + 1);
             }
+            return remaining;
+        }
+
+        private void report(int nextVacancy, int nextSample) {
+            long remaining = remainingComparisons(nextVacancy, nextSample);
+            publish(listener, batchId, completed, completed + remaining, lastPair, "Comparing descriptions");
         }
     }
 }

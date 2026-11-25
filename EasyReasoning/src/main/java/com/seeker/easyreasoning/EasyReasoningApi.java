@@ -3,6 +3,9 @@ package com.seeker.easyreasoning;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.nio.file.Path;
+import java.util.Objects;
+import java.util.function.Consumer;
+import com.seeker.tools.api.ProgressSnapshot;
 
 /** Public module API, reused across operations and closed by its owner. */
 public final class EasyReasoningApi implements AutoCloseable {
@@ -33,6 +36,11 @@ public final class EasyReasoningApi implements AutoCloseable {
     }
 
     public void deduplicateBatch(String batchId) { dedup.processBatch(batchId); }
+
+    public void deduplicateBatch(String batchId,
+            Consumer<ProgressSnapshot> progress) {
+        dedup.processBatch(batchId, Objects.requireNonNull(progress));
+    }
 
     public String cleanVacancy(String text) {
         return cleaner.cleanVacancy(text);

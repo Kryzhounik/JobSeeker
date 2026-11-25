@@ -40,7 +40,7 @@ class OrchestratorApiTest {
                     (selection, settings, progress) -> { gateway.calls.add("collect"); return report("complete", scope); },
                     (urls, prefix, progress) -> { gateway.calls.add("collect"); return report("complete", scope); },
                     gateway, progress -> List.of("https://example.com/job"), 1, 10,
-                    runId -> gateway.calls.add("dedup:" + runId));
+                    (runId, progress) -> gateway.calls.add("dedup:" + runId));
             WorkflowResult result = switch (entry) {
                 case "batch" -> workflow.processBatch("linkedin");
                 case "urls" -> workflow.processUrls("https://example.com/job");
@@ -58,7 +58,7 @@ class OrchestratorApiTest {
             var gateway = new FakeProcessingGateway(List.of());
             var workflow = new OrchestratorApi((selection, settings, progress) -> report(status, List.of()),
                     (urls, prefix, progress) -> report(status, List.of()), gateway, progress -> List.of(),
-                    1, 10, id -> gateway.calls.add("dedup:" + id));
+                    1, 10, (id, progress) -> gateway.calls.add("dedup:" + id));
             workflow.processBatch("linkedin");
             assertFalse(gateway.calls.contains("dedup:run-1"));
             gateway.batchStatuses.put("run-1", "failed");
@@ -112,6 +112,28 @@ class OrchestratorApiTest {
         assertEquals("Saving", gateway.batchStages.get("run-1"));
         assertEquals(List.of("running:", "running:Relevance filter", "running:Job facts",
                 "running:Candidate fit", "running:Saving", "complete:"), gateway.batchUpdates);
+    }
+
+    @Test
+    void forwardsDeduplicationSnapshotUnchangedThroughGenericProgressListener() throws Exception {
+        List<ProgressSnapshot> updates = new ArrayList<>();
+        var gateway = new FakeProcessingGateway(List.of());
+        var prepared = new com.seeker.tools.api.ImmutableProgressSnapshot("run-1", "Deduplication",
+                "Comparing descriptions", "Deduplication 1 / 2",
+                Map.of("Comparisons", "1 / 2", "Compared vacancies", "source:A vs source:B"), "pair");
+        OrchestratorApi workflow = new OrchestratorApi(
+                (selection, settings, progress) -> report("complete", List.of(item("1", "Java"))),
+                (urls, prefix, progress) -> report("complete", List.of(item("1", "Java"))),
+                gateway, progress -> List.of(), 1, 10,
+                (runId, progress) -> progress.accept(prepared));
+
+        workflow.processBatch(updates::add);
+
+        assertTrue(updates.contains(prepared));
+        assertSame(prepared, updates.stream().filter(update -> update.fields().containsKey("Comparisons"))
+                .findFirst().orElseThrow());
+        assertEquals("run-1", updates.stream().filter(update -> update.fields().containsKey("Comparisons"))
+                .findFirst().orElseThrow().runId());
     }
 
     @Test
@@ -771,7 +793,7 @@ class OrchestratorApiTest {
                 assertNull(settings, "Default loading belongs to Collector");
                 collects.incrementAndGet(); return collected;
             }, (urls, prefix, progress) -> { throw new AssertionError("Not URL collection"); }, gateway,
-                    progress -> List.of(), 1, 10, deduplicated::add);
+                    progress -> List.of(), 1, 10, (id, progress) -> deduplicated.add(id));
             var updates = new ArrayList<ProgressSnapshot>();
             var result = workflow.processBatch(updates::add);
             assertEquals(mode, result.source());

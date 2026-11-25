@@ -120,6 +120,13 @@ public record WorkflowProgress(String runId, String stage, String action, String
             emit();
         }
 
+        void deduplication(ProgressSnapshot snapshot) {
+            stage = snapshot.stage();
+            action = snapshot.action();
+            details = snapshot.details();
+            listener.accept(snapshot);
+        }
+
         void saved(int confirmed) {
             savedCount += confirmed;
             count("Saved", savedCount);

@@ -94,13 +94,20 @@ data, personal configuration, and test execution order.
 GitHub Actions runs the full test suites. These rules apply to implementation,
 code review, and delegated work.
 
+In handoffs and plans, state acceptance criteria as expected behavior.
+If automated test coverage is required, specify the scenarios and expected
+results. Words such as "verify" or "check" do not by themselves request a
+local run.
+
 - Do not routinely run local tests, builds, compilation, or similar automated
   checks after changes. Run them only when explicitly requested or when the
   result is needed to choose the next change, investigate a specific suspected
   defect, or verify a fix for a known failure. Use the smallest check that
   answers the question.
-- If an optional check is blocked by missing dependencies, environment setup,
-  or permissions, stop that check. Do not expand the task to make it runnable.
+- If missing dependencies, environment setup, or permissions block an
+  optional check, stop that check. This also applies when a delegate
+  encounters the blocker. Do not take over the blocked check or expand
+  the task to make it runnable.
 - Run tests explicitly requested by the user. Run a full suite locally only
   when the user explicitly requests a full run.
 - Use CI results supplied directly in the task. Do not search for runs, open

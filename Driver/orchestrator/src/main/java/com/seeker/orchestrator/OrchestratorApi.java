@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 
 /** Top-level Java workflow entry point. */
 public final class OrchestratorApi {
@@ -31,7 +32,7 @@ public final class OrchestratorApi {
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
     private final RecommendationSource recommendations;
-    private final Consumer<String> deduplicate;
+    private final BiConsumer<String, Consumer<ProgressSnapshot>> deduplicate;
     private final int parallelAgents;
     private final int vacanciesPerAgent;
 
@@ -55,9 +56,9 @@ public final class OrchestratorApi {
         this((source, settings, progress) -> settings == null ? collector.collectBatch(source, progress)
                         : collector.collectBatch(settings, progress), collector::collectUrls, processingGateway,
                 recommendations, parallelAgents, vacanciesPerAgent,
-                batchId -> {
+                (batchId, progress) -> {
                     try (var reasoning = new com.seeker.easyreasoning.EasyReasoningApi(projectRoot)) {
-                        reasoning.deduplicateBatch(batchId);
+                        reasoning.deduplicateBatch(batchId, progress);
                     }
                 });
     }
@@ -95,12 +96,13 @@ public final class OrchestratorApi {
             int vacanciesPerAgent
     ) {
         this(batchCollection, linkedinUrls, processingGateway, recommendations,
-                parallelAgents, vacanciesPerAgent, ignored -> { });
+                parallelAgents, vacanciesPerAgent, (id, progress) -> { });
     }
 
     OrchestratorApi(BatchCollection batchCollection, LinkedInUrls linkedinUrls,
-                         ProcessingGateway processingGateway, RecommendationSource recommendations,
-                         int parallelAgents, int vacanciesPerAgent, Consumer<String> deduplicate) {
+                    ProcessingGateway processingGateway, RecommendationSource recommendations,
+                    int parallelAgents, int vacanciesPerAgent,
+                    BiConsumer<String, Consumer<ProgressSnapshot>> deduplicate) {
         this.deduplicate = Objects.requireNonNull(deduplicate);
         this.batchCollection = Objects.requireNonNull(batchCollection);
         this.linkedinUrls = Objects.requireNonNull(linkedinUrls);
@@ -236,7 +238,7 @@ public final class OrchestratorApi {
         run.preparing(collected == null ? "Relevance filter" : "Collection", "Loading processing scope");
         processingGateway.updateBatch(runId, "running", "", "");
         run.preparing("Deduplication", "Comparing saved vacancy descriptions");
-        deduplicate.accept(runId);
+        deduplicate.accept(runId, run::deduplication);
         Map<JobKey, String> statuses = new HashMap<>(processingGateway.loadStatuses(scope));
         run.count("Already saved", atStatus(scope, statuses, "SAVED").size());
         run.count("Rejected by relevance", atStatus(scope, statuses, "NONRELEVANT").size());
