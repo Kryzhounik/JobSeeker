@@ -433,6 +433,14 @@ public APIs and architectural boundaries, evaluate design decisions
 independently rather than accepting them merely because they follow existing
 patterns.
 
+## Moving from Discussion to Implementation
+
+During a discussion, treat suggestions, statements of need, and agreement
+on a proposed solution as part of the discussion. Change files or project
+state only when the user explicitly asks you to implement the change or
+confirms that you should start. If the intent is ambiguous, continue
+the discussion.
+
 ## No Unrequested Scope Expansion
 
 Implement the requested behavior and the changes necessary to support it.
