@@ -31,7 +31,7 @@ public final class Main {
                 Path.of(System.getProperty("seeker.projectRoot", "."))));
         return execute(args,
                 () -> com.seeker.collector.core.CollectorCli.execute(args),
-                com.seeker.orchestrator.OrchestratorCli::execute,
+                () -> com.seeker.orchestrator.OrchestratorCli.execute(args),
                 rest -> CliRunner.run(applier, ApplierAdapter.arguments(rest)),
                 // Preserve chat-eval URL while using the same annotated command as the standalone CLI.
                 urls -> CliRunner.run(chatEvaluator,
@@ -41,7 +41,7 @@ public final class Main {
     static int execute(
             String[] args,
             Callable<Integer> collector,
-            ToIntFunction<String[]> orchestrator,
+            Callable<Integer> orchestrator,
             ToIntFunction<String[]> applier,
             ToIntFunction<String[]> chatEvaluator
     ) throws Exception {
@@ -53,7 +53,7 @@ public final class Main {
         return switch (args[0]) {
             case "login", "collect-batch" -> collector.call();
             case "process-batch", "process-urls", "check-recommendations", "resume", "job-facts", "finish-analysis" ->
-                    orchestrator.applyAsInt(args);
+                    orchestrator.call();
             case "apply" -> applier.applyAsInt(Arrays.copyOfRange(args, 1, args.length));
             case "chat-eval" -> chatEvaluator.applyAsInt(Arrays.copyOfRange(args, 1, args.length));
             default -> {

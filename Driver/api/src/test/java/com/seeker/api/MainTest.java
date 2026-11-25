@@ -58,8 +58,8 @@ class MainTest {
              PrintStream err = new PrintStream(errors, true, StandardCharsets.UTF_8)) {
             System.setOut(out);
             System.setErr(err);
-            assertEquals(2, Main.execute(new String[0], () -> unexpected.applyAsInt(new String[0]), unexpected, unexpected, unexpected));
-            assertEquals(2, Main.execute(new String[]{"unknown"}, () -> unexpected.applyAsInt(new String[]{"unknown"}), unexpected, unexpected, unexpected));
+            assertEquals(2, Main.execute(new String[0], () -> unexpected.applyAsInt(new String[0]), () -> unexpected.applyAsInt(new String[0]), unexpected, unexpected));
+            assertEquals(2, Main.execute(new String[]{"unknown"}, () -> unexpected.applyAsInt(new String[]{"unknown"}), () -> unexpected.applyAsInt(new String[]{"unknown"}), unexpected, unexpected));
         } finally {
             System.setOut(originalOut);
             System.setErr(originalErr);
@@ -74,7 +74,7 @@ class MainTest {
         List<String[]> forwarded = new ArrayList<>();
         int code = Main.execute(args,
                 () -> { called.add("collector"); forwarded.add(args); return 17; },
-                rest -> { called.add("orchestrator"); forwarded.add(rest); return 17; },
+                () -> { called.add("orchestrator"); forwarded.add(args); return 17; },
                 rest -> { called.add("applier"); forwarded.add(rest); return 17; },
                 rest -> { called.add("chat"); forwarded.add(rest); return 17; });
         assertEquals(17, code);
