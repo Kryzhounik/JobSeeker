@@ -68,7 +68,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>com.seeker.orchestrator.Main</mainClass>
+                            <mainClass>com.seeker.orchestrator.OrchestratorCli</mainClass>
                         </manifest>
                     </archive>
                 </configuration>

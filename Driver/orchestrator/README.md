@@ -28,6 +28,11 @@ The thin runnable JAR is `Driver/orchestrator/workflow-orchestrator.jar`.
 Runtime dependencies are copied to the repository-root `libs/`; the manifest
 references them automatically.
 
+`OrchestratorCli.execute(args)` is the shared CLI entry for standalone and Driver
+launches. It creates `OrchestratorApi` and `OrchestratorAdapter` and calls Tools
+`CliRunner`. The adapter only declares commands and delegates to the API.
+Picocli parses arguments; the API prepares and validates operation inputs.
+
 ## Operations
 
 The application performs these operations:
@@ -72,7 +77,7 @@ created it.
 java -jar Driver/orchestrator/workflow-orchestrator.jar process-batch
 ```
 
-Java callers use `WorkflowOrchestrator.processBatch()` and receive a
+Java callers use `OrchestratorApi.processBatch()` and receive a
 `WorkflowResult`. Existing `processBatch("linkedin")` explicitly selects LinkedIn;
 `processBatch("justjoin")` explicitly selects JustJoinIT.
 `processBatch(CollectionSettings)` and its progress overload pass a complete
@@ -115,13 +120,13 @@ order, while `collection` retains the combined collection statistics. A
 collection failure stops the run before analysis and returns an empty
 processed scope alongside a summary of the failed collection report.
 
-Java callers use one method, `WorkflowOrchestrator.processUrls(String... urls)`:
+Java callers use one method, `OrchestratorApi.processUrls(String... urls)`:
 `processUrls(url)` for one URL, `processUrls(url1, url2)` for several, or
 `processUrls(urlArray)`.
 The CLI parses arguments, installs its output policy, and prints the report.
 Java callers receive `WorkflowResult`; Collector APIs still return
 `CollectionReport`. The CLI serializes `WorkflowResult` directly without editing
-its JSON. `WorkflowOrchestrator(projectRoot)` keeps no progress handler.
+its JSON. `OrchestratorApi(projectRoot)` keeps no progress handler.
 Pass `Consumer<ProgressSnapshot>` (`com.seeker.tools.api`) to the individual operation, for example
 `processBatch("linkedin", handler)` or `processUrls(urlsList, handler)`.
 Orchestrator creates its own per-call Collector handler and retains all collection
@@ -157,8 +162,11 @@ Migration 042 preserves IDs and existing vacancy/page links. Historical collecti
 completion alone is not treated as proof that the whole workflow completed;
 historical rows are marked `failed`, not active `running`.
 CLI retains exit code `3` for that expected limit, rather than an application-error
-stack trace. CLI notifications are emitted as
-`WORKFLOW_PROGRESS ` JSON lines on stderr.
+stack trace. CLI progress snapshots and the final result are emitted as separate
+JSON lines on stdout by the shared `CliRunner`, just as in Collector. Diagnostics
+use stderr; legacy Python file-saving messages still appear on stdout until
+moved to a logger. The old process-wide console tee and Python stdout redirection
+are no longer installed by the orchestrator CLI.
 
 ## Source identity
 
@@ -186,7 +194,7 @@ links, so identical external IDs in different sources remain separate records.
 java -jar Driver/api/job-seeker-api.jar check-recommendations
 ```
 
-Also available through `WorkflowOrchestrator.checkRecommendations()`,
+Also available through `OrchestratorApi.checkRecommendations()`,
 `DriverApi.checkRecommendations()`, and the standalone Orchestrator CLI.
 Mailer supplies canonical URLs; the existing URL workflow processes them together.
 The collection run ID starts with `recommendations-`; newly saved source jobs

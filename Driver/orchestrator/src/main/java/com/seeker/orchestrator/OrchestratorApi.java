@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -25,7 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 
 /** Top-level Java workflow entry point. */
-public final class WorkflowOrchestrator {
+public final class OrchestratorApi {
     private final BatchCollection batchCollection;
     private final LinkedInUrls linkedinUrls;
     private final ProcessingGateway processingGateway;
@@ -34,7 +35,7 @@ public final class WorkflowOrchestrator {
     private final int parallelAgents;
     private final int vacanciesPerAgent;
 
-    public WorkflowOrchestrator(Path projectRoot) throws IOException {
+    public OrchestratorApi(Path projectRoot) throws IOException {
         this(
                 new CollectorApi(projectRoot),
                 new JpyProcessingGateway(projectRoot),
@@ -44,7 +45,7 @@ public final class WorkflowOrchestrator {
         );
     }
 
-    private WorkflowOrchestrator(
+    private OrchestratorApi(
             CollectorApi collector,
             ProcessingGateway processingGateway,
             RecommendationSource recommendations,
@@ -61,14 +62,14 @@ public final class WorkflowOrchestrator {
                 });
     }
 
-    WorkflowOrchestrator(
+    OrchestratorApi(
             BatchCollection batchCollection,
             ProcessingGateway processingGateway
     ) {
         this(batchCollection, (urls, prefix, progress) -> batchCollection.collect("linkedin", null, progress), processingGateway);
     }
 
-    WorkflowOrchestrator(
+    OrchestratorApi(
             BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway
@@ -76,7 +77,7 @@ public final class WorkflowOrchestrator {
         this(batchCollection, linkedinUrls, processingGateway, ignored -> List.of());
     }
 
-    WorkflowOrchestrator(
+    OrchestratorApi(
             BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
@@ -85,7 +86,7 @@ public final class WorkflowOrchestrator {
         this(batchCollection, linkedinUrls, processingGateway, recommendations, 1, Integer.MAX_VALUE);
     }
 
-    WorkflowOrchestrator(
+    OrchestratorApi(
             BatchCollection batchCollection,
             LinkedInUrls linkedinUrls,
             ProcessingGateway processingGateway,
@@ -97,7 +98,7 @@ public final class WorkflowOrchestrator {
                 parallelAgents, vacanciesPerAgent, ignored -> { });
     }
 
-    WorkflowOrchestrator(BatchCollection batchCollection, LinkedInUrls linkedinUrls,
+    OrchestratorApi(BatchCollection batchCollection, LinkedInUrls linkedinUrls,
                          ProcessingGateway processingGateway, RecommendationSource recommendations,
                          int parallelAgents, int vacanciesPerAgent, Consumer<String> deduplicate) {
         this.deduplicate = Objects.requireNonNull(deduplicate);
@@ -282,13 +283,19 @@ public final class WorkflowOrchestrator {
                 collected == null ? "" : collected.message());
     }
 
+    public StageResult jobFacts(String runId, String source, String[] jobIds,
+                                Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
+        return jobFacts(runId, source, scopeFromIds(source, jobIds), progress);
+    }
+
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope) throws UsageLimitExceededException {
         return jobFacts(runId, source, scope, ignored -> { });
     }
 
     public StageResult jobFacts(String runId, String source, List<ScopeItem> scope,
                                 Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
-        if (!scope.isEmpty()) source = scopeSource(scope);
+        if (scope.isEmpty()) throw new IllegalArgumentException("job-facts scope is empty");
+        source = scopeSource(scope);
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
         run.scope(scope);
         run.identify(runId);
@@ -308,6 +315,11 @@ public final class WorkflowOrchestrator {
         }
     }
 
+    public StageResult finishAnalysis(String runId, String source, String[] jobIds,
+                                      Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
+        return finishAnalysis(runId, source, scopeFromIds(source, jobIds), progress);
+    }
+
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope)
             throws UsageLimitExceededException {
         return finishAnalysis(runId, source, scope, ignored -> { });
@@ -315,7 +327,8 @@ public final class WorkflowOrchestrator {
 
     public StageResult finishAnalysis(String runId, String source, List<ScopeItem> scope,
                                       Consumer<ProgressSnapshot> progress) throws UsageLimitExceededException {
-        if (!scope.isEmpty()) source = scopeSource(scope);
+        if (scope.isEmpty()) throw new IllegalArgumentException("finish-analysis scope is empty");
+        source = scopeSource(scope);
         WorkflowProgress.Run run = new WorkflowProgress.Run(progress);
         run.scope(scope);
         run.identify(runId);
@@ -333,6 +346,14 @@ public final class WorkflowOrchestrator {
             failBatch(runId, error);
             throw error;
         }
+    }
+
+    private static List<ScopeItem> scopeFromIds(String source, String[] jobIds) {
+        return Arrays.stream(jobIds)
+                .map(String::strip)
+                .filter(id -> !id.isEmpty())
+                .map(id -> new ScopeItem(source, id, ""))
+                .toList();
     }
 
     private void runJobFacts(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)

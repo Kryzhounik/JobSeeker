@@ -31,7 +31,7 @@ public final class Main {
                 Path.of(System.getProperty("seeker.projectRoot", "."))));
         return execute(args,
                 () -> com.seeker.collector.core.CollectorCli.execute(args),
-                com.seeker.orchestrator.Main::execute,
+                com.seeker.orchestrator.OrchestratorCli::execute,
                 rest -> CliRunner.run(applier, ApplierAdapter.arguments(rest)),
                 // Preserve chat-eval URL while using the same annotated command as the standalone CLI.
                 urls -> CliRunner.run(chatEvaluator,

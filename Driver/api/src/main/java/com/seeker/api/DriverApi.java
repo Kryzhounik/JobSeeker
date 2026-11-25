@@ -12,7 +12,7 @@ import com.seeker.collector.common.CollectionSettings;
 import com.seeker.collector.common.ScopeItem;
 import com.seeker.collector.linkedin.login.LoginResult;
 import com.seeker.orchestrator.StageResult;
-import com.seeker.orchestrator.WorkflowOrchestrator;
+import com.seeker.orchestrator.OrchestratorApi;
 import com.seeker.orchestrator.WorkflowResult;
 
 import java.io.IOException;
@@ -24,14 +24,14 @@ import java.util.function.Consumer;
 public final class DriverApi {
     private final Path projectRoot;
     private final CollectorApi collector;
-    private final WorkflowOrchestrator orchestrator;
+    private final OrchestratorApi orchestrator;
     private final ApplierApi applier;
     private final ChatEvaluatorApi chatEvaluator;
 
     public DriverApi(Path projectRoot) throws IOException {
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
         this.collector = new CollectorApi(this.projectRoot);
-        this.orchestrator = new WorkflowOrchestrator(this.projectRoot);
+        this.orchestrator = new OrchestratorApi(this.projectRoot);
         this.applier = new ApplierApi(this.projectRoot);
         this.chatEvaluator = new ChatEvaluatorApi(this.projectRoot);
     }

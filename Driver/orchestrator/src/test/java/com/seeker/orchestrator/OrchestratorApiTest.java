@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonNull;
 import com.seeker.collector.common.CollectionReport;
 import com.seeker.codex.UsageLimitExceededException;
@@ -28,13 +29,14 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class WorkflowOrchestratorTest {
+class OrchestratorApiTest {
+    private static final Gson GSON = new GsonBuilder().serializeNulls().create();
     @Test
     void deduplicatesOnceAfterCollectionBeforeFilteringForAllCollectionEntrypoints() throws Exception {
         for (String entry : List.of("batch", "urls", "recommendations")) {
             var gateway = new FakeProcessingGateway(List.of());
             var scope = List.of(item("1", "Java"), item("2", "Java"));
-            var workflow = new WorkflowOrchestrator(
+            var workflow = new OrchestratorApi(
                     (selection, settings, progress) -> { gateway.calls.add("collect"); return report("complete", scope); },
                     (urls, prefix, progress) -> { gateway.calls.add("collect"); return report("complete", scope); },
                     gateway, progress -> List.of("https://example.com/job"), 1, 10,
@@ -54,7 +56,7 @@ class WorkflowOrchestratorTest {
     void doesNotDeduplicateBlockedOrEmptyCollectionsButDoesResume() throws Exception {
         for (String status : List.of("blocked", "complete")) {
             var gateway = new FakeProcessingGateway(List.of());
-            var workflow = new WorkflowOrchestrator((selection, settings, progress) -> report(status, List.of()),
+            var workflow = new OrchestratorApi((selection, settings, progress) -> report(status, List.of()),
                     (urls, prefix, progress) -> report(status, List.of()), gateway, progress -> List.of(),
                     1, 10, id -> gateway.calls.add("dedup:" + id));
             workflow.processBatch("linkedin");
@@ -71,7 +73,7 @@ class WorkflowOrchestratorTest {
     void reportsWorkflowStagesCountsAndCurrentJobs() throws Exception {
         List<ProgressSnapshot> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of("2"));
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> report("complete", List.of(item("1", "Java"), item("2", "Marketing"),
                         item("3", "Backend"))), gateway);
 
@@ -117,7 +119,7 @@ class WorkflowOrchestratorTest {
         List<ProgressSnapshot> updates = new ArrayList<>();
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.factsFailure = new IllegalStateException("analysis failed");
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> report("complete", List.of(item("1", "Java"))), gateway);
 
         assertEquals(gateway.factsFailure, assertThrows(IllegalStateException.class,
@@ -143,7 +145,7 @@ class WorkflowOrchestratorTest {
                 )
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("2"));
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> collected,
                 filter
         );
@@ -170,7 +172,7 @@ class WorkflowOrchestratorTest {
         String url = "https://www.linkedin.com/jobs/view/1";
         List<String> requestedUrls = new ArrayList<>();
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> {
                     throw new AssertionError("collector must not be called");
                 },
@@ -205,7 +207,7 @@ class WorkflowOrchestratorTest {
                 Map.of("preview_filtered", 1), List.of(), "duplicate source_job_id"
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> rejected,
                 filter
         );
@@ -227,7 +229,7 @@ class WorkflowOrchestratorTest {
         );
         List<String> requestedUrls = new ArrayList<>();
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> {
                     throw new AssertionError("collector must not be called");
                 },
@@ -269,7 +271,7 @@ class WorkflowOrchestratorTest {
                 List.of(), "2: duplicate source_job_id"
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> collected,
                 filter
         );
@@ -294,7 +296,7 @@ class WorkflowOrchestratorTest {
     @Test
     void explainsAgentRejectionWithoutStartingLaterAnalysis() throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("1"));
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
         );
@@ -315,7 +317,7 @@ class WorkflowOrchestratorTest {
     void rejectsFilterIdsOutsideCollectedScopeBeforeUpdatingStatuses()
             throws Exception {
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of("outside"));
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> report("complete", List.of(item("1", "Java Developer"))),
                 filter
         );
@@ -339,7 +341,7 @@ class WorkflowOrchestratorTest {
                 List.of(item("1", "Java Developer"))
         );
         FakeProcessingGateway filter = new FakeProcessingGateway(List.of());
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> blocked,
                 filter
         );
@@ -355,7 +357,7 @@ class WorkflowOrchestratorTest {
     @Test
     void rejectsUnsupportedProcessSourceBeforeCallingCollector() {
         AtomicInteger invocations = new AtomicInteger();
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> {
                     invocations.incrementAndGet();
                     throw new AssertionError("collector must not be called");
@@ -374,7 +376,7 @@ class WorkflowOrchestratorTest {
     void refusesToResumeRunningBatchWithoutChangingItsState() {
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.batchStatuses.put("run-1", "running");
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("collector must not be called"); }, gateway);
 
         assertThrows(IllegalStateException.class, () -> workflow.resume("run-1"));
@@ -394,7 +396,7 @@ class WorkflowOrchestratorTest {
                 new JobKey("linkedin", "1"), "CLEANED", new JobKey("linkedin", "2"), "RELEVANT", new JobKey("linkedin", "3"), "ANALYZED",
                 new JobKey("linkedin", "4"), "SCORED", new JobKey("linkedin", "5"), "SAVED", new JobKey("linkedin", "6"), "NONRELEVANT"
         ));
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("collector must not be called"); }, filter
         );
 
@@ -413,7 +415,7 @@ class WorkflowOrchestratorTest {
         assertEquals(1, result.agentFilteredCount());
         assertEquals(4, result.savedCount());
         assertNull(result.collection());
-        assertEquals(JsonNull.INSTANCE, Main.GSON.toJsonTree(result).getAsJsonObject().get("collection"));
+        assertEquals(JsonNull.INSTANCE, GSON.toJsonTree(result).getAsJsonObject().get("collection"));
         int completedCalls = filter.calls.size();
 
         assertThrows(IllegalStateException.class, () -> orchestrator.resume("run-1"));
@@ -423,7 +425,7 @@ class WorkflowOrchestratorTest {
 
     @Test
     void serializesWorkflowContractWithoutChangingCollectorReport() throws Exception {
-        Gson gson = Main.GSON;
+        Gson gson = GSON;
         CollectionReport collected = new CollectionReport(
                 "linkedin", "run-1", "complete", 2,
                 List.of(item("1", "Java"), item("2", "Marketing")),
@@ -452,7 +454,7 @@ class WorkflowOrchestratorTest {
         FakeProcessingGateway processing = new FakeProcessingGateway(List.of());
         AtomicInteger collections = new AtomicInteger();
         AtomicInteger mailCalls = new AtomicInteger();
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("search must not be called"); },
                 (requested, prefix, progress) -> {
                     collections.incrementAndGet();
@@ -481,11 +483,11 @@ class WorkflowOrchestratorTest {
 
     @Test
     void emptyRecommendationsAndMailErrorsDoNotStartCollection() throws Exception {
-        WorkflowOrchestrator.BatchCollection search =
+        OrchestratorApi.BatchCollection search =
                 (selection, settings, progress) -> { throw new AssertionError("search must not be called"); };
-        WorkflowOrchestrator.LinkedInUrls urls =
+        OrchestratorApi.LinkedInUrls urls =
                 (requested, prefix, progress) -> { throw new AssertionError("URLs must not be collected"); };
-        WorkflowOrchestrator empty = new WorkflowOrchestrator(
+        OrchestratorApi empty = new OrchestratorApi(
                 search, urls, new FakeProcessingGateway(List.of()), progress -> {
                     progress.accept(new com.seeker.mailer.Mailer.RecommendationStats(3, 3, 0));
                     return List.of();
@@ -500,7 +502,7 @@ class WorkflowOrchestratorTest {
         assertNull(result.collection());
 
         IOException failure = new IOException("mail failed");
-        WorkflowOrchestrator failed = new WorkflowOrchestrator(
+        OrchestratorApi failed = new OrchestratorApi(
                 search, urls, new FakeProcessingGateway(List.of()), progress -> { throw failure; });
         assertEquals(failure, assertThrows(IOException.class, failed::checkRecommendations));
     }
@@ -508,12 +510,12 @@ class WorkflowOrchestratorTest {
     @Test
     void partialMethodsReturnTheirJsonContract() throws Exception {
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
-        WorkflowOrchestrator orchestrator = new WorkflowOrchestrator(
+        OrchestratorApi orchestrator = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("collector must not be called"); },
                 gateway
         );
         List<ScopeItem> scope = List.of(item("1", "Java"));
-        Gson gson = Main.GSON;
+        Gson gson = GSON;
         var expected = gson.fromJson("""
                 {"source":"linkedin","run_id":"run-1","status":"complete",
                  "processed_count":1,"saved_count":0,"message":"",
@@ -529,7 +531,7 @@ class WorkflowOrchestratorTest {
     @Test
     void reusedOrchestratorKeepsCollectionAndWorkflowHandlersLocalToEachCall() throws Exception {
         AtomicInteger runs = new AtomicInteger();
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator((selection, settings, progress) -> {
+        OrchestratorApi workflow = new OrchestratorApi((selection, settings, progress) -> {
             String runId = "run-" + runs.incrementAndGet();
             progress.accept(new CollectionProgress(runId, "processing", "Poland", "priority", 1, 25,
                     1, 100, Map.of("raw_saved", 1, "age_filtered", 2, "processing_failed", 1), "collecting"));
@@ -573,7 +575,7 @@ class WorkflowOrchestratorTest {
                     "Quota exhausted", Instant.parse("2026-10-22T12:20:00Z"));
             gateway.usageLimit = limit;
             gateway.limitStage = stage;
-            WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+            OrchestratorApi workflow = new OrchestratorApi(
                     (selection, settings, progress) -> report("complete", List.of(item("1", "Java"))), gateway);
             List<ProgressSnapshot> updates = new ArrayList<>();
 
@@ -600,7 +602,7 @@ class WorkflowOrchestratorTest {
     void savedStatisticsUseConfirmedWritesRatherThanScopeSize() throws Exception {
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.confirmedSaved = 1;
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> report("complete", List.of(item("1", "Java"), item("2", "Java"))), gateway);
         List<ProgressSnapshot> updates = new ArrayList<>();
 
@@ -647,7 +649,7 @@ class WorkflowOrchestratorTest {
                 }
             }
         };
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("No collection expected"); },
                 (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
                 gateway, ignored -> List.of(), 3, 2);
@@ -679,7 +681,7 @@ class WorkflowOrchestratorTest {
     void failedGroupDoesNotStartItsNextVacancyOrQueuedGroups() {
         FakeProcessingGateway gateway = new FakeProcessingGateway(List.of());
         gateway.factsFailure = new IllegalStateException("failed first turn");
-        WorkflowOrchestrator workflow = new WorkflowOrchestrator(
+        OrchestratorApi workflow = new OrchestratorApi(
                 (selection, settings, progress) -> { throw new AssertionError("No collection expected"); },
                 (urls, prefix, progress) -> { throw new AssertionError("No collection expected"); },
                 gateway, ignored -> List.of(), 1, 2);
@@ -718,7 +720,7 @@ class WorkflowOrchestratorTest {
         var justjoin = new ScopeItem("justjoin", "123", "Marketing");
         gateway.recoveredScope = List.of(linkedin, justjoin);
         gateway.rejectedJobs = List.of(JobKey.of(justjoin));
-        var workflow = new WorkflowOrchestrator((selection, settings, progress) -> { throw new AssertionError("No collection on resume"); }, gateway);
+        var workflow = new OrchestratorApi((selection, settings, progress) -> { throw new AssertionError("No collection on resume"); }, gateway);
         var result = workflow.resume("mixed-run");
         assertEquals("mixed", result.source());
         assertEquals(List.of(linkedin), result.processedScope());
@@ -732,7 +734,7 @@ class WorkflowOrchestratorTest {
         var gateway = new FakeProcessingGateway(List.of());
         var scope = List.of(item("123", "Java"), new ScopeItem("justjoin", "123", "Java"));
         gateway.recoveredScope = scope;
-        var workflow = new WorkflowOrchestrator((selection, settings, progress) -> { throw new AssertionError("No collection on resume"); }, gateway);
+        var workflow = new OrchestratorApi((selection, settings, progress) -> { throw new AssertionError("No collection on resume"); }, gateway);
         var result = workflow.resume("mixed-run");
         var keys = scope.stream().map(JobKey::of).toList();
         assertEquals(scope, result.processedScope());
@@ -747,7 +749,7 @@ class WorkflowOrchestratorTest {
         var gateway = new FakeProcessingGateway(List.of());
         gateway.recoveredScope = List.of(item("123", "Java"));
         gateway.rejectedJobs = List.of(new JobKey("justjoin", "123"));
-        var workflow = new WorkflowOrchestrator((selection, settings, progress) -> { throw new AssertionError(); }, gateway);
+        var workflow = new OrchestratorApi((selection, settings, progress) -> { throw new AssertionError(); }, gateway);
         assertThrows(IllegalArgumentException.class, () -> workflow.resume("run"));
         assertTrue(gateway.markedIds.isEmpty());
         assertTrue(gateway.factsJobs.isEmpty());
@@ -764,7 +766,7 @@ class WorkflowOrchestratorTest {
             var collected = new CollectionReport(mode, "run-1", "complete", scope.size(), scope,
                     Map.of("raw_saved", scope.size()), List.of(), "", contributions);
             var deduplicated = new ArrayList<String>();
-            var workflow = new WorkflowOrchestrator((selection, settings, progress) -> {
+            var workflow = new OrchestratorApi((selection, settings, progress) -> {
                 assertNull(selection, "Default workflow delegates selection to the collector config");
                 assertNull(settings, "Default loading belongs to Collector");
                 collects.incrementAndGet(); return collected;
@@ -793,7 +795,7 @@ class WorkflowOrchestratorTest {
 
     @Test void explicitJustJoinSelectionIsPassedToTheCollector() throws Exception {
         var gateway = new FakeProcessingGateway(List.of());
-        var workflow = new WorkflowOrchestrator((selection, settings, progress) -> {
+        var workflow = new OrchestratorApi((selection, settings, progress) -> {
             assertEquals("justjoin", selection);
             assertNull(settings);
             return new CollectionReport("justjoin", "run", "complete", 1,
@@ -811,7 +813,7 @@ class WorkflowOrchestratorTest {
                         List.of("en"), List.of("senior"), "DESC", "published", 0));
         var seen = new ArrayList<com.seeker.collector.common.CollectionSettings>();
         var gateway = new FakeProcessingGateway(List.of());
-        var workflow = new WorkflowOrchestrator((selection, settings, progress) -> {
+        var workflow = new OrchestratorApi((selection, settings, progress) -> {
             assertNull(selection);
             seen.add(settings);
             var source = settings.sources().getFirst();

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.microsoft.playwright.Playwright;
 import com.seeker.api.DriverApi;
 import com.seeker.collector.linkedin.application.LinkedInApplication;
-import com.seeker.orchestrator.WorkflowOrchestrator;
+import com.seeker.orchestrator.OrchestratorApi;
 import javafx.fxml.FXMLLoader;
 import org.jpy.PyModule;
 
@@ -18,7 +18,7 @@ public final class FatJarSmoke {
         Path jarPath = source(SeekerLauncher.class);
         if (!Files.isRegularFile(jarPath)) throw new AssertionError("Run this check against the packaged GUI jar");
         for (Class<?> type : List.of(DriverApi.class, LinkedInApplication.class,
-                WorkflowOrchestrator.class, Playwright.class, FXMLLoader.class,
+                OrchestratorApi.class, Playwright.class, FXMLLoader.class,
                 PyModule.class, ObjectMapper.class)) {
             if (!Files.isSameFile(jarPath, source(type))) {
                 throw new AssertionError(type.getName() + " was loaded outside the fat GUI jar");
