@@ -14,6 +14,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.function.Consumer;
 import picocli.CommandLine;
+import org.jline.reader.EOFError;
+import org.jline.reader.Parser.ParseContext;
+import org.jline.reader.SyntaxError;
+import org.jline.reader.impl.DefaultParser;
 
 /** Shared picocli console runner, independent of module commands and DTOs. */
 public final class CliRunner {
@@ -43,23 +47,43 @@ public final class CliRunner {
     /** Reads text commands without closing the caller's streams or API. */
     public static int runSession(Object commands, BufferedReader input, PrintWriter stdout,
                                  PrintWriter stderr) throws IOException {
-        var sessionInput = new CliSessionInput(input);
+        var parser = new DefaultParser().quoteChars(new char[] {'"'}).eofOnUnclosedQuote(true);
         int exitCode = 0;
         stderr.println("Ready. Enter a command or stop.");
         stderr.flush();
         while (true) {
             String[] arguments;
             try {
-                arguments = sessionInput.readCommand();
-            } catch (IllegalArgumentException error) {
+                arguments = readCommand(input, parser);
+            } catch (IllegalArgumentException | SyntaxError error) {
                 stderr.println(error.getMessage());
                 stderr.flush();
                 exitCode = 2;
                 continue;
             }
             if (arguments == null) return exitCode;
+            if (arguments.length == 1 && arguments[0].equals("stop")) return exitCode;
             int commandCode = run(commands, stdout, stderr, arguments);
             if (commandCode != 0) exitCode = commandCode;
+        }
+    }
+
+    private static String[] readCommand(BufferedReader input, DefaultParser parser) throws IOException {
+        String line;
+        do {
+            line = input.readLine();
+            if (line == null) return null;
+        } while (line.isBlank());
+        var command = new StringBuilder(line);
+        while (true) {
+            try {
+                String text = command.toString().stripTrailing();
+                return parser.parse(text, text.length(), ParseContext.ACCEPT_LINE).words().toArray(String[]::new);
+            } catch (EOFError incomplete) {
+                line = input.readLine();
+                if (line == null) throw new IllegalArgumentException(incomplete.getMessage(), incomplete);
+                command.append('\n').append(line);
+            }
         }
     }
 

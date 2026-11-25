@@ -13,12 +13,12 @@ public final class EasyReasoningAdapter {
     }
 
     @Command(name = "generate")
-    public String generate(@Parameters(index = "0", arity = "1", paramLabel = "TEXT") String text) {
-        return api.generate(text);
+    public String generate(@Parameters(arity = "1..*", paramLabel = "TEXT") String[] parts) {
+        return api.generate(String.join(" ", parts));
     }
 
     @Command(name = "clean-vacancy")
-    public String cleanVacancy(@Parameters(index = "0", arity = "1", paramLabel = "TEXT") String text) {
-        return api.cleanVacancy(text);
+    public String cleanVacancy(@Parameters(arity = "1..*", paramLabel = "TEXT") String[] parts) {
+        return api.cleanVacancy(String.join(" ", parts));
     }
 }

@@ -195,7 +195,8 @@ stop
 
 The Java CLI explicitly reads and writes UTF-8; it does not depend on a launcher
 setting `file.encoding`. Scripts that pipe commands into it must also send UTF-8
-bytes. Double quotes around the prompt are optional. A quoted prompt can span
+bytes. Unquoted words are joined with single spaces; use double quotes to preserve
+spacing and tabs. A quoted prompt can span
 multiple input lines; finish it with the closing quote:
 
 ```text
@@ -203,8 +204,9 @@ generate "Первая строка
 Вторая строка"
 ```
 
-Inside double quotes, `\"` inserts a quote and `\\` inserts a backslash. Other
-backslashes are literal. Multiline input uses LF between lines.
+Use `\"` for a literal quote and `\\` for a literal backslash.
+Multiline input uses LF between lines. For text starting with `-`, put `--`
+before the text, for example `generate -- -some text`.
 
 The model's answer is printed as plain text to stdout, followed by a line ending.
 Requests are independent, without accumulating chat history. Readiness,

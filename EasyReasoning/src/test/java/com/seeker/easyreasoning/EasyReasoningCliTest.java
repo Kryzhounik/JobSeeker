@@ -164,11 +164,11 @@ class EasyReasoningCliTest {
         var server = server(requests, false, false);
         try {
             var output = run("""
-                    generate "Say \\"hello\\" at path C:\\Users\\user."
+                    generate "Say \\"hello\\" at path C:\\\\Users\\\\user."
                     generate "Unclosed
                     """);
             assertEquals("  Response\n" + System.lineSeparator(), output.text());
-            assertTrue(output.errors().contains("Unclosed quote"));
+            assertTrue(output.errors().contains("Missing closing quote"));
             assertEquals(2, output.exitCode());
             assertEquals(2, requests.size());
             assertEquals("Say \"hello\" at path C:\\Users\\user.",

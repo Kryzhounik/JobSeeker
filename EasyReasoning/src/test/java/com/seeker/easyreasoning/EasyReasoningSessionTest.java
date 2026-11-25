@@ -25,14 +25,16 @@ class EasyReasoningSessionTest {
 
         try (var api = new EasyReasoningApi(root)) {
             int stopExitCode = EasyReasoningCli.run(api,
-                    reader("clean-vacancy -starts with dash\n"
+                    reader("clean-vacancy -- -starts with dash\n"
                             + "clean-vacancy \"first line\nstop\nlast line\"\n"
+                            + "clean-vacancy alpha   beta\tgamma\n"
                             + "stop\nclean-vacancy ignored after stop\n"),
                     new PrintWriter(output), new PrintWriter(errors));
 
             assertEquals(0, stopExitCode);
             assertEquals("-starts with dash" + System.lineSeparator()
-                            + "first line\nstop\nlast line" + System.lineSeparator(),
+                            + "first line\nstop\nlast line" + System.lineSeparator()
+                            + "alpha beta gamma" + System.lineSeparator(),
                     output.toString());
 
             int eofExitCode = EasyReasoningCli.run(api,

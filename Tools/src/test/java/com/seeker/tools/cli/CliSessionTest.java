@@ -22,7 +22,7 @@ class CliSessionTest {
         var commands = new SessionCommands();
         var output = new Output();
         var input = reader("capture first body with spaces\n"
-                + "capture \"line one\nline two with \\\"quotes\\\" and C:\\Users\\sam\\job.txt\"\n"
+                + "capture \"line one\nline two with \\\"quotes\\\" and C:\\\\Users\\\\sam\\\\job.txt\"\n"
                 + "stop\n"
                 + "capture ignored\n");
 
@@ -135,7 +135,8 @@ class CliSessionTest {
         int captureCalls;
 
         @Command(name = "capture")
-        public String capture(@Parameters(index = "0", arity = "1") String text) {
+        public String capture(@Parameters(arity = "1..*") String[] parts) {
+            String text = String.join(" ", parts);
             captureCalls++;
             captured.add(text);
             return text;
