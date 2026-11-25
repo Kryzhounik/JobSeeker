@@ -7,27 +7,45 @@ on:
 
 permissions:
   contents: read
+  actions: read
   security-events: write
 
 jobs:
+  changes:
+    name: Check for new commits
+    runs-on: ubuntu-24.04
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! previous=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/code-quality.yml/runs?branch=master&status=completed&per_page=10" \
+            --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0].head_sha // ""'); then
+            echo "::warning::Could not read previous runs; running checks anyway."
+            previous=""
+          fi
+          if [[ "$previous" != "$GITHUB_SHA" ]]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
+
   code-quality:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Check recent commits
-        id: changes
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] ||
-             [ "$(git log -1 --format=%ct)" -gt "$(date -u -d '24 hours ago' +%s)" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/setup-java@v4
-        if: steps.changes.outputs.run == 'true'
         with:
           distribution: temurin
           java-version: '21'
@@ -35,12 +53,10 @@ jobs:
           cache-dependency-path: '**/pom.xml'
 
       - uses: actions/setup-python@v6
-        if: steps.changes.outputs.run == 'true'
         with:
           python-version: '3.12'
 
       - name: Initialize CodeQL
-        if: steps.changes.outputs.run == 'true'
         uses: github/codeql-action/init@v4
         with:
           languages: java-kotlin,python
@@ -50,13 +66,11 @@ jobs:
               - Driver/collector/deprecated_agent_collection
 
       - name: Compile Java (no tests)
-        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml -DskipTests -Dmaven.test.skip=true -Dtests.python.skip=true install
           mvn -B -ntp -f GUI/JavaFX/pom.xml -DskipTests -Dmaven.test.skip=true compile
 
       - name: PMD (Java quality)
-        if: steps.changes.outputs.run == 'true'
         uses: pmd/pmd-github-action@v2
         with:
           version: '7.29.0'
@@ -65,30 +79,26 @@ jobs:
           analyzeModifiedFilesOnly: false
 
       - name: CPD (Java duplication)
-        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
           mvn -B -ntp -f GUI/JavaFX/pom.xml org.apache.maven.plugins:maven-pmd-plugin:3.28.0:cpd
 
       - name: SpotBugs (Java bugs)
-        if: steps.changes.outputs.run == 'true'
         run: |
           mvn -B -ntp -f Driver/pom.xml -Dspotbugs.xmlOutput=true com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
           mvn -B -ntp -f GUI/JavaFX/pom.xml -Dspotbugs.xmlOutput=true com.github.spotbugs:spotbugs-maven-plugin:4.10.5.0:spotbugs
 
       - name: Ruff (Python quality)
-        if: steps.changes.outputs.run == 'true'
         shell: bash
         run: |
           python -m pip install --quiet ruff
           ruff check . --select E4,E7,E9,F,B,C4,SIM --extend-exclude Driver/collector/deprecated_agent_collection --output-format concise --exit-zero | tee ruff.txt
 
       - name: CodeQL analysis
-        if: steps.changes.outputs.run == 'true'
         uses: github/codeql-action/analyze@v4
 
       - name: Save reports
-        if: always() && steps.changes.outputs.run == 'true'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: code-quality-reports
