@@ -81,6 +81,7 @@ final class SemanticDuplicateBatch {
         private final Consumer<ProgressSnapshot> listener;
         private final Map<Key, List<VacancySnapshot>> samples = new HashMap<>();
         private final Set<Long> unresolved = new HashSet<>();
+        private final Set<Long> excluded = new HashSet<>();
         private long completed;
         private String lastPair = "";
 
@@ -102,6 +103,7 @@ final class SemanticDuplicateBatch {
 
         private void processVacancy(int index) {
             VacancySnapshot vacancy = vacancies.get(index);
+            if (excluded.contains(vacancy.id())) return;
             Key key = key(vacancy);
             if (key == null) {
                 if (!vacancy.checked()) save.accept(vacancy.id(), null);
@@ -116,11 +118,23 @@ final class SemanticDuplicateBatch {
         }
 
         private void compareVacancy(int index, VacancySnapshot vacancy, List<VacancySnapshot> group) {
+            if (group.isEmpty()) {
+                finishVacancy(vacancy, group, false);
+                return;
+            }
             boolean incomplete = false;
-            int count = group.size();
-            for (int pairIndex = 0; pairIndex < count; pairIndex++) {
+            int pairIndex = 0;
+            while (pairIndex < group.size()) {
                 VacancySnapshot sample = group.get(pairIndex);
-                Boolean duplicate = comparePair(sample, vacancy);
+                Boolean duplicate;
+                try { duplicate = comparePair(sample, vacancy); }
+                catch (RequestTooLargeException error) {
+                    excludeLonger(sample, vacancy, error);
+                    boolean vacancyExcluded = excluded.contains(vacancy.id());
+                    reportNextPosition(index, pairIndex, vacancyExcluded);
+                    if (vacancyExcluded) return;
+                    continue;
+                }
                 completed++;
                 if (Boolean.TRUE.equals(duplicate) && !unresolved.contains(sample.id())) {
                     save.accept(vacancy.id(), sample.id());
@@ -130,12 +144,26 @@ final class SemanticDuplicateBatch {
                     return;
                 }
                 incomplete |= duplicate == null || Boolean.TRUE.equals(duplicate);
-                boolean lastPair = pairIndex + 1 == count;
+                pairIndex++;
+                boolean lastPair = pairIndex == group.size();
                 if (lastPair) finishVacancy(vacancy, group, incomplete);
-                reportNextPosition(index, pairIndex + 1, lastPair);
+                reportNextPosition(index, pairIndex, lastPair);
+                if (lastPair) return;
             }
-            if (count == 0) finishVacancy(vacancy, group, false);
+            finishVacancy(vacancy, group, incomplete);
         }
+
+        private void excludeLonger(VacancySnapshot first, VacancySnapshot second, RequestTooLargeException error) {
+            VacancySnapshot removed = characters(first.text()) > characters(second.text()) ? first : second;
+            excluded.add(removed.id());
+            samples.values().forEach(group -> group.removeIf(item -> item.id() == removed.id()));
+            unresolved.remove(removed.id());
+            System.err.println("Semantic vacancy excluded: " + removed.source() + ":" + removed.jobId()
+                    + " reason=context_limit request_tokens=" + error.requestTokens()
+                    + " context_limit=" + error.contextLimit() + " response_tokens=" + error.responseTokens());
+        }
+
+        private int characters(String text) { return text.codePointCount(0, text.length()); }
 
         private void reportNextPosition(int vacancyIndex, int nextSample, boolean vacancyFinished) {
             if (vacancyFinished) {
@@ -149,6 +177,7 @@ final class SemanticDuplicateBatch {
             lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
             System.err.println("Semantic comparison started: " + lastPair);
             try { return compare.test(sample.text(), vacancy.text()); }
+            catch (RequestTooLargeException error) { throw error; }
             catch (RuntimeException error) {
                 System.err.println("Semantic comparison failed: " + lastPair + ": " + error);
                 return null;
@@ -169,7 +198,7 @@ final class SemanticDuplicateBatch {
             for (int index = nextVacancy; index < vacancies.size(); index++) {
                 VacancySnapshot vacancy = vacancies.get(index);
                 Key key = key(vacancy);
-                if (key == null) continue;
+                if (key == null || excluded.contains(vacancy.id())) continue;
                 long count = counts.getOrDefault(key, 0L);
                 if (!vacancy.checked()) remaining += count - (index == nextVacancy ? nextSample : 0);
                 if (!vacancy.checked() || vacancy.duplicateOf() == null) counts.put(key, count + 1);

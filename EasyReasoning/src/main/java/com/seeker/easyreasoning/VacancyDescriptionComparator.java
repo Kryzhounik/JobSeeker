@@ -26,7 +26,7 @@ final class VacancyDescriptionComparator {
         } catch (IOException failure) {
             throw new UncheckedIOException("Cannot read vacancy comparison prompt: " + promptFile, failure);
         }
-        String response = service.generate(instruction + "\n\nAD 1:\n" + firstText
+        String response = service.generateComparison(instruction + "\n\nAD 1:\n" + firstText
                 + "\n\nAD 2:\n" + secondText).strip();
         return switch (response) {
             case "NO SUBSTANTIVE DIFFERENCES" -> true;

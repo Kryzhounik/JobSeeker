@@ -108,6 +108,16 @@ choice; it does not by itself remove sequential processing or guarantee speed.
 
 ## Application and Inference
 
+Comparison tokenizers are installed resources associated with the exact selected
+model, not bundled application resources. The default cache is
+`<user.home>/.ollama/tokenizers/<model-directory>/tokenizer.json`, next to model
+storage. The model directory replaces `:` with `-` and `/` with `_` in the model
+tag. Switching the model selects its own tokenizer;
+there is no fallback to another model's file. Tokenizers load lazily for
+comparison only. Model installation includes downloading the corresponding
+tokenizer; inference does not download resources. Current comparison support is
+still limited to the standard Qwen2.5 chat template and supported tags.
+
 - Use plain Spring Context in the existing Java application, without Spring
   Boot. Spring constructs and wires the LLM components; this does not require
   changing existing business logic or migrating unrelated components.

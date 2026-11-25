@@ -32,6 +32,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>ai.djl.huggingface</groupId>
+            <artifactId>tokenizers</artifactId>
+            <version>0.36.0</version>
+        </dependency>
+        <dependency>
             <groupId>com.seeker</groupId>
             <artifactId>tools</artifactId>
         </dependency>

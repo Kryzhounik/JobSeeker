@@ -28,7 +28,10 @@ public class OllamaConfiguration {
         String model = environment.getProperty("spring.ai.ollama.chat.model",
                 easyReasoningProperties.getProperty("spring.ai.ollama.chat.model", "qwen2.5:7b"));
         Assert.hasText(model, "spring.ai.ollama.chat.model must not be blank");
-        return new OllamaSettings(baseUrl, model);
+        int context = Integer.parseInt(environment.getProperty("spring.ai.ollama.chat.options.num-ctx",
+                easyReasoningProperties.getProperty("spring.ai.ollama.chat.options.num-ctx", "4096")));
+        Assert.isTrue(context > 0, "Context limit must be positive");
+        return new OllamaSettings(baseUrl, model, context);
     }
 
     @Bean
@@ -40,7 +43,7 @@ public class OllamaConfiguration {
     public ChatModel chatModel(OllamaApi ollamaApi, OllamaSettings settings) {
         return OllamaChatModel.builder()
                 .ollamaApi(ollamaApi)
-                .options(OllamaChatOptions.builder().model(settings.model()).keepAlive("-1m").build())
+                .options(OllamaChatOptions.builder().model(settings.model()).numCtx(settings.contextLimit()).keepAlive("-1m").build())
                 .retryTemplate(new RetryTemplate(RetryPolicy.withMaxRetries(0)))
                 .modelManagementOptions(ModelManagementOptions.builder()
                         .pullModelStrategy(PullModelStrategy.NEVER).build())
@@ -48,10 +51,18 @@ public class OllamaConfiguration {
     }
 
     @Bean
-    public EasyReasoningService easyReasoningService(ChatModel chatModel, OllamaApi ollamaApi,
-                                                    OllamaSettings settings, Path projectRoot) {
-        return new OllamaService(chatModel, ollamaApi, new OllamaRuntime(settings.baseUrl(), projectRoot));
+    QwenRequestBudget qwenRequestBudget(OllamaSettings settings) {
+        Path base = Path.of(System.getProperty("user.home"), ".ollama", "tokenizers");
+        String modelDirectory = settings.model().replace(':', '-').replace('/', '_');
+        Path tokenizerFile = base.resolve(modelDirectory).resolve("tokenizer.json").toAbsolutePath().normalize();
+        return new QwenRequestBudget(settings.contextLimit(), tokenizerFile);
     }
 
-    record OllamaSettings(String baseUrl, String model) {}
+    @Bean
+    public EasyReasoningService easyReasoningService(ChatModel chatModel, OllamaApi ollamaApi,
+                                                    OllamaSettings settings, Path projectRoot, QwenRequestBudget budget) {
+        return new OllamaService(chatModel, ollamaApi, new OllamaRuntime(settings.baseUrl(), projectRoot), budget);
+    }
+
+    record OllamaSettings(String baseUrl, String model, int contextLimit) {}
 }

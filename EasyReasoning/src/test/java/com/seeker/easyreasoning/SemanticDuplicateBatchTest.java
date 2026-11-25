@@ -5,6 +5,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
 import java.io.*;
 import java.util.*;
+import com.seeker.tools.api.ProgressSnapshot;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SemanticDuplicateBatchTest {
@@ -94,6 +95,64 @@ class SemanticDuplicateBatchTest {
                 new VacancySnapshot(2, "linkedin", "two", 1L, "Java Engineer", "duplicate", true, 1L));
         SemanticDuplicateBatch.process(input, (a,b) -> { fail("Checked records must not be compared"); return false; },
                 (duplicate, original) -> fail("Checked records must not be persisted again"));
+    }
+
+    @Test void oversizedPairExcludesLongerByUnicodeCodePointsAndRecomputesProgress() {
+        var ascii = vacancy(1, "a".repeat(200));
+        var chinese = vacancy(2, "漢".repeat(50));
+        var later = vacancy(3, "later text");
+        List<String> comparisons = new ArrayList<>(), decisions = new ArrayList<>();
+        List<ProgressSnapshot> updates = new ArrayList<>();
+        var output = new ByteArrayOutputStream();
+        var previous = System.err;
+        try (var errors = new PrintStream(output)) {
+            System.setErr(errors);
+            SemanticDuplicateBatch.process(List.of(ascii, chinese, later), (first, second) -> {
+                comparisons.add(first + ":" + second);
+                if (first.equals(ascii.text()) && second.equals(chinese.text()))
+                    throw new RequestTooLargeException(3900, 4096, 256);
+                return false;
+            }, (duplicate, original) -> decisions.add(duplicate + ":" + original), "batch", updates::add);
+        } finally { System.setErr(previous); }
+
+        assertEquals(List.of(ascii.text() + ":" + chinese.text(), chinese.text() + ":" + later.text()), comparisons);
+        assertEquals(List.of("1:null", "2:null", "3:null"), decisions);
+        assertEquals(List.of("0 / 3", "0 / 1", "1 / 1", "1 / 1"),
+                updates.stream().map(update -> update.fields().get("Comparisons")).toList());
+        assertTrue(output.toString().contains("linkedin:job-1"));
+        assertTrue(output.toString().contains("request_tokens=3900 context_limit=4096 response_tokens=256"));
+        assertFalse(output.toString().contains(ascii.text()));
+        assertFalse(output.toString().contains(chinese.text()));
+    }
+
+    @Test void excludesLongerCurrentVacancyWithoutMarkingItAndContinuesLaterPair() {
+        var sample = vacancy(1, "short");
+        var longer = vacancy(2, "z".repeat(100));
+        var later = vacancy(3, "third");
+        List<String> comparisons = new ArrayList<>(), decisions = new ArrayList<>();
+        SemanticDuplicateBatch.process(List.of(sample, longer, later), (first, second) -> {
+            comparisons.add(first + ":" + second);
+            if (second.equals(longer.text())) throw new RequestTooLargeException(4000, 4096, 128);
+            return false;
+        }, (duplicate, original) -> decisions.add(duplicate + ":" + original));
+
+        assertEquals(List.of("short:" + "z".repeat(100), "short:third"), comparisons);
+        assertEquals(List.of("1:null", "3:null"), decisions);
+        assertFalse(decisions.stream().anyMatch(decision -> decision.startsWith("2:")));
+    }
+
+    @Test void contextExclusionDoesNotClearPreviouslyCheckedDecision() {
+        var savedSample = new VacancySnapshot(1, "linkedin", "saved", 1L,
+                "Java Engineer", "s".repeat(200), true, null);
+        var savedDuplicate = new VacancySnapshot(2, "linkedin", "linked", 1L,
+                "Java Engineer", "linked description", true, 1L);
+        var incoming = vacancy(3, "short");
+        List<String> writes = new ArrayList<>();
+        SemanticDuplicateBatch.process(List.of(savedSample, savedDuplicate, incoming), (first, second) -> {
+            throw new RequestTooLargeException(4000, 4096, 128);
+        }, (duplicate, original) -> writes.add(duplicate + ":" + original));
+
+        assertEquals(List.of("3:null"), writes);
     }
 
     @Test void retryRestoresSavedNonduplicateAsComparisonSample() {

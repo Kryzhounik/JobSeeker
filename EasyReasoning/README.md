@@ -242,11 +242,36 @@ installation only, start the backend manually:
 Start-Process .\.tools\ollama\ollama.exe -ArgumentList 'serve' -WindowStyle Hidden
 ```
 
-Install the test model once:
+Choose an Ollama model that suits the machine's available resources and install
+it once. `qwen2.5:7b` is a tested example, not a required size: it was sufficient
+in our deduplication experiments; the smaller models tried performed worse.
 
 ```powershell
-& .\.tools\ollama\ollama.exe pull qwen2.5:7b
+$model = 'qwen2.5:7b'
+$tokenizerRepo = 'Qwen/Qwen2.5-7B-Instruct'
+$tokenizers = Join-Path $env:USERPROFILE '.ollama/tokenizers'
+$modelDirectory = $model.Replace(':', '-').Replace('/', '_')
+$destination = Join-Path $tokenizers $modelDirectory
+New-Item -ItemType Directory -Force -Path $destination | Out-Null
+& .\.tools\ollama\ollama.exe pull $model
+if ($LASTEXITCODE -ne 0) { throw 'Model download failed' }
+Invoke-WebRequest "https://huggingface.co/$tokenizerRepo/resolve/main/tokenizer.json" -OutFile (Join-Path $destination 'tokenizer.json')
 ```
+
+Set `$model` to the chosen tag and `$tokenizerRepo` to its matching tokenizer
+repository, then set the same model tag in `spring.ai.ollama.chat.model` in
+`easy-reasoning.properties`. For example, `qwen2.5:3b` pairs with
+`Qwen/Qwen2.5-3B-Instruct`. Download the tokenizer when installing each model;
+neither weights nor tokenizer files belong in Git or the application JAR.
+
+Tokenizers are stored under `$HOME/.ollama/tokenizers`, alongside
+Ollama's model storage. Each model gets its own directory: colons in the tag
+become hyphens and slashes become underscores, followed by `tokenizer.json`.
+Changing the model tag changes the tokenizer file selected by EasyReasoning.
+Missing tokenizer files are reported when comparing, with no fallback or runtime
+download. Generic `generate`, disabled deduplication and unused APIs do not need
+a tokenizer. Comparison currently supports the standard Qwen2.5 tags and chat
+template; support for another model family requires its corresponding template.
 
 Model weights use Ollama's default user directory (`$HOME/.ollama/models`).
 The Java CLI's `stop` unloads the model and stops its own server process. The

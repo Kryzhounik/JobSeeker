@@ -2,9 +2,14 @@ package com.seeker.easyreasoning.llm;
 
 import com.seeker.easyreasoning.EasyReasoningConfiguration;
 import com.seeker.easyreasoning.EasyReasoningService;
+import com.seeker.easyreasoning.TestTokenizers;
 import com.sun.net.httpserver.HttpServer;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.api.parallel.ResourceLock;
+import org.junit.jupiter.api.parallel.Resources;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.retry.NonTransientAiException;
@@ -27,9 +32,22 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ResourceLock(Resources.SYSTEM_PROPERTIES)
 class OllamaConfigurationTest {
     @TempDir
     Path projectRoot;
+    private String originalUserHome;
+
+    @BeforeEach
+    void useTemporaryUserHome() {
+        originalUserHome = System.getProperty("user.home");
+        System.setProperty("user.home", projectRoot.toString());
+    }
+
+    @AfterEach
+    void restoreUserHome() {
+        System.setProperty("user.home", originalUserHome);
+    }
 
     @Test
     void wiresDefaultsWithoutOllama() {
@@ -125,6 +143,97 @@ class OllamaConfigurationTest {
     }
 
     @Test
+    void comparisonSendsExplicitMessagesAndConfiguredContextToFakeOllama() throws Exception {
+        AtomicReference<byte[]> requestBody = new AtomicReference<>();
+        AtomicInteger calls = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/version", exchange -> {
+            calls.incrementAndGet();
+            byte[] version = "{\"version\":\"test\"}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, version.length);
+            try (var output = exchange.getResponseBody()) { output.write(version); }
+        });
+        server.createContext("/api/chat", exchange -> {
+            calls.incrementAndGet();
+            byte[] body = exchange.getRequestBody().readAllBytes();
+            if (!new String(body, StandardCharsets.UTF_8).contains("\"keep_alive\":\"0\"")) requestBody.set(body);
+            byte[] response = "{\"model\":\"qwen2.5:7b\",\"message\":{\"role\":\"assistant\",\"content\":\"NO SUBSTANTIVE DIFFERENCES\"},\"done\":true}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) { output.write(response); }
+        });
+        server.start();
+        try {
+            installQwenTokenizer();
+            Files.createDirectories(projectRoot.resolve("EasyReasoning"));
+            Files.writeString(projectRoot.resolve("EasyReasoning/easy-reasoning.properties"), """
+                    spring.ai.ollama.base-url=http://127.0.0.1:%d
+                    spring.ai.ollama.chat.model=qwen2.5:7b
+                    spring.ai.ollama.chat.options.num-ctx=4096
+                    """.formatted(server.getAddress().getPort()));
+            try (var context = context(Map.of())) {
+                context.refresh();
+                assertEquals("NO SUBSTANTIVE DIFFERENCES",
+                        context.getBean(EasyReasoningService.class).generateComparison("AD 1: Java\nAD 2: Python"));
+            }
+            var request = JsonMapper.builder().build().readTree(requestBody.get());
+            assertEquals(2, request.path("messages").size());
+            assertEquals(QwenRequestBudget.SYSTEM, request.path("messages").get(0).path("content").asString());
+            assertEquals("AD 1: Java\nAD 2: Python", request.path("messages").get(1).path("content").asString());
+            assertEquals(4096, request.path("options").path("num_ctx").asInt());
+            assertTrue(request.path("options").path("num_predict").asInt() > 1);
+            assertEquals(3, calls.get());
+        } finally { server.stop(0); }
+    }
+
+    @Test
+    void oversizedComparisonIsRejectedBeforeOllamaReadinessOrChat() throws Exception {
+        AtomicInteger calls = new AtomicInteger();
+        var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/", exchange -> {
+            calls.incrementAndGet();
+            byte[] response = "{}".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, response.length);
+            try (var output = exchange.getResponseBody()) { output.write(response); }
+        });
+        server.start();
+        try {
+            installQwenTokenizer();
+            Files.createDirectories(projectRoot.resolve("EasyReasoning"));
+            Files.writeString(projectRoot.resolve("EasyReasoning/easy-reasoning.properties"), """
+                    spring.ai.ollama.base-url=http://127.0.0.1:%d
+                    spring.ai.ollama.chat.model=qwen2.5:7b
+                    spring.ai.ollama.chat.options.num-ctx=32
+                    """.formatted(server.getAddress().getPort()));
+            try (var context = context(Map.of())) {
+                context.refresh();
+                var service = context.getBean(EasyReasoningService.class);
+                assertThrows(com.seeker.easyreasoning.RequestTooLargeException.class,
+                        () -> service.generateComparison("漢".repeat(200)));
+            }
+            assertEquals(0, calls.get(), "Budget rejection must happen before version or chat requests");
+        } finally { server.stop(0); }
+    }
+
+    @Test
+    void configuredModelDoesNotFallBackToAnotherModelsTokenizer() throws Exception {
+        TestTokenizers.write(projectRoot.resolve(".ollama/tokenizers/qwen2.5-7b"));
+        Files.createDirectories(projectRoot.resolve("EasyReasoning"));
+        Files.writeString(projectRoot.resolve("EasyReasoning/easy-reasoning.properties"),
+                "spring.ai.ollama.chat.model=qwen2.5:3b\n");
+        Path expected = projectRoot.resolve(".ollama/tokenizers/qwen2.5-3b/tokenizer.json").toAbsolutePath().normalize();
+        try (var context = context(Map.of())) {
+            context.refresh();
+            var service = context.getBean(EasyReasoningService.class);
+            var error = assertThrows(java.io.UncheckedIOException.class,
+                    () -> service.generateComparison("prompt"));
+            assertTrue(error.getMessage().contains(expected.toString()));
+            service.close();
+        }
+    }
+
+    @Test
     void reportsUnavailableLocalServerWithoutExecutable() throws Exception {
         int port;
         try (var socket = new ServerSocket()) {
@@ -185,5 +294,9 @@ class OllamaConfigurationTest {
         context.registerBean(Path.class, () -> projectRoot);
         context.register(EasyReasoningConfiguration.class);
         return context;
+    }
+
+    private void installQwenTokenizer() throws Exception {
+        TestTokenizers.write(projectRoot.resolve(".ollama/tokenizers/qwen2.5-7b"));
     }
 }
