@@ -1,0 +1,11 @@
+# Cloudflare analytics token in archived article
+8a6599213800c58addd7f2dc6df062477839c8d3:docs/ideas/sources/luu-agentic-testing.html:generic-api-key:611
+
+# Java class name mistaken for LinkedIn client secret
+64edfa3df4170c29748312727a3fd62b3029a4c2:Driver/collector/java_linkedin/src/main/java/com/seeker/collector/linkedin/collection/LinkedInVacancyPreparer.java:linkedin-client-secret:12
+
+# JavaFX button ID mistaken for LinkedIn client ID
+e8b292af139ddad1785e9e7f42c1448858b4b6d3:GUI/JavaFX/src/test/java/com/seeker/guifx/FxmlSmoke.java:linkedin-client-id:82
+
+# LinkedIn HTML component identifiers in historical snapshot
+e8a91e4c527d452d4749dcb3a659f011b2ede852:Data/_ab_linkedin_moldova_20260821/browser/raw/linkedin/pages/4173050863.html:generic-api-key:1
