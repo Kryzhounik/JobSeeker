@@ -19,7 +19,11 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
             throw new IllegalArgumentException("Expected distinct sources: linkedin, justjoin");
     }
 
-    /** Ordered LinkedIn queries and locations sharing one accepted-vacancy limit. */
+    /**
+     * Ordered LinkedIn queries and locations sharing one accepted-vacancy limit.
+     * When includeRecommendations is true, batch first collects Mailer links without a cap;
+     * their accepted count then reduces the remaining search budget.
+     */
     public record LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
                            List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
                            String datePosted, String sort, int limit, boolean includeRecommendations) {

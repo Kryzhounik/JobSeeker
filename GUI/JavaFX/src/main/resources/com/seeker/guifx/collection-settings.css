@@ -1,3 +1,7 @@
 .collection-source-pane > .title {
-    -fx-padding: 5 8 5 34;
+    -fx-padding: 5 120 5 34;
+}
+
+.collection-source-limit .text-field {
+    -fx-padding: 0 4;
 }

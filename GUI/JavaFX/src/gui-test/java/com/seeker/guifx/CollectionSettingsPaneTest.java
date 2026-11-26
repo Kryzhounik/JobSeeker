@@ -56,14 +56,24 @@ class CollectionSettingsPaneTest {
                 assertNotNull(arrow);
                 assertTrue(source.localToScene(source.getBoundsInLocal()).getMaxX()
                         < arrow.localToScene(arrow.getBoundsInLocal()).getMinX());
+                var limit = field(editor, "li-limit");
+                assertSame(section, limit.getParent().getParent());
+                assertEquals("10", limit.getText());
                 source.fire();
                 assertTrue(sourcePane.isExpanded());
                 assertTrue(sourcePane.getContent().isDisabled());
+                assertTrue(limit.isDisabled());
                 sourcePane.setExpanded(false);
                 assertFalse(source.isSelected());
+                assertTrue(limit.isVisible());
                 source.fire();
                 assertFalse(sourcePane.isExpanded());
                 assertFalse(sourcePane.getContent().isDisabled());
+                assertFalse(limit.isDisabled());
+                limit.setText("11");
+                assertEquals(11, editor.settings().linkedin().limit());
+                assertFalse(sourcePane.isExpanded());
+                limit.setText("10");
                 sourcePane.setExpanded(true);
                 assertEquals(saved, editor.settings());
                 ListView<String> queries = list(editor, "li-keywords");

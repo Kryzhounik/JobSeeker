@@ -134,6 +134,19 @@ class CollectionSettingsTest {
         assertEquals(multi, CollectionSettingsLoader.loadForEditing(root).linkedin());
     }
 
+    @Test void recommendationsPreferenceDefaultsFalseAndRoundTripsWhenEnabled() throws Exception {
+        assertFalse(linkedin(4).includeRecommendations());
+        assertFalse(CollectionSettingsLoader.load(ProjectPaths.fromProjectRoot(root), "linkedin")
+                .linkedin().includeRecommendations());
+
+        var enabled = new CollectionSettings.LinkedIn(List.of("Java"), List.of("Poland"), List.of(), List.of(),
+                List.of(), List.of(), "week", "", 4, true);
+        CollectionSettingsLoader.save(root, new CollectionSettings(List.of("linkedin"), enabled, null));
+
+        assertTrue(CollectionSettingsLoader.load(ProjectPaths.fromProjectRoot(root), "linkedin")
+                .linkedin().includeRecommendations());
+    }
+
     @Test void explicitRunsStayIndependentAndNextDefaultRunReadsChangedPreferences() throws Exception {
         var api = new CollectorApi(root);
         var first = new CollectionSettings(List.of("linkedin", "justjoin"), linkedin(5), justjoin(0));
@@ -158,7 +171,9 @@ class CollectionSettingsTest {
     }
 
     @Test void explicitSnapshotIgnoresBrokenPersonalFilesAndKeepsTechnicalSettings() throws Exception {
-        var snapshot = new CollectionSettings(List.of("linkedin", "justjoin"), linkedin(6), justjoin(0));
+        var selectedLinkedIn = new CollectionSettings.LinkedIn(List.of("Java override"), List.of("Ukraine:102264497"),
+                List.of("senior"), List.of("remote"), List.of("remote"), List.of("contract"), "week", "", 6, true);
+        var snapshot = new CollectionSettings(List.of("linkedin", "justjoin"), selectedLinkedIn, justjoin(0));
         Files.writeString(linkedinFile, "keywords=wrong\nlimit=invalid\ndelaySeconds=999\n");
         Files.writeString(justjoinFile, "mainTech=wrong\nlimit=invalid\nitemsCount=999\n");
         var before = configContents();
@@ -166,6 +181,7 @@ class CollectionSettingsTest {
         var linkedin = CollectorConfig.load(paths.configPath(), snapshot.linkedin());
         var justjoin = JustJoinConfig.load(root, snapshot.justjoin());
         assertSame(snapshot.linkedin(), linkedin.search());
+        assertTrue(linkedin.search().includeRecommendations());
         assertSame(snapshot.justjoin(), justjoin.search());
         assertEquals(7, linkedin.delaySeconds());
         assertEquals(40, linkedin.pageTimeoutSeconds());

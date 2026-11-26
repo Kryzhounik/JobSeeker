@@ -17,6 +17,7 @@ public final class LinkedInSource implements CollectorSource {
     private final String runId;
     private final Consumer<ProgressSnapshot> progress;
     private LinkedInCollector collector;
+    private CollectionSink sink;
 
     public LinkedInSource(ProjectPaths paths, CollectorConfig config, String runId,
                           Consumer<ProgressSnapshot> progress) {
@@ -44,6 +45,7 @@ public final class LinkedInSource implements CollectorSource {
     }
 
     private SourceResult collect(List<String> urls, VacancyProcessor processor, CollectionSink sink) throws IOException {
+        this.sink = sink;
         Integer count = urls == null ? null : urls.size();
         progress.accept(startingSnapshot("starting_browser", count));
         BrowserSettings settings = new BrowserSettings(config.browserChannel(), false,
@@ -62,8 +64,9 @@ public final class LinkedInSource implements CollectorSource {
     }
 
     @Override public ProgressSnapshot startingSnapshot(String action, Integer urlCount) {
-        return urlCount == null ? CollectionProgress.starting(runId, action, config.search().limit())
-                : CollectionProgress.startingUrls(runId, action, urlCount);
+        return new CollectionProgress(runId, action, "", "", 0, 0,
+                sink == null ? 0 : sink.acceptedCount(), urlCount == null ? config.search().limit() : 0,
+                sink == null ? java.util.Map.of() : sink.outcomes(), "", urlCount);
     }
 
     @Override public ProgressSnapshot snapshot(String status, String message) {

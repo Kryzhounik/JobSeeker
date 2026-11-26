@@ -57,8 +57,12 @@ public record WorkflowProgress(String runId, String stage, String action, String
         }
 
         void collection(ProgressSnapshot update) {
-            collected = true;
             identify(update.runId());
+            if (update.stage().equals("Email recommendations")) {
+                listener.accept(update);
+                return;
+            }
+            collected = true;
             stage = update.stage();
             action = update.action();
             details = update.details();

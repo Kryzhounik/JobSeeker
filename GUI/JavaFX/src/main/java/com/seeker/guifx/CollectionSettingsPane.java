@@ -34,7 +34,7 @@ final class CollectionSettingsPane extends VBox {
         if (li == null) {
             linkedin.setDisable(true);
             getChildren().add(sourcePane(linkedin, "LinkedIn", new Label(
-                    "LinkedIn configuration is missing or invalid. Fix its properties file to enable it.")));
+                    "LinkedIn configuration is missing or invalid. Fix its properties file to enable it."), null));
         } else {
         GridPane l = grid();
         queries.setId("li-keywords");
@@ -83,15 +83,15 @@ final class CollectionSettingsPane extends VBox {
         add(l, "li.workplace", "Country workplace", join(li.workplace()), "remote,hybrid,office");
         add(l, "li.types", "Job types", join(li.jobTypes()), "full_time,part_time,contract");
         add(l, "li.date", "Posted within", li.datePosted(), "day, week, month, or empty");
-        add(l, "li.limit", "Accepted limit", "" + li.limit(), "Positive integer");
+        var liLimit = field("li.limit", "" + li.limit(), "Positive integer");
         l.disableProperty().bind(linkedin.selectedProperty().not());
-        getChildren().add(sourcePane(linkedin, "LinkedIn", l));
+        getChildren().add(sourcePane(linkedin, "LinkedIn", l, liLimit));
         }
         var jj = settings.justjoin();
         if (jj == null) {
             justjoin.setDisable(true);
             getChildren().add(sourcePane(justjoin, "JustJoinIT", new Label(
-                    "JustJoinIT configuration is missing or invalid. Fix its properties file to enable it.")));
+                    "JustJoinIT configuration is missing or invalid. Fix its properties file to enable it."), null));
         } else {
         GridPane j = grid();
         add(j, "jj.tech", "Technology category", jj.mainTech(), "java");
@@ -101,9 +101,9 @@ final class CollectionSettingsPane extends VBox {
         add(j, "jj.experience", "Experience levels", join(jj.experienceLevels()), "junior,mid,senior");
         add(j, "jj.order", "Order", jj.orderBy(), "ASC or DESC");
         add(j, "jj.sort", "Sort by", jj.sortBy(), "published");
-        add(j, "jj.limit", "Accepted limit", "" + jj.limit(), "0: unlimited");
+        var jjLimit = field("jj.limit", "" + jj.limit(), "0: unlimited");
         j.disableProperty().bind(justjoin.selectedProperty().not());
-        getChildren().add(sourcePane(justjoin, "JustJoinIT", j));
+        getChildren().add(sourcePane(justjoin, "JustJoinIT", j, jjLimit));
         }
     }
 
@@ -116,7 +116,8 @@ final class CollectionSettingsPane extends VBox {
         var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(
                 queries.getItems().stream().map(String::strip).filter(value -> !value.isEmpty()).toList(),
                 list("li.locations"), list("li.experience"), list("li.remote"), list("li.workplace"),
-                list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"))
+                list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"),
+                initial.linkedin().includeRecommendations())
                 : initial.linkedin();
         var jj = justjoin.isSelected() ? new CollectionSettings.JustJoin(value("jj.tech"), value("jj.location"),
                 value("jj.days"), list("jj.languages"), list("jj.experience"), value("jj.order"),
@@ -124,7 +125,7 @@ final class CollectionSettingsPane extends VBox {
         return new CollectionSettings(sources, li, jj);
     }
 
-    private static StackPane sourcePane(CheckBox source, String title, Node content) {
+    private static StackPane sourcePane(CheckBox source, String title, Node content, TextField limit) {
         var pane = new TitledPane(title, content);
         pane.getStyleClass().add("collection-source-pane");
         source.setAccessibleText(title);
@@ -133,6 +134,19 @@ final class CollectionSettingsPane extends VBox {
         var section = new StackPane(pane, source);
         StackPane.setAlignment(source, Pos.TOP_LEFT);
         StackPane.setMargin(source, new Insets(5, 0, 0, 8));
+        if (limit == null) return section;
+        limit.setPrefColumnCount(4);
+        limit.setAccessibleText(title + " accepted limit");
+        limit.disableProperty().bind(source.selectedProperty().not());
+        var label = new Label("Limit:");
+        label.setLabelFor(limit);
+        var limitControl = new HBox(6, label, limit);
+        limitControl.setAlignment(Pos.CENTER_LEFT);
+        limitControl.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        limitControl.getStyleClass().add("collection-source-limit");
+        section.getChildren().add(limitControl);
+        StackPane.setAlignment(limitControl, Pos.TOP_RIGHT);
+        StackPane.setMargin(limitControl, new Insets(3, 8, 0, 0));
         return section;
     }
 
@@ -166,9 +180,12 @@ final class CollectionSettingsPane extends VBox {
         return grid;
     }
     private void add(GridPane grid, String key, String label, String value, String hint) {
+        grid.addRow(grid.getRowCount(), new Label(label), field(key, value, hint));
+    }
+    private TextField field(String key, String value, String hint) {
         var field = new TextField(value);
         field.setId(key.replace('.', '-')); field.setPromptText(hint); field.setTooltip(new Tooltip(hint));
         fields.put(key, field);
-        grid.addRow(grid.getRowCount(), new Label(label), field);
+        return field;
     }
 }

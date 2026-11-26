@@ -29,4 +29,13 @@ final class BatchProgress {
         listener.accept(new ImmutableProgressSnapshot(snapshot.runId(), snapshot.stage(), snapshot.action(),
                 "Collection " + fields.get("Accepted total") + " (" + source + ")", fields, snapshot.details()));
     }
+
+    void email(String runId, com.seeker.mailer.Mailer.RecommendationStats stats) {
+        var fields = new LinkedHashMap<String, String>();
+        fields.put("Checked emails", Integer.toString(stats.checkedEmails()));
+        fields.put("Filtered emails", Integer.toString(stats.filteredEmails()));
+        fields.put("Unique vacancy URLs", Integer.toString(stats.uniqueUrls()));
+        listener.accept(new ImmutableProgressSnapshot(runId, "Email recommendations", "Reading emails",
+                "Email recommendations", fields, ""));
+    }
 }

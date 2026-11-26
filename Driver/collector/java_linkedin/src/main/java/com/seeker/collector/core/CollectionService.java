@@ -10,6 +10,7 @@ import com.seeker.collector.justjoin.JustJoinConfig;
 import com.seeker.collector.justjoin.JustJoinSource;
 import com.seeker.python.PythonRuntime;
 import com.seeker.tools.api.ProgressSnapshot;
+import com.seeker.mailer.Mailer;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
@@ -63,11 +64,18 @@ public final class CollectionService {
         batchProgress.emit(first.source(), first.startingSnapshot("starting", null));
         try (PythonGateway python = new JpyPythonGateway(paths, pythonRuntime)) {
             python.startRun(runId, Map.of("sources", names, "settings", configs));
-            return runBatch(sources, new VacancyProcessor(python), python, runId, batchProgress, settings);
+            return runBatch(sources, new VacancyProcessor(python), python, runId, batchProgress, settings,
+                    listener -> new Mailer(paths.driverRoot().getParent()).getRecommendationUrls(listener));
         }
     }
 
     record SourceRun(CollectorSource source, int limit, CollectionAccumulator sink) { }
+    private record CollectedSource(CollectionReport report, String stopReason) { }
+
+    @FunctionalInterface
+    interface Recommendations {
+        List<String> load(Consumer<Mailer.RecommendationStats> progress) throws IOException;
+    }
 
     static CollectionReport runBatch(List<SourceRun> sources, VacancyProcessor processor, PythonGateway python,
                                      String runId, BatchProgress progress) throws IOException {
@@ -76,39 +84,99 @@ public final class CollectionService {
 
     static CollectionReport runBatch(List<SourceRun> sources, VacancyProcessor processor, PythonGateway python,
                                      String runId, BatchProgress progress, CollectionSettings settings) throws IOException {
+        return runBatch(sources, processor, python, runId, progress, settings, null);
+    }
+
+    static CollectionReport runBatch(List<SourceRun> sources, VacancyProcessor processor, PythonGateway python,
+                                     String runId, BatchProgress progress, CollectionSettings settings,
+                                     Recommendations recommendations) throws IOException {
         var scope = new ArrayList<ScopeItem>();
-        var outcomes = new LinkedHashMap<String, Integer>();
-        var pages = new ArrayList<PageReport>();
-        var results = new ArrayList<SourceCollectionResult>();
-        var messages = new ArrayList<String>();
+        var reports = new LinkedHashMap<String, CollectedSource>();
         String sourceName = sources.size() == 1 ? sources.getFirst().source().source() : "mixed";
+        SourceResult result;
+        CollectionReport report;
         try {
-            SourceResult result = null;
-            for (var entry : sources) {
-                var source = entry.source();
-                progress.emit(source.source(), source.startingSnapshot("starting", null));
-                result = source.collectBatch(processor, entry.sink());
-                var report = entry.sink().report(source.source(), runId, result, source.pages());
-                scope.addAll(report.scope());
-                report.outcomes().forEach((key, count) -> outcomes.merge(key, count, Integer::sum));
-                pages.addAll(report.pages());
-                results.add(new SourceCollectionResult(source.source(), result.status(), entry.limit(),
-                        report.acceptedCount(), report.outcomes(), result.stopReason(), report.message()));
-                if (!report.message().isBlank()) messages.add((sources.size() == 1 ? "" : source.source() + ": ") + report.message());
-                progress.emit(source.source(), source.snapshot(result.status(), report.message().isBlank() ? result.stopReason() : report.message()));
-                if (!"complete".equals(result.status())) break;
-            }
-            var report = new CollectionReport(sourceName, runId, result.status(), scope.size(), scope, outcomes,
-                    pages, String.join("\n", messages), results, settings);
-            python.finishRun(runId, result.status(), sources.size() > 1 && "complete".equals(result.status())
-                    ? "sources_complete" : result.stopReason(), report.acceptedCount(), report.message());
-            return report;
+            result = collectRecommendations(sources, processor, runId, progress, settings,
+                    recommendations, reports, scope);
+            if (result == null || "complete".equals(result.status()))
+                result = collectSearches(sources, processor, runId, progress, reports, scope);
+            report = batchReport(sourceName, runId, result.status(), sources, reports, scope, settings);
         } catch (IOException | RuntimeException error) {
             python.finishRun(runId, "blocked", "java_exception",
                     sources.stream().mapToInt(entry -> entry.sink().acceptedCount()).sum(),
                     error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
             throw error;
         }
+        python.finishRun(runId, result.status(), sources.size() > 1 && "complete".equals(result.status())
+                ? "sources_complete" : result.stopReason(), report.acceptedCount(), report.message());
+        return report;
+    }
+
+    private static SourceResult collectRecommendations(List<SourceRun> sources, VacancyProcessor processor,
+            String runId, BatchProgress progress, CollectionSettings settings, Recommendations recommendations,
+            Map<String, CollectedSource> reports, List<ScopeItem> scope) throws IOException {
+        if (settings == null || !settings.sources().contains("linkedin")
+                || !settings.linkedin().includeRecommendations()) return null;
+        progress.email(runId, new Mailer.RecommendationStats(0, 0, 0));
+        List<String> urls = recommendations.load(stats -> progress.email(runId, stats));
+        if (urls.isEmpty()) return null;
+        var entry = sources.stream().filter(s -> s.source().source().equals("linkedin")).findFirst().orElseThrow();
+        progress.emit("linkedin", entry.source().startingSnapshot("starting", urls.size()));
+        SourceResult result = entry.source().collectUrls(urls, processor, entry.sink());
+        recordSource(entry, runId, result, reports, scope, progress);
+        return result;
+    }
+
+    private static SourceResult collectSearches(List<SourceRun> sources, VacancyProcessor processor,
+            String runId, BatchProgress progress, Map<String, CollectedSource> reports, List<ScopeItem> scope) throws IOException {
+        SourceResult result = null;
+        for (var entry : sources) {
+            if (entry.source().source().equals("linkedin") && entry.sink().acceptedCount() >= entry.limit()) {
+                result = new SourceResult("complete", "limit_reached", "");
+            } else {
+                progress.emit(entry.source().source(), entry.source().startingSnapshot("starting", null));
+                result = entry.source().collectBatch(processor, entry.sink());
+            }
+            recordSource(entry, runId, result, reports, scope, progress);
+            if (!"complete".equals(result.status())) break;
+        }
+        return result;
+    }
+
+    private static void recordSource(SourceRun entry, String runId, SourceResult result,
+            Map<String, CollectedSource> reports, List<ScopeItem> scope, BatchProgress progress) {
+        var source = entry.source();
+        var report = entry.sink().report(source.source(), runId, result, source.pages());
+        var previousState = reports.get(source.source());
+        var previous = previousState == null ? null : previousState.report();
+        scope.addAll(report.scope().subList(previous == null ? 0 : previous.acceptedCount(), report.acceptedCount()));
+        if (previous != null && !previous.message().isBlank() && !report.message().startsWith(previous.message())) {
+            String message = previous.message() + (report.message().isBlank() ? "" : "\n" + report.message());
+            report = new CollectionReport(report.source(), runId, report.status(), report.acceptedCount(),
+                    report.scope(), report.outcomes(), report.pages(), message);
+        }
+        reports.put(source.source(), new CollectedSource(report, result.stopReason()));
+        progress.emit(source.source(), source.snapshot(result.status(), report.message().isBlank() ? result.stopReason() : report.message()));
+    }
+
+    private static CollectionReport batchReport(String sourceName, String runId, String status, List<SourceRun> sources,
+            Map<String, CollectedSource> reports, List<ScopeItem> scope, CollectionSettings settings) {
+        var outcomes = new LinkedHashMap<String, Integer>();
+        var pages = new ArrayList<PageReport>();
+        var results = new ArrayList<SourceCollectionResult>();
+        var messages = new ArrayList<String>();
+        for (var entry : sources) {
+            var collected = reports.get(entry.source().source());
+            if (collected == null) continue;
+            var report = collected.report();
+            report.outcomes().forEach((key, count) -> outcomes.merge(key, count, Integer::sum));
+            pages.addAll(report.pages());
+            results.add(new SourceCollectionResult(report.source(), report.status(), entry.limit(),
+                    report.acceptedCount(), report.outcomes(), collected.stopReason(), report.message()));
+            if (!report.message().isBlank()) messages.add((sources.size() == 1 ? "" : report.source() + ": ") + report.message());
+        }
+        return new CollectionReport(sourceName, runId, status, scope.size(), scope, outcomes, pages,
+                String.join("\n", messages), results, settings);
     }
 
     public CollectionReport collectFromUrl(String runId, String url, Consumer<ProgressSnapshot> progress) throws IOException {
