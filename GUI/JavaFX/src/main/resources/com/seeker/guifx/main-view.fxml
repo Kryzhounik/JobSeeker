@@ -77,22 +77,22 @@
             <items>
                 <TableView fx:id="jobsTable">
                     <columns>
-                        <TableColumn fx:id="scoreColumn" text="Score" prefWidth="62.0" />
-                        <TableColumn fx:id="fitColumn" text="Fit" prefWidth="52.0" />
-                        <TableColumn fx:id="interestColumn" text="Interest" prefWidth="76.0" />
-                        <TableColumn fx:id="statusColumn" text="Status" prefWidth="82.0" />
-                        <TableColumn fx:id="remoteColumn" text="Remote" prefWidth="90.0" />
-                        <TableColumn fx:id="relocationColumn" text="Reloc" prefWidth="68.0" />
-                        <TableColumn fx:id="locationColumn" text="Location" prefWidth="145.0" />
-                        <TableColumn fx:id="companyColumn" text="Company" prefWidth="155.0" />
-                        <TableColumn fx:id="titleColumn" text="Title" prefWidth="280.0" />
-                        <TableColumn fx:id="roleColumn" text="Role" prefWidth="105.0" />
-                        <TableColumn fx:id="seniorityColumn" text="Seniority" prefWidth="90.0" />
-                        <TableColumn fx:id="languageColumn" text="Language" prefWidth="125.0" />
-                        <TableColumn fx:id="salaryColumn" text="Salary" prefWidth="145.0" />
-                        <TableColumn fx:id="addedColumn" text="Added" prefWidth="94.0" />
-                        <TableColumn fx:id="reasonCodeColumn" text="Reason code" prefWidth="115.0" />
-                        <TableColumn fx:id="reasonColumn" text="Reason" prefWidth="300.0" />
+                        <TableColumn fx:id="scoreColumn" id="scoreColumn" text="Score" prefWidth="62.0" />
+                        <TableColumn fx:id="fitColumn" id="fitColumn" text="Fit" prefWidth="52.0" />
+                        <TableColumn fx:id="interestColumn" id="interestColumn" text="Interest" prefWidth="76.0" />
+                        <TableColumn fx:id="statusColumn" id="statusColumn" text="Status" prefWidth="82.0" />
+                        <TableColumn fx:id="remoteColumn" id="remoteColumn" text="Remote" prefWidth="90.0" />
+                        <TableColumn fx:id="relocationColumn" id="relocationColumn" text="Reloc" prefWidth="68.0" />
+                        <TableColumn fx:id="locationColumn" id="locationColumn" text="Location" prefWidth="145.0" />
+                        <TableColumn fx:id="companyColumn" id="companyColumn" text="Company" prefWidth="155.0" />
+                        <TableColumn fx:id="titleColumn" id="titleColumn" text="Title" prefWidth="280.0" />
+                        <TableColumn fx:id="roleColumn" id="roleColumn" text="Role" prefWidth="105.0" />
+                        <TableColumn fx:id="seniorityColumn" id="seniorityColumn" text="Seniority" prefWidth="90.0" />
+                        <TableColumn fx:id="languageColumn" id="languageColumn" text="Language" prefWidth="125.0" />
+                        <TableColumn fx:id="salaryColumn" id="salaryColumn" text="Salary" prefWidth="145.0" />
+                        <TableColumn fx:id="addedColumn" id="addedColumn" text="Added" prefWidth="94.0" />
+                        <TableColumn fx:id="reasonCodeColumn" id="reasonCodeColumn" text="Reason code" prefWidth="115.0" />
+                        <TableColumn fx:id="reasonColumn" id="reasonColumn" text="Reason" prefWidth="300.0" />
                     </columns>
                 </TableView>
                 <VBox spacing="8.0" styleClass="detail-pane">
@@ -158,10 +158,10 @@
                                 <VBox fx:id="skillsPane" spacing="6.0" VBox.vgrow="ALWAYS">
                                     <TableView fx:id="skillsTable" VBox.vgrow="ALWAYS">
                                         <columns>
-                                            <TableColumn fx:id="technologyColumn" text="Technology" prefWidth="220.0" />
-                                            <TableColumn fx:id="requirementColumn" text="Req" prefWidth="70.0" />
-                                            <TableColumn fx:id="levelColumn" text="Level" prefWidth="130.0" />
-                                            <TableColumn fx:id="rawColumn" text="Raw" prefWidth="360.0" />
+                                            <TableColumn fx:id="technologyColumn" id="technologyColumn" text="Technology" prefWidth="220.0" />
+                                            <TableColumn fx:id="requirementColumn" id="requirementColumn" text="Req" prefWidth="70.0" />
+                                            <TableColumn fx:id="levelColumn" id="levelColumn" text="Level" prefWidth="130.0" />
+                                            <TableColumn fx:id="rawColumn" id="rawColumn" text="Raw" prefWidth="360.0" />
                                         </columns>
                                     </TableView>
                                     <Label text="Summary" styleClass="section-label" />

@@ -184,10 +184,10 @@ class CollectionSettingsPaneTest {
                 CollectionSettingsLoader.save(tempDir, reordered);
                 assertEquals(reordered, CollectionSettingsLoader.loadForEditing(tempDir));
 
-                var windows = new AuxiliaryWindows(null, ignored -> {}, new SettingsStore(Path.of("tmp/ui-settings-test")),
-                        ignored -> {}, ignored -> {}, tempDir);
+                var windowsSupport = new WindowSupport(new SettingsStore(tempDir));
+                var config = new ConfigController(null, windowsSupport, tempDir);
                 try {
-                    var tabs = windows.configContent(List.of(), saved);
+                    var tabs = config.configContent(List.of(), saved);
                     assertEquals(List.of("Filters", "Collection"), tabs.getTabs().stream().map(Tab::getText).toList());
                     tabs.getSelectionModel().select(1);
                     new Scene(tabs, 820, 760);
@@ -197,7 +197,7 @@ class CollectionSettingsPaneTest {
                     var preview = reopened.getDialogPane();
                     reopened.setDialogPane(new DialogPane());
                     snapshot(preview, "confirm-batch.png", 800, 750);
-                } finally { windows.shutdown(); }
+                } finally { windowsSupport.shutdown(); }
                 return null;
             });
             Platform.runLater(checks);

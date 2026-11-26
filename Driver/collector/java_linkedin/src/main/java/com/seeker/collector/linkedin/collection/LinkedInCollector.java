@@ -1,6 +1,9 @@
 package com.seeker.collector.linkedin.collection;
 
 import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
+import org.slf4j.event.Level;
 
 import com.seeker.collector.common.*;
 
@@ -63,13 +66,7 @@ final class LinkedInCollector {
                     break;
                 }
                 if (!target.collectsJobs()) {
-                    currentLocation = target.label();
-                    currentSearch = "seed";
-                    currentQuery = target.query();
-                    currentUrl = target.pageUrl(0);
-                    progress("opening_seed", "");
-                    log.info("LinkedIn seed: {}", target.label());
-                    browser.openSeed(target);
+                    openSeed(target);
                     continue;
                 }
                 collectTarget(target);
@@ -83,6 +80,16 @@ final class LinkedInCollector {
         } catch (RuntimeException error) {
             return finish("blocked", "collection_error", failureMessage(error));
         }
+    }
+
+    @LogInput(message = "LinkedIn seed", include = "#target.label")
+    private void openSeed(SearchPlan.Target target) {
+        currentLocation = target.label();
+        currentSearch = "seed";
+        currentQuery = target.query();
+        currentUrl = target.pageUrl(0);
+        progress("opening_seed", "");
+        browser.openSeed(target);
     }
 
     SourceResult runFromUrl(String url) {
@@ -276,6 +283,8 @@ final class LinkedInCollector {
         return preparer.process(preview, details.html(), details.easyApply(), processor);
     }
 
+    @LogOutput(message = "LinkedIn vacancy failed", level = Level.WARN,
+            include = {"jobId", "status", "reason"}, condition = "#result.status != 'not_processed_due_to_limit'")
     private ProcessResult logOutcome(Preview preview, String status, String reason) {
         try {
             processor.logOutcome(preview, status, reason);
@@ -285,10 +294,6 @@ final class LinkedInCollector {
                             + " for " + preview.jobId(),
                     error
             );
-        }
-        if (!"not_processed_due_to_limit".equals(status)) {
-            log.warn("LinkedIn vacancy failed: job_id={} status={} reason={}",
-                    preview.jobId(), status, reason);
         }
         return result(preview, status, reason);
     }

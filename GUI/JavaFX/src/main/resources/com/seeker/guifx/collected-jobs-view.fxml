@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1">
+    <top>
+        <HBox spacing="8">
+            <Button fx:id="refresh" text="Refresh"/>
+            <Button fx:id="open" text="Open"/>
+            <Label text="Stage"/>
+            <ComboBox fx:id="stageFilter"/>
+        </HBox>
+    </top>
+    <center><TableView fx:id="table"/></center>
+    <bottom><TextArea fx:id="text" editable="false" wrapText="true"/></bottom>
+</BorderPane>

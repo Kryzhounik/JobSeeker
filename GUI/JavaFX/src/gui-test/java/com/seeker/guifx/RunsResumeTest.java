@@ -20,7 +20,7 @@ class RunsResumeTest {
                 TableView<CollectionRunDto> table = new TableView<>();
                 SimpleBooleanProperty busy = new SimpleBooleanProperty();
                 List<String> calls = new ArrayList<>();
-                Button resume = AuxiliaryWindows.resumeButton(table, busy, row -> calls.add(row.runId()));
+                Button resume = RunsController.resumeButton(table, busy, row -> calls.add(row.runId()));
                 check(resume.isDisabled(), "Resume is available without a selection");
                 for (String status : List.of("running", "complete", "failed", "blocked")) {
                     CollectionRunDto row = new CollectionRunDto(status + "-run", "", "", status,

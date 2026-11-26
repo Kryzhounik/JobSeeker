@@ -94,7 +94,10 @@ class FxmlTest {
                 """, JobRecord.class);
         set(controller, "selectedJob", job);
         set(controller, "detailLoadedJobId", 123);
-        set(controller, "applyRunning", true);
+        var actionsField = MainController.class.getDeclaredField("jobActions");
+        actionsField.setAccessible(true);
+        Object actions = actionsField.get(controller);
+        set(actions, "applyRunning", true);
         var buttons = MainController.class.getDeclaredMethod("setOperationButtonsDisabled", boolean.class);
         buttons.setAccessible(true);
         buttons.invoke(controller, false);
@@ -112,13 +115,13 @@ class FxmlTest {
         detail.setAccessible(true);
         detail.invoke(controller, true);
         if (!apply.isDisabled()) throw new AssertionError("Detail refresh re-enabled active Apply");
-        set(controller, "applyRunning", false);
+        set(actions, "applyRunning", false);
         buttons.invoke(controller, true);
         if (apply.isDisabled()) throw new AssertionError("Unrelated operation disabled Apply");
     }
 
-    private static void set(MainController controller, String name, Object value) throws Exception {
-        var field = MainController.class.getDeclaredField(name);
+    private static void set(Object controller, String name, Object value) throws Exception {
+        var field = controller.getClass().getDeclaredField(name);
         field.setAccessible(true);
         field.set(controller, value);
     }

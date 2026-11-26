@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:id="content">
+    <top>
+        <HBox fx:id="toolbar" spacing="10">
+            <padding><Insets top="8" right="8" bottom="8" left="8"/></padding>
+            <Button fx:id="runsRefresh" text="Refresh"/>
+        </HBox>
+    </top>
+    <center>
+        <SplitPane orientation="VERTICAL" dividerPositions="0.82">
+            <TableView fx:id="runsTable" minHeight="100"/>
+            <TextArea fx:id="details" editable="false" wrapText="true" prefRowCount="4" minHeight="50"/>
+        </SplitPane>
+    </center>
+</BorderPane>

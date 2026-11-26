@@ -1,37 +1,23 @@
 package com.seeker.guifx;
 
-import com.seeker.collector.common.CollectionSettings;
-import com.seeker.collector.core.CollectionSettingsLoader;
-
 import com.seeker.api.DriverApi;
-import com.seeker.applier.ApplierRunner;
-import com.seeker.chatevaluator.GptEvaluation;
-import com.seeker.collector.common.CollectionReport;
-import com.seeker.orchestrator.WorkflowResult;
-import com.seeker.tools.api.ProgressSnapshot;
-import com.seeker.codex.UsageLimitExceededException;
 
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.concurrent.Task;
 import javafx.animation.PauseTransition;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
-import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Hyperlink;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
-import javafx.scene.control.TableCell;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
 import javafx.scene.control.Tooltip;
-import javafx.scene.control.SelectionMode;
-import javafx.scene.Cursor;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.control.SplitPane;
@@ -40,55 +26,31 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
-import java.awt.Desktop;
-import java.net.URI;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.ResolverStyle;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.ArrayList;
-import java.util.function.Consumer;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 public final class MainController {
-    private static final DateTimeFormatter DISPLAY_DATE = DateTimeFormatter.ofPattern("dd.MM.yyyy");
     private static final DateTimeFormatter FILTER_DATE = DateTimeFormatter
             .ofPattern("dd.MM.uuuu")
             .withResolverStyle(ResolverStyle.STRICT);
 
     @FXML private TableView<JobRecord> jobsTable;
-    @FXML private TableColumn<JobRecord, String> scoreColumn;
-    @FXML private TableColumn<JobRecord, String> fitColumn;
-    @FXML private TableColumn<JobRecord, String> interestColumn;
-    @FXML private TableColumn<JobRecord, String> statusColumn;
-    @FXML private TableColumn<JobRecord, String> remoteColumn;
-    @FXML private TableColumn<JobRecord, String> relocationColumn;
-    @FXML private TableColumn<JobRecord, String> locationColumn;
-    @FXML private TableColumn<JobRecord, String> companyColumn;
-    @FXML private TableColumn<JobRecord, String> titleColumn;
-    @FXML private TableColumn<JobRecord, String> roleColumn;
-    @FXML private TableColumn<JobRecord, String> seniorityColumn;
-    @FXML private TableColumn<JobRecord, String> languageColumn;
-    @FXML private TableColumn<JobRecord, String> salaryColumn;
-    @FXML private TableColumn<JobRecord, String> addedColumn;
-    @FXML private TableColumn<JobRecord, String> reasonCodeColumn;
-    @FXML private TableColumn<JobRecord, String> reasonColumn;
+    private JobsTableView jobTable;
 
     @FXML private Button refreshButton;
     @FXML private Button collectButton;
     @FXML private Button batchButton;
     @FXML private Button recommendationsButton;
-    private SnapshotProgressPane recommendationsProgress;
     @FXML private Button linkedinCheckButton;
     @FXML private Button refilterButton;
     @FXML private Button refilterDetailButton;
@@ -114,13 +76,6 @@ public final class MainController {
     @FXML private Button openButton;
     @FXML private Button applyButton;
     @FXML private Button letterButton;
-    private boolean letterRunning;
-    private GptEvaluationProgressPane letterProgress;
-    private final ExecutorService letterExecutor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "gui-cover-letter");
-        thread.setDaemon(true);
-        return thread;
-    });
     @FXML private Button chatEvalButton;
     @FXML private GridPane metadataGrid;
     @FXML private TableView<TechnologyRecord> skillsTable;
@@ -162,45 +117,14 @@ public final class MainController {
     private int detailLoadedJobId = -1;
     private final Map<String, CheckBox> statusChecks = new LinkedHashMap<>();
     private final CheckBox unavailableCheck = new CheckBox("Unavailable");
-    private final ThreadPoolExecutor operationExecutor = new ThreadPoolExecutor(
-            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
-                Thread thread = new Thread(runnable, "gui-long-operation");
-                thread.setDaemon(true);
-                return thread;
-            }
-    );
     private final PauseTransition settingsSaveDelay = new PauseTransition(Duration.millis(250));
     private boolean restoringWindowSettings = true;
     private boolean scoreSaveRunning;
-    private boolean operationRunning;
-    private boolean collectionRunning;
-    private boolean chatEvalRunning;
-    private Task<GptEvaluation.Result> chatEvalTask;
-    private GptEvaluationProgressPane chatEvalProgress;
-    private boolean applyRunning;
-    private Task<ApplierRunner.Result> applyTask;
-    private ApplyProgressPane applyProgress;
-    private final ExecutorService applyExecutor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "gui-application-preparation");
-        thread.setDaemon(true);
-        return thread;
-    });
-    private final ExecutorService chatEvalExecutor = Executors.newSingleThreadExecutor(runnable -> {
-        Thread thread = new Thread(runnable, "gui-gpt-evaluation");
-        thread.setDaemon(true);
-        return thread;
-    });
-    private SnapshotProgressPane collectorProgress;
-    private SnapshotProgressPane batchProgress;
-    private SnapshotProgressPane resumeProgress;
     private BackgroundProcessPane.Area backgroundProcesses;
-    private final ThreadPoolExecutor collectionExecutor = new ThreadPoolExecutor(
-            1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), runnable -> {
-                Thread thread = new Thread(runnable, "gui-collector");
-                thread.setDaemon(true);
-                return thread;
-            }
-    );
+    private BackgroundTasks tasks;
+    private WorkflowController workflows;
+    private JobActionsController jobActions;
+    private VacancyMaintenanceController maintenance;
     private List<String> availableStatuses = List.of();
     private Map<String, String> reasonCodeDescriptions = Map.of();
     private int focusAfterRefreshId = -1;
@@ -220,29 +144,32 @@ public final class MainController {
     @FXML
     private void initialize() {
         backgroundProcesses = new BackgroundProcessPane.Area(backgroundProcessLayer, backgroundProcessDocks);
-        configureColumns();
+        tasks = new BackgroundTasks(statusLabel::setText, () -> stage);
+        jobActions = new JobActionsController(
+                new JobActionsController.Controls(applyButton, chatEvalButton, letterButton),
+                backgroundProcesses, () -> selectedJob, () -> driverApi, statusLabel::setText);
+        tasks.runningProperty().addListener((obs, old, busy) -> setOperationButtonsDisabled(busy));
+        jobTable = new JobsTableView(jobsTable,
+                new JobsTableView.Actions(this::showCompanies, this::showApplications,
+                        this::filterFromDate, this::filterByReason, this::addTitleToBlacklist),
+                row -> duplicateParentIds.contains(row.jobId()), () -> reasonCodeDescriptions, this::saveJobSort);
+        configureSkills();
         configureSelection();
         sourceLink.setOnAction(event -> openSelectedSource());
         openButton.setOnAction(event -> openSelectedSource());
-        applyButton.setOnAction(event -> startApply());
-        letterButton.setOnAction(event -> startLetter());
-        chatEvalButton.setOnAction(event -> startChatEval());
+        applyButton.setOnAction(event -> jobActions.startApply());
+        letterButton.setOnAction(event -> jobActions.startLetter());
+        chatEvalButton.setOnAction(event -> jobActions.startChatEval());
         refreshButton.setOnAction(event -> refreshJobs());
-        collectButton.setOnAction(event -> startCollect());
-        batchButton.setOnAction(event -> startBatch());
+        collectButton.setOnAction(event -> { if (workflows != null) workflows.startCollect(); });
+        batchButton.setOnAction(event -> { if (workflows != null) workflows.startBatch(); });
         recommendationsButton.setOnAction(event -> {
-            if (collectionRunning || clientData == null) return;
-            if (recommendationsProgress == null) {
-                recommendationsProgress = new SnapshotProgressPane(backgroundProcesses, "Recommendations");
-            }
-            runWorkflow(recommendationsProgress, null, true);
+            if (workflows != null) workflows.startRecommendations();
         });
-        linkedinCheckButton.setOnAction(event -> startLinkedInCheck());
-        refilterButton.setOnAction(event -> startRefilter(false));
-        refilterDetailButton.setOnAction(event -> startRefilter(true));
-        blackTitlesButton.setOnAction(event -> runOperation("Opening Black titles...",
-                () -> { titleBlacklist.openInNotepad(); return null; },
-                ignored -> statusLabel.setText("Opened Black titles"), "Black titles failed"));
+        linkedinCheckButton.setOnAction(event -> maintenance.startLinkedInCheck());
+        refilterButton.setOnAction(event -> maintenance.startRefilter(false));
+        refilterDetailButton.setOnAction(event -> maintenance.startRefilter(true));
+        blackTitlesButton.setOnAction(event -> maintenance.openBlacklist());
         textToggle.setOnAction(event -> showText(textToggle.isSelected()));
         clearButton.setOnAction(event -> clearTextFilters());
         runsButton.setOnAction(event -> {
@@ -270,6 +197,10 @@ public final class MainController {
         setDetailEnabled(false);
         settingsStore = new SettingsStore(ClientData.findProjectRoot());
         titleBlacklist = new TitleBlacklist(ClientData.findProjectRoot());
+        maintenance = new VacancyMaintenanceController(() -> clientData, tasks, titleBlacklist,
+                settingsStore, () -> stage, this::refreshJobs,
+                () -> { if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen(); },
+                statusLabel::setText, this::openUrl);
         settingsSaveDelay.setOnFinished(event -> saveWindowSettings());
         mainSplit.getDividers().getFirst().positionProperty().addListener(
                 (observable, previous, current) -> scheduleWindowSettingsSave()
@@ -307,6 +238,10 @@ public final class MainController {
                     clientData, this::focusJobFromAuxiliary, settingsStore,
                     this::addTitleToBlacklist, this::startResume, collectionSettingsRoot
             );
+            workflows = new WorkflowController(driverApi, collectionSettingsRoot, backgroundProcesses, () -> stage,
+                    new WorkflowController.Controls(collectButton, batchButton, recommendationsButton, statusLabel),
+                    this::refreshJobs, auxiliaryWindows::refreshCollectedIfOpen, auxiliaryWindows::refreshRunsIfOpen);
+            workflows.runningProperty().addListener((obs, old, busy) -> auxiliaryWindows.setWorkflowRunning(busy));
             loadStatusFilters(connectionTask.getValue().statuses());
             availableStatuses = connectionTask.getValue().statuses();
             reasonCodeDescriptions = connectionTask.getValue().reasonCodeDescriptions();
@@ -314,8 +249,8 @@ public final class MainController {
             reasonHeader.setTooltip(new Tooltip(reasonCodeDescriptions.entrySet().stream()
                     .map(entry -> entry.getKey() + ": " + entry.getValue())
                     .collect(java.util.stream.Collectors.joining("\n"))));
-            reasonCodeColumn.setText("");
-            reasonCodeColumn.setGraphic(reasonHeader);
+            jobTable.column("reasonCode").setText("");
+            jobTable.column("reasonCode").setGraphic(reasonHeader);
             jobsTable.refresh();
             buildStatusActions();
             refreshJobs();
@@ -390,7 +325,7 @@ public final class MainController {
         List<Integer> jobIds = jobsTable.getSelectionModel().getSelectedItems().stream()
                 .map(JobRecord::jobId).distinct().toList();
         if (jobIds.isEmpty()) return;
-        runOperation("Saving status...", () -> clientData.setJobStatusByIds(
+        tasks.run("Saving status...", () -> clientData.setJobStatusByIds(
                 jobIds, status, LocalDate.now().toString()), result -> {
             int updated = result.updatedCount();
             int created = result.createdApplications();
@@ -405,383 +340,25 @@ public final class MainController {
 
     private void setOperationButtonsDisabled(boolean disabled) {
         runsButton.setDisable(clientData == null);
-        updateCollectionButtons();
-        linkedinCheckButton.setDisable(disabled || operationRunning);
-        refilterButton.setDisable(disabled || operationRunning);
-        refilterDetailButton.setDisable(disabled || operationRunning);
-        statusActions.setDisable(disabled || operationRunning);
-        updateApplyButton();
-        updateChatEvalButton();
-    }
-
-    private <T> void runOperation(
-            String initialMessage,
-            Callable<T> work,
-            Consumer<T> success,
-            String errorTitle
-    ) {
-        runTask(initialMessage, updater -> work.call(), success, errorTitle);
-    }
-
-    private <T> void runTask(
-            String initialMessage,
-            TaskWork<T> work,
-            Consumer<T> success,
-            String errorTitle
-    ) {
-        if (operationRunning) return;
-        operationRunning = true;
-        setOperationButtonsDisabled(true);
-        Task<T> task = new Task<>() {
-            @Override protected T call() throws Exception {
-                updateMessage(initialMessage);
-                return work.run(this::updateMessage);
-            }
-        };
-        task.messageProperty().addListener((obs, old, message) -> {
-            if (message != null && !message.isBlank()) statusLabel.setText(message);
-        });
-        task.setOnSucceeded(event -> {
-            operationRunning = false;
-            setOperationButtonsDisabled(false);
-            success.accept(task.getValue());
-        });
-        task.setOnFailed(event -> {
-            operationRunning = false;
-            setOperationButtonsDisabled(false);
-            String message = task.getException() == null ? "Unknown error"
-                    : String.valueOf(task.getException().getMessage());
-            statusLabel.setText(errorTitle);
-            Alert alert = new Alert(Alert.AlertType.ERROR, message);
-            alert.setTitle(errorTitle);
-            alert.initOwner(stage);
-            alert.show();
-        });
-        operationExecutor.execute(task);
-    }
-
-    private void startCollect() {
-        confirmCollection("Collect", this::collect);
-    }
-
-    private void confirmCollection(String operation, Consumer<CollectionSettings> confirmed) {
-        if (collectionRunning || clientData == null) return;
-        collectionRunning = true;
-        updateCollectionButtons();
-        Task<CollectionSettings> task = new Task<>() {
-            @Override protected CollectionSettings call() throws Exception {
-                return CollectionSettingsLoader.loadForEditing(ClientData.findProjectRoot());
-            }
-        };
-        task.setOnSucceeded(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            new CollectionSettingsDialog(stage, operation, task.getValue()).showAndWait().ifPresent(confirmed);
-        });
-        task.setOnFailed(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            var alert = new Alert(Alert.AlertType.ERROR, task.getException().getMessage());
-            alert.initOwner(stage); alert.setTitle("Collection settings load failed"); alert.show();
-        });
-        collectionExecutor.execute(task);
-    }
-
-    private void collect(CollectionSettings settings) {
-        if (collectionRunning) return;
-        collectionRunning = true;
-        updateCollectionButtons();
-        if (collectorProgress == null) {
-            collectorProgress = new SnapshotProgressPane(backgroundProcesses, "Collect");
+        if (workflows == null) {
+            collectButton.setDisable(true);
+            batchButton.setDisable(true);
+            recommendationsButton.setDisable(true);
         }
-        SnapshotProgressPane progressPane = collectorProgress;
-        progressPane.begin();
-        Task<CollectionReport> task = new Task<>() {
-            @Override protected CollectionReport call() throws Exception {
-                return driverApi.collectBatch(settings, progress -> Platform.runLater(() -> progressPane.update(progress)));
-            }
-        };
-        task.setOnSucceeded(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            progressPane.complete("complete".equals(task.getValue().status()));
-            refreshJobs();
-            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
-        });
-        task.setOnFailed(event -> {
-            collectionFailed(progressPane, task.getException(), "LinkedIn collector");
-            if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
-        });
-        collectionExecutor.execute(task);
-    }
-
-    private void updateCollectionButtons() {
-        boolean disabled = clientData == null || collectionRunning;
-        collectButton.setDisable(disabled);
-        batchButton.setDisable(disabled);
-        recommendationsButton.setDisable(disabled);
-        if (auxiliaryWindows != null) auxiliaryWindows.setWorkflowRunning(collectionRunning);
-    }
-
-    private void collectionFailed(SnapshotProgressPane progressPane, Throwable error, String title) {
-        collectionRunning = false;
-        updateCollectionButtons();
-        progressPane.fail(error);
-        statusLabel.setText(title + (error instanceof UsageLimitExceededException
-                ? " stopped: Codex usage limit" : " failed"));
-    }
-
-    private void startBatch() {
-        confirmCollection("Batch", settings -> {
-            if (batchProgress == null) batchProgress = new SnapshotProgressPane(backgroundProcesses, "Batch");
-            runWorkflow(batchProgress, null, false, settings);
-        });
-    }
-
-    private void startResume(CollectionRunDto run) {
-        if (collectionRunning || clientData == null || run == null) return;
-        if (resumeProgress == null) resumeProgress = new SnapshotProgressPane(backgroundProcesses, "Resume");
-        runWorkflow(resumeProgress, run.runId());
-    }
-
-    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId) {
-        runWorkflow(progressPane, resumeRunId, false);
-    }
-
-    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId, boolean recommendations) {
-        runWorkflow(progressPane, resumeRunId, recommendations, null);
-    }
-
-    private void runWorkflow(SnapshotProgressPane progressPane, String resumeRunId, boolean recommendations,
-                             CollectionSettings settings) {
-        collectionRunning = true;
-        updateCollectionButtons();
-        if (resumeRunId == null) progressPane.begin();
-        else progressPane.begin(resumeRunId);
-        Task<WorkflowResult> task = new Task<>() {
-            @Override protected WorkflowResult call() throws Exception {
-                Consumer<ProgressSnapshot> progress = update -> Platform.runLater(() -> progressPane.update(update));
-                if (recommendations) return driverApi.checkRecommendations(progress);
-                return resumeRunId == null ? driverApi.processBatch(settings, progress)
-                        : driverApi.resume(resumeRunId, progress);
-            }
-        };
-        task.setOnSucceeded(event -> {
-            collectionRunning = false;
-            updateCollectionButtons();
-            progressPane.complete("complete".equals(task.getValue().status()));
-            refreshJobs();
-            if (auxiliaryWindows != null) {
-                auxiliaryWindows.refreshCollectedIfOpen();
-                auxiliaryWindows.refreshRunsIfOpen();
-            }
-        });
-        task.setOnFailed(event -> {
-            collectionFailed(progressPane, task.getException(), recommendations ? "Recommendations"
-                    : resumeRunId == null ? "Batch" : "Resume");
-            refreshJobs();
-            if (auxiliaryWindows != null) {
-                auxiliaryWindows.refreshCollectedIfOpen();
-                auxiliaryWindows.refreshRunsIfOpen();
-            }
-        });
-        collectionExecutor.execute(task);
-    }
-
-    private void startLinkedInCheck() {
-        LinkedInAvailabilityChecker checker = new LinkedInAvailabilityChecker(
-                clientData, ClientData.findProjectRoot());
-        runTask("Loading LinkedIn candidates...", checker::run, summary -> {
-            statusLabel.setText(summary.message());
-            refreshJobs();
-            boolean stopped = !summary.error().isBlank();
-            Alert alert = new Alert(stopped ? Alert.AlertType.ERROR : Alert.AlertType.INFORMATION);
-            alert.setTitle(stopped ? "LinkedIn check stopped" : "LinkedIn check complete");
-            alert.setHeaderText(stopped ? summary.error() : "LinkedIn check complete");
-            alert.setContentText(summary.details());
-            alert.getDialogPane().setMinWidth(520);
-            alert.initOwner(stage);
-            alert.show();
-        }, "LinkedIn check failed");
-    }
-
-    private void startRefilter(boolean preview) {
-        if (preview) {
-            runOperation("Collecting Refilter candidates...", clientData::collectRefilterCandidates,
-                    this::showRefilterPreview, "Refilter failed");
-        } else {
-            runOperation("Running Refilter...", () -> {
-                List<RefilterCandidate> candidates = clientData.collectRefilterCandidates();
-                return clientData.applyRefilterCandidates(candidates);
-            }, count -> {
-                refreshJobs();
-                if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
-                statusLabel.setText("Refilter applied " + count + " transitions");
-            }, "Refilter failed");
-        }
-    }
-
-    private void addTitleToBlacklist(String value) {
-        if (operationRunning) {
-            statusLabel.setText("Finish the current operation first");
-            return;
-        }
-        runOperation("Updating title blacklist...", () -> titleBlacklist.add(value), added ->
-                statusLabel.setText(added ? "Added to title blacklist: " + value.strip()
-                        : "Already in title blacklist: " + value.strip()),
-                "Title blacklist failed");
-    }
-
-    private void showRefilterPreview(List<RefilterCandidate> candidates) {
-        List<RefilterRow> rows = new ArrayList<>();
-        candidates.forEach(candidate -> rows.add(new RefilterRow(candidate)));
-        TableView<RefilterRow> table = new TableView<>(FXCollections.observableArrayList(rows));
-        table.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-        FillLastColumnResizePolicy.install(table);
-        CheckBox all = new CheckBox("All");
-        all.setSelected(true);
-        Button confirm = new Button("Confirm selected");
-        confirm.setDisable(rows.isEmpty());
-        TableColumn<RefilterRow, Boolean> selected = new TableColumn<>("");
-        selected.setSortable(false);
-        selected.setCellValueFactory(cell -> cell.getValue().selected);
-        selected.setCellFactory(column -> new TableCell<>() {
-            private final CheckBox check = new CheckBox();
-            {
-                check.setOnAction(event -> {
-                    RefilterRow row = getTableRow().getItem();
-                    if (row != null) row.selected.set(check.isSelected());
-                });
-            }
-            @Override protected void updateItem(Boolean value, boolean empty) {
-                super.updateItem(value, empty);
-                setGraphic(empty || value == null ? null : check);
-                if (!empty && value != null) check.setSelected(value);
-            }
-        });
-        for (RefilterRow row : rows) {
-            row.selected.addListener((obs, old, value) -> {
-                all.setSelected(!rows.isEmpty() && rows.stream().allMatch(item -> item.selected.get()));
-                confirm.setDisable(rows.stream().noneMatch(item -> item.selected.get()));
-            });
-        }
-        all.setOnAction(event -> rows.forEach(row -> row.selected.set(all.isSelected())));
-        TableColumn<RefilterRow, String> sourceId = refilterColumn("Source ID", RefilterCandidate::sourceJobId);
-        selected.setPrefWidth(36);
-        sourceId.setPrefWidth(125);
-        TableColumn<RefilterRow, String> title = refilterColumn("Title", RefilterCandidate::title);
-        title.setPrefWidth(280);
-        title.setCellFactory(column -> new TableCell<>() {
-            private final TextField linkedText = linkedTextField();
-            { CellTextFieldWidth.fitToText(linkedText, this); }
-            @Override protected void updateItem(String value, boolean empty) {
-                super.updateItem(value, empty);
-                RefilterRow row = empty || getTableRow() == null ? null : getTableRow().getItem();
-                if (row == null) { setGraphic(null); return; }
-                linkedText.setText(value);
-                linkedText.setOnMouseClicked(event -> {
-                    if (isLinkClick(linkedText, event.getClickCount())) {
-                        openUrl(row.candidate.sourceUrl());
-                    }
-                });
-                setGraphic(linkedText);
-            }
-        });
-        TableColumn<RefilterRow, String> previous = refilterColumn("Previous", RefilterCandidate::previousStatus);
-        previous.setPrefWidth(105);
-        TableColumn<RefilterRow, String> action = refilterColumn("Action", RefilterCandidate::action);
-        action.setPrefWidth(105);
-        TableColumn<RefilterRow, String> fit = refilterColumn("Fit",
-                candidate -> candidate.fit() == null ? "" : candidate.fit().toString());
-        fit.setPrefWidth(60);
-        TableColumn<RefilterRow, String> original = refilterColumn("Original", RefilterCandidate::original);
-        original.setPrefWidth(440);
-        TableColumn<RefilterRow, String> matched = refilterColumn("Match", RefilterCandidate::matched);
-        matched.setPrefWidth(260);
-        for (TableColumn<RefilterRow, String> column : List.of(
-                sourceId, previous, action, fit)) {
-            CopyableTextCell.install(column);
-        }
-        CopyableTextCell.installExpandable(original);
-        CopyableTextCell.installExpandable(matched);
-        table.getColumns().setAll(selected, sourceId, title, previous, action, fit, original, matched);
-        Label count = new Label("Refilter candidates: " + rows.size());
-        Button cancel = new Button("Cancel");
-        Stage dialog = new Stage();
-        dialog.initOwner(stage);
-        dialog.initModality(javafx.stage.Modality.APPLICATION_MODAL);
-        dialog.setTitle("Refilter detail");
-        confirm.setOnAction(event -> {
-            List<RefilterCandidate> chosen = rows.stream().filter(row -> row.selected.get())
-                    .map(row -> row.candidate).toList();
-            if (chosen.isEmpty()) return;
-            dialog.close();
-            runOperation("Applying selected Refilter transitions...",
-                    () -> clientData.applyRefilterCandidates(chosen), applied -> {
-                        refreshJobs();
-                        if (auxiliaryWindows != null) auxiliaryWindows.refreshCollectedIfOpen();
-                        statusLabel.setText("Refilter applied " + applied + " transitions");
-                    }, "Refilter failed");
-        });
-        cancel.setOnAction(event -> dialog.close());
-        HBox footer = new HBox(8, all, count, new javafx.scene.layout.Region(), cancel, confirm);
-        HBox.setHgrow(footer.getChildren().get(2), javafx.scene.layout.Priority.ALWAYS);
-        VBox content = new VBox(8, table, footer);
-        content.setPadding(new javafx.geometry.Insets(10));
-        VBox.setVgrow(table, javafx.scene.layout.Priority.ALWAYS);
-        javafx.scene.Scene dialogScene = new javafx.scene.Scene(content, 1160, 540);
-        dialogScene.getStylesheets().addAll(stage.getScene().getStylesheets());
-        dialog.setScene(dialogScene);
-        dialog.setWidth(settingsStore.windowWidth("refilter_detail", 1160));
-        dialog.setHeight(settingsStore.windowHeight("refilter_detail", 540));
-        dialog.setOnHiding(event -> {
-            try {
-                settingsStore.saveWindowSize("refilter_detail", dialog.getWidth(), dialog.getHeight());
-            } catch (IOException error) {
-                statusLabel.setText("Settings save failed: " + error.getMessage());
-            }
-        });
-        dialog.show();
-    }
-
-    private TableColumn<RefilterRow, String> refilterColumn(
-            String title, java.util.function.Function<RefilterCandidate, String> value) {
-        TableColumn<RefilterRow, String> column = new TableColumn<>(title);
-        column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(
-                value.apply(cell.getValue().candidate)));
-        return column;
-    }
-
-    private static final class RefilterRow {
-        final RefilterCandidate candidate;
-        final SimpleBooleanProperty selected = new SimpleBooleanProperty(true);
-        RefilterRow(RefilterCandidate candidate) { this.candidate = candidate; }
-    }
-
-    @FunctionalInterface private interface TaskWork<T> {
-        T run(Consumer<String> updateMessage) throws Exception;
+        linkedinCheckButton.setDisable(disabled || tasks.isRunning());
+        refilterButton.setDisable(disabled || tasks.isRunning());
+        refilterDetailButton.setDisable(disabled || tasks.isRunning());
+        statusActions.setDisable(disabled || tasks.isRunning());
+        jobActions.refreshButtons();
     }
 
     private void openUrl(String value) {
         if (value == null || value.isBlank()) return;
         try {
-            Desktop.getDesktop().browse(URI.create(value));
+            WindowSupport.browse(value);
         } catch (Exception error) {
             statusLabel.setText("Could not open link: " + error.getMessage());
         }
-    }
-
-    private static TextField linkedTextField() {
-        TextField field = new TextField();
-        field.setEditable(false);
-        field.setFocusTraversable(true);
-        field.setCursor(Cursor.HAND);
-        field.getStyleClass().add("filter-link-cell");
-        return field;
-    }
-
-    private static boolean isLinkClick(TextField field, int clickCount) {
-        return clickCount == 1 && field.getSelectedText().isEmpty();
     }
 
     private void refreshJobs() {
@@ -966,22 +543,22 @@ public final class MainController {
 
     private TableColumn<JobRecord, String> jobColumn(String key) {
         return switch (key) {
-            case "score" -> scoreColumn;
-            case "fit" -> fitColumn;
-            case "interest" -> interestColumn;
-            case "status" -> statusColumn;
-            case "remote_scope" -> remoteColumn;
-            case "relocation" -> relocationColumn;
-            case "location" -> locationColumn;
-            case "company" -> companyColumn;
-            case "title" -> titleColumn;
-            case "role" -> roleColumn;
-            case "seniority" -> seniorityColumn;
-            case "primary_language" -> languageColumn;
-            case "salary" -> salaryColumn;
-            case "added_at" -> addedColumn;
-            case "candidate_fit_reason_code" -> reasonCodeColumn;
-            case "candidate_fit_reason" -> reasonColumn;
+            case "score" -> jobTable.column("score");
+            case "fit" -> jobTable.column("fit");
+            case "interest" -> jobTable.column("interest");
+            case "status" -> jobTable.column("status");
+            case "remote_scope" -> jobTable.column("remote");
+            case "relocation" -> jobTable.column("relocation");
+            case "location" -> jobTable.column("location");
+            case "company" -> jobTable.column("company");
+            case "title" -> jobTable.column("title");
+            case "role" -> jobTable.column("role");
+            case "seniority" -> jobTable.column("seniority");
+            case "primary_language" -> jobTable.column("language");
+            case "salary" -> jobTable.column("salary");
+            case "added_at" -> jobTable.column("added");
+            case "candidate_fit_reason_code" -> jobTable.column("reasonCode");
+            case "candidate_fit_reason" -> jobTable.column("reason");
             default -> null;
         };
     }
@@ -1024,109 +601,7 @@ public final class MainController {
     private record ClientSession(ClientData clientData, DriverApi driverApi, List<String> statuses,
                                  Map<String, String> reasonCodeDescriptions) { }
 
-    private void configureColumns() {
-        FillLastColumnResizePolicy.install(jobsTable);
-        bind(scoreColumn, JobRecord::score);
-        bind(fitColumn, JobRecord::fit);
-        bind(interestColumn, JobRecord::interest);
-        bind(statusColumn, JobRecord::status);
-        bind(remoteColumn, JobRecord::remoteScope);
-        bind(relocationColumn, JobRecord::relocation);
-        bind(locationColumn, JobRecord::location);
-        bind(companyColumn, JobRecord::companyDisplay);
-        companyColumn.setCellFactory(column -> new TableCell<>() {
-            private final TextField linkedText = linkedTextField();
-            { CellTextFieldWidth.fitToText(linkedText, this); }
-            @Override protected void updateItem(String value, boolean empty) {
-                super.updateItem(value, empty);
-                JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
-                if (row == null || value == null || value.isBlank() || row.companyId().isBlank()) {
-                    setGraphic(null);
-                    return;
-                }
-                linkedText.setText(value);
-                linkedText.setOnMouseClicked(event -> {
-                    if (isLinkClick(linkedText, event.getClickCount())) {
-                        try { showCompanies(Integer.parseInt(row.companyId())); }
-                        catch (NumberFormatException ignored) { }
-                    }
-                });
-                setGraphic(linkedText);
-            }
-        });
-        bind(titleColumn, JobRecord::title);
-        TitleTextCell.install(titleColumn, this::addTitleToBlacklist, row -> row.duplicateParent() != null);
-        jobsTable.setRowFactory(table -> new javafx.scene.control.TableRow<>() {
-            @Override protected void updateItem(JobRecord job, boolean empty) {
-                super.updateItem(job, empty);
-                boolean parent = !empty && job != null && duplicateParentIds.contains(job.jobId());
-                pseudoClassStateChanged(javafx.css.PseudoClass.getPseudoClass("duplicate-parent"),
-                        parent);
-                setTooltip(parent ? new Tooltip("Referenced by the duplicates below") : null);
-            }
-        });
-        bind(roleColumn, JobRecord::role);
-        bind(seniorityColumn, JobRecord::seniority);
-        bind(languageColumn, JobRecord::language);
-        bind(salaryColumn, JobRecord::salary);
-        bind(addedColumn, row -> formatDate(row.addedAt()));
-        bind(reasonCodeColumn, JobRecord::reasonCode);
-        bind(reasonColumn, JobRecord::reason);
-
-        for (TableColumn<JobRecord, String> column : List.of(
-                scoreColumn, fitColumn, interestColumn, statusColumn, remoteColumn,
-                relocationColumn, locationColumn,
-                roleColumn, seniorityColumn, languageColumn, salaryColumn,
-                reasonColumn
-        )) {
-            CopyableTextCell.install(column);
-        }
-        FilterLinkCell.install(
-                addedColumn,
-                row -> formatDate(row.addedAt()),
-                this::filterFromDate
-        );
-        FilterLinkCell.install(reasonCodeColumn, JobRecord::reasonCode, this::filterByReason,
-                code -> reasonCodeDescriptions.getOrDefault(code, ""));
-        statusColumn.setCellFactory(column -> new TableCell<>() {
-            private final TextField linkedText = linkedTextField();
-            private final TextField copyable = new TextField();
-            {
-                CellTextFieldWidth.fitToText(linkedText, this);
-                copyable.setEditable(false);
-                copyable.setFocusTraversable(true);
-                copyable.getStyleClass().add("copyable-cell");
-                copyable.setPadding(javafx.geometry.Insets.EMPTY);
-                CellTextFieldWidth.fitToText(copyable, this);
-            }
-            @Override protected void updateItem(String value, boolean empty) {
-                super.updateItem(value, empty);
-                JobRecord row = empty || getTableRow() == null ? null : getTableRow().getItem();
-                if (row == null) { setGraphic(null); return; }
-                if ("Applied".equalsIgnoreCase(value) && !row.applicationId().isBlank()) {
-                    linkedText.setText(value);
-                    linkedText.setOnMouseClicked(event -> {
-                        if (isLinkClick(linkedText, event.getClickCount())) {
-                            try { showApplications(Integer.parseInt(row.applicationId())); }
-                            catch (NumberFormatException ignored) { }
-                        }
-                    });
-                    setGraphic(linkedText);
-                } else {
-                    copyable.setText(value);
-                    setGraphic(copyable);
-                }
-            }
-        });
-
-        scoreColumn.setComparator(numericComparator());
-        fitColumn.setComparator(numericComparator());
-        interestColumn.setComparator(numericComparator());
-        addedColumn.setComparator(Comparator.comparing(
-                MainController::parseDisplayDate,
-                Comparator.nullsFirst(Comparator.naturalOrder())
-        ));
-
+    private void configureSkills() {
         FillLastColumnResizePolicy.install(skillsTable);
         bindTechnology(technologyColumn, TechnologyRecord::technology);
         bindTechnology(requirementColumn, TechnologyRecord::requirement);
@@ -1138,14 +613,6 @@ public final class MainController {
             CopyableTextCell.install(column);
         }
         CopyableTextCell.installExpandable(rawColumn);
-        jobsTable.getSelectionModel().setSelectionMode(
-                javafx.scene.control.SelectionMode.MULTIPLE
-        );
-        jobsTable.setSortPolicy(table -> {
-            JobRows.sort(table.getItems(), table.getComparator());
-            saveJobSort();
-            return true;
-        });
     }
 
     private void saveScores() {
@@ -1235,15 +702,6 @@ public final class MainController {
         detailExecutor.execute(task);
     }
 
-    private static void bind(
-            TableColumn<JobRecord, String> column,
-            java.util.function.Function<JobRecord, String> value
-    ) {
-        column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(
-                safe(value.apply(cell.getValue()))
-        ));
-    }
-
     private static void bindTechnology(
             TableColumn<TechnologyRecord, String> column,
             java.util.function.Function<TechnologyRecord, String> value
@@ -1320,7 +778,7 @@ public final class MainController {
         set(relocationField, detail.relocation());
         set(salaryField, detail.salary());
         set(languagesField, detail.languages());
-        set(addedField, formatDate(detail.addedAt()));
+        set(addedField, JobsTableView.formatDate(detail.addedAt()));
         skillsTable.setItems(FXCollections.observableArrayList(detail.technologies()));
         summaryArea.setText(detail.summary());
         fullTextArea.setText(detail.readableText());
@@ -1328,9 +786,8 @@ public final class MainController {
         setDetailEnabled(true);
         sourceLink.setDisable(job.sourceUrl().isBlank());
         openButton.setDisable(job.sourceUrl().isBlank());
-        updateApplyButton();
+        jobActions.refreshButtons();
         applyButton.setTooltip(job.easyApply() ? new Tooltip("LinkedIn Easy Apply") : null);
-        updateChatEvalButton();
         fitField.setDisable(scoreSaveRunning);
         interestField.setDisable(scoreSaveRunning);
         showText(textToggle.isSelected());
@@ -1355,15 +812,11 @@ public final class MainController {
     }
 
     private void setDetailEnabled(boolean enabled) {
-        letterButton.setDisable(!enabled || letterRunning || selectedJob == null);
+        jobActions.setDetailEnabled(enabled);
         metadataGrid.setDisable(!enabled);
         skillsPane.setDisable(!enabled);
         sourceLink.setDisable(!enabled);
         openButton.setDisable(!enabled);
-        applyButton.setDisable(!enabled || applyRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
-        chatEvalButton.setDisable(!enabled || chatEvalRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank());
         textToggle.setDisable(!enabled);
     }
 
@@ -1379,110 +832,7 @@ public final class MainController {
         if (selectedJob == null || selectedJob.sourceUrl().isBlank()) {
             return;
         }
-        try {
-            Desktop.getDesktop().browse(URI.create(selectedJob.sourceUrl()));
-        } catch (Exception error) {
-            statusLabel.setText("Could not open link: " + error.getMessage());
-        }
-    }
-
-    private void startApply() {
-        JobRecord job = selectedJob;
-        if (applyRunning || job == null || job.sourceUrl().isBlank() || job.easyApply()) return;
-        applyRunning = true;
-        updateApplyButton();
-        if (applyProgress == null) applyProgress = new ApplyProgressPane(backgroundProcesses);
-        ApplyProgressPane progressPane = applyProgress;
-        progressPane.begin(job.sourceUrl());
-        Task<ApplierRunner.Result> task = new Task<>() {
-            @Override protected ApplierRunner.Result call() throws Exception {
-                return driverApi.prepareApplication(job.sourceUrl());
-            }
-        };
-        applyTask = task;
-        task.setOnSucceeded(event -> {
-            applyRunning = false;
-            applyTask = null;
-            updateApplyButton();
-            ApplierRunner.Result result = task.getValue();
-            progressPane.complete(result);
-            statusLabel.setText("Apply: " + result.status());
-        });
-        task.setOnFailed(event -> {
-            applyRunning = false;
-            applyTask = null;
-            updateApplyButton();
-            progressPane.fail(task.getException());
-            statusLabel.setText("Application preparation failed");
-        });
-        applyExecutor.execute(task);
-    }
-
-    private void updateApplyButton() {
-        applyButton.setDisable(applyRunning || selectedJob == null
-                || detailLoadedJobId != selectedJob.jobId()
-                || selectedJob.sourceUrl().isBlank() || selectedJob.easyApply());
-    }
-
-    private void startChatEval() {
-        JobRecord job = selectedJob;
-        if (chatEvalRunning || clientData == null || job == null || job.sourceUrl().isBlank()) return;
-        int jobId = job.jobId();
-        String url = job.sourceUrl();
-        chatEvalRunning = true;
-        updateChatEvalButton();
-        if (chatEvalProgress == null) chatEvalProgress = new GptEvaluationProgressPane(backgroundProcesses);
-        GptEvaluationProgressPane progressPane = chatEvalProgress;
-        progressPane.begin(url);
-        Task<GptEvaluation.Result> task = new Task<>() {
-            @Override protected GptEvaluation.Result call() throws Exception {
-                return driverApi.evaluateWithChatGPT(url, jobId);
-            }
-        };
-        chatEvalTask = task;
-        task.setOnSucceeded(event -> {
-            chatEvalRunning = false;
-            chatEvalTask = null;
-            updateChatEvalButton();
-            GptEvaluation.Result result = task.getValue();
-            progressPane.complete(result);
-        });
-        task.setOnFailed(event -> {
-            chatEvalRunning = false;
-            chatEvalTask = null;
-            updateChatEvalButton();
-            Throwable error = task.getException();
-            progressPane.fail(error);
-        });
-        chatEvalExecutor.execute(task);
-    }
-
-    private void startLetter() {
-        JobRecord job = selectedJob;
-        if (letterRunning || job == null || clientData == null) return;
-        letterRunning = true;
-        letterButton.setDisable(true);
-        if (letterProgress == null) letterProgress = new GptEvaluationProgressPane(backgroundProcesses, "Letter");
-        letterProgress.begin(job.sourceUrl());
-        Task<String> task = new Task<>() {
-            @Override protected String call() throws Exception { return driverApi.coverLetter(job.jobId()); }
-        };
-        task.setOnSucceeded(event -> {
-            letterRunning = false;
-            letterButton.setDisable(selectedJob == null);
-            letterProgress.complete(task.getValue());
-        });
-        task.setOnFailed(event -> {
-            letterRunning = false;
-            letterButton.setDisable(selectedJob == null);
-            letterProgress.fail(task.getException());
-        });
-        letterExecutor.execute(task);
-    }
-
-    private void updateChatEvalButton() {
-        chatEvalButton.setDisable(clientData == null || chatEvalRunning || selectedJob == null
-                || selectedJob.sourceUrl().isBlank());
+        openUrl(selectedJob.sourceUrl());
     }
 
     private void showCompanies(Integer companyId) {
@@ -1552,58 +902,20 @@ public final class MainController {
         return value == null ? "" : value;
     }
 
-    private static Comparator<String> numericComparator() {
-        return Comparator.comparingLong(value -> {
-            try {
-                return Long.parseLong(value);
-            } catch (NumberFormatException ignored) {
-                return Long.MIN_VALUE;
-            }
-        });
-    }
-
-    private static String formatDate(String value) {
-        LocalDate date = parseDate(value);
-        return date == null ? safe(value) : date.format(DISPLAY_DATE);
-    }
-
-    private static LocalDate parseDate(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(value.length() >= 10 ? value.substring(0, 10) : value);
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    private static LocalDate parseDisplayDate(String value) {
-        if (value == null || value.isBlank()) {
-            return null;
-        }
-        try {
-            return LocalDate.parse(value, FILTER_DATE);
-        } catch (RuntimeException ignored) {
-            return null;
-        }
-    }
-
     void shutdown() {
         if (auxiliaryWindows != null) auxiliaryWindows.shutdown();
+        if (workflows != null) workflows.shutdown();
+        tasks.shutdown();
+        jobActions.shutdown();
         settingsSaveDelay.stop();
-        operationExecutor.shutdownNow();
-        collectionExecutor.shutdownNow();
-        if (chatEvalTask != null) chatEvalTask.cancel(true);
-        chatEvalExecutor.shutdownNow();
-        letterExecutor.shutdownNow();
-        if (applyTask != null) applyTask.cancel(true);
-        applyExecutor.shutdownNow();
         saveWindowSettings();
-        if (pendingDetailTask != null) {
-            pendingDetailTask.cancel(true);
-        }
+        if (pendingDetailTask != null) pendingDetailTask.cancel(true);
         detailExecutor.shutdownNow();
     }
 
+    private void startResume(CollectionRunDto run) {
+        if (workflows != null) workflows.startResume(run);
+    }
+
+    private void addTitleToBlacklist(String value) { maintenance.addTitleToBlacklist(value); }
 }

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<VBox xmlns:fx="http://javafx.com/fxml/1" spacing="8">
+    <TableView fx:id="companiesTable" editable="true" VBox.vgrow="ALWAYS"/>
+    <HBox spacing="8">
+        <Label text="LinkedIn ID"/>
+        <TextField fx:id="linkedinField" promptText="LinkedIn ID (optional)"/>
+        <Label text="Name"/>
+        <TextField fx:id="nameField" promptText="Company name"/>
+        <Button fx:id="addButton" text="Add"/>
+    </HBox>
+</VBox>

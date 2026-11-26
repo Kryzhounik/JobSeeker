@@ -12,11 +12,16 @@ import org.slf4j.event.Level;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface LogOutput {
+    /** Custom message; empty uses the method name followed by {@code output}. */
     String message() default "";
 
     Level level() default Level.INFO;
 
-    /** Result property names or SpEL expressions using {@code #result}; empty selects no values. */
+    /**
+     * Result property names or SpEL expressions using {@code #result} and named arguments.
+     * For void methods, named arguments remain available through expressions.
+     * Empty selects no values.
+     */
     String[] include() default {};
 
     /** Optional boolean SpEL expression; empty means no additional condition. */

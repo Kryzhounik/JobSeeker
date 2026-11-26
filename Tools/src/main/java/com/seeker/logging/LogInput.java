@@ -12,6 +12,7 @@ import org.slf4j.event.Level;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface LogInput {
+    /** Custom message; empty uses the method name followed by {@code input}. */
     String message() default "";
 
     Level level() default Level.INFO;

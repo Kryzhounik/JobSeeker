@@ -1,6 +1,7 @@
 package com.seeker.orchestrator;
 
-import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
 
 import com.seeker.collector.core.CollectorApi;
 import com.seeker.codex.UsageLimitExceededException;
@@ -29,7 +30,6 @@ import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 
 /** Top-level Java workflow entry point. */
-@Slf4j
 public final class OrchestratorApi {
     private final BatchCollection batchCollection;
     private final LinkedInUrls linkedinUrls;
@@ -403,16 +403,15 @@ public final class OrchestratorApi {
 
     private void submitFacts(CompletionService<FactsGroup> results, String runId, String source,
                              List<ScopeItem> scope, FactsGroup group) {
-        results.submit(() -> {
-            ScopeItem item = scope.get(group.next());
-            log.info("Job facts start: job={}", JobKey.of(item));
-            long started = System.nanoTime();
-            String threadId = processingGateway.extractJobFacts(runId, item.source(), item.jobId(),
-                    group.target(), group.threadId());
-            log.info("Job facts complete: job={} duration_ms={}",
-                    JobKey.of(item), (System.nanoTime() - started) / 1_000_000);
-            return new FactsGroup(group.next() + 1, group.end(), group.target(), threadId);
-        });
+        results.submit(() -> extractFacts(runId, scope.get(group.next()), group));
+    }
+
+    @LogInput(message = "Job facts start", include = {"#item.source", "#item.jobId"})
+    @LogOutput(message = "Job facts complete", include = {"#item.source", "#item.jobId"}, duration = true)
+    private FactsGroup extractFacts(String runId, ScopeItem item, FactsGroup group) throws UsageLimitExceededException {
+        String threadId = processingGateway.extractJobFacts(runId, item.source(), item.jobId(),
+                group.target(), group.threadId());
+        return new FactsGroup(group.next() + 1, group.end(), group.target(), threadId);
     }
 
     private void runFinishAnalysis(String runId, String source, List<ScopeItem> scope, WorkflowProgress.Run run)

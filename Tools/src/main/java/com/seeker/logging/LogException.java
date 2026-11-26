@@ -12,6 +12,7 @@ import org.slf4j.event.Level;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface LogException {
+    /** Custom message; empty uses the method name followed by {@code exception}. */
     String message() default "";
 
     Level level() default Level.ERROR;

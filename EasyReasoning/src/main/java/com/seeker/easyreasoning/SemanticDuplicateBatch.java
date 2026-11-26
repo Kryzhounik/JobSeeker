@@ -2,6 +2,9 @@ package com.seeker.easyreasoning;
 
 import java.io.*;
 import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogException;
+import org.slf4j.event.Level;
 import java.util.function.Consumer;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.tools.api.ImmutableProgressSnapshot;
@@ -41,14 +44,20 @@ final class SemanticDuplicateBatch {
                 process(database.loadBatch(batchId), compare,
                         (duplicate, original) -> database.saveDecision(batchId, duplicate, original), batchId, progress);
             } finally {
-                try { release.run(); }
-                catch (RuntimeException error) {
-                    log.warn("Semantic comparison model cleanup failed", error);
+                try { releaseModel(); }
+                catch (RuntimeException ignored) {
+                    // releaseModel logs the failure; cleanup must not discard the completed batch.
                 }
             }
         } catch (IOException error) {
             throw new UncheckedIOException(error);
         }
+    }
+
+    @LogException(message = "Semantic comparison model cleanup failed", level = Level.WARN,
+            types = RuntimeException.class)
+    private void releaseModel() {
+        release.run();
     }
 
     static void process(List<VacancySnapshot> vacancies, BiPredicate<String, String> compare,
@@ -174,9 +183,10 @@ final class SemanticDuplicateBatch {
             report(vacancyIndex, nextSample);
         }
 
+        @LogInput(message = "Semantic comparison started",
+                include = {"#sample.source", "#sample.jobId", "#vacancy.source", "#vacancy.jobId"})
         private Boolean comparePair(VacancySnapshot sample, VacancySnapshot vacancy) {
             lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
-            log.info("Semantic comparison started: {}", lastPair);
             try { return compare.test(sample.text(), vacancy.text()); }
             catch (RequestTooLargeException error) { throw error; }
             catch (RuntimeException error) {

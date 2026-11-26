@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<TabPane xmlns:fx="http://javafx.com/fxml/1" tabClosingPolicy="UNAVAILABLE">
+    <tabs>
+        <Tab text="Filters">
+            <ScrollPane><content><VBox fx:id="filterRows" spacing="8"/></content></ScrollPane>
+        </Tab>
+        <Tab text="Collection">
+            <BorderPane fx:id="collectionPane">
+                <bottom>
+                    <HBox spacing="8">
+                        <Button fx:id="saveButton" text="Save collection settings"/>
+                        <Label fx:id="saveStatus" wrapText="true"/>
+                    </HBox>
+                </bottom>
+            </BorderPane>
+        </Tab>
+    </tabs>
+</TabPane>
