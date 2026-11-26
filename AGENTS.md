@@ -52,6 +52,11 @@ architectural decisions that implementation must follow. A code change
 does not by itself authorize a change to either specification. Modify
 them only when the user explicitly asks for or approves the change.
 
+Most code changes need no documentation update. If a Java API contract
+is unclear from its signature, explain it in Javadoc. If the reason for
+an implementation choice is unclear from the code, explain it in a
+nearby comment. Do not restate the code or describe the edit.
+
 If the task conflicts with an applicable project rule, requirement, or
 architectural decision, report the conflict and wait for the user's
 decision before implementing the affected change.
