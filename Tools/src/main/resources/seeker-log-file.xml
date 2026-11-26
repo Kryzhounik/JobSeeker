@@ -1,0 +1,19 @@
+<configuration>
+    <define name="logFile" class="com.seeker.logging.LogFilePath"/>
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${logFile}.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${logFile}.%d{yyyy-MM-dd,UTC}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>100MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>${pattern}</pattern>
+        </encoder>
+    </appender>
+    <root>
+        <appender-ref ref="FILE"/>
+    </root>
+</configuration>

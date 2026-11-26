@@ -2,6 +2,7 @@ package com.seeker.guifx;
 
 import com.seeker.api.DriverApi;
 import com.seeker.api.DriverConfiguration;
+import com.seeker.logging.ApplicationLogging;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
@@ -18,8 +19,10 @@ public final class SeekerApplication extends Application {
 
     @Override
     public void init() {
+        Path projectRoot = ClientData.findProjectRoot();
+        ApplicationLogging.initialize(projectRoot);
         context = new AnnotationConfigApplicationContext();
-        context.registerBean(Path.class, ClientData::findProjectRoot);
+        context.registerBean(Path.class, () -> projectRoot);
         context.register(DriverConfiguration.class);
         context.refresh();
         context.registerShutdownHook();

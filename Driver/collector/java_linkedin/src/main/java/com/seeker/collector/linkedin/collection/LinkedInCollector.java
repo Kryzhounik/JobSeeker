@@ -1,5 +1,7 @@
 package com.seeker.collector.linkedin.collection;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.seeker.collector.common.*;
 
 import com.microsoft.playwright.PlaywrightException;
@@ -15,6 +17,7 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 
+@Slf4j
 final class LinkedInCollector {
     private static final int PAGE_STEP = 25;
 
@@ -65,7 +68,7 @@ final class LinkedInCollector {
                     currentQuery = target.query();
                     currentUrl = target.pageUrl(0);
                     progress("opening_seed", "");
-                    System.err.println("LinkedIn seed: " + target.label());
+                    log.info("LinkedIn seed: {}", target.label());
                     browser.openSeed(target);
                     continue;
                 }
@@ -166,7 +169,7 @@ final class LinkedInCollector {
                     newForTarget,
                     stopReason
             );
-            printProgress(target, start, materialized, newCards.size());
+            logPage(target, start, materialized, newCards.size());
             currentCards = materialized.materializedCount();
             progress("processing", "");
             if (isIncompletePage(materialized)) {
@@ -217,10 +220,8 @@ final class LinkedInCollector {
         try {
             return browser.materializePage(start);
         } catch (CollectionBlockedException | PlaywrightException first) {
-            System.err.println(
-                    "LinkedIn page materialization failed once; retrying "
-                            + target.label() + " start=" + start + ": " + message(first)
-            );
+            log.warn("LinkedIn page materialization failed once; retrying {} start={}: {}",
+                    target.label(), start, message(first));
             browser.openSearch(target, start);
             return browser.materializePage(start);
         }
@@ -286,7 +287,7 @@ final class LinkedInCollector {
             );
         }
         if (!"not_processed_due_to_limit".equals(status)) {
-            System.err.printf("LinkedIn vacancy failed: job_id=%s status=%s reason=%s%n",
+            log.warn("LinkedIn vacancy failed: job_id={} status={} reason={}",
                     preview.jobId(), status, reason);
         }
         return result(preview, status, reason);
@@ -385,15 +386,14 @@ final class LinkedInCollector {
                 || "incomplete_page".equals(materialized.terminalReason());
     }
 
-    private void printProgress(
+    private void logPage(
             SearchPlan.Target target,
             int start,
             LinkedInPageClient.MaterializedPage materialized,
             int newCards
     ) {
-        System.err.printf(
-                Locale.ROOT,
-                "%s %s start=%d cards=%d related=%d new=%d accepted=%d/%d%n",
+        log.info(
+                "{} {} start={} cards={} related={} new={} accepted={}/{}",
                 target.label(),
                 target.kind().name().toLowerCase(Locale.ROOT),
                 start,

@@ -1,5 +1,7 @@
 package com.seeker.collector.linkedin.collection;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.seeker.collector.common.Preview;
 
 import com.microsoft.playwright.Locator;
@@ -31,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+@Slf4j
 final class LinkedInPageClient {
     private static final String LINKEDIN_JOBS = "https://www.linkedin.com/jobs/";
     private static final int EXPECTED_PAGE_SIZE = 25;
@@ -594,9 +597,8 @@ final class LinkedInPageClient {
             }
             Locator details = waitForDetails(direct, jobId, false);
             JobDetails job = readDetails(details, jobId);
-            System.err.printf(
-                    Locale.ROOT,
-                    "LinkedIn details loaded: job_id=%s url=%s title=%s html_chars=%d%n",
+            log.info(
+                    "LinkedIn details loaded: job_id={} url={} title={} html_chars={}",
                     jobId,
                     direct.url(),
                     job.title().replaceAll("\\s+", " ").trim(),
@@ -678,8 +680,8 @@ final class LinkedInPageClient {
                   };
                 }
                 """);
-        System.err.printf(
-                "LinkedIn card materialization failed: job_id=%s layout=%s url=%s diagnostic=%s%n",
+        log.warn(
+                "LinkedIn card materialization failed: job_id={} layout={} url={} diagnostic={}",
                 jobId, layout, page.url(), JsonSupport.GSON.toJson(diagnostic)
         );
     }
@@ -1010,11 +1012,8 @@ final class LinkedInPageClient {
                             error
                     );
                 }
-                System.err.println(
-                        "LinkedIn navigation timed out; retrying the same URL ("
-                                + attempt + "/" + config.navigationRetries() + "): "
-                        + url
-                );
+                log.warn("LinkedIn navigation timed out; retrying the same URL ({}/{}): {}",
+                        attempt, config.navigationRetries(), url);
             }
         }
     }
@@ -1031,7 +1030,7 @@ final class LinkedInPageClient {
             }
             page.waitForTimeout(250);
         }
-        System.err.printf("LinkedIn authentication check failed: url=%s title=%s login_wall=%s%n",
+        log.warn("LinkedIn authentication check failed: url={} title={} login_wall={}",
                 page.url(), page.title(), session.isLoginWall(page));
         throw new AuthenticationRequiredException(message);
     }

@@ -3,9 +3,12 @@ package com.seeker.easyreasoning;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
-import java.io.*;
 import java.util.*;
 import com.seeker.tools.api.ProgressSnapshot;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import org.slf4j.LoggerFactory;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SemanticDuplicateBatchTest {
@@ -34,19 +37,22 @@ class SemanticDuplicateBatchTest {
 
     @Test void failedPairDoesNotBlockLaterConfirmedMatchAndUnresolvedMatchCannotFormChain() {
         List<String> links = new ArrayList<>();
-        var output = new ByteArrayOutputStream();
-        var previous = System.err;
-        try (var errors = new PrintStream(output)) {
-            System.setErr(errors);
+        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class);
+        var output = new ListAppender<ILoggingEvent>();
+        output.start();
+        logger.addAppender(output);
+        try {
             SemanticDuplicateBatch.process(List.of(vacancy(1,"A"),vacancy(2,"B"),vacancy(3,"A")),
                     (a,b) -> {
                         if (a.equals("A") && b.equals("B")) throw new IllegalArgumentException("invalid model answer");
                         return a.equals(b);
                     }, (duplicate,original) -> links.add(duplicate + ":" + original));
-        } finally { System.setErr(previous); }
+        } finally { logger.detachAppender(output); output.stop(); }
         assertEquals(List.of("1:null", "3:1"), links);
-        assertTrue(output.toString().contains("linkedin:job-1 vs linkedin:job-2"));
-        assertTrue(output.toString().contains("invalid model answer"));
+        ILoggingEvent failure = output.list.stream()
+                .filter(event -> event.getThrowableProxy() != null).findFirst().orElseThrow();
+        assertTrue(failure.getFormattedMessage().contains("linkedin:job-1 vs linkedin:job-2"));
+        assertEquals("invalid model answer", failure.getThrowableProxy().getMessage());
     }
 
     @Test void failedComparisonDoesNotCompleteNegativeDecision() {
@@ -103,26 +109,29 @@ class SemanticDuplicateBatchTest {
         var later = vacancy(3, "later text");
         List<String> comparisons = new ArrayList<>(), decisions = new ArrayList<>();
         List<ProgressSnapshot> updates = new ArrayList<>();
-        var output = new ByteArrayOutputStream();
-        var previous = System.err;
-        try (var errors = new PrintStream(output)) {
-            System.setErr(errors);
+        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class);
+        var output = new ListAppender<ILoggingEvent>();
+        output.start();
+        logger.addAppender(output);
+        try {
             SemanticDuplicateBatch.process(List.of(ascii, chinese, later), (first, second) -> {
                 comparisons.add(first + ":" + second);
                 if (first.equals(ascii.text()) && second.equals(chinese.text()))
                     throw new RequestTooLargeException(3900, 4096, 256);
                 return false;
             }, (duplicate, original) -> decisions.add(duplicate + ":" + original), "batch", updates::add);
-        } finally { System.setErr(previous); }
+        } finally { logger.detachAppender(output); output.stop(); }
 
         assertEquals(List.of(ascii.text() + ":" + chinese.text(), chinese.text() + ":" + later.text()), comparisons);
         assertEquals(List.of("1:null", "2:null", "3:null"), decisions);
         assertEquals(List.of("0 / 3", "0 / 1", "1 / 1", "1 / 1"),
                 updates.stream().map(update -> update.fields().get("Comparisons")).toList());
-        assertTrue(output.toString().contains("linkedin:job-1"));
-        assertTrue(output.toString().contains("request_tokens=3900 context_limit=4096 response_tokens=256"));
-        assertFalse(output.toString().contains(ascii.text()));
-        assertFalse(output.toString().contains(chinese.text()));
+        String messages = output.list.stream().map(ILoggingEvent::getFormattedMessage)
+                .reduce("", (first, second) -> first + "\n" + second);
+        assertTrue(messages.contains("linkedin:job-1"));
+        assertTrue(messages.contains("request_tokens=3900 context_limit=4096 response_tokens=256"));
+        assertFalse(messages.contains(ascii.text()));
+        assertFalse(messages.contains(chinese.text()));
     }
 
     @Test void excludesLongerCurrentVacancyWithoutMarkingItAndContinuesLaterPair() {

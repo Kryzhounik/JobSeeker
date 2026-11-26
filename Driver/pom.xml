@@ -27,6 +27,9 @@
         <jpy.version>2.1.0</jpy.version>
         <junit.version>5.13.4</junit.version>
         <spring.version>7.0.9</spring.version>
+        <slf4j.version>2.0.17</slf4j.version>
+        <logback.version>1.6.8</logback.version>
+        <lombok.version>1.18.48</lombok.version>
     </properties>
 
     <modules>
@@ -42,6 +45,26 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.springframework</groupId>
                 <artifactId>spring-framework-bom</artifactId>
@@ -123,6 +146,18 @@
         </dependencies>
     </dependencyManagement>
 
+    <dependencies>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
     <!-- mvn test runs all tests, with configured Python/JPy and Playwright Chromium.
          CI selects ci-unit or ci-browser; compiled test outputs are isolated. -->
     <profiles>
@@ -178,6 +213,7 @@
                     <reportsDirectory>${project.build.directory}/surefire-reports/${tests.mode}</reportsDirectory>
                     <systemPropertyVariables>
                         <seeker.project.root>${maven.multiModuleProjectDirectory}</seeker.project.root>
+                        <logback.configurationFile>${maven.multiModuleProjectDirectory}/Tools/src/test/resources/logback-test.xml</logback.configurationFile>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

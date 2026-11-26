@@ -91,6 +91,7 @@ class CodexClientTest {
     }
 
     public static class ProxyProcess {
+        @SuppressWarnings("PMD.SystemPrintln") // Fixture process emits the proxy response protocol.
         public static void main(String[] args) {
             if (!"--json-result".equals(args[3])) throw new IllegalArgumentException("Missing response mode");
             System.err.print(new String(Base64.getDecoder().decode(args[2]), StandardCharsets.UTF_8));

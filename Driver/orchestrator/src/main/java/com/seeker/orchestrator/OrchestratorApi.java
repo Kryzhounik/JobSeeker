@@ -1,5 +1,7 @@
 package com.seeker.orchestrator;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.seeker.collector.core.CollectorApi;
 import com.seeker.codex.UsageLimitExceededException;
 import com.seeker.collector.common.CollectionReport;
@@ -27,6 +29,7 @@ import java.util.function.Consumer;
 import java.util.function.BiConsumer;
 
 /** Top-level Java workflow entry point. */
+@Slf4j
 public final class OrchestratorApi {
     private final BatchCollection batchCollection;
     private final LinkedInUrls linkedinUrls;
@@ -402,11 +405,11 @@ public final class OrchestratorApi {
                              List<ScopeItem> scope, FactsGroup group) {
         results.submit(() -> {
             ScopeItem item = scope.get(group.next());
-            System.err.println("Job facts start: job=" + JobKey.of(item));
+            log.info("Job facts start: job={}", JobKey.of(item));
             long started = System.nanoTime();
             String threadId = processingGateway.extractJobFacts(runId, item.source(), item.jobId(),
                     group.target(), group.threadId());
-            System.err.printf("Job facts complete: job=%s duration_ms=%d%n",
+            log.info("Job facts complete: job={} duration_ms={}",
                     JobKey.of(item), (System.nanoTime() - started) / 1_000_000);
             return new FactsGroup(group.next() + 1, group.end(), group.target(), threadId);
         });

@@ -1,6 +1,7 @@
 package com.seeker.easyreasoning;
 
 import java.io.*;
+import lombok.extern.slf4j.Slf4j;
 import java.util.function.Consumer;
 import com.seeker.tools.api.ProgressSnapshot;
 import com.seeker.tools.api.ImmutableProgressSnapshot;
@@ -11,6 +12,7 @@ import java.util.function.BiPredicate;
 import java.util.function.BiConsumer;
 
 /** Synchronous observational deduplication of a saved collection batch. */
+@Slf4j
 final class SemanticDuplicateBatch {
     private final Path root;
     private final BiPredicate<String, String> compare;
@@ -41,7 +43,7 @@ final class SemanticDuplicateBatch {
             } finally {
                 try { release.run(); }
                 catch (RuntimeException error) {
-                    System.err.println("Semantic comparison model cleanup failed: " + error);
+                    log.warn("Semantic comparison model cleanup failed", error);
                 }
             }
         } catch (IOException error) {
@@ -138,8 +140,8 @@ final class SemanticDuplicateBatch {
                 completed++;
                 if (Boolean.TRUE.equals(duplicate) && !unresolved.contains(sample.id())) {
                     save.accept(vacancy.id(), sample.id());
-                    System.err.println("Semantic duplicate: " + vacancy.source() + ":" + vacancy.jobId()
-                            + " -> " + sample.source() + ":" + sample.jobId());
+                    log.info("Semantic duplicate: {}:{} -> {}:{}",
+                            vacancy.source(), vacancy.jobId(), sample.source(), sample.jobId());
                     report(index + 1, 0);
                     return;
                 }
@@ -158,9 +160,8 @@ final class SemanticDuplicateBatch {
             excluded.add(removed.id());
             samples.values().forEach(group -> group.removeIf(item -> item.id() == removed.id()));
             unresolved.remove(removed.id());
-            System.err.println("Semantic vacancy excluded: " + removed.source() + ":" + removed.jobId()
-                    + " reason=context_limit request_tokens=" + error.requestTokens()
-                    + " context_limit=" + error.contextLimit() + " response_tokens=" + error.responseTokens());
+            log.warn("Semantic vacancy excluded: {}:{} reason=context_limit request_tokens={} context_limit={} response_tokens={}",
+                    removed.source(), removed.jobId(), error.requestTokens(), error.contextLimit(), error.responseTokens());
         }
 
         private int characters(String text) { return text.codePointCount(0, text.length()); }
@@ -175,11 +176,11 @@ final class SemanticDuplicateBatch {
 
         private Boolean comparePair(VacancySnapshot sample, VacancySnapshot vacancy) {
             lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
-            System.err.println("Semantic comparison started: " + lastPair);
+            log.info("Semantic comparison started: {}", lastPair);
             try { return compare.test(sample.text(), vacancy.text()); }
             catch (RequestTooLargeException error) { throw error; }
             catch (RuntimeException error) {
-                System.err.println("Semantic comparison failed: " + lastPair + ": " + error);
+                log.warn("Semantic comparison failed: {}", lastPair, error);
                 return null;
             }
         }

@@ -1,0 +1,13 @@
+<configuration>
+    <!-- Ordinary tests must not write application files under Data/logs. -->
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} %-5level %logger - %msg%n%ex</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>

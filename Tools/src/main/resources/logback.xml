@@ -1,0 +1,14 @@
+<configuration>
+    <property scope="context" name="pattern" value="%date{yyyy-MM-dd'T'HH:mm:ss.SSSXXX,UTC} %-5level %logger - %msg%n%ex"/>
+
+    <appender name="STDERR" class="ch.qos.logback.core.ConsoleAppender">
+        <target>System.err</target>
+        <encoder>
+            <charset>UTF-8</charset>
+            <pattern>${pattern}</pattern>
+        </encoder>
+    </appender>
+    <root level="INFO">
+        <appender-ref ref="STDERR"/>
+    </root>
+</configuration>

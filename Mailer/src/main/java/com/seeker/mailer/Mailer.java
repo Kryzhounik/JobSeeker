@@ -1,5 +1,7 @@
 package com.seeker.mailer;
 
+import com.seeker.logging.ApplicationLogging;
+
 import com.seeker.mailer.internal.ImapMailAccess;
 import java.nio.file.Path;
 import java.util.List;
@@ -11,6 +13,7 @@ public final class Mailer {
     private final ImapMailAccess mailAccess;
 
     public Mailer(Path projectRoot) {
+        ApplicationLogging.initialize(projectRoot);
         mailAccess = new ImapMailAccess(Objects.requireNonNull(projectRoot, "projectRoot"));
     }
 

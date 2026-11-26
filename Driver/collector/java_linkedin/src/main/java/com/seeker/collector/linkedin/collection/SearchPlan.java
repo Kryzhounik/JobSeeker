@@ -1,5 +1,7 @@
 package com.seeker.collector.linkedin.collection;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.seeker.collector.linkedin.config.CollectorConfig;
 
 import java.net.URLEncoder;
@@ -12,6 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+@Slf4j
 final class SearchPlan {
     static final String SEARCH_URL = "https://www.linkedin.com/jobs/search-results/";
     private static final Map<String, String> EXPERIENCE = Map.of(
@@ -66,7 +69,7 @@ final class SearchPlan {
             List<String> priorityCompanyIds
     ) {
         if (!config.search().sort().isBlank()) {
-            System.err.println("LinkedIn AI search has no sort control; ignoring sort=" + config.search().sort());
+            log.warn("LinkedIn AI search has no sort control; ignoring sort={}", config.search().sort());
         }
         List<String> configured = config.search().locations();
         String anchor = configured.stream()

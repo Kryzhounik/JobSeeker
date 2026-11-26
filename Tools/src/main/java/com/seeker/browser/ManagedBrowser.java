@@ -5,6 +5,7 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.CDPSession;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URI;
@@ -14,13 +15,13 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Connects clients to one visible Chromium process that outlives those clients. */
+@Slf4j
 public final class ManagedBrowser implements AutoCloseable {
     public static final Path LINKEDIN_PROFILE_DIRECTORY = Path.of("Data/browser_profiles/linkedin");
     public static final String CDP_ENDPOINT = "http://127.0.0.1:9222";
@@ -87,7 +88,7 @@ public final class ManagedBrowser implements AutoCloseable {
     }
 
     private static void log(String message) {
-        System.err.println(Instant.now() + " [browser-connect] " + message);
+        log.info("[browser-connect] {}", message);
     }
 
     public BrowserContext context() {

@@ -1,5 +1,7 @@
 package com.seeker.chatevaluator;
 
+import com.seeker.logging.ApplicationLogging;
+
 import java.net.URI;
 import java.nio.file.Path;
 
@@ -8,6 +10,7 @@ public final class ChatEvaluatorApi {
     private final GptEvaluation evaluation;
 
     public ChatEvaluatorApi(Path projectRoot) {
+        ApplicationLogging.initialize(projectRoot);
         Path root = projectRoot.toAbsolutePath().normalize();
         evaluation = new GptEvaluation(url -> ChatEvaluatorRunner.evaluateInBrowser(root, url),
                 new PythonEvaluationStore(root));

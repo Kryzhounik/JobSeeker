@@ -39,6 +39,7 @@ class UiWindowTest {
         TestCollectionSettings.create(directory);
     }
 
+    @SuppressWarnings("PMD.SystemPrintln") // Existing test-run status output.
     @org.junit.jupiter.api.Test void interactiveWindowsAndNavigation() throws Exception {
         System.setProperty("seeker.gui.settings.path", SETTINGS.toString());
         Platform.startup(() -> { });

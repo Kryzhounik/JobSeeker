@@ -1,5 +1,7 @@
 package com.seeker.easyreasoning;
 
+import com.seeker.logging.ApplicationLogging;
+
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
 import java.nio.file.Path;
@@ -16,6 +18,7 @@ public final class EasyReasoningApi implements AutoCloseable {
     private final SemanticDuplicateBatch dedup;
 
     public EasyReasoningApi(Path projectRoot) {
+        ApplicationLogging.initialize(projectRoot);
         context = new AnnotationConfigApplicationContext();
         try {
             context.registerBean(Path.class, () -> projectRoot);

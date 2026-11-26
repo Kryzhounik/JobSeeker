@@ -27,6 +27,7 @@ public final class Main {
                 ChatEvaluatorCli::execute);
     }
 
+    @SuppressWarnings("PMD.SystemPrintln") // CLI usage errors are part of the console contract.
     static int execute(
             String[] args,
             Callable<Integer> collector,

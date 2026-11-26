@@ -1,5 +1,7 @@
 package com.seeker.api;
 
+import com.seeker.logging.ApplicationLogging;
+
 import com.seeker.applier.ApplierRunner;
 import com.seeker.applier.ApplierApi;
 import com.seeker.codex.UsageLimitExceededException;
@@ -29,6 +31,7 @@ public final class DriverApi {
     private final ChatEvaluatorApi chatEvaluator;
 
     public DriverApi(Path projectRoot) throws IOException {
+        ApplicationLogging.initialize(projectRoot);
         this.projectRoot = projectRoot.toAbsolutePath().normalize();
         this.collector = new CollectorApi(this.projectRoot);
         this.orchestrator = new OrchestratorApi(this.projectRoot);

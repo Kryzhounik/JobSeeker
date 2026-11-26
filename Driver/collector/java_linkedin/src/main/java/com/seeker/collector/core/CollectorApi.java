@@ -1,5 +1,7 @@
 package com.seeker.collector.core;
 
+import com.seeker.logging.ApplicationLogging;
+
 import com.seeker.collector.linkedin.collection.LinkedInSource;
 import com.seeker.collector.common.CollectionReport;
 import com.seeker.collector.common.CollectionSettings;
@@ -27,6 +29,7 @@ public final class CollectorApi {
     private final CollectionService collectionService;
 
     public CollectorApi(Path projectRoot) throws IOException {
+        ApplicationLogging.initialize(projectRoot);
         this.paths = ProjectPaths.fromProjectRoot(projectRoot);
         PythonRuntime pythonRuntime = PythonRuntime.load(
                 paths.driverRoot().getParent().resolve("Tools/runtime.properties")

@@ -1,4 +1,5 @@
 package com.seeker.applier;
+import com.seeker.logging.ApplicationLogging;
 import com.seeker.applier.coverletter.CoverLetterWriter;
 import java.nio.file.Path;
 import java.io.IOException;
@@ -10,6 +11,7 @@ public final class ApplierApi {
     private final CoverLetterWriter writer;
     public ApplierApi(Path root) {
         this(new ApplierRunner(root), new CoverLetterWriter(root));
+        ApplicationLogging.initialize(root);
     }
     ApplierApi(ApplierRunner runner, CoverLetterWriter writer) {
         this.runner = runner;

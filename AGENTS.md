@@ -219,7 +219,7 @@ If "add to issues" is ambiguous between the root `ISSUES.md` and GitHub Issues,
 ask before writing to either. Do not default to GitHub.
 
 When reviewing a GitHub Issue, consider any draft implementation plan in its
-description or comments (ChatGPT, for example, cannot currently attach artifacts).
+description or comments.
 Validate draft plans against `AGENTS.md` and applicable architecture documents.
 These take precedence over proposed implementation details. Adapt conflicting
 plan details accordingly; changes to established architectural decisions require
@@ -227,10 +227,10 @@ explicit user approval. A draft plan does not authorize overriding project rules
 
 When planning related tasks, account for the status and actual results of preceding related tasks.
 The reviewing agent may propose clarifications or additions. After agreement,
-use `Tools/publish_issue_plan.py` to publish the final Plan artifact and remove
-the superseded draft from the description. Usage is documented in the script.
-The implementing agent follows the attached plan and the issue requirements;
-it does not need to reconstruct the plan from old drafts or comments.
+update the issue description with the current agreed implementation plan.
+Comments are for discussion. The implementing agent follows the current agreed
+plan and the issue requirements; it does not need to reconstruct the plan from
+old drafts or comments.
 
 ## Module Implementation Documentation
 

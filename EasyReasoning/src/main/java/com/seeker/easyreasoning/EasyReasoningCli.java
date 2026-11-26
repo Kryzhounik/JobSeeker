@@ -10,6 +10,7 @@ import java.nio.file.Path;
 /** Long-lived console entry; reusable sessions accept a caller-owned API. */
 public final class EasyReasoningCli {
 
+    @SuppressWarnings("PMD.SystemPrintln") // Session completion and CLI errors retain their console format.
     public static void main(String[] args) {
         try {
             if (args.length > 1) throw new IllegalArgumentException("Usage: java -jar EasyReasoning/easy-reasoning.jar [project-root]");

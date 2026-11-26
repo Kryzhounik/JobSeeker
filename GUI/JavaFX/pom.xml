@@ -34,6 +34,10 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -148,6 +152,9 @@
                     <!-- JavaFX toolkit cannot restart after Platform.exit() in another test class. -->
                     <reuseForks>false</reuseForks>
                     <reportsDirectory>${project.build.directory}/surefire-reports/${tests.mode}</reportsDirectory>
+                    <systemPropertyVariables>
+                        <logback.configurationFile>${project.basedir}/../../Tools/src/test/resources/logback-test.xml</logback.configurationFile>
+                    </systemPropertyVariables>
                 </configuration>
             </plugin>
             <plugin>

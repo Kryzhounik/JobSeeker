@@ -1,5 +1,7 @@
 package com.seeker.collector.core;
 
+import lombok.extern.slf4j.Slf4j;
+
 import com.seeker.collector.common.*;
 import com.seeker.collector.common.python.*;
 import com.seeker.collector.linkedin.collection.LinkedInSource;
@@ -13,6 +15,7 @@ import java.util.*;
 import java.util.function.Consumer;
 
 /** Owns a collection run, common processing, lifecycle, and final report. */
+@Slf4j
 public final class CollectionService {
     private final ProjectPaths paths;
     private final PythonRuntime pythonRuntime;
@@ -137,7 +140,7 @@ public final class CollectionService {
             CollectionReport report = sink.report(source.source(), runId, result, source.pages());
             progress.accept(source.snapshot(result.status(), report.message().isBlank() ? result.stopReason() : report.message()));
             python.finishRun(runId, result.status(), result.stopReason(), report.acceptedCount(), report.message());
-            System.err.printf("%s collection finished: run_id=%s status=%s accepted=%d stop_reason=%s%n",
+            log.info("{} collection finished: run_id={} status={} accepted={} stop_reason={}",
                     source.source(), runId, result.status(), report.acceptedCount(), result.stopReason());
             return report;
         } catch (IOException | RuntimeException error) {

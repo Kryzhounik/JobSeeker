@@ -7,13 +7,16 @@ import com.seeker.collector.linkedin.application.LinkedInApplication;
 import com.seeker.orchestrator.OrchestratorApi;
 import javafx.fxml.FXMLLoader;
 import org.jpy.PyModule;
+import org.slf4j.spi.SLF4JServiceProvider;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.jar.JarFile;
 
 public final class FatJarSmoke {
+    @SuppressWarnings("PMD.SystemPrintln") // Standalone smoke-process result.
     public static void main(String[] args) throws Exception {
         Path jarPath = source(SeekerLauncher.class);
         if (!Files.isRegularFile(jarPath)) throw new AssertionError("Run this check against the packaged GUI jar");
@@ -24,13 +27,26 @@ public final class FatJarSmoke {
                 throw new AssertionError(type.getName() + " was loaded outside the fat GUI jar");
             }
         }
+        List<ServiceLoader.Provider<SLF4JServiceProvider>> providers =
+                ServiceLoader.load(SLF4JServiceProvider.class).stream().toList();
+        if (providers.size() != 1 || !providers.getFirst().type().getName()
+                .equals("ch.qos.logback.classic.spi.LogbackServiceProvider")) {
+            throw new AssertionError("GUI must bundle exactly one SLF4J provider: Logback");
+        }
+        if (!Files.isSameFile(jarPath, source(providers.getFirst().type()))) {
+            throw new AssertionError("SLF4J provider was loaded outside the fat GUI jar");
+        }
         try (JarFile jar = new JarFile(jarPath.toFile())) {
             var attributes = jar.getManifest().getMainAttributes();
             if (attributes.getValue("Class-Path") != null
                     || !SeekerLauncher.class.getName().equals(attributes.getValue("Main-Class"))) {
                 throw new AssertionError("GUI manifest still uses an external classpath or wrong launcher");
             }
-            if (jar.getEntry("com/seeker/guifx/main-view.fxml") == null
+            if (jar.getEntry("logback.xml") == null
+                    || jar.getEntry("seeker-log-file.xml") == null
+                    || jar.getEntry("com/seeker/logging/ApplicationLogging.class") == null
+                    || jar.getEntry("com/seeker/logging/LogFilePath.class") == null
+                    || jar.getEntry("com/seeker/guifx/main-view.fxml") == null
                     || jar.getEntry("com/seeker/guifx/application.css") == null
                     || jar.stream().noneMatch(entry -> entry.getName().endsWith("glass.dll"))
                     || jar.stream().noneMatch(entry -> entry.getName().endsWith("/node.exe"))
