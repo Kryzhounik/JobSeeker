@@ -16,6 +16,7 @@ import java.util.Map;
 final class CollectionSettingsPane extends VBox {
     private final CheckBox linkedin = new CheckBox();
     private final CheckBox justjoin = new CheckBox();
+    private final CheckBox includeRecommendations = new CheckBox("Include recommendations");
     private final Map<String, TextField> fields = new LinkedHashMap<>();
     private final CollectionSettings initial;
     private final ListView<String> queries = new ListView<>();
@@ -37,6 +38,9 @@ final class CollectionSettingsPane extends VBox {
                     "LinkedIn configuration is missing or invalid. Fix its properties file to enable it."), null));
         } else {
         GridPane l = grid();
+        includeRecommendations.setId("li-include-recommendations");
+        includeRecommendations.setSelected(li.includeRecommendations());
+        l.add(includeRecommendations, 1, l.getRowCount());
         queries.setId("li-keywords");
         queries.getItems().setAll(li.keywords());
         queries.setEditable(true);
@@ -117,7 +121,7 @@ final class CollectionSettingsPane extends VBox {
                 queries.getItems().stream().map(String::strip).filter(value -> !value.isEmpty()).toList(),
                 list("li.locations"), list("li.experience"), list("li.remote"), list("li.workplace"),
                 list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"),
-                initial.linkedin().includeRecommendations())
+                includeRecommendations.isSelected())
                 : initial.linkedin();
         var jj = justjoin.isSelected() ? new CollectionSettings.JustJoin(value("jj.tech"), value("jj.location"),
                 value("jj.days"), list("jj.languages"), list("jj.experience"), value("jj.order"),

@@ -30,6 +30,8 @@
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.6.8</logback.version>
         <lombok.version>1.18.48</lombok.version>
+        <aspectj.version>1.9.25.1</aspectj.version>
+        <aspectj-maven-plugin.version>1.17.0</aspectj-maven-plugin.version>
     </properties>
 
     <modules>
@@ -45,6 +47,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.aspectj</groupId>
+                <artifactId>aspectjrt</artifactId>
+                <version>${aspectj.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
@@ -208,6 +215,25 @@
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <!-- Keep javac output separate from woven classes on repeated builds. -->
+                            <compilerArguments><d>${project.build.directory}/unwoven-classes</d></compilerArguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <compilerArguments><d>${project.build.directory}/unwoven-${tests.output}</d></compilerArguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <reportsDirectory>${project.build.directory}/surefire-reports/${tests.mode}</reportsDirectory>
@@ -289,6 +315,56 @@
         </plugins>
         <pluginManagement>
             <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>aspectj-maven-plugin</artifactId>
+                    <version>${aspectj-maven-plugin.version}</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.aspectj</groupId>
+                            <artifactId>aspectjtools</artifactId>
+                            <version>${aspectj.version}</version>
+                        </dependency>
+                    </dependencies>
+                    <configuration>
+                        <!-- javac owns Java source compilation and Lombok processing. -->
+                        <weaveOnly>true</weaveOnly>
+                        <complianceLevel>${maven.compiler.release}</complianceLevel>
+                        <forceAjcCompile>true</forceAjcCompile>
+                        <showWeaveInfo>true</showWeaveInfo>
+                        <argumentFileDirectory>${project.build.directory}/aspectj</argumentFileDirectory>
+                        <aspectLibraries>
+                            <aspectLibrary>
+                                <groupId>com.seeker</groupId>
+                                <artifactId>tools</artifactId>
+                            </aspectLibrary>
+                        </aspectLibraries>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>weave-main</id>
+                            <phase>process-classes</phase>
+                            <goals><goal>compile</goal></goals>
+                            <configuration>
+                                <argumentFileName>main.lst</argumentFileName>
+                                <weaveDirectories>
+                                    <weaveDirectory>${project.build.directory}/unwoven-classes</weaveDirectory>
+                                </weaveDirectories>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>weave-test</id>
+                            <phase>process-test-classes</phase>
+                            <goals><goal>test-compile</goal></goals>
+                            <configuration>
+                                <argumentFileName>${tests.mode}-test.lst</argumentFileName>
+                                <weaveDirectories>
+                                    <weaveDirectory>${project.build.directory}/unwoven-${tests.output}</weaveDirectory>
+                                </weaveDirectories>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>exec-maven-plugin</artifactId>

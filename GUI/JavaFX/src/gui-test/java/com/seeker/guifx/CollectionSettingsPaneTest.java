@@ -27,7 +27,7 @@ class CollectionSettingsPaneTest {
         return new CollectionSettings(List.of("justjoin", "linkedin"),
                 new CollectionSettings.LinkedIn(List.of("Java"), List.of("Moldova:106178099", "Ukraine:102264497"),
                         List.of("senior", "entry_level", "manager"), List.of("remote"),
-                        List.of("remote", "hybrid"), List.of("full_time", "contract"), "week", "", 10),
+                        List.of("remote", "hybrid"), List.of("full_time", "contract"), "week", "", 10, true),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en", "ru"),
                         List.of("mid", "senior"), "DESC", "published", 0));
     }
@@ -48,6 +48,12 @@ class CollectionSettingsPaneTest {
                 editor.resize(780, 750);
                 editor.applyCss(); editor.layout();
                 assertEquals(saved, editor.settings());
+                var recommendations = (CheckBox) editor.lookup("#li-include-recommendations");
+                assertTrue(recommendations.isSelected());
+                recommendations.fire();
+                assertFalse(editor.settings().linkedin().includeRecommendations());
+                recommendations.fire();
+                assertTrue(editor.settings().linkedin().includeRecommendations());
                 var source = (CheckBox) editor.lookup("#source-linkedin");
                 var section = (javafx.scene.layout.StackPane) source.getParent();
                 var sourcePane = (TitledPane) section.getChildren().getFirst();
@@ -62,6 +68,7 @@ class CollectionSettingsPaneTest {
                 source.fire();
                 assertTrue(sourcePane.isExpanded());
                 assertTrue(sourcePane.getContent().isDisabled());
+                assertTrue(recommendations.isDisabled());
                 assertTrue(limit.isDisabled());
                 sourcePane.setExpanded(false);
                 assertFalse(source.isSelected());
@@ -69,6 +76,7 @@ class CollectionSettingsPaneTest {
                 source.fire();
                 assertFalse(sourcePane.isExpanded());
                 assertFalse(sourcePane.getContent().isDisabled());
+                assertFalse(recommendations.isDisabled());
                 assertFalse(limit.isDisabled());
                 limit.setText("11");
                 assertEquals(11, editor.settings().linkedin().limit());
@@ -219,7 +227,7 @@ class CollectionSettingsPaneTest {
         var source = settings.linkedin();
         var linkedin = new CollectionSettings.LinkedIn(keywords, source.locations(), source.experience(),
                 source.remoteBroadWorkplace(), source.workplace(), source.jobTypes(), source.datePosted(),
-                source.sort(), source.limit());
+                source.sort(), source.limit(), source.includeRecommendations());
         return new CollectionSettings(settings.sources(), linkedin, settings.justjoin());
     }
 

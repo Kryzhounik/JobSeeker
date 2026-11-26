@@ -49,6 +49,30 @@ JavaFX используют обычную Maven-зависимость, не к
 в [архитектуре Driver](../Driver/ARCHITECTURE.md).
 Реализация находится в бэклоге проекта.
 
+## AspectJ в backend-сборке
+
+Родительский `Driver/pom.xml` запускает post-compile weaving после `javac`
+и Lombok: `process-classes` для основного кода, `process-test-classes` для тестов.
+Невплетённые классы находятся в `target/unwoven-classes` и
+`target/unwoven-${tests.output}`; готовые классы остаются в стандартных каталогах.
+Для получения обработанного кода нужна фаза `process-classes` или более поздняя:
+одного `mvn compile` недостаточно.
+Первую сборку после подключения weaving выполнить с `clean`, чтобы прежние
+результаты компиляции были пересозданы в новых каталогах.
+
+Общие аспекты можно размещать в `Tools/src/main/java` в виде Java-классов
+с `@Aspect`: backend-потребители используют Tools как `aspectLibraries`.
+Рабочих аспектов пока нет. Пример аннотации `@HelloWorld` и аспекта находится
+только в `src/test/java/com/seeker/tools/aop` и не попадает в runtime JAR.
+Проверка примера без внешних операций:
+
+```powershell
+mvn -f Driver/pom.xml -pl :tools -am '-Dtest=AspectJWeavingTest' '-Dsurefire.failIfNoSpecifiedTests=false' '-Dtests.python.skip=true' test
+```
+
+Java-агент и Spring AOP не требуются. Собственный код JavaFX не вплетается;
+GUI использует готовые backend-артефакты.
+
 ## Вспомогательные процедуры
 
 Здесь также остаются инструкции и скрипты для переноса, резервного копирования,
