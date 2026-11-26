@@ -48,6 +48,24 @@ class CollectionSettingsPaneTest {
                 editor.resize(780, 750);
                 editor.applyCss(); editor.layout();
                 assertEquals(saved, editor.settings());
+                var source = (CheckBox) editor.lookup("#source-linkedin");
+                var section = (javafx.scene.layout.StackPane) source.getParent();
+                var sourcePane = (TitledPane) section.getChildren().getFirst();
+                var arrow = sourcePane.lookup(".arrow-button");
+                assertEquals("LinkedIn", sourcePane.getText());
+                assertNotNull(arrow);
+                assertTrue(source.localToScene(source.getBoundsInLocal()).getMaxX()
+                        < arrow.localToScene(arrow.getBoundsInLocal()).getMinX());
+                source.fire();
+                assertTrue(sourcePane.isExpanded());
+                assertTrue(sourcePane.getContent().isDisabled());
+                sourcePane.setExpanded(false);
+                assertFalse(source.isSelected());
+                source.fire();
+                assertFalse(sourcePane.isExpanded());
+                assertFalse(sourcePane.getContent().isDisabled());
+                sourcePane.setExpanded(true);
+                assertEquals(saved, editor.settings());
                 ListView<String> queries = list(editor, "li-keywords");
                 editor.applyCss(); editor.layout();
                 assertEquals(List.of("Java"), queries.getItems());

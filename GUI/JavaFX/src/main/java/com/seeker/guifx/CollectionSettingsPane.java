@@ -3,6 +3,8 @@ package com.seeker.guifx;
 import com.seeker.collector.common.CollectionSettings;
 import com.seeker.collector.common.PropertySettings;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import java.util.ArrayList;
@@ -12,8 +14,8 @@ import java.util.Map;
 
 /** Shared editor only: no persistence or operation execution. */
 final class CollectionSettingsPane extends VBox {
-    private final CheckBox linkedin = new CheckBox("LinkedIn");
-    private final CheckBox justjoin = new CheckBox("JustJoinIT");
+    private final CheckBox linkedin = new CheckBox();
+    private final CheckBox justjoin = new CheckBox();
     private final Map<String, TextField> fields = new LinkedHashMap<>();
     private final CollectionSettings initial;
     private final ListView<String> queries = new ListView<>();
@@ -22,16 +24,17 @@ final class CollectionSettingsPane extends VBox {
         super(10);
         initial = settings;
         setPadding(new Insets(12));
+        getStylesheets().add(CollectionSettingsPane.class.getResource("collection-settings.css").toExternalForm());
         linkedin.setSelected(settings.sources().contains("linkedin"));
         justjoin.setSelected(settings.sources().contains("justjoin"));
         linkedin.setId("source-linkedin");
         justjoin.setId("source-justjoin");
-        getChildren().addAll(new Label("Sources"), new HBox(16, linkedin, justjoin),
-                new Label("List values are separated by commas. Empty filters mean no restriction."));
+        getChildren().add(new Label("List values are separated by commas. Empty filters mean no restriction."));
         var li = settings.linkedin();
         if (li == null) {
             linkedin.setDisable(true);
-            getChildren().add(new Label("LinkedIn configuration is missing or invalid. Fix its properties file to enable it."));
+            getChildren().add(sourcePane(linkedin, "LinkedIn", new Label(
+                    "LinkedIn configuration is missing or invalid. Fix its properties file to enable it.")));
         } else {
         GridPane l = grid();
         queries.setId("li-keywords");
@@ -82,12 +85,13 @@ final class CollectionSettingsPane extends VBox {
         add(l, "li.date", "Posted within", li.datePosted(), "day, week, month, or empty");
         add(l, "li.limit", "Accepted limit", "" + li.limit(), "Positive integer");
         l.disableProperty().bind(linkedin.selectedProperty().not());
-        getChildren().add(new TitledPane("LinkedIn", l));
+        getChildren().add(sourcePane(linkedin, "LinkedIn", l));
         }
         var jj = settings.justjoin();
         if (jj == null) {
             justjoin.setDisable(true);
-            getChildren().add(new Label("JustJoinIT configuration is missing or invalid. Fix its properties file to enable it."));
+            getChildren().add(sourcePane(justjoin, "JustJoinIT", new Label(
+                    "JustJoinIT configuration is missing or invalid. Fix its properties file to enable it.")));
         } else {
         GridPane j = grid();
         add(j, "jj.tech", "Technology category", jj.mainTech(), "java");
@@ -99,7 +103,7 @@ final class CollectionSettingsPane extends VBox {
         add(j, "jj.sort", "Sort by", jj.sortBy(), "published");
         add(j, "jj.limit", "Accepted limit", "" + jj.limit(), "0: unlimited");
         j.disableProperty().bind(justjoin.selectedProperty().not());
-        getChildren().add(new TitledPane("JustJoinIT", j));
+        getChildren().add(sourcePane(justjoin, "JustJoinIT", j));
         }
     }
 
@@ -118,6 +122,18 @@ final class CollectionSettingsPane extends VBox {
                 value("jj.days"), list("jj.languages"), list("jj.experience"), value("jj.order"),
                 value("jj.sort"), integer("jj.limit", "JustJoinIT limit")) : initial.justjoin();
         return new CollectionSettings(sources, li, jj);
+    }
+
+    private static StackPane sourcePane(CheckBox source, String title, Node content) {
+        var pane = new TitledPane(title, content);
+        pane.getStyleClass().add("collection-source-pane");
+        source.setAccessibleText(title);
+        source.setMaxSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
+        // Keep the toggle outside TitledPane's click target, but visually in its header.
+        var section = new StackPane(pane, source);
+        StackPane.setAlignment(source, Pos.TOP_LEFT);
+        StackPane.setMargin(source, new Insets(5, 0, 0, 8));
+        return section;
     }
 
     private boolean enabled(String source) { return (source.equals("linkedin") ? linkedin : justjoin).isSelected(); }

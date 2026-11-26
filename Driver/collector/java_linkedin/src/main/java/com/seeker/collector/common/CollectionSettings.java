@@ -22,7 +22,14 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
     /** Ordered LinkedIn queries and locations sharing one accepted-vacancy limit. */
     public record LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
                            List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
-                           String datePosted, String sort, int limit) {
+                           String datePosted, String sort, int limit, boolean includeRecommendations) {
+        public LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
+                        List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
+                        String datePosted, String sort, int limit) {
+            this(keywords, locations, experience, remoteBroadWorkplace, workplace, jobTypes,
+                    datePosted, sort, limit, false);
+        }
+
         public LinkedIn {
             keywords = List.copyOf(keywords);
             locations = List.copyOf(locations);
