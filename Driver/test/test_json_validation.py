@@ -23,7 +23,6 @@ AGENT_FILTER_SCHEMA = DRIVER_ROOT / "contracts" / "agent_filter_result.schema.js
 
 def valid_analysis() -> dict:
     return {
-        "added_at": "2026-09-08",
         "title": "Java Developer",
         "company": "Example",
         "location": "Moldova",

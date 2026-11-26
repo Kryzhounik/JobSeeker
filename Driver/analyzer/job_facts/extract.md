@@ -12,6 +12,7 @@ Job-facts call:
   `contracts/job_analysis.schema.json`.
 - The analyzed JSON contains vacancy facts only. Never put candidate fit or
   job interest into it.
+- Do not include `added_at`; persistence assigns the date of first save.
 - Do not write files or update the database. The analyzer orchestrator owns
   output persistence and lifecycle updates after this operation succeeds.
 - Direct URLs from the user must first be saved as raw HTML by the collection
@@ -31,7 +32,6 @@ vacancy. Use expert judgment only for fields that explicitly require text
 interpretation.
 
 Job fields:
-- added_at: current date in YYYY-MM-DD format.
 - title: job title.
 - company: company name.
 - location: one or more places from which the candidate may perform the role;

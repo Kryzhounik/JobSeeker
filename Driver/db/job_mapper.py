@@ -458,7 +458,7 @@ def save_job_json(
             notes,
             added_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now', 'localtime'))
         ON CONFLICT(source_job_ref) DO UPDATE SET
             location = excluded.location,
             remote_type = excluded.remote_type,
@@ -491,7 +491,6 @@ def save_job_json(
             salary,
             clean(record["summary"]),
             clean(record["notes"]),
-            clean(record["added_at"]),
         ),
     )
     job_id = int(

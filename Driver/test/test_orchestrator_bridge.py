@@ -192,7 +192,7 @@ class OrchestratorBridgeTest(ProcessingTestCase):
                 connection.commit()
 
             analysis = {
-                "added_at": "2026-10-29", "title": "Java Developer",
+                "title": "Java Developer",
                 "company": "Example", "location": "Moldova",
                 "remote_type": "remote", "remote_scope": "Moldova",
                 "relocation": "NO", "seniority": "senior", "role": "backend",

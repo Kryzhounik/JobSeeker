@@ -13,7 +13,6 @@
     "analysisCore": {
       "type": "object",
       "required": [
-        "added_at",
         "title",
         "company",
         "location",
@@ -29,9 +28,6 @@
         "technologies"
       ],
       "properties": {
-        "added_at": {
-          "type": "string"
-        },
         "title": {
           "type": "string",
           "minLength": 1

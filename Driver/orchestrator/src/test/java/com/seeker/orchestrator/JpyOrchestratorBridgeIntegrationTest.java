@@ -105,7 +105,7 @@ class JpyOrchestratorBridgeIntegrationTest {
                                        check=True, capture_output=True)
                         job_id = re.search(r"parallel-job-(\\d+)", prompt).group(1)
                         analysis = {
-                            "added_at": "2026-10-29", "title": "parallel-job-" + job_id,
+                            "title": "parallel-job-" + job_id,
                             "company": "Example", "location": "Moldova",
                             "remote_type": "remote", "remote_scope": "Moldova",
                             "relocation": "NO", "seniority": "senior", "role": "backend",
