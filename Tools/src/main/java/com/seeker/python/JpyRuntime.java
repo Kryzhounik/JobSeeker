@@ -4,6 +4,7 @@ import org.jpy.PyLib;
 import org.jpy.PyLibInitializer;
 import org.jpy.PyModule;
 import org.jpy.PyObject;
+import com.seeker.logging.PythonLogBridge;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,6 +19,7 @@ public final class JpyRuntime {
     private JpyRuntime() {
     }
 
+    /** Import paths must include the project root containing Tools/application_logging.py. */
     public static synchronized void ensureStarted(
             Path pythonLibrary,
             Path jpyLibrary,
@@ -58,7 +60,6 @@ public final class JpyRuntime {
             }
             PyLib.startPython(paths(resolvedModulePaths));
             MODULE_PATHS.addAll(Arrays.asList(resolvedModulePaths));
-            return;
         }
 
         for (Path modulePath : resolvedModulePaths) {
@@ -70,6 +71,10 @@ public final class JpyRuntime {
                     // The interpreter is shared; each caller contributes its import roots.
                 }
             }
+        }
+        try (PyModule logging = PyModule.importModule("Tools.application_logging");
+             PyObject ignored = logging.callMethod("initialize_embedded", new PythonLogBridge())) {
+            // Only records are forwarded; stdout remains available for result protocols.
         }
     }
 

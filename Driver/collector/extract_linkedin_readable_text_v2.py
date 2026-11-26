@@ -15,6 +15,7 @@ V3 is the collector's active cleaner; v2 remains available for comparison.
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sqlite3
 from pathlib import Path
@@ -35,6 +36,9 @@ from db.job_registry import source_job_id
 from db.migrate import migrate_database
 from db.readable_text import has_readable_text
 from db.readable_text import save_readable_text
+from Tools.application_logging import initialize_standalone
+
+logger = logging.getLogger(__name__)
 
 
 TAIL_MARKERS = (
@@ -199,18 +203,15 @@ def convert(
             url = source_url(source, raw_path)
             job_id = source_job_id(source, url) if url else raw_path.stem
             if has_readable_text(connection, source, job_id) and not force:
-                print(f"skip existing readable text {source}:{job_id}")
+                logger.info("skip existing readable text %s:%s", source, job_id)
             else:
                 html_chars = raw_path.stat().st_size
                 text = readable_text(source, raw_path)
                 save_readable_text(connection, source, job_id, text)
                 text_chars = len(text)
                 approx_tokens = max(1, text_chars // 4)
-                print(
-                    f"saved readable text {source}:{job_id} "
-                    f"html_chars={html_chars} text_chars={text_chars} "
-                    f"approx_tokens={approx_tokens}"
-                )
+                logger.info("saved readable text %s:%s html_chars=%s text_chars=%s approx_tokens=%s",
+                            source, job_id, html_chars, text_chars, approx_tokens)
             connection.commit()
 
 
@@ -224,6 +225,7 @@ def main() -> None:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--db", default=str(DATA_ROOT / "jobs.sqlite"))
     args = parser.parse_args()
+    initialize_standalone(ROOT.parent)
 
     input_path = (
         Path(args.input)

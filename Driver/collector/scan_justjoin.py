@@ -8,6 +8,7 @@ Parsing/categorization stays with Codex prompts or a later separate step.
 from __future__ import annotations
 
 import argparse
+import logging
 import json
 import sqlite3
 import sys
@@ -28,13 +29,18 @@ from save_raw_page import save_content
 
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+for import_root in (ROOT, ROOT.parent):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from common.paths import DATA_ROOT
+from Tools.application_logging import initialize_standalone
+
 from db.job_registry import is_registered
 from db.job_registry import source_job_id
 from db.migrate import migrate_database
+
+logger = logging.getLogger(__name__)
 
 BROWSER_HEADERS = {
     "User-Agent": (
@@ -107,7 +113,7 @@ def find_job_urls_from_api(config: dict) -> list[str]:
                 seen.add(url)
                 urls.append(url)
 
-        print(f"api page from={start} items={len(data)} total={total}")
+        logger.info("api page from=%s items=%s total=%s", start, len(data), total)
         if not data:
             break
 
@@ -144,10 +150,10 @@ def save_pages(
 ) -> None:
     for index, url in enumerate(urls, start=1):
         if index > 1 and delay_seconds > 0:
-            print(f"sleep {delay_seconds:g}s")
+            logger.info("sleep %gs", delay_seconds)
             time.sleep(delay_seconds)
 
-        print(f"GET {index}/{len(urls)} {url}")
+        logger.info("GET %s/%s %s", index, len(urls), url)
         html = get_html(url)
         save_content(
             source="justjoin",
@@ -180,6 +186,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    initialize_standalone(ROOT.parent)
 
     if args.job_url:
         urls = [args.job_url]

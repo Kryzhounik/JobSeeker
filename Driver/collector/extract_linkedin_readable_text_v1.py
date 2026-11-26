@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sys
 from html.parser import HTMLParser
@@ -8,10 +9,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+for import_root in (ROOT, ROOT.parent):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from common.paths import DATA_ROOT
+from Tools.application_logging import initialize_standalone
+
+logger = logging.getLogger(__name__)
 
 
 SKIP_TAGS = {"head", "script", "style", "svg", "noscript", "template"}
@@ -136,7 +141,7 @@ def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit:
     for raw_path in paths:
         out_path = output_path(raw_path, output_dir)
         if out_path.exists() and not force:
-            print(f"skip existing {out_path}")
+            logger.info("skip existing %s", out_path)
             continue
 
         html_chars = raw_path.stat().st_size
@@ -144,11 +149,8 @@ def convert(source: str, input_path: Path, output_dir: Path, force: bool, limit:
         out_path.write_text(text, encoding="utf-8")
         text_chars = len(text)
         approx_tokens = max(1, text_chars // 4)
-        print(
-            f"saved {out_path} "
-            f"html_chars={html_chars} text_chars={text_chars} "
-            f"approx_tokens={approx_tokens}"
-        )
+        logger.info("saved %s html_chars=%s text_chars=%s approx_tokens=%s",
+                    out_path, html_chars, text_chars, approx_tokens)
 
 
 def main() -> None:
@@ -161,6 +163,7 @@ def main() -> None:
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
+    initialize_standalone(ROOT.parent)
 
     input_path = (
         Path(args.input)

@@ -4,7 +4,6 @@ import com.seeker.collector.common.python.JpyPythonGateway;
 
 import com.seeker.collector.common.Preview;
 import com.seeker.collector.common.ProjectPaths;
-import com.seeker.collector.linkedin.support.CliOutput;
 import com.seeker.python.JpyRuntime;
 import com.seeker.python.PythonRuntime;
 import com.sun.net.httpserver.HttpServer;
@@ -161,13 +160,6 @@ class JpyPythonGatewayIntegrationTest {
             else System.setProperty("spring.ai.ollama.base-url", oldUrl);
             model.stop(0);
         }
-        try (CliOutput ignored = CliOutput.redirectPython(projectRoot);
-             PyModule sys = PyModule.importModule("sys");
-             PyObject stderr = sys.getAttribute("stderr")) {
-            assertEquals(objectId(stderr), stdoutId());
-        }
-        assertEquals(originalStdout, stdoutId());
-
         assertTrue(Files.isRegularFile(
                 rawDirectory.resolve("linkedin/pages/4444444444.html")
         ));

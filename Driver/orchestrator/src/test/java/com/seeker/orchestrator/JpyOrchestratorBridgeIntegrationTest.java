@@ -255,7 +255,7 @@ class JpyOrchestratorBridgeIntegrationTest {
                 runtime.jdlLibrary(),
                 runtime.pythonHome(),
                 runtime.pythonExecutable(),
-                projectRoot.resolve("Driver"), temporaryDirectory
+                projectRoot, projectRoot.resolve("Driver"), temporaryDirectory
         );
     }
 

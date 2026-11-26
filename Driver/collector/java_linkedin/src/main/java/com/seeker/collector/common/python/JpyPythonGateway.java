@@ -23,6 +23,7 @@ public final class JpyPythonGateway implements PythonGateway {
                 runtime.jdlLibrary(),
                 runtime.pythonHome(),
                 runtime.pythonExecutable(),
+                paths.driverRoot().getParent(),
                 paths.driverRoot(),
                 paths.collectorRoot()
         );

@@ -521,8 +521,10 @@ final class AuxiliaryWindows {
     }
 
     private void buildConfig(ConfigData config) {
-        Stage stage = stage("Config", 800, 700);
-        stage.setScene(new Scene(configContent(config.rows, config.settings), 800, 700));
+        Stage stage = stage("Config", 900, 1000);
+        stage.setScene(new Scene(configContent(config.rows, config.settings), 900, 1000));
+        stage.setWidth(Math.max(stage.getWidth(), 900));
+        stage.setHeight(Math.max(stage.getHeight(), 1000));
         stage.show();
     }
 

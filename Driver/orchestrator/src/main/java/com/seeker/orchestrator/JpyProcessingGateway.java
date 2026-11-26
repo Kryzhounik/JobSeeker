@@ -218,6 +218,7 @@ final class JpyProcessingGateway implements ProcessingGateway {
                 runtime.jdlLibrary(),
                 runtime.pythonHome(),
                 runtime.pythonExecutable(),
+                paths.driverRoot().getParent(),
                 paths.driverRoot()
         );
         return PyModule.importModule("orchestrator.python_bridge");

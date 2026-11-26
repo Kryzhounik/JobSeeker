@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from contextlib import closing
 import re
 import sqlite3
@@ -13,12 +14,18 @@ from urllib.request import urlopen
 
 
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+for import_root in (ROOT, ROOT.parent):
+    if str(import_root) not in sys.path:
+        sys.path.insert(0, str(import_root))
 
 from common.paths import DATA_ROOT
+from Tools.application_logging import initialize_standalone
+
 from db.job_registry import insert_source_job, mark_status, source_job_id, validate_identity
 from db.migrate import migrate_database
+
+
+logger = logging.getLogger(__name__)
 
 
 HEADERS = {
@@ -118,12 +125,10 @@ def save_content(
             )
         pages_dir.mkdir(parents=True, exist_ok=True)
         if path.exists() and not (force or resume_raw):
-            # TODO: Kept temporarily; move to a logger because this pollutes console output.
-            print(f"skip existing {path}")
+            logger.info("skip existing %s", path)
         else:
             path.write_text(content, encoding="utf-8")
-            # TODO: Kept temporarily; move to a logger because this pollutes console output.
-            print(f"saved {source} {url} -> {path}")
+            logger.info("saved %s %s -> %s", source, url, path)
         connection.commit()
     return path
 
@@ -143,6 +148,7 @@ def main() -> None:
         choices=("script", "browser", "playwright"),
     )
     args = parser.parse_args()
+    initialize_standalone(ROOT.parent)
 
     out_dir = Path(args.out_dir) if args.out_dir else DATA_ROOT / "raw" / args.source
     if args.content_file:
