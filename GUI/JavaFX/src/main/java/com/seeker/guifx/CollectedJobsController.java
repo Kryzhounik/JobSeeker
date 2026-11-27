@@ -98,7 +98,7 @@ final class CollectedJobsController {
         TextArea text = this.text;
         table.getSelectionModel().selectedItemProperty().addListener((obs, old, row) ->
                 text.setText(row == null ? "" : row.readableText()));
-        table.setRowFactory(view -> {
+        table.setRowFactory(tableView -> {
             var row = new javafx.scene.control.TableRow<CollectedJobDto>();
             row.setOnMouseClicked(event -> {
                 if (event.getClickCount() == 2 && !row.isEmpty()
