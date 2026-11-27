@@ -60,6 +60,15 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>ci-browser</id>
+            <properties>
+                <maven.test.skip>false</maven.test.skip>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <plugin>

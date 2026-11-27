@@ -15,6 +15,7 @@
         <tests.mode>all</tests.mode>
         <tests.output>test-classes</tests.output>
         <skipTests>false</skipTests>
+        <maven.test.skip>false</maven.test.skip>
         <tests.python.skip>${skipTests}</tests.python.skip>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
@@ -201,6 +202,9 @@
         <profile>
             <id>ci-browser</id>
             <properties>
+                <!-- Skip browser test compilation, weaving and execution by default: not every module has them.
+                     Modules with browser tests set maven.test.skip=false in their local ci-browser profile. -->
+                <maven.test.skip>true</maven.test.skip>
                 <tests.source>src/browser-test/java</tests.source>
                 <tests.mode>browser</tests.mode>
                 <tests.output>browser-test-classes</tests.output>
@@ -358,6 +362,7 @@
                             <phase>process-test-classes</phase>
                             <goals><goal>test-compile</goal></goals>
                             <configuration>
+                                <skip>${maven.test.skip}</skip>
                                 <argumentFileName>${tests.mode}-test.lst</argumentFileName>
                                 <weaveDirectories>
                                     <weaveDirectory>${project.build.directory}/unwoven-${tests.output}</weaveDirectory>
