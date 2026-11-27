@@ -14,7 +14,7 @@ DRIVER_ROOT = Path(__file__).resolve().parents[1]
 if str(DRIVER_ROOT) not in sys.path:
     sys.path.insert(0, str(DRIVER_ROOT))
 
-from analyzer.evals.report import build_report
+from analyzer.evals.report import build_report, save_report
 
 
 class AnalyzerEvalReportTest(unittest.TestCase):
@@ -42,6 +42,15 @@ class AnalyzerEvalReportTest(unittest.TestCase):
                     source_job_ref INTEGER NOT NULL,
                     candidate_fit_percent REAL
                 );
+                CREATE TABLE companies (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL
+                );
+                CREATE TABLE source_job_texts (
+                    source_job_ref INTEGER PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    company_id INTEGER
+                );
                 """
             )
             for index, (job_id, actual) in enumerate(saved, start=1):
@@ -50,6 +59,13 @@ class AnalyzerEvalReportTest(unittest.TestCase):
                     (index, job_id),
                 )
                 connection.execute("INSERT INTO jobs VALUES (?, ?)", (index, actual))
+                company = "Café, Inc." if index == 1 else f"Company {index}"
+                title = "Développeur, senior" if index == 1 else f"Engineer {index}"
+                connection.execute("INSERT INTO companies VALUES (?, ?)", (index, company))
+                connection.execute(
+                    "INSERT INTO source_job_texts VALUES (?, ?, ?)",
+                    (index, title, index),
+                )
 
     def _write_inputs(
         self,
@@ -112,6 +128,41 @@ class AnalyzerEvalReportTest(unittest.TestCase):
                 self.assertTrue(
                     all(value is None for value in report["metrics"].values())
                 )
+
+    def test_csv_contains_utf8_bom_metadata_and_scores(self) -> None:
+        with closing(sqlite3.connect(self.result_dir / "Data" / "jobs.sqlite")) as connection, connection:
+            connection.execute("DELETE FROM jobs WHERE source_job_ref = 2")
+        self._write_inputs()
+        report = build_report(self.result_dir, 3)
+
+        save_report(self.result_dir, report)
+
+        csv_path = self.result_dir / "report.csv"
+        self.assertTrue(csv_path.read_bytes().startswith(b"\xef\xbb\xbf"))
+        with csv_path.open(encoding="utf-8-sig", newline="") as file:
+            reader = csv.DictReader(file)
+            self.assertEqual(
+                reader.fieldnames,
+                ["source", "job_id", "company", "title", "expected", "actual",
+                 "error", "asymmetric_loss", "status"],
+            )
+            rows = list(reader)
+
+        first = rows[0]
+        self.assertEqual(first["company"], "Café, Inc.")
+        self.assertEqual(first["title"], "Développeur, senior")
+        self.assertEqual(first["expected"], "50.0")
+        self.assertEqual(first["actual"], "40.0")
+        self.assertEqual(first["error"], "-10.0")
+        self.assertEqual(first["asymmetric_loss"], "300.0")
+        missing = rows[1]
+        self.assertEqual(missing["company"], "Company 2")
+        self.assertEqual(missing["expected"], "70.0")
+        self.assertEqual(missing["actual"], "")
+        self.assertEqual(missing["error"], "")
+        self.assertEqual(missing["asymmetric_loss"], "")
+        self.assertEqual(missing["status"], "SAVED")
+        self.assertTrue((self.result_dir / "report.json").exists())
 
 
 if __name__ == "__main__":

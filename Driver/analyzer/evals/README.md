@@ -47,8 +47,9 @@ From the repository root, run the analyzer and calculate its report:
 python Driver/analyzer/evals/run.py Driver/analyzer/evals/datasets/linkedin-27/dataset.sql
 ```
 
-This runs the real model and then writes `report.json` with the evaluation
-metrics. Use `--k` to select the underestimation penalty (default: 3).
+This runs the real model and then writes `report.csv` with vacancy details and
+`report.json` with those details and aggregate metrics. Use `--k` to select the
+underestimation penalty (default: 3).
 The dataset must have `external-scores.csv` beside `dataset.sql`.
 
 Java must be on `PATH`, or select it with `--java <path>`. Preparation resets
@@ -82,7 +83,7 @@ python Driver/analyzer/evals/report.py tmp/analyzer-evals/results/<evaluation-ru
 ```
 
 This separate command reads the saved database and reference scores without model calls,
-and writes `report.json` in the result directory. It contains each vacancy's
+and writes `report.csv` and `report.json` in the result directory. The report contains each vacancy's
 reference, actual score, signed error and asymmetric loss, plus aggregate
 asymmetric MSE, MSE and bias. Underestimates use a coefficient of 3 by default;
 `--k` selects another positive coefficient. Incomplete results or mismatched

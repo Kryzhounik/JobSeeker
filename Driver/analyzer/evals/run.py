@@ -211,7 +211,7 @@ def main() -> None:
         shutil.copytree(workspace / "Data", result / "Data")
     report = build_report(result, args.k)
     save_report(result, report)
-    print(f"Evaluation report: {result / 'report.json'}", flush=True)
+    print(f"Evaluation reports: {result / 'report.csv'}, {result / 'report.json'}", flush=True)
     if not report['complete']:
         raise SystemExit(1)
 

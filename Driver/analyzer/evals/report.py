@@ -29,20 +29,24 @@ def build_report(result_dir: Path, k: float) -> dict:
             references[key] = low
     database = (result_dir / 'Data' / 'jobs.sqlite').resolve(strict=True)
     with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as connection:
-        actuals = {(source, job_id): (status, score) for source, job_id, status, score in connection.execute(
-            'SELECT s.source, s.source_job_id, s.processing_status, j.candidate_fit_percent '
-            'FROM source_jobs s LEFT JOIN jobs j ON j.source_job_ref = s.id'
+        actuals = {(source, job_id): (status, score, company, title)
+                   for source, job_id, status, score, company, title in connection.execute(
+            'SELECT s.source, s.source_job_id, s.processing_status, j.candidate_fit_percent, '
+            'c.name, t.title FROM source_jobs s '
+            'LEFT JOIN jobs j ON j.source_job_ref = s.id '
+            'LEFT JOIN source_job_texts t ON t.source_job_ref = s.id '
+            'LEFT JOIN companies c ON c.id = t.company_id'
         )}
     vacancies = []
     for source, job_id in scope:
         expected = references.get((source, job_id))
-        status, actual = actuals.get((source, job_id), ('missing', None))
+        status, actual, company, title = actuals.get((source, job_id), ('missing', None, None, None))
         if status != 'SAVED' or actual is None:
             actual = None
         if actual is not None and (not isinstance(actual, (int, float)) or not 0 <= actual <= 100):
             raise ValueError(f'Invalid Candidate Fit score: {source}:{job_id}')
         error = actual - expected if actual is not None and expected is not None else None
-        vacancies.append({'source': source, 'job_id': job_id, 'expected': expected,
+        vacancies.append({'source': source, 'job_id': job_id, 'company': company, 'title': title, 'expected': expected,
                           'actual': actual, 'status': status, 'error': error,
                           'asymmetric_loss': (k if error < 0 else 1) * error ** 2
                           if error is not None else None})
@@ -62,6 +66,12 @@ def save_report(result_dir: Path, report: dict) -> None:
     (result_dir / 'report.json').write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
     )
+    with (result_dir / 'report.csv').open('w', encoding='utf-8-sig', newline='') as file:
+        fields = ('source', 'job_id', 'company', 'title', 'expected', 'actual',
+                  'error', 'asymmetric_loss', 'status')
+        writer = csv.DictWriter(file, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(report['vacancies'])
 
 
 def main() -> None:
