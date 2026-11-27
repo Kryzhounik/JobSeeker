@@ -179,6 +179,8 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
             run.prepare(invalid_dataset, self.workspace, self.project)
 
     def test_main_retains_failed_run_artifacts_and_separates_next_result(self) -> None:
+        scores = self.dataset.parent / "external-scores.csv"
+        scores.write_text("job_id,score\ntest-job-1,80\n", encoding="utf-8")
         jar = self.project / "Driver" / "orchestrator" / "workflow-orchestrator.jar"
         jar.write_bytes(b"fixture jar")
         self.results.mkdir(parents=True)
@@ -213,6 +215,10 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         result_directories = list(self.results.iterdir())
         self.assertEqual(len(result_directories), 1)
         failed_result = result_directories[0]
+        self.assertEqual((failed_result / "external-scores.csv").read_bytes(), scores.read_bytes())
+        prompt = Path("Driver/common/prompts/untrusted_content.md")
+        self.assertEqual((failed_result / "inputs" / prompt).read_bytes(),
+                         (self.project / prompt).read_bytes())
         self.assertTrue((failed_result / "metadata.json").is_file())
         self.assertTrue((failed_result / "Data" / "jobs.sqlite").is_file())
         self.assertTrue((failed_result / "Profile" / "resume.ini").is_file())

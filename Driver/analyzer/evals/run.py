@@ -155,9 +155,14 @@ def main() -> None:
     result.mkdir(parents=True)
     print(f"Evaluation results: {result}", flush=True)
     shutil.copy2(args.dataset, result / "dataset.sql")
+    scores = args.dataset.parent / "external-scores.csv"
+    if scores.is_file():
+        shutil.copy2(scores, result / "external-scores.csv")
     shutil.copytree(workspace / "Data" / "Profile", result / "Profile")
     for name in ("analyzer", "contracts"):
         copy_tree(workspace / "Driver" / name, result / "inputs" / "Driver" / name)
+    copy_tree(workspace / "Driver" / "common" / "prompts",
+              result / "inputs" / "Driver" / "common" / "prompts")
     (result / "inputs" / "Driver" / "codex_proxy").mkdir(parents=True)
     for name in ("config.ini", "transport_instructions.md"):
         shutil.copy2(workspace / "Driver" / "codex_proxy" / name,

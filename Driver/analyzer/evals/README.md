@@ -25,7 +25,9 @@ that `collection_run_id`, one source and `RELEVANT` status, with a nonempty
 order. IDs must not contain commas, because the existing CLI uses comma-separated
 IDs. The single-source restriction follows the existing CLI; multiple sources
 must not be split into separate commands, which would change session behavior.
-Dataset cases and reference results are not yet defined.
+The `datasets/linkedin-27/` dataset contains 25 vacancies. Its
+`external-scores.csv` records the external expected percentages for those
+vacancies. Comparison rules and quality metrics are not yet defined.
 
 ## Invocation
 
@@ -46,7 +48,8 @@ Java must be on `PATH`, or select it with `--java <path>`. Preparation resets
 libraries and profile, overrides the database and raw paths, and checks Python
 module and profile resolution before running either command. Each real run
 gets a new directory under `tmp/analyzer-evals/results/`. It contains the seed,
-profile snapshot, analyzer inputs, metadata and file hashes, command logs, and
+`external-scores.csv` if present beside the seed, the profile snapshot, analyzer
+inputs including shared prompts, metadata and file hashes, command logs, and
 the resulting `Data/` including SQLite, generated JSON and token accounting.
 Outputs from a failed command are retained there too. These directories contain
 personal profile data and must remain private. A subsequent run resets the
