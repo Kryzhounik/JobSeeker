@@ -48,13 +48,13 @@ class LinkedInCollectorProgressTest {
                     }
                     throw new AssertionError("Unexpected gateway call: " + method.getName());
                 });
-        LinkedInCollector collector = new LinkedInCollector(null, null, CONFIG,
+        LinkedInCollector collector = new LinkedInCollector(null, null, null, null, CONFIG,
                 "failed-filter-run", ignored -> { }, new VacancyProcessor(python),
                 new com.seeker.collector.core.CollectionAccumulator(), null);
         var process = LinkedInCollector.class.getDeclaredMethod(
-                "operate", Preview.class, LinkedInPageClient.MaterializedPage.class);
+                "operate", Preview.class, LinkedInSearchResults.MaterializedPage.class);
         process.setAccessible(true);
-        var page = new LinkedInPageClient.MaterializedPage(null, List.of(), 0, null, 0,
+        var page = new LinkedInSearchResults.MaterializedPage(null, List.of(), 0, null, 0,
                 "", 0, 0, "", true, "", 0, false, false, "", "");
         Preview preview = new Preview("123", "https://www.linkedin.com/jobs/view/123/",
                 "Java Developer", "Company", "", "", "", "Poland", 0, 1);

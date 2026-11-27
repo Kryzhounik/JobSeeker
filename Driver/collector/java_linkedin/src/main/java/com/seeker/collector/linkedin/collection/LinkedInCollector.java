@@ -8,7 +8,11 @@ import org.slf4j.event.Level;
 import com.seeker.collector.common.*;
 
 import com.microsoft.playwright.PlaywrightException;
+import com.microsoft.playwright.Page;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
+import com.seeker.collector.linkedin.collection.LinkedInJobDetailsReader.JobDetails;
+import com.seeker.collector.linkedin.collection.LinkedInSearchResults.CardData;
+import com.seeker.collector.linkedin.collection.LinkedInSearchResults.MaterializedPage;
 import com.seeker.collector.linkedin.config.CollectorConfig;
 import com.seeker.collector.linkedin.python.LinkedInGateway;
 import com.seeker.tools.api.ProgressSnapshot;
@@ -25,6 +29,8 @@ final class LinkedInCollector {
     private static final int PAGE_STEP = 25;
 
     private final LinkedInPageClient browser;
+    private final LinkedInSearchResults searchResults;
+    private final LinkedInJobDetailsReader detailsReader;
     private final LinkedInGateway python;
     private final VacancyProcessor processor;
     private final CollectionSink sink;
@@ -42,10 +48,13 @@ final class LinkedInCollector {
     private String currentUrl = "";
     private Integer urlCount;
 
-    LinkedInCollector(LinkedInPageClient browser, LinkedInGateway python, CollectorConfig config,
+    LinkedInCollector(LinkedInPageClient browser, LinkedInSearchResults searchResults,
+                      LinkedInJobDetailsReader detailsReader, LinkedInGateway python, CollectorConfig config,
                       String runId, Consumer<ProgressSnapshot> progressListener,
                       VacancyProcessor processor, CollectionSink sink, LinkedInVacancyPreparer preparer) {
         this.browser = browser;
+        this.searchResults = searchResults;
+        this.detailsReader = detailsReader;
         this.python = python;
         this.config = config;
         this.runId = runId;
@@ -101,10 +110,10 @@ final class LinkedInCollector {
         List<String> rejections = new ArrayList<>();
         for (String url : urls) {
             currentUrl = url;
-            String jobId = LinkedInPageClient.jobId(url);
+            String jobId = LinkedInUrls.jobId(url);
             Preview preview = new Preview(
                     jobId,
-                    LinkedInPageClient.canonicalUrl(jobId),
+                    LinkedInUrls.canonicalUrl(jobId),
                     "",
                     "",
                     "",
@@ -150,13 +159,13 @@ final class LinkedInCollector {
             progress("opening_search", "");
             String pageUrl = browser.openSearch(target, start);
             progress("reading_cards", "");
-            LinkedInPageClient.MaterializedPage materialized = materializeWithOneRetry(
+            MaterializedPage materialized = materializeWithOneRetry(
                     target,
                     start
             );
-            List<LinkedInPageClient.CardData> newCards = new ArrayList<>();
+            List<CardData> newCards = new ArrayList<>();
             int newForTarget = 0;
-            for (LinkedInPageClient.CardData card : materialized.cards()) {
+            for (CardData card : materialized.cards()) {
                 if (card.related()) continue;
                 if (targetSeenIds.add(card.jobId())) {
                     newForTarget++;
@@ -189,7 +198,7 @@ final class LinkedInCollector {
             }
 
             int index = 0;
-            for (LinkedInPageClient.CardData card : newCards) {
+            for (CardData card : newCards) {
                 index++;
                 if (!seenIds.add(card.jobId())) {
                     continue;
@@ -220,31 +229,31 @@ final class LinkedInCollector {
         }
     }
 
-    private LinkedInPageClient.MaterializedPage materializeWithOneRetry(
+    private MaterializedPage materializeWithOneRetry(
             SearchPlan.Target target,
             int start
     ) {
         try {
-            return browser.materializePage(start);
+            return searchResults.materializePage(start);
         } catch (CollectionBlockedException | PlaywrightException first) {
             log.warn("LinkedIn page materialization failed once; retrying {} start={}: {}",
                     target.label(), start, message(first));
             browser.openSearch(target, start);
-            return browser.materializePage(start);
+            return searchResults.materializePage(start);
         }
     }
 
     private ProcessResult operate(
             Preview preview,
-            LinkedInPageClient.MaterializedPage materialized
+            MaterializedPage materialized
     ) {
         currentUrl = preview.sourceUrl();
         boolean processing = false;
         try {
-            LinkedInPageClient.JobDetails details = null;
+            JobDetails details = null;
             if (materialized == null) {
                 progress("opening_job", preview.jobId() + " " + preview.title());
-                details = browser.openDirect(preview.sourceUrl(), preview.jobId());
+                details = readDirect(preview.sourceUrl(), preview.jobId());
                 preview = new Preview(preview.jobId(), preview.sourceUrl(), details.title(),
                         details.company(), details.location(), "", "", preview.label(),
                         preview.start(), preview.index());
@@ -258,11 +267,7 @@ final class LinkedInCollector {
             if (details == null) {
                 processing = false;
                 progress("opening_job", preview.jobId() + " " + preview.title());
-                try {
-                    details = browser.openCard(materialized, preview.jobId());
-                } catch (CardClickException error) {
-                    details = browser.openDirect(preview.sourceUrl(), preview.jobId());
-                }
+                details = readCard(materialized, preview);
             }
             if (preview.title().isBlank()) {
                 throw new DetailsNotReadyException("LinkedIn vacancy title is empty");
@@ -278,7 +283,25 @@ final class LinkedInCollector {
         }
     }
 
-    private ProcessResult processHtml(Preview preview, LinkedInPageClient.JobDetails details) {
+    private JobDetails readCard(MaterializedPage materialized, Preview preview) {
+        try {
+            browser.openCard(searchResults.cardLocator(materialized.layout(), preview.jobId()), preview.jobId());
+        } catch (CardClickException error) {
+            return readDirect(preview.sourceUrl(), preview.jobId());
+        }
+        return detailsReader.readSearch(preview.jobId());
+    }
+
+    private JobDetails readDirect(String sourceUrl, String jobId) {
+        Page direct = browser.openDirect(sourceUrl);
+        try {
+            return detailsReader.readDirect(direct, jobId);
+        } finally {
+            direct.close();
+        }
+    }
+
+    private ProcessResult processHtml(Preview preview, JobDetails details) {
         progress("filtering_content", preview.jobId() + " " + preview.title());
         return preparer.process(preview, details.html(), details.easyApply(), processor);
     }
@@ -327,7 +350,7 @@ final class LinkedInCollector {
             SearchPlan.Target target,
             int start,
             String pageUrl,
-            LinkedInPageClient.MaterializedPage materialized,
+            MaterializedPage materialized,
             int newCards,
             int newForTarget,
             String stopReason
@@ -371,7 +394,7 @@ final class LinkedInCollector {
     }
 
     private String pageStopReason(
-            LinkedInPageClient.MaterializedPage materialized,
+            MaterializedPage materialized,
             int noNewPages
     ) {
         if (materialized.terminal()) {
@@ -386,7 +409,7 @@ final class LinkedInCollector {
         return "continue";
     }
 
-    private boolean isIncompletePage(LinkedInPageClient.MaterializedPage materialized) {
+    private boolean isIncompletePage(MaterializedPage materialized) {
         return "unknown_short_page".equals(materialized.terminalReason())
                 || "incomplete_page".equals(materialized.terminalReason());
     }
@@ -394,7 +417,7 @@ final class LinkedInCollector {
     private void logPage(
             SearchPlan.Target target,
             int start,
-            LinkedInPageClient.MaterializedPage materialized,
+            MaterializedPage materialized,
             int newCards
     ) {
         log.info(
@@ -403,7 +426,7 @@ final class LinkedInCollector {
                 target.kind().name().toLowerCase(Locale.ROOT),
                 start,
                 materialized.materializedCount(),
-                materialized.cards().stream().filter(LinkedInPageClient.CardData::related).count(),
+                materialized.cards().stream().filter(CardData::related).count(),
                 newCards,
                 sink.acceptedCount(),
                 config.search().limit()

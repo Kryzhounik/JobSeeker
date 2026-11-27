@@ -55,9 +55,11 @@ public final class LinkedInSource implements CollectorSource {
              LinkedInGateway python = new LinkedInGateway();
              PersistentLinkedInSession session = new PersistentLinkedInSession(paths.profileDirectory(), settings)) {
             LinkedInPageClient browser = new LinkedInPageClient(session, config);
+            LinkedInSearchResults searchResults = new LinkedInSearchResults(session.primaryPage(), config);
+            LinkedInJobDetailsReader detailsReader = new LinkedInJobDetailsReader(session.primaryPage(), browser, config);
             progress.accept(startingSnapshot("checking_session", count));
             browser.preflight();
-            collector = new LinkedInCollector(browser, python, config, runId, progress, processor, sink,
+            collector = new LinkedInCollector(browser, searchResults, detailsReader, python, config, runId, progress, processor, sink,
                     new LinkedInVacancyPreparer(python, reasoning));
             return urls == null ? collector.runBatch() : collector.runFromUrls(urls);
         }

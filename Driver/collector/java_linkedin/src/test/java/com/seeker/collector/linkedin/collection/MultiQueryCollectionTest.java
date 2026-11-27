@@ -17,6 +17,8 @@ class MultiQueryCollectionTest {
 
     private void run(int limit, int expectedTargets, List<String> accepted) {
         var browser = mock(LinkedInPageClient.class);
+        var searchResults = mock(LinkedInSearchResults.class);
+        var detailsReader = mock(LinkedInJobDetailsReader.class);
         var gateway = mock(LinkedInGateway.class);
         var processor = mock(VacancyProcessor.class);
         var preparer = mock(LinkedInVacancyPreparer.class);
@@ -32,32 +34,32 @@ class MultiQueryCollectionTest {
             targets.add(target.label() + "/" + target.query());
             return target.pageUrl(0);
         });
-        when(browser.materializePage(anyInt())).thenAnswer(call -> {
+        when(searchResults.materializePage(anyInt())).thenAnswer(call -> {
             // ID 1 overlaps all searches. Other IDs are introduced by later targets.
             String next = targets.size() == 1 ? "1" : targets.size() == 2 ? "2" : "3";
-            var cards = new ArrayList<LinkedInPageClient.CardData>();
+            var cards = new ArrayList<LinkedInSearchResults.CardData>();
             for (String id : new LinkedHashSet<>(List.of("1", next))) {
-                var card = mock(LinkedInPageClient.CardData.class);
+                var card = mock(LinkedInSearchResults.CardData.class);
                 when(card.jobId()).thenReturn(id);
                 when(card.preview(anyString(), anyInt(), anyInt())).thenReturn(
                         new Preview(id, "https://www.linkedin.com/jobs/view/" + id, "Engineer", "Company",
                                 "", "", "", "", 0, 1));
                 cards.add(card);
             }
-            var page = mock(LinkedInPageClient.MaterializedPage.class);
+            var page = mock(LinkedInSearchResults.MaterializedPage.class);
             when(page.cards()).thenReturn(cards);
             when(page.terminal()).thenReturn(true);
             when(page.terminalReason()).thenReturn("end");
             return page;
         });
         when(processor.decidePreview(any())).thenReturn(new PreviewDecision("open", "", "", List.of()));
-        when(browser.openCard(any(), anyString())).thenReturn(new LinkedInPageClient.JobDetails("html", "Engineer", "", "", false));
+        when(detailsReader.readSearch(anyString())).thenReturn(new LinkedInJobDetailsReader.JobDetails("html", "Engineer", "", "", false));
         when(preparer.process(any(), anyString(), anyBoolean(), any())).thenAnswer(call -> {
             Preview p = call.getArgument(0);
             return new ProcessResult("linkedin", p.jobId(), p.title(), "raw_saved", "");
         });
         var progress = new ArrayList<com.seeker.tools.api.ProgressSnapshot>();
-        var collector = new LinkedInCollector(browser, gateway, config, "test", progress::add, processor, sink, preparer);
+        var collector = new LinkedInCollector(browser, searchResults, detailsReader, gateway, config, "test", progress::add, processor, sink, preparer);
         var result = collector.runBatch();
         assertEquals("complete", result.status());
         assertEquals(limit <= 2 ? "limit_reached" : "plan_exhausted", result.stopReason());
