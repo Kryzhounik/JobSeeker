@@ -8,6 +8,7 @@ from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -15,6 +16,11 @@ import sqlite3
 import subprocess
 from uuid import uuid4
 from zipfile import ZipFile
+
+if __package__:
+    from .report import build_report, save_report
+else:
+    from report import build_report, save_report
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -137,7 +143,13 @@ def main() -> None:
     parser.add_argument("dataset", type=Path, help="Path to dataset.sql")
     parser.add_argument("--prepare-only", action="store_true", help="Prepare and validate without model calls")
     parser.add_argument("--java", default="java", help="Java executable")
+    parser.add_argument("--k", type=float, default=3.0, help="Underestimation penalty (default: 3)")
     args = parser.parse_args()
+    if not math.isfinite(args.k) or args.k <= 0:
+        parser.error("--k must be a positive finite number")
+    scores = args.dataset.parent / "external-scores.csv"
+    if not args.prepare_only and not scores.is_file():
+        raise FileNotFoundError(f"Missing reference scores: {scores}")
     workspace = EVAL_ROOT / "workspace"
     prepared = prepare(args.dataset, workspace, ROOT)
     jar = workspace / "Driver" / "orchestrator" / "workflow-orchestrator.jar"
@@ -155,7 +167,6 @@ def main() -> None:
     result.mkdir(parents=True)
     print(f"Evaluation results: {result}", flush=True)
     shutil.copy2(args.dataset, result / "dataset.sql")
-    scores = args.dataset.parent / "external-scores.csv"
     if scores.is_file():
         shutil.copy2(scores, result / "external-scores.csv")
     shutil.copytree(workspace / "Data" / "Profile", result / "Profile")
@@ -189,6 +200,11 @@ def main() -> None:
                                stdout=stdout, stderr=stderr, check=True)
     finally:
         shutil.copytree(workspace / "Data", result / "Data")
+    report = build_report(result, args.k)
+    save_report(result, report)
+    print(f"Evaluation report: {result / 'report.json'}", flush=True)
+    if not report['complete']:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

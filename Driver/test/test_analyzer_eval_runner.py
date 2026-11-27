@@ -180,7 +180,7 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
 
     def test_main_retains_failed_run_artifacts_and_separates_next_result(self) -> None:
         scores = self.dataset.parent / "external-scores.csv"
-        scores.write_text("job_id,score\ntest-job-1,80\n", encoding="utf-8")
+        scores.write_text("source,job_id,minimum_percent,maximum_percent\nlinkedin,test-job-1,80,80\n", encoding="utf-8")
         jar = self.project / "Driver" / "orchestrator" / "workflow-orchestrator.jar"
         jar.write_bytes(b"fixture jar")
         self.results.mkdir(parents=True)
@@ -196,6 +196,11 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
                 java_commands.append(args)
                 if len(java_commands) == 2:
                     raise subprocess.CalledProcessError(1, args)
+                if args[3] == "finish-analysis":
+                    database = Path(kwargs["cwd"]) / "Data" / "jobs.sqlite"
+                    with closing(sqlite3.connect(database)) as connection, connection:
+                        connection.execute("UPDATE source_jobs SET processing_status='SAVED'")
+                        connection.execute("INSERT INTO jobs(source_job_ref, candidate_fit_percent) SELECT id, 70 FROM source_jobs")
                 return subprocess.CompletedProcess(args, 0, "", "")
             self.fail(f"Unexpected subprocess: {args[0]}")
 
@@ -215,6 +220,7 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         result_directories = list(self.results.iterdir())
         self.assertEqual(len(result_directories), 1)
         failed_result = result_directories[0]
+        self.assertFalse((failed_result / "report.json").exists())
         self.assertEqual((failed_result / "external-scores.csv").read_bytes(), scores.read_bytes())
         prompt = Path("Driver/common/prompts/untrusted_content.md")
         self.assertEqual((failed_result / "inputs" / prompt).read_bytes(),
@@ -232,6 +238,10 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
 
         all_results = list(self.results.iterdir())
         self.assertEqual(len(all_results), 2)
+        successful_result = next(path for path in all_results if path != failed_result)
+        report = json.loads((successful_result / "report.json").read_text(encoding="utf-8"))
+        self.assertTrue(report["complete"])
+        self.assertEqual(report["metrics"]["asymmetric_mse"], 300)
         self.assertTrue((failed_result / "Data" / "jobs.sqlite").is_file())
         self.assertEqual(
             [Path(args[2]).name for args in java_commands],

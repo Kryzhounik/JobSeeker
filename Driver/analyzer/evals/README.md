@@ -4,8 +4,7 @@ This manually invoked runner seeds a fresh isolated database and runs the existi
 Orchestrator `job-facts` and `finish-analysis` operations. The latter includes
 the deterministic gate, candidate fit, interest and database save. Calls use
 the configured real Codex model and consume tokens. The title relevance filter
-and browser collection are not run. This runner does not define reference
-results, quality metrics or comparison rules.
+and browser collection are not run.
 
 ## Prerequisites and dataset
 
@@ -27,21 +26,19 @@ IDs. The single-source restriction follows the existing CLI; multiple sources
 must not be split into separate commands, which would change session behavior.
 The `datasets/linkedin-27/` dataset contains 25 vacancies. Its
 `external-scores.csv` records the external expected percentages for those
-vacancies. Comparison rules and quality metrics are not yet defined.
+vacancies.
 
-## Invocation
+## Run the evaluation
 
-From the repository root, prepare and validate without model calls:
-
-```powershell
-python Driver/analyzer/evals/run.py path/to/dataset.sql --prepare-only
-```
-
-When a real evaluation is intended, omit `--prepare-only`:
+From the repository root, run the analyzer and calculate its report:
 
 ```powershell
-python Driver/analyzer/evals/run.py path/to/dataset.sql
+python Driver/analyzer/evals/run.py Driver/analyzer/evals/datasets/linkedin-27/dataset.sql
 ```
+
+This runs the real model and then writes `report.json` with the evaluation
+metrics. Use `--k` to select the underestimation penalty (default: 3).
+The dataset must have `external-scores.csv` beside `dataset.sql`.
 
 Java must be on `PATH`, or select it with `--java <path>`. Preparation resets
 `tmp/analyzer-evals/workspace`, copies the deployed Python code, prompts,
@@ -55,7 +52,28 @@ Outputs from a failed command are retained there too. These directories contain
 personal profile data and must remain private. A subsequent run resets the
 workspace but leaves earlier result directories intact.
 
-`--prepare-only` does not create a result directory or invoke Java/the model;
-it is useful for checking a seed and environment, not for evaluating quality.
+Real model calls require network access from the runner and its child Codex CLI
+processes. When launching from a Codex session with restricted network access,
+run the evaluation outside that session's sandbox using the normal approval
+mechanism. Otherwise Codex CLI may wait while retrying failed connections.
+This is separate from the Codex Proxy's own model and sandbox settings; do not
+change those settings merely to grant the launcher network access.
+
+Use `--prepare-only` to check a seed and environment without creating a result
+directory or invoking Java/the model.
 The caller is responsible for ensuring no other evaluation is using the shared
 workspace when starting a run.
+
+## Optional: recalculate a report
+
+```powershell
+python Driver/analyzer/evals/report.py tmp/analyzer-evals/results/<evaluation-run-id>
+```
+
+This separate command reads the saved database and reference scores without model calls,
+and writes `report.json` in the result directory. It contains each vacancy's
+reference, actual score, signed error and asymmetric loss, plus aggregate
+asymmetric MSE, MSE and bias. Underestimates use a coefficient of 3 by default;
+`--k` selects another positive coefficient. Incomplete results or mismatched
+references are reported explicitly, with no aggregate metrics and exit code 1.
+Compare runs using the same dataset, reference scores, profile and coefficient.
