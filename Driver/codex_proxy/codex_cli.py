@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from configparser import ConfigParser
 from datetime import datetime, timezone
+from functools import wraps
 import json
+import logging
 import os
 from pathlib import Path
 import re
 import shutil
 import subprocess
+import time
 from uuid import uuid4
 
 from common.paths import DATA_ROOT
 from codex_proxy.backend import Result
 from codex_proxy.output_schema import codex_schema_file
 
+
+_logger = logging.getLogger(__name__)
 
 USAGE_KEYS = (
     "input_tokens",
@@ -72,6 +78,30 @@ def _save_failure_logs(stdout: str, stderr: str) -> Path:
     return directory
 
 
+def _log_call(function: Callable[..., Result]) -> Callable[..., Result]:
+    @wraps(function)
+    def logged_call(**kwargs) -> Result:
+        call_id = uuid4().hex[:8]
+        _logger.info("%s input call_id=%s model=%s", function.__name__, call_id, kwargs.get("model"))
+        started = time.monotonic()
+        try:
+            result = function(**kwargs)
+        except Exception as error:
+            _logger.error(
+                "%s exception call_id=%s duration_ms=%.0f exception_type=%s",
+                function.__name__, call_id, (time.monotonic() - started) * 1000, type(error).__name__,
+            )
+            raise
+        _logger.info(
+            "%s output call_id=%s exit_code=%s duration_ms=%.0f",
+            function.__name__, call_id, result.exit_code, (time.monotonic() - started) * 1000,
+        )
+        return result
+
+    return logged_call
+
+
+@_log_call
 def call(
     *,
     config: ConfigParser,
