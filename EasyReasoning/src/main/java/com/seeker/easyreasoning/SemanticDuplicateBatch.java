@@ -54,8 +54,7 @@ final class SemanticDuplicateBatch {
         }
     }
 
-    @LogException(message = "Semantic comparison model cleanup failed", level = Level.WARN,
-            types = RuntimeException.class)
+    @LogException(level = Level.WARN, types = RuntimeException.class)
     private void releaseModel() {
         release.run();
     }
@@ -183,8 +182,7 @@ final class SemanticDuplicateBatch {
             report(vacancyIndex, nextSample);
         }
 
-        @LogInput(message = "Semantic comparison started",
-                include = {"#sample.source", "#sample.jobId", "#vacancy.source", "#vacancy.jobId"})
+        @LogInput(include = {"#sample.source", "#sample.jobId", "#vacancy.source", "#vacancy.jobId"})
         private Boolean comparePair(VacancySnapshot sample, VacancySnapshot vacancy) {
             lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
             try { return compare.test(sample.text(), vacancy.text()); }

@@ -201,7 +201,7 @@ public final class CollectionService {
         }
     }
 
-    @LogOutput(message = "Collection finished", include = {"source", "runId", "status", "acceptedCount"})
+    @LogOutput(include = {"source", "runId", "status", "acceptedCount"})
     static CollectionReport run(CollectorSource source, VacancyProcessor processor, PythonGateway python,
                                 CollectionAccumulator sink, String runId, List<String> urls,
                                 Consumer<ProgressSnapshot> progress) throws IOException {

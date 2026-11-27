@@ -1,6 +1,5 @@
 package com.seeker.orchestrator;
 
-import com.seeker.logging.LogInput;
 import com.seeker.logging.LogOutput;
 
 import com.seeker.collector.core.CollectorApi;
@@ -406,8 +405,7 @@ public final class OrchestratorApi {
         results.submit(() -> extractFacts(runId, scope.get(group.next()), group));
     }
 
-    @LogInput(message = "Job facts start", include = {"#item.source", "#item.jobId"})
-    @LogOutput(message = "Job facts complete", include = {"#item.source", "#item.jobId"}, duration = true)
+    @LogOutput(include = {"#item.source", "#item.jobId"}, duration = true)
     private FactsGroup extractFacts(String runId, ScopeItem item, FactsGroup group) throws UsageLimitExceededException {
         String threadId = processingGateway.extractJobFacts(runId, item.source(), item.jobId(),
                 group.target(), group.threadId());

@@ -82,7 +82,7 @@ final class LinkedInCollector {
         }
     }
 
-    @LogInput(message = "LinkedIn seed", include = "#target.label")
+    @LogInput(include = "#target.label")
     private void openSeed(SearchPlan.Target target) {
         currentLocation = target.label();
         currentSearch = "seed";
@@ -283,8 +283,8 @@ final class LinkedInCollector {
         return preparer.process(preview, details.html(), details.easyApply(), processor);
     }
 
-    @LogOutput(message = "LinkedIn vacancy failed", level = Level.WARN,
-            include = {"jobId", "status", "reason"}, condition = "#result.status != 'not_processed_due_to_limit'")
+    @LogOutput(level = Level.WARN, include = {"jobId", "status", "reason"},
+            condition = "#result.status != 'not_processed_due_to_limit'")
     private ProcessResult logOutcome(Preview preview, String status, String reason) {
         try {
             processor.logOutcome(preview, status, reason);
