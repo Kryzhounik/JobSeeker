@@ -17,7 +17,7 @@ final class CollectionSettingsPane extends VBox {
     private final CheckBox linkedin = new CheckBox();
     private final CheckBox justjoin = new CheckBox();
     private final CheckBox includeRecommendations = new CheckBox("Include recommendations");
-    private final Map<String, TextField> fields = new LinkedHashMap<>();
+    private final Map<String, TextInputControl> fields = new LinkedHashMap<>();
     private final CollectionSettings initial;
     private final ListView<String> queries = new ListView<>();
 
@@ -81,7 +81,7 @@ final class CollectionSettingsPane extends VBox {
         down.setOnAction(event -> moveQuery(1));
         l.addRow(l.getRowCount(), new Label("Queries (in order)"),
                 new VBox(5, queries, new HBox(5, addQuery, removeQuery, up, down)));
-        add(l, "li.locations", "Locations (in order)", join(li.locations()), "Moldova:106178099,Ukraine:102264497; AccountRemote requires a country seed");
+        l.addRow(l.getRowCount(), new Label("Locations (in order)"), locationsField(join(li.locations())));
         add(l, "li.experience", "Experience", join(li.experience()), "entry_level,senior,manager");
         add(l, "li.remote", "AccountRemote workplace", join(li.remoteBroadWorkplace()), "remote,hybrid,office");
         add(l, "li.workplace", "Country workplace", join(li.workplace()), "remote,hybrid,office");
@@ -185,6 +185,38 @@ final class CollectionSettingsPane extends VBox {
     }
     private void add(GridPane grid, String key, String label, String value, String hint) {
         grid.addRow(grid.getRowCount(), new Label(label), field(key, value, hint));
+    }
+    private TextArea locationsField(String value) {
+        var field = new TextArea(value) {
+            private final javafx.scene.text.Text measure = new javafx.scene.text.Text();
+
+            @Override public javafx.geometry.Orientation getContentBias() {
+                return javafx.geometry.Orientation.HORIZONTAL;
+            }
+
+            @Override protected double computePrefHeight(double width) {
+                Region content = (Region) lookup(".content");
+                Insets padding = content == null ? Insets.EMPTY : content.getInsets();
+                Insets border = getInsets();
+                measure.setFont(getFont());
+                measure.setText(getText().isEmpty() ? " " : getText());
+                measure.setWrappingWidth(width <= 0 ? 0 : Math.max(1, width
+                        - border.getLeft() - border.getRight() - padding.getLeft() - padding.getRight()));
+                return Math.ceil(measure.getLayoutBounds().getHeight())
+                        + border.getTop() + border.getBottom() + padding.getTop() + padding.getBottom();
+            }
+        };
+        field.setId("li-locations");
+        field.setWrapText(true);
+        field.setPrefColumnCount(1);
+        field.setMinWidth(0);
+        field.setMinHeight(Region.USE_PREF_SIZE);
+        field.setMaxHeight(Region.USE_PREF_SIZE);
+        field.setTooltip(new Tooltip("Moldova:106178099,Ukraine:102264497; AccountRemote requires a country seed"));
+        field.textProperty().addListener(observable -> field.requestLayout());
+        field.fontProperty().addListener(observable -> field.requestLayout());
+        fields.put("li.locations", field);
+        return field;
     }
     private TextField field(String key, String value, String hint) {
         var field = new TextField(value);
