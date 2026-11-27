@@ -77,6 +77,15 @@ def prepare(dataset_sql: Path, workspace: Path, project_root: Path) -> dict:
     for required in ("resume.ini", "Driver/analyzer/filter.ini", "Driver/analyzer/interest.ini"):
         if not (workspace / "Data" / "Profile" / required).is_file():
             raise ValueError(f"Missing profile input: {required}")
+    filter_path = workspace / "Data" / "Profile" / "Driver" / "analyzer" / "filter.ini"
+    filter_config = configparser.ConfigParser()
+    filter_config.read(filter_path, encoding="utf-8")
+    if not filter_config.has_section("filters"):
+        filter_config.add_section("filters")
+    for name in ("languages", "programming_languages", "remote", "relocation"):
+        filter_config.set("filters", name, "off")
+    with filter_path.open("w", encoding="utf-8") as file:
+        filter_config.write(file)
 
     runtime = property_file(project_root / "Tools" / "runtime.properties")
     for key in ("python.home", "python.executable", "python.library", "jpy.library", "jdl.library"):

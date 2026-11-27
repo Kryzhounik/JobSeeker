@@ -2,9 +2,20 @@
 
 This manually invoked runner seeds a fresh isolated database and runs the existing
 Orchestrator `job-facts` and `finish-analysis` operations. The latter includes
-the deterministic gate, candidate fit, interest and database save. Calls use
+candidate fit, interest and database save. Calls use
 the configured real Codex model and consume tokens. The title relevance filter
 and browser collection are not run.
+
+The evaluation is intended to measure extraction followed by semantic Candidate
+Fit scoring with the scripted hard filters disabled: human languages, remote
+location, relocation and core programming languages. Extraction of individual
+location and language facts can be assessed separately using the saved database
+and analyzed JSON; those cases do not need to be tested through hard rejection.
+See [evaluation issues](ISSUES.md) for discrepancies found in the first run.
+
+The runner disables those filters in the workspace's profile copy; it does not
+change the original profile. The saved profile records the settings used. The
+first saved run was performed with the filters enabled.
 
 ## Prerequisites and dataset
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import closing
+import configparser
 import json
 import os
 from pathlib import Path
@@ -91,7 +92,14 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
             "fixture_candidate=Candidate from isolated fixture\n", encoding="utf-8"
         )
         (profile / "Driver" / "analyzer" / "filter.ini").write_text(
-            "fixture_filter=isolated\n", encoding="utf-8"
+            "[filters]\n"
+            "languages=on\n"
+            "programming_languages=on\n"
+            "remote=on\n"
+            "relocation=location\n"
+            "remote_relocation_mode=any\n"
+            "unrelated_setting=keep\n",
+            encoding="utf-8",
         )
         (profile / "Driver" / "analyzer" / "interest.ini").write_text(
             "fixture_interest=isolated\n", encoding="utf-8"
@@ -108,6 +116,8 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         )
 
     def test_prepare_seeds_fresh_database_and_resolves_only_fixture_paths(self) -> None:
+        original_filter = self.project / "Data" / "Profile" / "Driver" / "analyzer" / "filter.ini"
+        original_text = original_filter.read_text(encoding="utf-8")
         actual_run = run.subprocess.run
         with patch.object(run.subprocess, "run", wraps=actual_run) as subprocess_run:
             prepared = run.prepare(self.dataset, self.workspace, self.project)
@@ -130,6 +140,20 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
 
         copied_profile = self.workspace / "Data" / "Profile" / "resume.ini"
         self.assertIn("Candidate from isolated fixture", copied_profile.read_text())
+        workspace_filter = self.workspace / "Data" / "Profile" / "Driver" / "analyzer" / "filter.ini"
+        original_config = configparser.ConfigParser()
+        original_config.read_string(original_text)
+        workspace_config = configparser.ConfigParser()
+        workspace_config.read(workspace_filter, encoding="utf-8")
+        filtered_values = {
+            key: workspace_config.get("filters", key)
+            for key in ("languages", "programming_languages", "remote", "relocation")
+        }
+        self.assertEqual(filtered_values, {key: "off" for key in filtered_values})
+        self.assertEqual(workspace_config.get("filters", "remote_relocation_mode"), "any")
+        self.assertEqual(workspace_config.get("filters", "unrelated_setting"), "keep")
+        self.assertEqual(original_filter.read_text(encoding="utf-8"), original_text)
+        self.assertEqual(original_config.get("filters", "languages"), "on")
         self.assertNotIn("should-be-replaced", (self.workspace / "Tools" / "runtime.properties").read_text())
 
         self.assertEqual(subprocess_run.call_count, 1)
@@ -242,6 +266,14 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         report = json.loads((successful_result / "report.json").read_text(encoding="utf-8"))
         self.assertTrue(report["complete"])
         self.assertEqual(report["metrics"]["asymmetric_mse"], 300)
+        saved_filter = successful_result / "Profile" / "Driver" / "analyzer" / "filter.ini"
+        saved_filter_config = configparser.ConfigParser()
+        saved_filter_config.read(saved_filter, encoding="utf-8")
+        self.assertEqual(
+            {key: saved_filter_config.get("filters", key)
+             for key in ("languages", "programming_languages", "remote", "relocation")},
+            {key: "off" for key in ("languages", "programming_languages", "remote", "relocation")},
+        )
         self.assertTrue((failed_result / "Data" / "jobs.sqlite").is_file())
         self.assertEqual(
             [Path(args[2]).name for args in java_commands],
