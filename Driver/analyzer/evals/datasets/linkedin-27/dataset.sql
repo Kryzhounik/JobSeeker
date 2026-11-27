@@ -1343,19 +1343,21 @@ Assurance invalidité
 ','https://www.linkedin.com/jobs/view/4476025881/','Senior Software Engineer, Backend - Data Streaming',(SELECT id FROM companies WHERE name='Camunda'),'Budapest Metropolitan Area','unknown','',0);
 INSERT OR IGNORE INTO companies(name) VALUES ('Exxeta');
 INSERT INTO source_jobs(source,source_job_id,processing_status,collection_run_id) VALUES ('linkedin','4491694908','RELEVANT','eval-linkedin-27');
-INSERT INTO source_job_texts(source_job_ref,readable_text,source_url,title,company_id,collected_location,collected_workplace,collected_salary,easy_apply) VALUES ((SELECT id FROM source_jobs WHERE source='linkedin' AND source_job_id='4491694908'),'Exxeta
+INSERT INTO source_job_texts(source_job_ref,readable_text,source_url,title,company_id,collected_location,collected_workplace,collected_salary,easy_apply) VALUES ((SELECT id FROM source_jobs WHERE source='linkedin' AND source_job_id='4491694908'),'## Java Backend Engineer (all genders)
 
-Java Backend Engineer (all genders)
+#### Exxeta Tbilisi, Georgia
 
-Tbilisi, Georgia · 3 days ago · 38 people clicked apply
+1 year ago
 
-Responses managed off LinkedIn
+Be among the first 25 applicants
 
-Hybrid
+See who Exxeta has hired for this role
 
-Full-time
+No longer accepting applications
 
-## About the job
+- Report this job
+
+At Exxeta we challenge the traditional concept of consulting and tech. Over 1,200 colleagues at 18 various locations across Europe work together every day to create digital solutions, change markets and transform mindsets - driven by our passion for technology, our team spirit and the drive to create real impact. In other words: High-tech with a heartbeat.
 
 Exxeta is now in Georgia and we want you to become part of our growing Heartbeat Georgian Team and to make the world more digital and better together. Join us in creating solutions that are unique. We''re excited to get to know you!
 
@@ -1363,7 +1365,7 @@ As a Java Backend Engineer (all genders) you will work in a motivated team on ne
 
 What awaits you
 
-- Responsibility for the analysis, consulting and implementation of customer requirements regarding architecture, best practices, methods, standards and concepts for the realisation of software solutions within the system landscapes in the area of Java, Spring Boot or Quarkus
+- Responsibility for the analysis, consulting and implementation of customer requirements regarding architecture, best practices, methods, standards and concepts for the realisation of software solutions within the system landscapes in the area of Java, Spring Boot or Quarkus.
 
 - Support of complex IT transformations and projects
 
@@ -1383,31 +1385,31 @@ What awaits you
 
 What we expect from you
 
-- Responsibility for the analysis, consulting and implementation of customer requirements regarding architecture, best practices, methods, standards and concepts for the realisation of software solutions within the system landscapes in the area of Java, Spring Boot or Quarkus
+- Personal Background: You have a degree in (Business) Informatics, a related field, comparable courses of study or trainings. You have profound practical experience in Java software development, working confidently with standard frameworks and relational databases such as PostgreSQL.
 
-- Support of complex IT transformations and projects
+- Quality Mindset: You enjoy complex development tasks and varied projects. You’re passionate about software development and maintain high quality standards in your work. You apply JUnit and follow Test-Driven Development (TDD) practices to ensure reliability and maintainability.
 
-- Deepening acquired knowledge and actively contributing to our team, e.g. by exploring new topics and technologies
+- Tech Know-how: You have initial experience with Kubernetes and AWS services like Lambda, EKS, IAM, and SQS. You work confidently with CI/CD pipelines, especially using GitHub Actions or similar tools, and are familiar with Terraform for infrastructure management. You actively use Maven, and tools like Confluence and Jira are part of your daily routine.
 
-- Great creative freedom and realisation of your own ideas
+- Enthusiasm: You have experience with agile methodologies such as Scrum and enjoy working in a collaborative, independent setup. You bring a “You build it, you run it” mentality and take ownership of your work.
 
-- Independent and autonomous conception and implementation of complex software solutions on the basis of current technology stacks and agile procedures
+- Let''s Talk: You have very good knowledge in both written and spoken English (B2 level or higher). Good knowledge of German is an advantage, as Exxeta LLC mainly supports German projects of Exxeta AG in Germany
 
-- Technical and professional support in the development of new product and solution ideas
-
-- Ensuring the quality of our software solutions, e.g. through code reviews
-
-- Developing new topics and technologies, deepening acquired knowledge and actively contributing to our team
-
-- Responsibility for the continuous improvement of the development process in the team
+- Nice to Have: Experience with Rust, or AWS DynamoDB. Familiarity with Grafana, Kibana, Dynatrace, software architecture principles.
 
 Why Exxeta
 
-At Exxeta we challenge the traditional concept of consulting and tech. Over 1,200 colleagues at 18 various locations across Europe work together every day to create digital solutions, change markets and transform mindsets - driven by our passion for technology, our team spirit and the drive to create real impact. In other words: High-tech with a heartbeat.
+- Take on challenging tasks in in-house development
 
-We are a home for people who want to make a difference. Diversity and different perspectives enrich our team. Attitude, ideas, and a drive to get things done - that’s what matters to us!
+- Develop your skills further through continuous training, conference participation and internal knowledge exchange
 
-Apply now!
+- Enjoy a professional environment within a relaxed, friendly corporate culture
+
+- Stay healthy - our company supports you with a corporate health insurance
+
+We are a home for tech enthusiasts and doers. Your background, age, preferences - they don''t matter to us.
+
+You don''t believe you meet all the criteria 100%? We are Exxeta – we are a diverse team and value a variety of perspectives. Therefore, we encourage you to apply even if you think you do not meet all the requirements.
 ','https://www.linkedin.com/jobs/view/4491694908/','Java Backend Engineer (all genders)',(SELECT id FROM companies WHERE name='Exxeta'),'Tbilisi (Hybrid)','hybrid','',0);
 INSERT OR IGNORE INTO companies(name) VALUES ('Spotware Systems');
 INSERT INTO source_jobs(source,source_job_id,processing_status,collection_run_id) VALUES ('linkedin','4494161348','RELEVANT','eval-linkedin-27');
