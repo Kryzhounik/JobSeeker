@@ -95,7 +95,9 @@ class LoggingConfigurationTest {
         var configurator = new ch.qos.logback.classic.joran.JoranConfigurator();
         configurator.setContext(context);
         configurator.doConfigure(LoggingConfigurationTest.class.getResource("/logback.xml"));
-        configurator.doConfigure(LoggingConfigurationTest.class.getResource("/seeker-log-file.xml"));
+        var fileConfigurator = new ch.qos.logback.classic.joran.JoranConfigurator();
+        fileConfigurator.setContext(context);
+        fileConfigurator.doConfigure(LoggingConfigurationTest.class.getResource("/seeker-log-file.xml"));
     }
 
     private static int occurrences(String output, String text) {
