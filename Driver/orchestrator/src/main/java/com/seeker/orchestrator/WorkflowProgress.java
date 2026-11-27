@@ -153,9 +153,10 @@ public record WorkflowProgress(String runId, String stage, String action, String
                         "Emails " + emailFields.get("Checked emails"), emailFields, details));
                 return;
             }
-            String progress = stage.equals("Collection") ? collectionProgress
+            boolean collection = stage.equals("Collection") || stage.startsWith("Collection: ");
+            String progress = collection ? collectionProgress
                     : stage.equals("Deduplication") ? stage : stage + " " + fields.get(stage);
-            if (stage.equals("Collection") && !action.equals("Complete")) {
+            if (collection && !action.equals("Complete")) {
                 listener.accept(new WorkflowProgress(runId, stage, action, progress, collectionFields, details));
                 return;
             }

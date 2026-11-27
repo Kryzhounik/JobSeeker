@@ -16,7 +16,7 @@ class WorkflowProgressCollectionEmailTest {
         var run = new WorkflowProgress.Run(received::add);
         var email = new ImmutableProgressSnapshot("batch-run", "Email recommendations", "Reading emails",
                 "Email recommendations", Map.of("Checked emails", "2"), "");
-        var collection = new ImmutableProgressSnapshot("batch-run", "Collection", "complete",
+        var collection = new ImmutableProgressSnapshot("batch-run", "Collection: recommendations", "complete",
                 "Collection 3", Map.of("Accepted total", "3"), "");
 
         run.collection(email);
@@ -29,7 +29,7 @@ class WorkflowProgressCollectionEmailTest {
 
         assertEquals(2, received.size());
         assertEquals("batch-run", received.getLast().runId());
-        assertEquals("Collection", received.getLast().stage());
+        assertEquals("Collection: recommendations", received.getLast().stage());
         assertEquals("Collection 3", received.getLast().progress());
     }
 }

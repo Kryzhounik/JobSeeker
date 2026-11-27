@@ -120,6 +120,7 @@ public final class CollectionService {
         List<String> urls = recommendations.load(stats -> progress.email(runId, stats));
         if (urls.isEmpty()) return null;
         var entry = sources.stream().filter(s -> s.source().source().equals("linkedin")).findFirst().orElseThrow();
+        progress.stage("Collection: recommendations");
         progress.emit("linkedin", entry.source().startingSnapshot("starting", urls.size()));
         SourceResult result = entry.source().collectUrls(urls, processor, entry.sink());
         recordSource(entry, runId, result, reports, scope, progress);
@@ -131,8 +132,10 @@ public final class CollectionService {
         SourceResult result = null;
         for (var entry : sources) {
             if (entry.source().source().equals("linkedin") && entry.sink().acceptedCount() >= entry.limit()) {
+                progress.stage("Collection: recommendations");
                 result = new SourceResult("complete", "limit_reached", "");
             } else {
+                progress.stage("Collection: search");
                 progress.emit(entry.source().source(), entry.source().startingSnapshot("starting", null));
                 result = entry.source().collectBatch(processor, entry.sink());
             }
