@@ -15,35 +15,35 @@ class FxmlTest {
     @Test void toolbarStructureAndHandlersArePresent() throws Exception {
         FxTestSupport.run(() -> {
             FXMLLoader loader = loadView();
-                Button open = (Button) loader.getNamespace().get("openButton");
-                Button eval = (Button) loader.getNamespace().get("chatEvalButton");
-                Button letter = (Button) loader.getNamespace().get("letterButton");
-                Button applyAction = (Button) loader.getNamespace().get("applyButton");
+                Button open = (Button) node(loader, "openButton");
+                Button eval = (Button) node(loader, "chatEvalButton");
+                Button letter = (Button) node(loader, "letterButton");
+                Button applyAction = (Button) node(loader, "applyButton");
                 var sourceActions = ((HBox) open.getParent()).getChildren();
                 int index = sourceActions.indexOf(open);
                 if (!sourceActions.subList(index, index + 4).equals(java.util.List.of(open, eval, letter, applyAction))
                         || letter.getOnAction() == null) {
                     throw new AssertionError("Source action order or Letter handler is incorrect");
                 }
-                Button batch = (Button) loader.getNamespace().get("batchButton");
-                Button collect = (Button) loader.getNamespace().get("collectButton");
-                Button recommendations = (Button) loader.getNamespace().get("recommendationsButton");
-                Button config = (Button) loader.getNamespace().get("configButton");
-                Button runs = (Button) loader.getNamespace().get("runsButton");
-                Button companies = (Button) loader.getNamespace().get("companiesButton");
-                Button refresh = (Button) loader.getNamespace().get("refreshButton");
-                HBox statusFilters = (HBox) loader.getNamespace().get("statusFilters");
+                Button batch = (Button) node(loader, "batchButton");
+                Button collect = (Button) node(loader, "collectButton");
+                Button recommendations = (Button) node(loader, "recommendationsButton");
+                Button config = (Button) node(loader, "configButton");
+                Button runs = (Button) node(loader, "runsButton");
+                Button companies = (Button) node(loader, "companiesButton");
+                Button refresh = (Button) node(loader, "refreshButton");
+                HBox statusFilters = (HBox) node(loader, "statusFilters");
                 if (statusFilters.getSpacing() < 16) {
                     throw new AssertionError("Status checkboxes are not visually separated");
                 }
-                javafx.scene.control.Label statusLabel = (javafx.scene.control.Label) loader.getNamespace().get("statusLabel");
-                Button blackTitles = (Button) loader.getNamespace().get("blackTitlesButton");
+                javafx.scene.control.Label statusLabel = (javafx.scene.control.Label) node(loader, "statusLabel");
+                Button blackTitles = (Button) node(loader, "blackTitlesButton");
                 if (!(statusLabel.getParent() instanceof WindowStatusBar footer)
                         || footer.getStatus() != statusLabel || footer.getLeft() != blackTitles) {
                     throw new AssertionError("Main window does not use the shared status bar");
                 }
-                Button refilter = (Button) loader.getNamespace().get("refilterButton");
-                Button refilterDetail = (Button) loader.getNamespace().get("refilterDetailButton");
+                Button refilter = (Button) node(loader, "refilterButton");
+                Button refilterDetail = (Button) node(loader, "refilterDetailButton");
                 HBox collectionGroup = (HBox) batch.getParent();
                 HBox refilterGroup = (HBox) refilter.getParent();
                 HBox actions = (HBox) collectionGroup.getParent();
@@ -60,7 +60,7 @@ class FxmlTest {
                         || actions == filters || filters.getChildren().getFirst() != refresh
                         || batch.getOnAction() == null
                         || !batch.getStyleClass().containsAll(java.util.List.of("collect-button", "batch-button"))
-                        || loader.getNamespace().containsKey("searchButton")) {
+                        || node(loader, "searchButton") != null) {
                     throw new AssertionError("Toolbar order or Batch action/style changed");
                 }
             return null;
@@ -83,7 +83,10 @@ class FxmlTest {
 
     private static FXMLLoader loadView() throws Exception {
         FXMLLoader loader = new FXMLLoader(FxmlTest.class.getResource("/com/seeker/guifx/main-view.fxml"));
-        loader.load();
+        javafx.scene.Parent root = loader.load();
+        new javafx.scene.Scene(root, 1440, 900);
+        root.applyCss();
+        root.layout();
         return loader;
     }
 
@@ -92,8 +95,9 @@ class FxmlTest {
         JobRecord job = ClientData.readResponse("""
                 {"job_id":123,"source_url":"https://example.com/job","easy_apply":false}
                 """, JobRecord.class);
-        set(controller, "selectedJob", job);
-        set(controller, "detailLoadedJobId", 123);
+        JobDetailController detailController = (JobDetailController) loader.getNamespace().get("jobDetailController");
+        set(detailController, "selectedJob", job);
+        set(detailController, "detailLoadedJobId", 123);
         var actionsField = MainController.class.getDeclaredField("jobActions");
         actionsField.setAccessible(true);
         Object actions = actionsField.get(controller);
@@ -101,23 +105,27 @@ class FxmlTest {
         var buttons = MainController.class.getDeclaredMethod("setOperationButtonsDisabled", boolean.class);
         buttons.setAccessible(true);
         buttons.invoke(controller, false);
-        Button apply = (Button) loader.getNamespace().get("applyButton");
+        Button apply = (Button) node(loader, "applyButton");
         for (String name : java.util.List.of("linkedinCheckButton", "refilterButton", "refilterDetailButton")) {
-            if (((Button) loader.getNamespace().get(name)).isDisabled()) {
+            if (((Button) node(loader, name)).isDisabled()) {
                 throw new AssertionError("Apply disabled unrelated action: " + name);
             }
         }
-        if (((javafx.scene.Node) loader.getNamespace().get("statusActions")).isDisabled()
+        if (((javafx.scene.Node) node(loader, "statusActions")).isDisabled()
                 || !apply.isDisabled()) {
             throw new AssertionError("Apply did not isolate its own busy state");
         }
-        var detail = MainController.class.getDeclaredMethod("setDetailEnabled", boolean.class);
+        var detail = JobDetailController.class.getDeclaredMethod("setDetailEnabled", boolean.class);
         detail.setAccessible(true);
-        detail.invoke(controller, true);
+        detail.invoke(detailController, true);
         if (!apply.isDisabled()) throw new AssertionError("Detail refresh re-enabled active Apply");
         set(actions, "applyRunning", false);
         buttons.invoke(controller, true);
         if (apply.isDisabled()) throw new AssertionError("Unrelated operation disabled Apply");
+    }
+
+    private static javafx.scene.Node node(FXMLLoader loader, String id) {
+        return loader.<javafx.scene.Parent>getRoot().lookup("#" + id);
     }
 
     private static void set(Object controller, String name, Object value) throws Exception {

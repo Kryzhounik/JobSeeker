@@ -41,7 +41,7 @@ final class DataViewTestSupport implements AutoCloseable {
     }
 
     @SuppressWarnings("unchecked")
-    <T> T get(String id) { return (T) loader.getNamespace().get(id); }
+    <T> T get(String id) { return (T) loader.<Parent>getRoot().lookup("#" + id); }
     MainController controller() { return controller; }
 
     void awaitLoaded() throws Exception {
