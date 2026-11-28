@@ -1,7 +1,6 @@
 package com.seeker.easyreasoning;
 
 import java.io.*;
-import lombok.extern.slf4j.Slf4j;
 import com.seeker.logging.LogInput;
 import com.seeker.logging.LogOutput;
 import com.seeker.logging.LogException;
@@ -16,7 +15,6 @@ import java.util.function.BiPredicate;
 import java.util.function.BiConsumer;
 
 /** Synchronous observational deduplication of a saved collection batch. */
-@Slf4j
 final class SemanticDuplicateBatch {
     private final Path root;
     private final BiPredicate<String, String> compare;
@@ -192,12 +190,14 @@ final class SemanticDuplicateBatch {
         @LogInput(include = {"#sample.source", "#sample.jobId", "#vacancy.source", "#vacancy.jobId"})
         private Boolean comparePair(VacancySnapshot sample, VacancySnapshot vacancy) {
             lastPair = sample.source() + ":" + sample.jobId() + " vs " + vacancy.source() + ":" + vacancy.jobId();
-            try { return compare.test(sample.text(), vacancy.text()); }
+            try { return compareDescriptions(sample.text(), vacancy.text()); }
             catch (RequestTooLargeException error) { throw error; }
-            catch (RuntimeException error) {
-                log.warn("Semantic comparison failed: {}", lastPair, error);
-                return null;
-            }
+            catch (RuntimeException ignored) { return null; }
+        }
+
+        @LogException(level = Level.WARN, types = RuntimeException.class)
+        private boolean compareDescriptions(String firstText, String secondText) {
+            return compare.test(firstText, secondText);
         }
 
         private void finishVacancy(VacancySnapshot vacancy, List<VacancySnapshot> group, boolean incomplete) {

@@ -120,7 +120,7 @@ final class CollectionSettingsPane extends VBox {
         var li = linkedin.isSelected() ? new CollectionSettings.LinkedIn(
                 queries.getItems().stream().map(String::strip).filter(value -> !value.isEmpty()).toList(),
                 list("li.locations"), list("li.experience"), list("li.remote"), list("li.workplace"),
-                list("li.types"), value("li.date"), initial.linkedin().sort(), integer("li.limit", "LinkedIn limit"),
+                list("li.types"), value("li.date"), integer("li.limit", "LinkedIn limit"),
                 includeRecommendations.isSelected())
                 : initial.linkedin();
         var jj = justjoin.isSelected() ? new CollectionSettings.JustJoin(value("jj.tech"), value("jj.location"),

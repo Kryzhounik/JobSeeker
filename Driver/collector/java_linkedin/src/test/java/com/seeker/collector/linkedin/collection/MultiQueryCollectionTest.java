@@ -25,7 +25,7 @@ class MultiQueryCollectionTest {
         var sink = new CollectionAccumulator();
         var settings = new CollectionSettings.LinkedIn(List.of("Java", "AI"),
                 List.of("Poland:105072130", "Ukraine:102264497"), List.of(), List.of("remote"),
-                List.of("remote"), List.of(), "week", "", limit);
+                List.of("remote"), List.of(), "week", limit);
         var config = new CollectorConfig(settings, 0, "chrome", 90, 60, 3, 20);
         when(gateway.priorityCompanyIds()).thenReturn(List.of());
         var targets = new ArrayList<String>();

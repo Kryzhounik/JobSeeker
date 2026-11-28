@@ -34,7 +34,7 @@ public record CollectorConfig(CollectionSettings.LinkedIn search, double delaySe
         return new CollectionSettings.LinkedIn(csv(p.getProperty("keywords", "")), csv(p.getProperty("locations", "")),
                 csv(p.getProperty("experience", "")), csv(p.getProperty("remoteBroadWorkplace", "remote")),
                 csv(p.getProperty("workplace", "")), csv(p.getProperty("jobTypes", "")),
-                p.getProperty("datePosted", ""), p.getProperty("sort", ""), integer(p, "limit", 100),
+                p.getProperty("datePosted", ""), integer(p, "limit", 100),
                 Boolean.parseBoolean(p.getProperty("includeRecommendations", "false").trim()));
     }
 

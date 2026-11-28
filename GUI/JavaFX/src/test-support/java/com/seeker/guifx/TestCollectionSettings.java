@@ -20,7 +20,7 @@ final class TestCollectionSettings {
         var settings = new CollectionSettings(List.of("linkedin", "justjoin"),
                 new CollectionSettings.LinkedIn(List.of("Fixture Java"), List.of("Moldova:106178099"),
                         List.of("senior"), List.of("remote"), List.of("remote"),
-                        List.of("full_time"), "week", "", 7),
+                        List.of("full_time"), "week", 7),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en"),
                         List.of("mid"), "DESC", "published", 3));
         CollectionSettingsLoader.save(root, settings);

@@ -7,7 +7,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.slf4j.event.Level;
 
-/** Requests a log entry when method execution throws a matching exception. */
+/**
+ * Requests a log entry when method execution throws a matching exception.
+ * Exceptions whose concrete class carries {@link LogExceptionCreation} are
+ * excluded because their creation is already responsible for logging.
+ */
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

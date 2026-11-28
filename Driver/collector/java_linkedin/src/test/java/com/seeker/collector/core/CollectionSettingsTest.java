@@ -51,7 +51,7 @@ class CollectionSettingsTest {
         var languages = new ArrayList<>(List.of("en"));
         var levels = new ArrayList<>(List.of("mid"));
         var snapshot = new CollectionSettings(sources,
-                new CollectionSettings.LinkedIn(List.of("Java"), locations, experience, remoteBroad, workplace, jobTypes, "week", "", 5),
+                new CollectionSettings.LinkedIn(List.of("Java"), locations, experience, remoteBroad, workplace, jobTypes, "week", 5),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", languages, levels, "DESC", "published", 0));
         for (var list : List.of(sources, locations, experience, remoteBroad, workplace, jobTypes, languages, levels)) list.clear();
         assertEquals(List.of("linkedin", "justjoin"), snapshot.sources());
@@ -125,7 +125,7 @@ class CollectionSettingsTest {
         var queries = new ArrayList<>(List.of("Java", "AI"));
         var s = linkedin(8);
         var multi = new CollectionSettings.LinkedIn(queries, s.locations(), s.experience(), s.remoteBroadWorkplace(),
-                s.workplace(), s.jobTypes(), s.datePosted(), s.sort(), s.limit());
+                s.workplace(), s.jobTypes(), s.datePosted(), s.limit());
         queries.clear();
         assertEquals(List.of("Java", "AI"), multi.keywords());
         assertThrows(UnsupportedOperationException.class, () -> multi.keywords().clear());
@@ -140,7 +140,7 @@ class CollectionSettingsTest {
                 .linkedin().includeRecommendations());
 
         var enabled = new CollectionSettings.LinkedIn(List.of("Java"), List.of("Poland"), List.of(), List.of(),
-                List.of(), List.of(), "week", "", 4, true);
+                List.of(), List.of(), "week", 4, true);
         CollectionSettingsLoader.save(root, new CollectionSettings(List.of("linkedin"), enabled, null));
 
         assertTrue(CollectionSettingsLoader.load(ProjectPaths.fromProjectRoot(root), "linkedin")
@@ -172,7 +172,7 @@ class CollectionSettingsTest {
 
     @Test void explicitSnapshotIgnoresBrokenPersonalFilesAndKeepsTechnicalSettings() throws Exception {
         var selectedLinkedIn = new CollectionSettings.LinkedIn(List.of("Java override"), List.of("Ukraine:102264497"),
-                List.of("senior"), List.of("remote"), List.of("remote"), List.of("contract"), "week", "", 6, true);
+                List.of("senior"), List.of("remote"), List.of("remote"), List.of("contract"), "week", 6, true);
         var snapshot = new CollectionSettings(List.of("linkedin", "justjoin"), selectedLinkedIn, justjoin(0));
         Files.writeString(linkedinFile, "keywords=wrong\nlimit=invalid\ndelaySeconds=999\n");
         Files.writeString(justjoinFile, "mainTech=wrong\nlimit=invalid\nitemsCount=999\n");
@@ -228,7 +228,7 @@ class CollectionSettingsTest {
 
     private CollectionSettings.LinkedIn linkedin(int limit) {
         return new CollectionSettings.LinkedIn(List.of("Java override"), List.of("Ukraine:102264497"), List.of("senior"),
-                List.of("remote"), List.of("remote"), List.of("contract"), "week", "", limit);
+                List.of("remote"), List.of("remote"), List.of("contract"), "week", limit);
     }
 
     private CollectionSettings.JustJoin justjoin(int limit) {

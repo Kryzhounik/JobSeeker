@@ -20,7 +20,7 @@ class SearchPlanTest {
         var s = original.search();
         var multi = new CollectorConfig(new com.seeker.collector.common.CollectionSettings.LinkedIn(
                 List.of("Java", "AI"), s.locations(), s.experience(), s.remoteBroadWorkplace(),
-                s.workplace(), s.jobTypes(), s.datePosted(), s.sort(), s.limit()), 0, "chrome", 90, 60, 3, 20);
+                s.workplace(), s.jobTypes(), s.datePosted(), s.limit()), 0, "chrome", 90, 60, 3, 20);
         var plan = SearchPlan.build(multi, List.of("101"));
         assertEquals(List.of("seed:Moldova/Java", "AccountRemote/Java", "AccountRemote/AI",
                 "Moldova:priority/Java", "Moldova/Java", "Moldova:priority/AI", "Moldova/AI",

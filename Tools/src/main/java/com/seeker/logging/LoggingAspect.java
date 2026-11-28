@@ -64,6 +64,7 @@ public class LoggingAspect {
     private static void logException(Logger logger, Method method, Object[] arguments,
                                      LogException annotation, Throwable failure) {
         if (annotation == null || Arrays.stream(annotation.types()).noneMatch(type -> type.isInstance(failure))) return;
+        if (failure.getClass().isAnnotationPresent(LogExceptionCreation.class)) return;
         write(logger, method, arguments, null, new Entry(annotation.level(), message(method, annotation.message(), "exception"),
                 new String[0], "", false, null, failure));
     }

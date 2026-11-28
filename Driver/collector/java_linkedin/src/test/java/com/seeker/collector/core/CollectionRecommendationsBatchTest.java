@@ -154,7 +154,7 @@ class CollectionRecommendationsBatchTest {
     private static CollectionSettings settings(List<String> sources, int linkedinLimit, int justjoinLimit,
                                                boolean includeRecommendations) {
         var linkedin = new CollectionSettings.LinkedIn(List.of("Java"), List.of("Poland"), List.of(), List.of(),
-                List.of(), List.of(), "week", "", linkedinLimit, includeRecommendations);
+                List.of(), List.of(), "week", linkedinLimit, includeRecommendations);
         var justjoin = new CollectionSettings.JustJoin("java", "all-locations", "", List.of(), List.of(),
                 "DESC", "published", justjoinLimit);
         return new CollectionSettings(sources, linkedin,

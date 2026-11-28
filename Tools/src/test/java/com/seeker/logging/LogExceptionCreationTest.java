@@ -77,6 +77,38 @@ class LogExceptionCreationTest {
         }
     }
 
+    @Test
+    void suppressesBoundaryRecordsForCreationLoggedExceptionAcrossNestedMethods() {
+        try (Capture creationCapture = capture(ChainedException.class);
+                Capture boundaryCapture = capture(BoundaryFixture.class)) {
+            ChainedException thrown = assertThrows(
+                    ChainedException.class, () -> new BoundaryFixture().outer());
+
+            assertEquals(1, creationCapture.events().size());
+            ILoggingEvent creation = creationCapture.events().getFirst();
+            assertEquals(Level.WARN, creation.getLevel());
+            assertEquals("ChainedException created", creation.getFormattedMessage());
+            assertSame(thrown, ((ThrowableProxy) creation.getThrowableProxy()).getThrowable());
+            assertTrue(boundaryCapture.events().isEmpty());
+        }
+    }
+
+    @Test
+    void logsUnannotatedSubclassAtAnnotatedMethodBoundary() {
+        try (Capture creationCapture = capture(UnannotatedChildException.class);
+                Capture boundaryCapture = capture(BoundaryFixture.class)) {
+            UnannotatedChildException thrown = assertThrows(
+                    UnannotatedChildException.class, () -> new BoundaryFixture().childFailure());
+
+            assertTrue(creationCapture.events().isEmpty());
+            assertEquals(1, boundaryCapture.events().size());
+            ILoggingEvent boundary = boundaryCapture.events().getFirst();
+            assertEquals(Level.ERROR, boundary.getLevel());
+            assertEquals("child-boundary", boundary.getFormattedMessage());
+            assertSame(thrown, ((ThrowableProxy) boundary.getThrowableProxy()).getThrowable());
+        }
+    }
+
     private static Capture capture(Class<?> exceptionClass) {
         return new Capture(exceptionClass);
     }
@@ -142,6 +174,23 @@ class LogExceptionCreationTest {
     @LogExceptionCreation
     static class DisabledException extends RuntimeException {
         DisabledException() {
+        }
+    }
+
+    static class BoundaryFixture {
+        @LogException(message = "outer-boundary", level = org.slf4j.event.Level.ERROR)
+        void outer() {
+            inner();
+        }
+
+        @LogException(message = "inner-boundary", level = org.slf4j.event.Level.ERROR)
+        private void inner() {
+            throw new ChainedException("boundary");
+        }
+
+        @LogException(message = "child-boundary", level = org.slf4j.event.Level.ERROR)
+        void childFailure() {
+            throw new UnannotatedChildException();
         }
     }
 

@@ -44,7 +44,7 @@ public final class CollectionSettingsLoader {
                     "experience", String.join(",", s.experience()),
                     "remoteBroadWorkplace", String.join(",", s.remoteBroadWorkplace()),
                     "workplace", String.join(",", s.workplace()), "jobTypes", String.join(",", s.jobTypes()),
-                    "datePosted", s.datePosted(), "sort", s.sort(), "limit", Integer.toString(s.limit()),
+                    "datePosted", s.datePosted(), "limit", Integer.toString(s.limit()),
                     "includeRecommendations", Boolean.toString(s.includeRecommendations())));
         }
         if (settings.sources().contains("justjoin")) {

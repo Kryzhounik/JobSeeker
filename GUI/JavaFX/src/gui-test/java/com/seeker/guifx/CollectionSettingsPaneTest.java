@@ -27,7 +27,7 @@ class CollectionSettingsPaneTest {
         return new CollectionSettings(List.of("justjoin", "linkedin"),
                 new CollectionSettings.LinkedIn(List.of("Java"), List.of("Moldova:106178099", "Ukraine:102264497"),
                         List.of("senior", "entry_level", "manager"), List.of("remote"),
-                        List.of("remote", "hybrid"), List.of("full_time", "contract"), "week", "", 10, true),
+                        List.of("remote", "hybrid"), List.of("full_time", "contract"), "week", 10, true),
                 new CollectionSettings.JustJoin("java", "all-locations", "14", List.of("en", "ru"),
                         List.of("mid", "senior"), "DESC", "published", 0));
     }
@@ -196,7 +196,7 @@ class CollectionSettingsPaneTest {
                 Files.writeString(collectorConfig.resolve("linkedin.properties"),
                         "keywords=Java\nlocations=Moldova:106178099\nexperience=senior\n"
                                 + "remoteBroadWorkplace=remote\nworkplace=remote\njobTypes=full_time\n"
-                                + "datePosted=week\nsort=\nlimit=10\n");
+                                + "datePosted=week\nlimit=10\n");
                 CollectionSettingsLoader.save(tempDir, reordered);
                 assertEquals(reordered, CollectionSettingsLoader.loadForEditing(tempDir));
 
@@ -243,7 +243,7 @@ class CollectionSettingsPaneTest {
         var source = settings.linkedin();
         var linkedin = new CollectionSettings.LinkedIn(keywords, source.locations(), source.experience(),
                 source.remoteBroadWorkplace(), source.workplace(), source.jobTypes(), source.datePosted(),
-                source.sort(), source.limit(), source.includeRecommendations());
+                source.limit(), source.includeRecommendations());
         return new CollectionSettings(settings.sources(), linkedin, settings.justjoin());
     }
 

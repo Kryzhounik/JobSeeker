@@ -37,7 +37,7 @@ class SemanticDuplicateBatchTest {
 
     @Test void failedPairDoesNotBlockLaterConfirmedMatchAndUnresolvedMatchCannotFormChain() {
         List<String> links = new ArrayList<>();
-        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class);
+        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class.getName() + "$BatchRun");
         var output = new ListAppender<ILoggingEvent>();
         output.start();
         logger.addAppender(output);
@@ -51,7 +51,8 @@ class SemanticDuplicateBatchTest {
         assertEquals(List.of("1:null", "3:1"), links);
         ILoggingEvent failure = output.list.stream()
                 .filter(event -> event.getThrowableProxy() != null).findFirst().orElseThrow();
-        assertTrue(failure.getFormattedMessage().contains("linkedin:job-1 vs linkedin:job-2"));
+        assertEquals(ch.qos.logback.classic.Level.WARN, failure.getLevel());
+        assertEquals(IllegalArgumentException.class.getName(), failure.getThrowableProxy().getClassName());
         assertEquals("invalid model answer", failure.getThrowableProxy().getMessage());
     }
 
@@ -136,6 +137,7 @@ class SemanticDuplicateBatchTest {
                 .reduce("", (first, second) -> first + "\n" + second);
         assertTrue(messages.contains("#vacancy.source=linkedin"));
         assertTrue(messages.contains("#vacancy.jobId=job-1"));
+        assertEquals(1L, output.list.stream().filter(event -> event.getThrowableProxy() != null).count());
         var failure = output.list.stream().filter(event -> event.getLoggerName().equals(exceptionLogger.getName()))
                 .findFirst().orElseThrow().getThrowableProxy();
         assertNotNull(failure);

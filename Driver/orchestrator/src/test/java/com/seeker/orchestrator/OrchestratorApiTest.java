@@ -829,7 +829,7 @@ class OrchestratorApiTest {
     @Test void explicitSnapshotsPassUnchangedThroughConsecutiveBatchRuns() throws Exception {
         var first = new com.seeker.collector.common.CollectionSettings(List.of("linkedin"),
                 new com.seeker.collector.common.CollectionSettings.LinkedIn(List.of("Java"), List.of("Poland"), List.of(),
-                        List.of("remote"), List.of("remote"), List.of(), "week", "", 4), null);
+                        List.of("remote"), List.of("remote"), List.of(), "week", 4), null);
         var second = new com.seeker.collector.common.CollectionSettings(List.of("justjoin"), null,
                 new com.seeker.collector.common.CollectionSettings.JustJoin("kotlin", "all-locations", "7",
                         List.of("en"), List.of("senior"), "DESC", "published", 0));

@@ -54,7 +54,7 @@ class DriverConfigurationTest {
             var explicit = new com.seeker.collector.common.CollectionSettings(java.util.List.of("linkedin"),
                     new com.seeker.collector.common.CollectionSettings.LinkedIn(java.util.List.of("Java"), java.util.List.of("Poland"),
                             java.util.List.of(), java.util.List.of("remote"), java.util.List.of("remote"),
-                            java.util.List.of(), "week", "", 23), null);
+                            java.util.List.of(), "week", 23), null);
             var stop = new RuntimeException("Stop before Python or browser startup");
             assertSame(stop, assertThrows(RuntimeException.class, () -> api.collectBatch(explicit, update -> {
                 assertEquals("0 / 23", update.fields().get("Accepted / limit"));

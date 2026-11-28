@@ -26,12 +26,12 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
      */
     public record LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
                            List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
-                           String datePosted, String sort, int limit, boolean includeRecommendations) {
+                           String datePosted, int limit, boolean includeRecommendations) {
         public LinkedIn(List<String> keywords, List<String> locations, List<String> experience,
                         List<String> remoteBroadWorkplace, List<String> workplace, List<String> jobTypes,
-                        String datePosted, String sort, int limit) {
+                        String datePosted, int limit) {
             this(keywords, locations, experience, remoteBroadWorkplace, workplace, jobTypes,
-                    datePosted, sort, limit, false);
+                    datePosted, limit, false);
         }
 
         public LinkedIn {
@@ -42,7 +42,6 @@ public record CollectionSettings(List<String> sources, LinkedIn linkedin, JustJo
             workplace = List.copyOf(workplace);
             jobTypes = List.copyOf(jobTypes);
             datePosted = Objects.requireNonNull(datePosted).trim();
-            sort = Objects.requireNonNull(sort).trim();
             if (limit <= 0) throw new IllegalArgumentException("LinkedIn collector limit must be positive");
         }
     }
