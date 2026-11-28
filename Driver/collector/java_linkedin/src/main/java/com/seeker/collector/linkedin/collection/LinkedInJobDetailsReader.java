@@ -4,12 +4,11 @@ import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
 import com.seeker.browser.LinkedInJobPage;
 import com.seeker.collector.linkedin.config.CollectorConfig;
-import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogOutput;
 
 import java.time.Duration;
 import java.util.Map;
 
-@Slf4j
 final class LinkedInJobDetailsReader {
     private static final String SEARCH_DETAILS_SELECTOR = String.join(", ",
             "[data-testid='lazy-column']:has([id^='JobDetails_AboutTheJob_'])"
@@ -77,16 +76,9 @@ final class LinkedInJobDetailsReader {
         return readDetails(waitForDetails(page, jobId, true), jobId);
     }
 
+    @LogOutput(include = {"#jobId", "title"})
     JobDetails readDirect(Page direct, String jobId) {
-        JobDetails job = readDetails(waitForDetails(direct, jobId, false), jobId);
-        log.info(
-                "LinkedIn details loaded: job_id={} url={} title={} html_chars={}",
-                jobId,
-                direct.url(),
-                job.title().replaceAll("\\s+", " ").trim(),
-                job.html().length()
-        );
-        return job;
+        return readDetails(waitForDetails(direct, jobId, false), jobId);
     }
 
     private Locator waitForDetails(Page targetPage, String jobId, boolean requireSelection) {
