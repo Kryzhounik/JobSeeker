@@ -95,8 +95,10 @@ public class LoggingAspect {
             if (entry.elapsedNanos() != null) message.append(" duration_ms=").append(entry.elapsedNanos() / 1_000_000);
             logger.atLevel(entry.level()).setCause(entry.failure()).log(message.toString());
         } catch (RuntimeException error) {
-            logger.warn("Logging expression failed: method={} expression={} reason={}",
-                    method.toGenericString(), expression, error.toString());
+            if (logger.isWarnEnabled()) {
+                logger.warn("Logging expression failed: method={} expression={} reason={}",
+                        method.toGenericString(), expression, error.toString());
+            }
         }
     }
 }
