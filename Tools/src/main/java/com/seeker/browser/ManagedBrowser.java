@@ -44,7 +44,6 @@ public final class ManagedBrowser implements AutoCloseable {
     }
 
     @LogInput(include = {"profileDirectory", "browserChannel"})
-    @LogOutput(duration = true)
     @LogException(types = {IOException.class, RuntimeException.class})
     public static ManagedBrowser connect(Path profileDirectory, String browserChannel)
             throws IOException {
@@ -143,7 +142,6 @@ public final class ManagedBrowser implements AutoCloseable {
     }
 
     @LogInput(include = {"profile", "browserChannel"})
-    @LogOutput(duration = true)
     private static void startBrowser(Path profile, String browserChannel) throws IOException {
         Path executable = findBrowser(browserChannel);
         List<String> command = new ArrayList<>(List.of(
