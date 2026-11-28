@@ -8,11 +8,11 @@ import com.microsoft.playwright.options.WaitUntilState;
 import com.seeker.collector.linkedin.browser.AuthenticationRequiredException;
 import com.seeker.collector.linkedin.browser.PersistentLinkedInSession;
 import com.seeker.collector.linkedin.config.CollectorConfig;
-import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogException;
+import org.slf4j.event.Level;
 
 import java.time.Duration;
 
-@Slf4j
 final class LinkedInPageClient {
     private static final String LINKEDIN_JOBS = "https://www.linkedin.com/jobs/";
 
@@ -80,7 +80,7 @@ final class LinkedInPageClient {
     void requireNoLoginWall(Page targetPage) {
         if (session.isLoginWall(targetPage)) {
             throw new AuthenticationRequiredException(
-                    "LinkedIn session is no longer authenticated"
+                    "LinkedIn session is no longer authenticated\nURL: " + targetPage.url()
             );
         }
     }
@@ -89,14 +89,7 @@ final class LinkedInPageClient {
         int totalAttempts = config.navigationRetries() + 1;
         for (int attempt = 1; attempt <= totalAttempts; attempt++) {
             try {
-                throttle.beforeAction(targetPage);
-                targetPage.navigate(
-                        url,
-                        new Page.NavigateOptions()
-                                .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
-                                .setTimeout(config.pageTimeoutSeconds() * 1000.0)
-                );
-                targetPage.waitForTimeout(500);
+                navigateOnce(targetPage, url);
                 return;
             } catch (TimeoutError error) {
                 if (attempt == totalAttempts) {
@@ -107,10 +100,20 @@ final class LinkedInPageClient {
                             error
                     );
                 }
-                log.warn("LinkedIn navigation timed out; retrying the same URL ({}/{}): {}",
-                        attempt, config.navigationRetries(), url);
             }
         }
+    }
+
+    @LogException(level = Level.WARN, types = TimeoutError.class)
+    private void navigateOnce(Page targetPage, String url) {
+        throttle.beforeAction(targetPage);
+        targetPage.navigate(
+                url,
+                new Page.NavigateOptions()
+                        .setWaitUntil(WaitUntilState.DOMCONTENTLOADED)
+                        .setTimeout(config.pageTimeoutSeconds() * 1000.0)
+        );
+        targetPage.waitForTimeout(500);
     }
 
     private void requireAuthenticated(String message) {
@@ -125,8 +128,6 @@ final class LinkedInPageClient {
             }
             page.waitForTimeout(250);
         }
-        log.warn("LinkedIn authentication check failed: url={} title={} login_wall={}",
-                page.url(), page.title(), session.isLoginWall(page));
-        throw new AuthenticationRequiredException(message);
+        throw new AuthenticationRequiredException(message + "\nURL: " + page.url());
     }
 }

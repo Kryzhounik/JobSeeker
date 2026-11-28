@@ -511,6 +511,7 @@ final class LinkedInSearchResults {
     }
 
     private void logUnmaterializedCard(Layout layout, Locator card, String jobId) {
+        if (!log.isWarnEnabled()) return;
         Object diagnostic = card.evaluate("""
                 element => {
                   const bounds = node => {

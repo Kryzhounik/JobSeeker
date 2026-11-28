@@ -1,6 +1,5 @@
 package com.seeker.collector.linkedin.collection;
 
-import lombok.extern.slf4j.Slf4j;
 import com.seeker.logging.LogInput;
 import com.seeker.logging.LogOutput;
 import org.slf4j.event.Level;
@@ -24,7 +23,6 @@ import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 
-@Slf4j
 final class LinkedInCollector {
     private static final int PAGE_STEP = 25;
 
@@ -185,7 +183,6 @@ final class LinkedInCollector {
                     newForTarget,
                     stopReason
             );
-            logPage(target, start, materialized, newCards.size());
             currentCards = materialized.materializedCount();
             progress("processing", "");
             if (isIncompletePage(materialized)) {
@@ -235,12 +232,15 @@ final class LinkedInCollector {
     ) {
         try {
             return searchResults.materializePage(start);
-        } catch (CollectionBlockedException | PlaywrightException first) {
-            log.warn("LinkedIn page materialization failed once; retrying {} start={}: {}",
-                    target.label(), start, message(first));
-            browser.openSearch(target, start);
-            return searchResults.materializePage(start);
+        } catch (CollectionBlockedException | PlaywrightException ignored) {
+            return retryMaterialization(target, start);
         }
+    }
+
+    @LogInput(level = Level.WARN, include = {"#target.label", "start"})
+    private MaterializedPage retryMaterialization(SearchPlan.Target target, int start) {
+        browser.openSearch(target, start);
+        return searchResults.materializePage(start);
     }
 
     private ProcessResult operate(
@@ -412,25 +412,6 @@ final class LinkedInCollector {
     private boolean isIncompletePage(MaterializedPage materialized) {
         return "unknown_short_page".equals(materialized.terminalReason())
                 || "incomplete_page".equals(materialized.terminalReason());
-    }
-
-    private void logPage(
-            SearchPlan.Target target,
-            int start,
-            MaterializedPage materialized,
-            int newCards
-    ) {
-        log.info(
-                "{} {} start={} cards={} related={} new={} accepted={}/{}",
-                target.label(),
-                target.kind().name().toLowerCase(Locale.ROOT),
-                start,
-                materialized.materializedCount(),
-                materialized.cards().stream().filter(CardData::related).count(),
-                newCards,
-                sink.acceptedCount(),
-                config.search().limit()
-        );
     }
 
     private SourceResult finish(String status, String stopReason, String message) {
