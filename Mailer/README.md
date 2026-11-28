@@ -17,8 +17,8 @@ java -jar Mailer/mailer.jar recommendation-urls
 ```
 
 Local settings are in `Data/mailer/config.properties`, progress is in
-`Data/mailer/recommendations.properties`, and diagnostics are in
-`Data/mailer/mailer.log`. Configuration keys and supported formats are described
+`Data/mailer/recommendations.properties`, and diagnostics use the shared logging
+configuration under `Data/logs`. Configuration keys and supported formats are described
 in the architecture document. Manual inspection files belong in `tmp/mailer/`.
 
 - [Architecture](ARCHITECTURE.md)

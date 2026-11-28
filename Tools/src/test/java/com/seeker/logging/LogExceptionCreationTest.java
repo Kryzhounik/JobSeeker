@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -74,6 +76,31 @@ class LogExceptionCreationTest {
             new DisabledException();
 
             assertTrue(capture.events().isEmpty());
+        }
+    }
+
+    @Test
+    void safeModeLogsControlledFailureAndCauseTypeWithoutThrowableDetails() {
+        try (Capture capture = capture(SafeFailure.class);
+                Capture boundaryCapture = capture(SafeFailureFixture.class)) {
+            IllegalArgumentException cause = new IllegalArgumentException("private provider response marker");
+            cause.addSuppressed(new IllegalStateException("suppressed private marker"));
+            SafeFailure failure = new SafeFailure("controlled top-level message", cause);
+
+            SafeFailure thrown = assertThrows(SafeFailure.class,
+                    () -> new SafeFailureFixture().fail(failure));
+
+            assertSame(failure, thrown);
+            assertSame(cause, thrown.getCause());
+            assertEquals(1, capture.events().size());
+            ILoggingEvent event = capture.events().getFirst();
+            String message = event.getFormattedMessage();
+            assertTrue(message.contains("controlled top-level message"));
+            assertTrue(message.contains("IllegalArgumentException"));
+            assertFalse(message.contains("private provider response marker"));
+            assertFalse(message.contains("suppressed private marker"));
+            assertNull(event.getThrowableProxy());
+            assertTrue(boundaryCapture.events().isEmpty());
         }
     }
 
@@ -174,6 +201,20 @@ class LogExceptionCreationTest {
     @LogExceptionCreation
     static class DisabledException extends RuntimeException {
         DisabledException() {
+        }
+    }
+
+    @LogExceptionCreation(stackTrace = false)
+    static class SafeFailure extends RuntimeException {
+        SafeFailure(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
+
+    static class SafeFailureFixture {
+        @LogException
+        void fail(SafeFailure failure) {
+            throw failure;
         }
     }
 

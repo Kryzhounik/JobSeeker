@@ -162,12 +162,7 @@ in-process implementation. They open one folder READ_ONLY, bound the pass by
 UIDNEXT, process later UIDs in ascending order, and persist the checkpoint once
 after closing folder/store successfully. Reversed/empty IMAP ranges are never
 queried. A retry after any failed pass starts from the previous checkpoint.
-Calls in the same JVM are serialized. Current operations append simple local
-UTF-8 JSON lines to `Data/mailer/mailer.log`: header/body reads, available seen
-flag, filter/extraction result, export outcome, and controlled errors with
-message identifiers and subjects. The log is separate from operation progress.
-Constructing Mailer opens no log file. Credentials, full bodies and private
-provider responses are excluded; diagnostics do not enter stdout JSON.
+Calls in the same JVM are serialized.
 
 ## Supported recommendation formats
 

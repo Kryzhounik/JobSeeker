@@ -1,6 +1,7 @@
 package com.seeker.mailer.internal;
 
 import com.seeker.mailer.MailException;
+import com.seeker.logging.LogOutput;
 import jakarta.mail.Address;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
@@ -28,6 +29,7 @@ final class RecommendationParser {
         return values != null && values.length == 1 ? values[0].strip() : "";
     }
 
+    @LogOutput(include = "#result", condition = "#result != null")
     static String rejection(Message message, RecommendationSettings settings, String mailbox) throws MessagingException {
         String template = header(message, "X-LinkedIn-Template");
         if (!SENDERS.containsKey(template)) return "Unknown or excluded X-LinkedIn-Template";

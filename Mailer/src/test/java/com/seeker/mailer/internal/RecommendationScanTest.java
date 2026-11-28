@@ -75,9 +75,6 @@ class RecommendationScanTest {
         assertArrayEquals(old, Files.readAllBytes(checkpoint()));
         assertEquals(1, good.bodyReads);
         assertEquals(0, later.bodyReads);
-        String log = Files.readString(root.resolve("Data/mailer/mailer.log"));
-        assertTrue(log.contains("RECOMMENDATIONS_ERROR"));
-        assertTrue(log.contains("Sanitized recommendation fixture"));
         assertTrue(store.closed && store.folder.closed);
         broken.failContent = false;
         assertFalse(access(store).getRecommendationUrls().isEmpty());

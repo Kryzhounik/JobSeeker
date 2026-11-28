@@ -1,6 +1,8 @@
 package com.seeker.mailer.internal;
 
 import com.seeker.mailer.MailException;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
 import com.seeker.mailer.MailMessage;
 import com.seeker.mailer.MailMessageType;
 import jakarta.mail.Address;
@@ -22,50 +24,45 @@ import org.jsoup.Jsoup;
 /** Internal offline decoder, shared by future mail access and recommendation operations. */
 public final class MessageInterpreter {
     private static final Pattern TEXT_URL = Pattern.compile("https?://[^\\s<>\"']+", Pattern.CASE_INSENSITIVE);
-    private final MailLog log;
 
     public MessageInterpreter() {
         this(Path.of(""));
     }
 
+    /** Retains the root-taking constructor for callers; logging is configured at application entry. */
     public MessageInterpreter(Path projectRoot) {
-        log = new MailLog(Objects.requireNonNull(projectRoot, "projectRoot"));
+        Objects.requireNonNull(projectRoot, "projectRoot");
     }
 
     /**
      * The caller owns the stream and supplies an opaque identifier and receipt time.
      * The Date header is a sender timestamp and is not substituted for receipt time.
      */
+    @LogInput(include = "identifier")
+    @LogOutput(include = {"identifier", "subject", "type", "vacancyUrls"})
     public MailMessage interpret(InputStream source, String identifier, Instant receivedAt) throws MailException {
         Objects.requireNonNull(source, "source");
         Objects.requireNonNull(identifier, "identifier");
-        String subject = null;
         try {
-            log.write("PARSE_START", identifier, null, null, "Reading message for interpretation");
             var message = new MimeMessage(Session.getInstance(new Properties()), source);
             Address[] from = message.getFrom();
             String sender = "";
             if (from != null && from.length == 1 && from[0] instanceof InternetAddress address) {
                 sender = address.getAddress();
             }
-            subject = Objects.requireNonNullElse(message.getSubject(), "");
+            String subject = Objects.requireNonNullElse(message.getSubject(), "");
             var body = new Body();
             decode(message, body);
             String text = String.join("\n", body.text);
             boolean recommendation = LinkedInRecommendations.recognizes(sender, subject, text);
             List<String> urls = recommendation ? LinkedInRecommendations.extract(body.links) : List.of();
-            log.write(recommendation ? "EXTRACTED" : "FILTERED", identifier, subject, null,
-                    recommendation ? "Vacancy URLs: " + urls : "Provisional sender/content recognition did not match");
             return new MailMessage(identifier, sender, subject, receivedAt, text,
                     recommendation ? MailMessageType.LINKEDIN_RECOMMENDATION : MailMessageType.OTHER,
                     urls);
         } catch (MailException e) {
-            log.failure("PARSE_ERROR", identifier, subject, null, e);
             throw e;
         } catch (jakarta.mail.MessagingException | IOException | RuntimeException e) {
-            var failure = new MailException("Cannot decode email message", e);
-            log.failure("PARSE_ERROR", identifier, subject, null, failure);
-            throw failure;
+            throw new MailException("Cannot decode email message", e);
         }
     }
 

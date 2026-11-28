@@ -27,6 +27,12 @@ public class LoggingAspect {
         if (type != failure.getClass()) return;
         Logger logger = LoggerFactory.getLogger(type);
         if (!logger.isEnabledForLevel(annotation.level())) return;
+        if (!annotation.stackTrace()) {
+            String detail = failure.getMessage();
+            if (failure.getCause() != null) detail += " (cause: " + failure.getCause().getClass().getSimpleName() + ")";
+            logger.atLevel(annotation.level()).log(type.getSimpleName() + " created: " + detail);
+            return;
+        }
         logger.atLevel(annotation.level()).setCause(failure).log(type.getSimpleName() + " created");
     }
 

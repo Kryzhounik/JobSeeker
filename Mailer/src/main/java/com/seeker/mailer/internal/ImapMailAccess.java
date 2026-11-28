@@ -1,6 +1,8 @@
 package com.seeker.mailer.internal;
 
 import com.seeker.mailer.MailException;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
 import com.seeker.mailer.Mailer.RecommendationStats;
 import java.util.function.Consumer;
 import com.seeker.mailer.MailFolder;
@@ -44,7 +46,6 @@ public final class ImapMailAccess {
 
     private final Path projectRoot;
     private final StoreFactory stores;
-    private final MailLog log;
 
     public ImapMailAccess(Path projectRoot) {
         this(projectRoot, session -> session.getStore("imaps"));
@@ -53,19 +54,11 @@ public final class ImapMailAccess {
     ImapMailAccess(Path projectRoot, StoreFactory stores) {
         this.projectRoot = Objects.requireNonNull(projectRoot, "projectRoot");
         this.stores = Objects.requireNonNull(stores, "stores");
-        this.log = new MailLog(projectRoot);
     }
 
+    @LogOutput(include = "size")
     public List<MailFolder> listFolders() throws MailException {
-        log.write("FOLDERS_START", null, null, null, "Listing server folders");
-        try {
-            var result = fetchFolders();
-            log.write("FOLDERS_COMPLETE", null, null, null, "Folders: " + result.size());
-            return result;
-        } catch (MailException e) {
-            log.failure("FOLDERS_ERROR", null, null, null, e);
-            throw e;
-        }
+        return fetchFolders();
     }
 
     private List<MailFolder> fetchFolders() throws MailException {
@@ -96,20 +89,14 @@ public final class ImapMailAccess {
         }
     }
 
+    @LogOutput(include = {"folder", "messageCount"})
     public MailMessageListing listMessages(String folderName) throws MailException {
         if (folderName == null || folderName.isBlank() || folderName.indexOf('\r') >= 0 || folderName.indexOf('\n') >= 0
                 || folderName.indexOf('\0') >= 0) {
             throw new IllegalArgumentException("An explicit nonblank folder name is required");
         }
-        log.write("MESSAGES_START", null, null, null, "Folder: " + folderName);
-        try {
-            var result = fetchMessages(folderName);
-            log.write("MESSAGES_COMPLETE", null, null, null, "Folder: " + folderName + "; headers: " + result.messageCount());
-            return result;
-        } catch (MailException e) {
-            log.failure("MESSAGES_ERROR", null, null, null, e);
-            throw e;
-        }
+
+        return fetchMessages(folderName);
     }
 
     private MailMessageListing fetchMessages(String folderName) throws MailException {
@@ -173,7 +160,6 @@ public final class ImapMailAccess {
                                 messageIds == null || messageIds.length == 0 ? null : messageIds[0],
                                 message.isSet(Flags.Flag.SEEN));
                         headers.add(header);
-                        log.write("HEADERS_READ", id, header.subject(), header.seen(), "Body not read; folder: " + folderName);
                     }
                 }
                 if (folder.getMessageCount() != count || uids.getUIDValidity() != validity) {
@@ -205,9 +191,7 @@ public final class ImapMailAccess {
         T apply(Message message, Folder folder) throws MessagingException, IOException;
     }
 
-    private <T> T withMessage(String operation, String folderName, String id, MessageAction<T> action) throws MailException {
-        String subject = null;
-        Boolean seen = null;
+    private <T> T withMessage(String folderName, String id, MessageAction<T> action) throws MailException {
         try {
             MailValidation.selection(folderName, id);
             MessageSelector selector = MessageSelector.decode(id);
@@ -233,22 +217,6 @@ public final class ImapMailAccess {
                     if (message instanceof IMAPMessage imap) {
                         imap.setPeek(true);
                     }
-                    // Logging metadata is best effort: malformed headers must not block raw export.
-                    try {
-                        String[] subjects = message.getHeader("Subject");
-                        subject = subjects == null || subjects.length == 0 ? null : subjects[0];
-                        if (subject != null) {
-                            try {
-                                subject = MimeUtility.decodeText(subject);
-                            } catch (java.io.UnsupportedEncodingException ignored) {
-                                // Retain the undecoded field for diagnostics and keep raw export available.
-                            }
-                        }
-                        seen = message.isSet(Flags.Flag.SEEN);
-                    } catch (MessagingException ignored) {
-                        // The actual read/export below still reports its own retrieval failures.
-                    }
-                    log.write(operation + "_MESSAGE", id, subject, seen, "Selected message; folder: " + folderName);
                     T result = action.apply(message, folder);
                     if (message.isExpunged() || uids.getUIDValidity() != selector.validity()) {
                         throw new MailException("Selected message changed during access");
@@ -257,22 +225,18 @@ public final class ImapMailAccess {
                 }
             }
         } catch (MailException e) {
-            log.failure(operation + "_ERROR", id, subject, seen, e);
             throw e;
         } catch (AuthenticationFailedException e) {
-            var failure = new MailException("IMAP authentication failed; check imap.username and imap.appPassword", e);
-            log.failure(operation + "_ERROR", id, subject, seen, failure);
-            throw failure;
+            throw new MailException("IMAP authentication failed; check imap.username and imap.appPassword", e);
         } catch (MessagingException | IOException e) {
-            var failure = new MailException("Cannot read or export selected message", e);
-            log.failure(operation + "_ERROR", id, subject, seen, failure);
-            throw failure;
+            throw new MailException("Cannot read or export selected message", e);
         }
     }
 
+    @LogInput(include = {"folder", "id"})
+    @LogOutput(include = {"#id", "#result.summary.subject", "#result.summary.seen"})
     public MailMessageContent readMessage(String folder, String id) throws MailException {
-        log.write("READ_START", id, null, null, "Folder: " + folder);
-        var result = withMessage("READ", folder, id, (message, actualFolder) -> {
+        return withMessage(folder, id, (message, actualFolder) -> {
             var headers = new ArrayList<MailHeader>();
             var all = message.getAllHeaders();
             while (all.hasMoreElements()) {
@@ -298,21 +262,11 @@ public final class ImapMailAccess {
                     message.isSet(Flags.Flag.SEEN));
             return new MailMessageContent(actualFolder.getFullName(), summary, headers, plain, html);
         });
-        log.write("READ_COMPLETE", id, result.summary().subject(), result.summary().seen(),
-                "Plain-text bodies: " + result.plainTextBodies().size() + "; HTML bodies: " + result.htmlBodies().size());
-        return result;
     }
 
+    @LogOutput(include = {"id", "output", "byteCount"})
     public MailExport exportMessage(String folder, String id, Path output) throws MailException {
-        log.write("EXPORT_START", id, null, null, "Folder: " + folder);
-        try {
-            var result = saveMessage(folder, id, output);
-            log.write("EXPORT_COMPLETE", id, null, null, "Bytes: " + result.byteCount() + "; output: " + result.output());
-            return result;
-        } catch (MailException e) {
-            log.failure("EXPORT_ERROR", id, null, null, e);
-            throw e;
-        }
+        return saveMessage(folder, id, output);
     }
 
     private MailExport saveMessage(String folder, String id, Path output) throws MailException {
@@ -327,7 +281,7 @@ public final class ImapMailAccess {
             }
             temporary = Files.createTempFile(target.getParent(), ".mailer-", ".part");
             Path staged = temporary;
-            long bytes = withMessage("EXPORT", folder, id, (message, actualFolder) -> {
+            long bytes = withMessage(folder, id, (message, actualFolder) -> {
                 if (!(message instanceof ReadableMime raw)) {
                     throw new MailException("Mail provider does not supply an original MIME stream");
                 }
@@ -372,12 +326,10 @@ public final class ImapMailAccess {
         }
     }
 
+    @LogInput
+    @LogOutput(include = "size", duration = true)
     private List<String> scanRecommendations(
             Consumer<RecommendationStats> progress) throws MailException {
-        String currentId = null;
-        String currentSubject = null;
-        Boolean currentSeen = null;
-        log.write("RECOMMENDATIONS_START", null, null, null, "Starting recommendation pass");
         int checked = 0;
         int filtered = 0;
         progress.accept(new RecommendationStats(0, 0, 0));
@@ -408,59 +360,59 @@ public final class ImapMailAccess {
                     long nextUid = uids.getUIDNext();
                     if (nextUid < 1 || nextUid > 0x100000000L) throw new MailException("Server did not supply valid UIDNEXT");
                     long throughUid = nextUid - 1;
-                    log.write("RECOMMENDATIONS_RANGE", null, null, null,
-                            "Folder: " + settings.folder() + "; after UID: " + lastUid + "; through UID: " + throughUid);
-                    // IMAP ranges can reverse their bounds. Never send an empty/reversed range.
-                    if (throughUid > lastUid) {
-                        var messages = new java.util.TreeMap<Long, Message>();
-                        for (Message message : uids.getMessagesByUID(lastUid + 1, throughUid)) {
-                            if (message == null || message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
-                            long uid = uids.getUID(message);
-                            if (uid <= lastUid || uid > throughUid || messages.put(uid, message) != null) {
-                                throw new MailException("Missing, duplicate or out-of-range recommendation UID");
-                            }
-                        }
-                        for (var entry : messages.entrySet()) {
-                            Message message = entry.getValue();
-                            currentId = new MessageSelector(account, settings.folder(), validity, entry.getKey()).encode();
-                            currentSubject = null;
-                            currentSeen = null;
-                            currentSubject = RecommendationParser.header(message, "Subject");
-                            currentSubject = message.getSubject();
-                            currentSeen = message.isSet(Flags.Flag.SEEN);
-                            String rejection = RecommendationParser.rejection(message, settings, mail.username);
-                            if (rejection != null) {
-                                filtered++;
-                                log.write("RECOMMENDATION_FILTERED", currentId, currentSubject, currentSeen, rejection + "; body not read");
-                            } else {
-                                String template = RecommendationParser.header(message, "X-LinkedIn-Template");
-                                log.write("RECOMMENDATION_READ", currentId, currentSubject, currentSeen, "Template: " + template);
-                                if (message instanceof IMAPMessage imap) imap.setPeek(true);
-                                List<String> extracted = RecommendationParser.extract(message, template);
-                                log.write("RECOMMENDATION_EXTRACTED", currentId, currentSubject, currentSeen, "URLs: " + extracted);
-                                urls.addAll(extracted);
-                            }
-                            if (message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
-                            lastUid = entry.getKey();
-                            progress.accept(new RecommendationStats(++checked, filtered, urls.size()));
-                        }
+
+                    var messages = messagesInRange(uids, lastUid, throughUid);
+                    for (var entry : messages.entrySet()) {
+                        Message message = entry.getValue();
+                        String currentId = new MessageSelector(account, settings.folder(), validity, entry.getKey()).encode();
+                        String currentSubject = message.getSubject();
+                        List<String> extracted = extractRecommendation(message, currentId, currentSubject, settings, mail.username);
+                        if (extracted == null) filtered++;
+                        else urls.addAll(extracted);
+                        if (message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
+                        lastUid = entry.getKey();
+                        progress.accept(new RecommendationStats(++checked, filtered, urls.size()));
                     }
                     if (uids.getUIDValidity() != validity) throw new MailException("UIDVALIDITY changed during recommendation pass");
                 }
             }
             List<String> result = List.copyOf(urls);
-            log.write("RECOMMENDATIONS_READY", null, null, null,
-                    "Pass and mailbox cleanup succeeded; URLs: " + result.size() + "; committing UID: " + lastUid);
             // This is the last fallible operation. No message checkpoints are written above.
             checkpoint.save(account, settings, validity, lastUid);
             return result;
         } catch (MailException e) {
-            log.failure("RECOMMENDATIONS_ERROR", currentId, currentSubject, currentSeen, e);
             throw e;
         } catch (MessagingException | IOException | RuntimeException e) {
-            var failure = new MailException("Recommendation pass failed; checkpoint unchanged", e);
-            log.failure("RECOMMENDATIONS_ERROR", currentId, currentSubject, currentSeen, failure);
-            throw failure;
+            throw new MailException("Recommendation pass failed; checkpoint unchanged", e);
         }
     }
+
+    @LogInput(include = {"afterUid", "throughUid"})
+    @LogOutput(include = "size")
+    private java.util.SortedMap<Long, Message> messagesInRange(UIDFolder uids, long afterUid, long throughUid)
+            throws MessagingException, MailException {
+        var messages = new java.util.TreeMap<Long, Message>();
+        // IMAP ranges can reverse their bounds; an empty range must not reach the server.
+        if (throughUid <= afterUid) return messages;
+        for (Message message : uids.getMessagesByUID(afterUid + 1, throughUid)) {
+            if (message == null || message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
+            long uid = uids.getUID(message);
+            if (uid <= afterUid || uid > throughUid || messages.put(uid, message) != null) {
+                throw new MailException("Missing, duplicate or out-of-range recommendation UID");
+            }
+        }
+        return messages;
+    }
+
+    @LogInput(include = {"id", "subject"})
+    @LogOutput(include = "#result", condition = "#result != null")
+    private List<String> extractRecommendation(Message message, String id, String subject,
+                                               RecommendationSettings settings, String username)
+            throws MessagingException, IOException {
+        if (RecommendationParser.rejection(message, settings, username) != null) return null;
+        String template = RecommendationParser.header(message, "X-LinkedIn-Template");
+        if (message instanceof IMAPMessage imap) imap.setPeek(true);
+        return RecommendationParser.extract(message, template);
+    }
+
 }
