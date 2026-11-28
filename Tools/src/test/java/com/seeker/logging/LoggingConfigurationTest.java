@@ -196,8 +196,12 @@ class LoggingConfigurationTest {
             if (first != second) {
                 throw new IllegalStateException("LoggerFactory did not reuse the logger");
             }
-            first.info(args[2] + "-first");
-            second.info(args[2] + "-second");
+            if (first.isInfoEnabled()) {
+                first.info("{}-first", args[2]);
+            }
+            if (second.isInfoEnabled()) {
+                second.info("{}-second", args[2]);
+            }
 
             Logger root = context.getLogger(Logger.ROOT_LOGGER_NAME);
             int count = 0;

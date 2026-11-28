@@ -235,7 +235,7 @@ class LogExceptionCreationTest {
         }
     }
 
-    private static class Capture implements AutoCloseable {
+    private static final class Capture implements AutoCloseable {
         private final Logger logger;
         private final Level previousLevel;
         private final boolean previousAdditivity;

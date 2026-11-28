@@ -280,7 +280,7 @@ class LoggingAspectTest {
         }
     }
 
-    private static class Capture implements AutoCloseable {
+    private static final class Capture implements AutoCloseable {
         private final Logger logger;
         private final Level previousLevel;
         private final boolean previousAdditivity;
@@ -332,7 +332,7 @@ class LoggingAspectTest {
         }
     }
 
-    private static class SpecialArgumentException extends IllegalArgumentException {
+    private static final class SpecialArgumentException extends IllegalArgumentException {
         private SpecialArgumentException(String message) {
             super(message);
         }

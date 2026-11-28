@@ -364,9 +364,7 @@ public final class ImapMailAccess {
                     var messages = messagesInRange(uids, lastUid, throughUid);
                     for (var entry : messages.entrySet()) {
                         Message message = entry.getValue();
-                        String currentId = new MessageSelector(account, settings.folder(), validity, entry.getKey()).encode();
-                        String currentSubject = message.getSubject();
-                        List<String> extracted = extractRecommendation(message, currentId, currentSubject, settings, mail.username);
+                        List<String> extracted = extractRecommendation(message, settings, mail.username);
                         if (extracted == null) filtered++;
                         else urls.addAll(extracted);
                         if (message.isExpunged()) throw new MailException("Message disappeared during recommendation scan");
@@ -404,10 +402,8 @@ public final class ImapMailAccess {
         return messages;
     }
 
-    @LogInput(include = {"id", "subject"})
     @LogOutput(include = "#result", condition = "#result != null")
-    private List<String> extractRecommendation(Message message, String id, String subject,
-                                               RecommendationSettings settings, String username)
+    private List<String> extractRecommendation(Message message, RecommendationSettings settings, String username)
             throws MessagingException, IOException {
         if (RecommendationParser.rejection(message, settings, username) != null) return null;
         String template = RecommendationParser.header(message, "X-LinkedIn-Template");
