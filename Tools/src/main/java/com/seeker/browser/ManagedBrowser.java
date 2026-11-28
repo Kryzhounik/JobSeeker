@@ -5,7 +5,9 @@ import com.microsoft.playwright.BrowserContext;
 import com.microsoft.playwright.CDPSession;
 import com.microsoft.playwright.Page;
 import com.microsoft.playwright.Playwright;
-import lombok.extern.slf4j.Slf4j;
+import com.seeker.logging.LogException;
+import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
 
 import java.io.IOException;
 import java.net.URI;
@@ -21,7 +23,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Connects clients to one visible Chromium process that outlives those clients. */
-@Slf4j
 public final class ManagedBrowser implements AutoCloseable {
     public static final Path LINKEDIN_PROFILE_DIRECTORY = Path.of("Data/browser_profiles/linkedin");
     public static final String CDP_ENDPOINT = "http://127.0.0.1:9222";
@@ -42,25 +43,29 @@ public final class ManagedBrowser implements AutoCloseable {
         });
     }
 
+    @LogInput(include = {"profileDirectory", "browserChannel"})
+    @LogOutput(duration = true)
+    @LogException(types = {IOException.class, RuntimeException.class})
     public static ManagedBrowser connect(Path profileDirectory, String browserChannel)
             throws IOException {
         Path profile = profileDirectory.toAbsolutePath().normalize();
         Files.createDirectories(profile);
-        long started = System.nanoTime();
-        boolean running = isManagedBrowserRunning();
-        log("browser=" + (running ? "running" : "starting")
-                + " endpoint=" + CDP_ENDPOINT);
-        if (!running) {
+        if (!isManagedBrowserRunning()) {
             startBrowser(profile, browserChannel);
         }
         awaitBrowser();
-        log("endpoint_ready elapsed_ms=" + elapsedMillis(started));
-        log("driver_create_start");
-        long driverStarted = System.nanoTime();
-        Playwright playwright = Playwright.create();
-        log("driver_ready elapsed_ms=" + elapsedMillis(driverStarted));
-        long attachStarted = System.nanoTime();
-        log("attach_start timeout_ms=" + CONNECT_TIMEOUT.toMillis());
+        return attach(createPlaywright());
+    }
+
+    @LogInput
+    @LogOutput(duration = true)
+    private static Playwright createPlaywright() {
+        return Playwright.create();
+    }
+
+    @LogInput
+    @LogOutput(duration = true)
+    private static ManagedBrowser attach(Playwright playwright) throws IOException {
         try {
             var browser = playwright.chromium().connectOverCDP(
                     CDP_ENDPOINT,
@@ -71,24 +76,12 @@ public final class ManagedBrowser implements AutoCloseable {
             BrowserContext context = browser.contexts().stream().findFirst()
                     .orElseThrow(() -> new IllegalStateException(
                             "Managed browser has no default context"));
-            log("attach_ready elapsed_ms=" + elapsedMillis(attachStarted)
-                    + " contexts=" + browser.contexts().size() + " pages=" + context.pages().size());
             return new ManagedBrowser(playwright, context);
         } catch (RuntimeException error) {
-            log("attach_failed elapsed_ms=" + elapsedMillis(attachStarted)
-                    + " error=" + error.getClass().getSimpleName());
             playwright.close();
             throw new IOException("Could not attach to managed browser at "
                     + CDP_ENDPOINT + ": " + error.getMessage(), error);
         }
-    }
-
-    private static long elapsedMillis(long started) {
-        return (System.nanoTime() - started) / 1_000_000;
-    }
-
-    private static void log(String message) {
-        log.info("[browser-connect] {}", message);
     }
 
     public BrowserContext context() {
@@ -149,6 +142,8 @@ public final class ManagedBrowser implements AutoCloseable {
         }
     }
 
+    @LogInput(include = {"profile", "browserChannel"})
+    @LogOutput(duration = true)
     private static void startBrowser(Path profile, String browserChannel) throws IOException {
         Path executable = findBrowser(browserChannel);
         List<String> command = new ArrayList<>(List.of(
@@ -191,6 +186,8 @@ public final class ManagedBrowser implements AutoCloseable {
         throw new IOException("Could not find " + executableName + " to start the managed browser.");
     }
 
+    @LogInput
+    @LogOutput(duration = true)
     private static void awaitBrowser() throws IOException {
         long deadline = System.nanoTime() + START_TIMEOUT.toNanos();
         while (System.nanoTime() < deadline) {

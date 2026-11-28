@@ -3,7 +3,9 @@ package com.seeker.logging;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.ProceedingJoinPoint;
+import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -11,11 +13,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.event.Level;
 
-/** Shared method-execution logging, woven into ordinary Java objects by AspectJ. */
+/** Shared declarative logging, woven into ordinary Java objects by AspectJ. */
 @Aspect
 public class LoggingAspect {
     private record Entry(Level level, String message, String[] include, String condition,
                          boolean output, Long elapsedNanos, Throwable failure) { }
+
+    @AfterReturning(value = "initialization(java.lang.Throwable+.new(..)) && @within(annotation) && this(failure)",
+            argNames = "initialization,annotation,failure")
+    public void logExceptionCreation(JoinPoint initialization, LogExceptionCreation annotation, Throwable failure) {
+        Class<?> type = initialization.getSignature().getDeclaringType();
+        // A superclass initialization must not log a partially constructed subclass.
+        if (type != failure.getClass()) return;
+        Logger logger = LoggerFactory.getLogger(type);
+        if (!logger.isEnabledForLevel(annotation.level())) return;
+        logger.atLevel(annotation.level()).setCause(failure).log(type.getSimpleName() + " created");
+    }
 
     @Around("execution(@com.seeker.logging.LogInput * *(..)) || "
             + "execution(@com.seeker.logging.LogOutput * *(..)) || "

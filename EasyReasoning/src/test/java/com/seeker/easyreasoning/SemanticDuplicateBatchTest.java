@@ -109,10 +109,12 @@ class SemanticDuplicateBatchTest {
         var later = vacancy(3, "later text");
         List<String> comparisons = new ArrayList<>(), decisions = new ArrayList<>();
         List<ProgressSnapshot> updates = new ArrayList<>();
-        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class);
+        Logger logger = (Logger) LoggerFactory.getLogger(SemanticDuplicateBatch.class.getName() + "$BatchRun");
+        Logger exceptionLogger = (Logger) LoggerFactory.getLogger(RequestTooLargeException.class);
         var output = new ListAppender<ILoggingEvent>();
         output.start();
         logger.addAppender(output);
+        exceptionLogger.addAppender(output);
         try {
             SemanticDuplicateBatch.process(List.of(ascii, chinese, later), (first, second) -> {
                 comparisons.add(first + ":" + second);
@@ -120,7 +122,11 @@ class SemanticDuplicateBatchTest {
                     throw new RequestTooLargeException(3900, 4096, 256);
                 return false;
             }, (duplicate, original) -> decisions.add(duplicate + ":" + original), "batch", updates::add);
-        } finally { logger.detachAppender(output); output.stop(); }
+        } finally {
+            logger.detachAppender(output);
+            exceptionLogger.detachAppender(output);
+            output.stop();
+        }
 
         assertEquals(List.of(ascii.text() + ":" + chinese.text(), chinese.text() + ":" + later.text()), comparisons);
         assertEquals(List.of("1:null", "2:null", "3:null"), decisions);
@@ -128,8 +134,14 @@ class SemanticDuplicateBatchTest {
                 updates.stream().map(update -> update.fields().get("Comparisons")).toList());
         String messages = output.list.stream().map(ILoggingEvent::getFormattedMessage)
                 .reduce("", (first, second) -> first + "\n" + second);
-        assertTrue(messages.contains("linkedin:job-1"));
-        assertTrue(messages.contains("request_tokens=3900 context_limit=4096 response_tokens=256"));
+        assertTrue(messages.contains("#vacancy.source=linkedin"));
+        assertTrue(messages.contains("#vacancy.jobId=job-1"));
+        var failure = output.list.stream().filter(event -> event.getLoggerName().equals(exceptionLogger.getName()))
+                .findFirst().orElseThrow().getThrowableProxy();
+        assertNotNull(failure);
+        assertTrue(failure.getMessage().contains("request_tokens=3900"));
+        assertTrue(failure.getMessage().contains("context_limit=4096"));
+        assertTrue(failure.getMessage().contains("response_tokens=256"));
         assertFalse(messages.contains(ascii.text()));
         assertFalse(messages.contains(chinese.text()));
     }

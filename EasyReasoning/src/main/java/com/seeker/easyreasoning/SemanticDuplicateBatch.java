@@ -3,6 +3,7 @@ package com.seeker.easyreasoning;
 import java.io.*;
 import lombok.extern.slf4j.Slf4j;
 import com.seeker.logging.LogInput;
+import com.seeker.logging.LogOutput;
 import com.seeker.logging.LogException;
 import org.slf4j.event.Level;
 import java.util.function.Consumer;
@@ -138,8 +139,8 @@ final class SemanticDuplicateBatch {
                 VacancySnapshot sample = group.get(pairIndex);
                 Boolean duplicate;
                 try { duplicate = comparePair(sample, vacancy); }
-                catch (RequestTooLargeException error) {
-                    excludeLonger(sample, vacancy, error);
+                catch (RequestTooLargeException ignored) {
+                    excludeLonger(sample, vacancy);
                     boolean vacancyExcluded = excluded.contains(vacancy.id());
                     reportNextPosition(index, pairIndex, vacancyExcluded);
                     if (vacancyExcluded) return;
@@ -147,9 +148,7 @@ final class SemanticDuplicateBatch {
                 }
                 completed++;
                 if (Boolean.TRUE.equals(duplicate) && !unresolved.contains(sample.id())) {
-                    save.accept(vacancy.id(), sample.id());
-                    log.info("Semantic duplicate: {}:{} -> {}:{}",
-                            vacancy.source(), vacancy.jobId(), sample.source(), sample.jobId());
+                    saveDuplicate(vacancy, sample);
                     report(index + 1, 0);
                     return;
                 }
@@ -163,13 +162,21 @@ final class SemanticDuplicateBatch {
             finishVacancy(vacancy, group, incomplete);
         }
 
-        private void excludeLonger(VacancySnapshot first, VacancySnapshot second, RequestTooLargeException error) {
+        @LogOutput(include = {"#vacancy.source", "#vacancy.jobId", "#original.source", "#original.jobId"})
+        private void saveDuplicate(VacancySnapshot vacancy, VacancySnapshot original) {
+            save.accept(vacancy.id(), original.id());
+        }
+
+        private void excludeLonger(VacancySnapshot first, VacancySnapshot second) {
             VacancySnapshot removed = characters(first.text()) > characters(second.text()) ? first : second;
-            excluded.add(removed.id());
-            samples.values().forEach(group -> group.removeIf(item -> item.id() == removed.id()));
-            unresolved.remove(removed.id());
-            log.warn("Semantic vacancy excluded: {}:{} reason=context_limit request_tokens={} context_limit={} response_tokens={}",
-                    removed.source(), removed.jobId(), error.requestTokens(), error.contextLimit(), error.responseTokens());
+            excludeVacancy(removed);
+        }
+
+        @LogOutput(level = Level.WARN, include = {"#vacancy.source", "#vacancy.jobId"})
+        private void excludeVacancy(VacancySnapshot vacancy) {
+            excluded.add(vacancy.id());
+            samples.values().forEach(group -> group.removeIf(item -> item.id() == vacancy.id()));
+            unresolved.remove(vacancy.id());
         }
 
         private int characters(String text) { return text.codePointCount(0, text.length()); }
