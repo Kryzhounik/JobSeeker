@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import configparser
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import datetime
 import hashlib
 import json
 import math
@@ -14,7 +14,6 @@ from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
-from uuid import uuid4
 from zipfile import ZipFile
 
 if __package__:
@@ -171,7 +170,7 @@ def main() -> None:
         print(json.dumps(prepared, indent=2))
         return
 
-    run_name = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid4().hex[:8]
+    run_name = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
     result = EVAL_ROOT / "results" / run_name
     result.mkdir(parents=True)
     print(f"Evaluation results: {result}", flush=True)

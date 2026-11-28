@@ -56,7 +56,8 @@ Java must be on `PATH`, or select it with `--java <path>`. Preparation resets
 `tmp/analyzer-evals/workspace`, copies the deployed Python code, prompts,
 libraries and profile, overrides the database and raw paths, and checks Python
 module and profile resolution before running either command. Each real run
-gets a new directory under `tmp/analyzer-evals/results/`. It contains the seed,
+gets a new directory under `tmp/analyzer-evals/results/`, named by local date
+and time, for example `2026-11-28_14-30-00`. It contains the seed,
 `external-scores.csv` if present beside the seed, the profile snapshot, analyzer
 inputs including shared prompts, metadata and file hashes, command logs, and
 the resulting `Data/` including SQLite, generated JSON and token accounting.
