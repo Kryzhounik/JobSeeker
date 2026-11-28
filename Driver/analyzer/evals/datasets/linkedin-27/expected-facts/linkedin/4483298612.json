@@ -1,0 +1,18 @@
+{
+  "location": "Kazakhstan",
+  "remote_type": "remote",
+  "remote_scope": "Kazakhstan",
+  "relocation": "NO",
+  "languages": [
+    {
+      "name": "English",
+      "level": "B1",
+      "level_rank": 3
+    },
+    {
+      "name": "Kazakh / Russian",
+      "level": "B1",
+      "level_rank": 3
+    }
+  ]
+}

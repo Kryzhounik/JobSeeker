@@ -22,13 +22,14 @@ class AnalyzerEvalReportTest(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.result_dir = Path(self.temp.name)
-        (self.result_dir / "Data").mkdir()
+        (self.result_dir / "outputs").mkdir()
+        (self.result_dir / "inputs").mkdir()
         self._create_database()
 
     def _create_database(self, saved: tuple[tuple[str, float], ...] | None = None) -> None:
         if saved is None:
             saved = (("job-1", 40), ("job-2", 80), ("job-3", 60))
-        database = self.result_dir / "Data" / "jobs.sqlite"
+        database = self.result_dir / "outputs" / "jobs.sqlite"
         with closing(sqlite3.connect(database)) as connection, connection:
             connection.executescript(
                 """
@@ -79,7 +80,7 @@ class AnalyzerEvalReportTest(unittest.TestCase):
         )
         if references is None:
             references = (("job-1", 50, 50), ("job-2", 70, 70), ("job-3", 60, 60))
-        with (self.result_dir / "external-scores.csv").open(
+        with (self.result_dir / "inputs" / "expected-scores.csv").open(
             "w", encoding="utf-8", newline=""
         ) as file:
             writer = csv.writer(file)
@@ -99,7 +100,7 @@ class AnalyzerEvalReportTest(unittest.TestCase):
         self.assertEqual([row["asymmetric_loss"] for row in report["vacancies"]], [300, 100, 0])
 
     def test_missing_saved_job_makes_report_incomplete_and_metrics_null(self) -> None:
-        with closing(sqlite3.connect(self.result_dir / "Data" / "jobs.sqlite")) as connection, connection:
+        with closing(sqlite3.connect(self.result_dir / "outputs" / "jobs.sqlite")) as connection, connection:
             connection.execute("DELETE FROM jobs WHERE source_job_ref = 2")
         self._write_inputs()
 
@@ -130,7 +131,7 @@ class AnalyzerEvalReportTest(unittest.TestCase):
                 )
 
     def test_csv_contains_utf8_bom_metadata_and_scores(self) -> None:
-        with closing(sqlite3.connect(self.result_dir / "Data" / "jobs.sqlite")) as connection, connection:
+        with closing(sqlite3.connect(self.result_dir / "outputs" / "jobs.sqlite")) as connection, connection:
             connection.execute("DELETE FROM jobs WHERE source_job_ref = 2")
         self._write_inputs()
         report = build_report(self.result_dir, 3)

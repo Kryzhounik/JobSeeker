@@ -36,7 +36,7 @@ order. IDs must not contain commas, because the existing CLI uses comma-separate
 IDs. The single-source restriction follows the existing CLI; multiple sources
 must not be split into separate commands, which would change session behavior.
 The `datasets/linkedin-27/` dataset contains 25 vacancies. Its
-`external-scores.csv` records the external expected percentages for those
+`expected-scores.csv` records the external expected percentages for those
 vacancies.
 
 ## Run the evaluation
@@ -47,20 +47,20 @@ From the repository root, run the analyzer and calculate its report:
 python Driver/analyzer/evals/run.py Driver/analyzer/evals/datasets/linkedin-27/dataset.sql
 ```
 
-This runs the real model and then writes `report.csv` with vacancy details and
-`report.json` with those details and aggregate metrics. Use `--k` to select the
+This runs the real model and then writes a combined `report.csv` with Candidate
+Fit details, fact statistics and differences. `report.json` and
+`facts-report.json` retain the detailed machine-readable results. Use `--k` to select the
 underestimation penalty (default: 3).
-The dataset must have `external-scores.csv` beside `dataset.sql`.
+The dataset must have `expected-scores.csv` and `expected-facts/` beside `dataset.sql`.
 
 Java must be on `PATH`, or select it with `--java <path>`. Preparation resets
-`tmp/analyzer-evals/workspace`, copies the deployed Python code, prompts,
-libraries and profile, overrides the database and raw paths, and checks Python
+`tmp/analyzer-evals/workspace`, copies the deployed Python code, prompts and
+profile, overrides the database and raw paths, and checks Python
 module and profile resolution before running either command. Each real run
 gets a new directory under `tmp/analyzer-evals/results/`, named by local date
-and time, for example `2026-11-28_14-30-00`. It contains the seed,
-`external-scores.csv` if present beside the seed, the profile snapshot, analyzer
-inputs including shared prompts, metadata and file hashes, command logs, and
-the resulting `Data/` including SQLite, generated JSON and token accounting.
+and time, for example `2026-11-28_14-30-00`. It contains inputs, outputs,
+metadata and reports. The inputs include the dataset, expected scores, profile
+and settings; outputs include SQLite, generated JSON and logs.
 Outputs from a failed command are retained there too. These directories contain
 personal profile data and must remain private. A subsequent run resets the
 workspace but leaves earlier result directories intact.
@@ -90,3 +90,17 @@ asymmetric MSE, MSE and bias. Underestimates use a coefficient of 3 by default;
 `--k` selects another positive coefficient. Incomplete results or mismatched
 references are reported explicitly, with no aggregate metrics and exit code 1.
 Compare runs using the same dataset, reference scores, profile and coefficient.
+
+For old result folders, use `report.py` from Git revision `0032c14` to recalculate the report.
+
+To compare saved analyzed JSON separately, including from older runs:
+
+```powershell
+python Driver/analyzer/evals/facts_report.py --expected path/to/expected-facts --analyzed path/to/analyzed --output path/to/report-directory --score-report path/to/report.json
+```
+
+Only fields in each expected JSON are compared. Language entries are compared
+without regard to order and without extra fields such as `raw_value`; other
+values are compared exactly. A missing analyzed file or field is reported as
+incomplete. Pass `--score-report` to create a combined CSV; without it only
+the facts JSON is written. No model calls are made during comparison.

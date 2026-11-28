@@ -1,5 +1,10 @@
 # Known Issues
 
+## Alternative human-language requirements
+
+The system does not represent OR alternatives for human-language requirements.
+LinkedIn vacancy `4483298612` lists Kazakh or Russian as an alternative.
+
 ## Collector filter configuration names
 
 The shared Python Collector applies preview and content filters to vacancies

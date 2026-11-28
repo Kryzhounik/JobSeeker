@@ -20,14 +20,14 @@ def build_report(result_dir: Path, k: float) -> dict:
     if not scope or len(scope) != len(set(scope)):
         raise ValueError('Experiment scope must be nonempty and contain unique identities')
     references = {}
-    with (result_dir / 'external-scores.csv').open(encoding='utf-8', newline='') as file:
+    with (result_dir / 'inputs' / 'expected-scores.csv').open(encoding='utf-8', newline='') as file:
         for row in csv.DictReader(file):
             key = (row['source'], row['job_id'])
             low, high = float(row['minimum_percent']), float(row['maximum_percent'])
             if key in references or not math.isfinite(low) or low != high or not 0 <= low <= 100:
                 raise ValueError(f'Invalid or non-point reference score: {key}')
             references[key] = low
-    database = (result_dir / 'Data' / 'jobs.sqlite').resolve(strict=True)
+    database = (result_dir / 'outputs' / 'jobs.sqlite').resolve(strict=True)
     with closing(sqlite3.connect(database.as_uri() + '?mode=ro', uri=True)) as connection:
         actuals = {(source, job_id): (status, score, company, title)
                    for source, job_id, status, score, company, title in connection.execute(
@@ -62,16 +62,41 @@ def build_report(result_dir: Path, k: float) -> dict:
             'vacancies': vacancies, 'extra_references': extra_references}
 
 
-def save_report(result_dir: Path, report: dict) -> None:
+def save_report(result_dir: Path, report: dict, facts: dict | None = None) -> None:
     (result_dir / 'report.json').write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
     )
     with (result_dir / 'report.csv').open('w', encoding='utf-8-sig', newline='') as file:
         fields = ('source', 'job_id', 'company', 'title', 'expected', 'actual',
                   'error', 'asymmetric_loss', 'status')
-        writer = csv.DictWriter(file, fieldnames=fields)
-        writer.writeheader()
-        writer.writerows(report['vacancies'])
+        writer = csv.writer(file)
+        writer.writerow(fields)
+        fact_jobs = {(v['source'], v['job_id']): v for v in facts['vacancies']} if facts else {}
+        for vacancy in report['vacancies']:
+            details = fact_jobs.get((vacancy['source'], vacancy['job_id']), {})
+            writer.writerow([vacancy.get(field) or details.get(field, '')
+                             if field in ('company', 'title') else vacancy.get(field, '')
+                             for field in fields])
+        if facts is None:
+            return
+        writer.writerow([])
+        writer.writerow(('Fact comparison', 'value'))
+        writer.writerow(('Fields compared', facts['total_fields']))
+        writer.writerow(('Fields matching', facts['matched_fields']))
+        writer.writerow(('Fields differing', facts['total_fields'] - facts['matched_fields']))
+        writer.writerow(('Complete', facts['complete']))
+        writer.writerow([])
+        writer.writerow(('source', 'job_id', 'company', 'title', 'field', 'expected', 'actual', 'present', 'match'))
+        for vacancy in facts['vacancies']:
+            for name, field in vacancy['fields'].items():
+                if field['match']:
+                    continue
+                actual = field['actual']
+                if name == 'languages' and isinstance(actual, list):
+                    actual = [{key: value for key, value in item.items() if key != 'raw_value'} for item in actual]
+                writer.writerow((vacancy['source'], vacancy['job_id'], vacancy['company'], vacancy['title'], name,
+                                 json.dumps(field['expected'], ensure_ascii=False),
+                                 json.dumps(actual, ensure_ascii=False), field['present'], field['match']))
 
 
 def main() -> None:
@@ -80,7 +105,9 @@ def main() -> None:
     parser.add_argument('--k', type=float, default=3.0, help='Underestimation penalty (default: 3)')
     args = parser.parse_args()
     report = build_report(args.result_dir, args.k)
-    save_report(args.result_dir, report)
+    facts_path = args.result_dir / 'facts-report.json'
+    facts = json.loads(facts_path.read_text(encoding='utf-8')) if facts_path.is_file() else None
+    save_report(args.result_dir, report, facts)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     if not report['complete']:
         raise SystemExit(1)

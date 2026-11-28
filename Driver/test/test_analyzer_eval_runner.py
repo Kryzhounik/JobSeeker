@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from contextlib import closing
 import configparser
 import json
@@ -31,7 +32,17 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         self.project = self.root / "fixture-project"
         self.workspace = self.root / "evaluation" / "workspace"
         self.results = self.root / "evaluation" / "results"
-        self.dataset = self.root / "dataset.sql"
+        self.dataset = self.root / "inputs" / "dataset.sql"
+        self.scores = self.root / "inputs" / "expected-scores.csv"
+        self.expected_facts = self.root / "inputs" / "expected-facts" / "linkedin" / "test-job-1.json"
+        self.profile = self.root / "inputs" / "Profile"
+        self.settings = self.root / "inputs" / "settings"
+        self.dataset.parent.mkdir(parents=True)
+        self.expected_facts.parent.mkdir(parents=True)
+        self.expected_facts.write_text(
+            json.dumps({"location": "Test City", "remote_type": "remote", "languages": []}),
+            encoding="utf-8",
+        )
         self._make_fixture_project()
         self.dataset.write_text(
             """
@@ -127,6 +138,8 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         self.assertEqual(prepared["run_id"], "fixture-run")
         self.assertEqual(prepared["source"], "linkedin")
         self.assertEqual(prepared["job_ids"], ["test-job-1"])
+        self.assertFalse((self.workspace / "libs").exists())
+        self.assertFalse((self.workspace / "Driver" / "orchestrator" / "workflow-orchestrator.jar").exists())
         with closing(sqlite3.connect(database)) as connection:
             rows = connection.execute(
                 """SELECT source_job_id, processing_status, collection_run_id
@@ -203,7 +216,7 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
             run.prepare(invalid_dataset, self.workspace, self.project)
 
     def test_main_retains_failed_run_artifacts_and_separates_next_result(self) -> None:
-        scores = self.dataset.parent / "external-scores.csv"
+        scores = self.scores
         scores.write_text("source,job_id,minimum_percent,maximum_percent\nlinkedin,test-job-1,80,80\n", encoding="utf-8")
         jar = self.project / "Driver" / "orchestrator" / "workflow-orchestrator.jar"
         jar.write_bytes(b"fixture jar")
@@ -220,6 +233,13 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
                 java_commands.append(args)
                 if len(java_commands) == 2:
                     raise subprocess.CalledProcessError(1, args)
+                if args[3] == "job-facts":
+                    analyzed = Path(kwargs["cwd"]) / "Data" / "analyzed" / "linkedin" / "test-job-1.json"
+                    analyzed.parent.mkdir(parents=True, exist_ok=True)
+                    analyzed.write_text(
+                        json.dumps({"location": "Test City", "remote_type": "remote", "languages": []}),
+                        encoding="utf-8",
+                    )
                 if args[3] == "finish-analysis":
                     database = Path(kwargs["cwd"]) / "Data" / "jobs.sqlite"
                     with closing(sqlite3.connect(database)) as connection, connection:
@@ -245,15 +265,20 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         self.assertEqual(len(result_directories), 1)
         failed_result = result_directories[0]
         self.assertFalse((failed_result / "report.json").exists())
-        self.assertEqual((failed_result / "external-scores.csv").read_bytes(), scores.read_bytes())
-        prompt = Path("Driver/common/prompts/untrusted_content.md")
-        self.assertEqual((failed_result / "inputs" / prompt).read_bytes(),
-                         (self.project / prompt).read_bytes())
+        self.assertFalse((failed_result / "facts-report.json").exists())
+        self.assertFalse((failed_result / "report.csv").exists())
+        self.assertEqual((failed_result / "inputs" / "expected-scores.csv").read_bytes(), scores.read_bytes())
+        self.assertEqual(
+            (failed_result / "inputs" / "expected-facts" / "linkedin" / "test-job-1.json").read_bytes(),
+            self.expected_facts.read_bytes(),
+        )
+        self.assertFalse((failed_result / "inputs" / "Driver").exists())
+        self.assertTrue((failed_result / "inputs" / "settings" / "codex_proxy" / "config.ini").is_file())
         self.assertTrue((failed_result / "metadata.json").is_file())
-        self.assertTrue((failed_result / "Data" / "jobs.sqlite").is_file())
-        self.assertTrue((failed_result / "Profile" / "resume.ini").is_file())
-        self.assertTrue((failed_result / "job-facts.stdout.log").is_file())
-        self.assertTrue((failed_result / "finish-analysis.stderr.log").is_file())
+        self.assertTrue((failed_result / "outputs" / "jobs.sqlite").is_file())
+        self.assertTrue((failed_result / "inputs" / "Profile" / "resume.ini").is_file())
+        self.assertTrue((failed_result / "outputs" / "logs" / "job-facts.stdout.log").is_file())
+        self.assertTrue((failed_result / "outputs" / "logs" / "finish-analysis.stderr.log").is_file())
 
         with patch.object(run.subprocess, "run", side_effect=fake_subprocess), patch.object(
             sys, "argv", ["run.py", str(self.dataset), "--java", "fake-java"]
@@ -266,7 +291,21 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
         report = json.loads((successful_result / "report.json").read_text(encoding="utf-8"))
         self.assertTrue(report["complete"])
         self.assertEqual(report["metrics"]["asymmetric_mse"], 300)
-        saved_filter = successful_result / "Profile" / "Driver" / "analyzer" / "filter.ini"
+        facts_report = json.loads((successful_result / "facts-report.json").read_text(encoding="utf-8"))
+        self.assertTrue(facts_report["complete"])
+        self.assertEqual(facts_report["matched_fields"], 3)
+        self.assertEqual(facts_report["total_fields"], 3)
+        self.assertTrue(all(
+            field["match"]
+            for field in facts_report["vacancies"][0]["fields"].values()
+        ))
+        self.assertTrue((successful_result / "report.csv").is_file())
+        with (successful_result / "report.csv").open(encoding="utf-8-sig", newline="") as file:
+            rows = list(csv.reader(file))
+        self.assertIn(["Fields compared", "3"], rows)
+        self.assertIn(["Fields matching", "3"], rows)
+        self.assertIn(["Fields differing", "0"], rows)
+        saved_filter = successful_result / "inputs" / "Profile" / "Driver" / "analyzer" / "filter.ini"
         saved_filter_config = configparser.ConfigParser()
         saved_filter_config.read(saved_filter, encoding="utf-8")
         self.assertEqual(
@@ -274,11 +313,12 @@ class AnalyzerEvalRunnerTest(unittest.TestCase):
              for key in ("languages", "programming_languages", "remote", "relocation")},
             {key: "off" for key in ("languages", "programming_languages", "remote", "relocation")},
         )
-        self.assertTrue((failed_result / "Data" / "jobs.sqlite").is_file())
+        self.assertTrue((failed_result / "outputs" / "jobs.sqlite").is_file())
         self.assertEqual(
             [Path(args[2]).name for args in java_commands],
             ["workflow-orchestrator.jar"] * 4,
         )
+        self.assertTrue(all(Path(args[2]) == jar.resolve() for args in java_commands))
         self.assertEqual(
             [args[3] for args in java_commands],
             ["job-facts", "finish-analysis", "job-facts", "finish-analysis"],

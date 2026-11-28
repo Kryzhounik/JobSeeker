@@ -18,8 +18,10 @@ from zipfile import ZipFile
 
 if __package__:
     from .report import build_report, save_report
+    from .facts_report import compare_facts, save_facts_report
 else:
     from report import build_report, save_report
+    from facts_report import compare_facts, save_facts_report
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -68,8 +70,10 @@ def prepare(dataset_sql: Path, workspace: Path, project_root: Path) -> dict:
     for name in ("config", "filtering"):
         copy_tree(project_root / "Driver" / "collector" / name,
                   workspace / "Driver" / "collector" / name)
-    copy_tree(project_root / "Driver" / "orchestrator", workspace / "Driver" / "orchestrator")
-    copy_tree(project_root / "libs", workspace / "libs")
+    orchestrator = workspace / "Driver" / "orchestrator"
+    orchestrator.mkdir()
+    for source in (project_root / "Driver" / "orchestrator").glob("*.py"):
+        shutil.copy2(source, orchestrator / source.name)
     (workspace / "Tools").mkdir()
     shutil.copy2(project_root / "Tools" / "application_logging.py", workspace / "Tools")
     shutil.copytree(project_root / "Data" / "Profile", workspace / "Data" / "Profile")
@@ -155,15 +159,18 @@ def main() -> None:
     args = parser.parse_args()
     if not math.isfinite(args.k) or args.k <= 0:
         parser.error("--k must be a positive finite number")
-    scores = args.dataset.parent / "external-scores.csv"
+    scores = args.dataset.parent / "expected-scores.csv"
+    expected_facts = args.dataset.parent / "expected-facts"
     if not args.prepare_only and not scores.is_file():
         raise FileNotFoundError(f"Missing reference scores: {scores}")
+    if not args.prepare_only and not expected_facts.is_dir():
+        raise FileNotFoundError(f"Missing expected facts: {expected_facts}")
     workspace = EVAL_ROOT / "workspace"
     prepared = prepare(args.dataset, workspace, ROOT)
-    jar = workspace / "Driver" / "orchestrator" / "workflow-orchestrator.jar"
+    jar = (ROOT / "Driver" / "orchestrator" / "workflow-orchestrator.jar").resolve()
     if not jar.is_file():
         raise FileNotFoundError("Build the Orchestrator before running evaluations")
-    with ZipFile(workspace / "libs" / "tools-1.0-SNAPSHOT.jar") as tools_jar:
+    with ZipFile(ROOT / "libs" / "tools-1.0-SNAPSHOT.jar") as tools_jar:
         if "com/seeker/logging/LoggingAspect.class" not in tools_jar.namelist():
             raise ValueError("Tools JAR is incomplete; rebuild the Orchestrator reactor")
     if args.prepare_only:
@@ -174,18 +181,21 @@ def main() -> None:
     result = EVAL_ROOT / "results" / run_name
     result.mkdir(parents=True)
     print(f"Evaluation results: {result}", flush=True)
-    shutil.copy2(args.dataset, result / "dataset.sql")
-    if scores.is_file():
-        shutil.copy2(scores, result / "external-scores.csv")
-    shutil.copytree(workspace / "Data" / "Profile", result / "Profile")
-    for name in ("analyzer", "contracts"):
-        copy_tree(workspace / "Driver" / name, result / "inputs" / "Driver" / name)
-    copy_tree(workspace / "Driver" / "common" / "prompts",
-              result / "inputs" / "Driver" / "common" / "prompts")
-    (result / "inputs" / "Driver" / "codex_proxy").mkdir(parents=True)
-    for name in ("config.ini", "transport_instructions.md"):
-        shutil.copy2(workspace / "Driver" / "codex_proxy" / name,
-                     result / "inputs" / "Driver" / "codex_proxy" / name)
+    inputs = result / "inputs"
+    outputs = result / "outputs"
+    inputs.mkdir()
+    outputs.mkdir()
+    logs = outputs / "logs"
+    logs.mkdir()
+    shutil.copy2(args.dataset, inputs / "dataset.sql")
+    shutil.copy2(scores, inputs / "expected-scores.csv")
+    shutil.copytree(expected_facts, inputs / "expected-facts")
+    shutil.copytree(workspace / "Data" / "Profile", inputs / "Profile")
+    for name in ("analyzer/config/execution.ini", "analyzer/config/language_levels.ini", "codex_proxy/config.ini"):
+        target = inputs / "settings" / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(workspace / "Driver" / name, target)
+    shutil.copy2(workspace / "Tools" / "runtime.properties", inputs / "settings" / "runtime.properties")
     settings = configparser.ConfigParser()
     settings.read(workspace / "Driver" / "codex_proxy" / "config.ini", encoding="utf-8")
     execution = configparser.ConfigParser()
@@ -196,22 +206,36 @@ def main() -> None:
                 "git_status": status.stdout, "model": settings.get("proxy", "model"),
                 "reasoning_effort": settings.get("proxy", "reasoning_effort"),
                 "execution": dict(execution["job_facts"]),
-                "files_sha256": {str(p.relative_to(workspace)): digest(p) for base in
-                    (workspace / "Driver", workspace / "libs") for p in base.rglob("*") if p.is_file()}}
+                "files_sha256": {
+                    **{str(p.relative_to(workspace)): digest(p)
+                       for p in (workspace / "Driver").rglob("*") if p.is_file()},
+                    str(jar.relative_to(ROOT)): digest(jar),
+                    **{str(p.relative_to(ROOT)): digest(p)
+                       for p in (ROOT / "libs").rglob("*") if p.is_file()},
+                }}
     (result / "metadata.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     try:
         for command in ("job-facts", "finish-analysis"):
-            with (result / f"{command}.stdout.log").open("w", encoding="utf-8") as stdout, \
-                 (result / f"{command}.stderr.log").open("w", encoding="utf-8") as stderr:
+            with (logs / f"{command}.stdout.log").open("w", encoding="utf-8") as stdout, \
+                 (logs / f"{command}.stderr.log").open("w", encoding="utf-8") as stderr:
                 subprocess.run([args.java, "-jar", str(jar), command, prepared["run_id"], prepared["source"],
                                 ",".join(prepared["job_ids"])], cwd=workspace, env=isolated_env(workspace),
                                stdout=stdout, stderr=stderr, check=True)
     finally:
-        shutil.copytree(workspace / "Data", result / "Data")
+        for item in (workspace / "Data").iterdir():
+            if item.name == "Profile":
+                continue
+            target = outputs / item.name
+            if item.is_dir():
+                shutil.copytree(item, target, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, target)
     report = build_report(result, args.k)
-    save_report(result, report)
-    print(f"Evaluation reports: {result / 'report.csv'}, {result / 'report.json'}", flush=True)
-    if not report['complete']:
+    facts = compare_facts(inputs / "expected-facts", outputs / "analyzed")
+    save_report(result, report, facts)
+    save_facts_report(result, facts)
+    print(f"Evaluation reports: {result}", flush=True)
+    if not report['complete'] or not facts['complete']:
         raise SystemExit(1)
 
 
